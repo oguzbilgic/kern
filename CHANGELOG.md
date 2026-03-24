@@ -1,5 +1,21 @@
 # Changelog
 
+## next
+
+### Features
+- **Daemon mode** — `kern start` / `kern stop` to run agents in background with PID tracking
+- **Agent registry** — `~/.kern/agents.json` auto-populated by init, start, and run commands
+- **`kern list`** — show all registered agents with running state (green/red/dim dots)
+- **`kern run`** — foreground mode for dev/debug, accepts name or path
+- **`kern start` accepts paths** — `kern start ./cloned-repo` auto-registers and starts
+- **Startup verification** — `kern start` waits 2s, shows error log if agent crashes
+- **Help screen** — `kern` with no args shows colorized command reference
+
+### Changes
+- `kern` (no args) shows help instead of running in cwd
+- `kern status` renamed to `kern list` (`status` still works as alias)
+- CLI restructured: init, start, stop, list, run
+
 ## v0.2.0
 
 ### Features

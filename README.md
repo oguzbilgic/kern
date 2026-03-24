@@ -19,11 +19,10 @@ kern pairs with [agent-kernel](https://github.com/oguzbilgic/agent-kernel) — t
 
 ```bash
 npx kern-ai init my-agent
-cd my-agent
-npx kern-ai
+npx kern-ai start my-agent
 ```
 
-The init wizard asks for a provider, API key, and model — then scaffolds a ready-to-run agent.
+The init wizard asks for a provider, API key, and model — then scaffolds and starts your agent.
 
 ## How it works
 
@@ -38,7 +37,7 @@ Every interface feeds into the same session. The agent reads and writes its own 
 
 ## Agent structure
 
-After `kern-ai init`, your agent directory looks like:
+After `kern init`, your agent directory looks like:
 
 ```
 my-agent/
@@ -48,12 +47,26 @@ my-agent/
   knowledge/             # mutable state files
   notes/                 # daily logs (append-only)
   .kern/
-    config.json          # model, provider, tools (committed)
+    config.json          # model, provider, toolScope (committed)
     .env                 # API keys, bot tokens (gitignored)
     sessions/            # conversation history (gitignored)
 ```
 
 Everything the agent needs is in this folder. Move it, zip it, clone it — the agent comes with it.
+
+## CLI
+
+```bash
+kern init <name>          # create a new agent
+kern start                # start all agents (background)
+kern start <name|path>    # start one agent
+kern stop                 # stop all agents
+kern stop <name>          # stop one agent
+kern list                 # show all agents
+kern run <name|path>      # run in foreground (dev/debug)
+```
+
+Agents auto-register when you init, start, or run them. `kern list` shows every agent kern knows about.
 
 ## Configuration
 
@@ -63,7 +76,7 @@ Everything the agent needs is in this folder. Move it, zip it, clone it — the 
 {
   "model": "anthropic/claude-opus-4",
   "provider": "openrouter",
-  "tools": ["bash", "read", "write", "edit", "glob", "grep"],
+  "toolScope": "full",
   "maxSteps": 30
 }
 ```
@@ -75,19 +88,17 @@ OPENROUTER_API_KEY=sk-or-...
 TELEGRAM_BOT_TOKEN=...
 ```
 
-## Providers
+### Tool scopes
+
+- **full** — bash, read, write, edit, glob, grep, webfetch, kern
+- **write** — read, write, edit, glob, grep, webfetch, kern
+- **read** — read, glob, grep, webfetch, kern
+
+### Providers
 
 - **openrouter** — any model via OpenRouter (default)
 - **anthropic** — direct Anthropic API
 - **openai** — OpenAI / Azure
-
-## CLI
-
-```bash
-npx kern-ai init <name>     # create a new agent
-npx kern-ai <dir>           # run agent in directory
-npx kern-ai                 # run in current directory
-```
 
 ## Telegram
 
