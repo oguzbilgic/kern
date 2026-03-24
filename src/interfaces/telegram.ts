@@ -2,35 +2,47 @@ import { Bot } from "grammy";
 import type { Interface, StartOptions } from "./types.js";
 
 function mdToHtml(text: string): string {
-  // Convert common markdown to Telegram HTML
-  // Order matters — do code blocks first to avoid processing inside them
   let html = text;
 
-  // Code blocks: ```lang\n...\n``` → <pre><code>...</code></pre>
+  // Code blocks first — protect from other replacements
   html = html.replace(/```\w*\n([\s\S]*?)```/g, "<pre><code>$1</code></pre>");
 
-  // Inline code: `...` → <code>...</code>
+  // Inline code
   html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
 
   // Bold: **...** → <b>...</b>
   html = html.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
 
-  // Italic: *...* → <i>...</i>
-  html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<i>$1</i>");
+  // Italic: *...* (but not inside bold)
+  html = html.replace(/(?<![*<])(\*)(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<i>$2</i>");
 
-  // Strikethrough: ~~...~~ → <s>...</s>
+  // Strikethrough
   html = html.replace(/~~(.+?)~~/g, "<s>$1</s>");
 
-  // Blockquotes: lines starting with > → <blockquote>
-  html = html.replace(/(?:^|\n)(?:> (.+?)(?:\n|$))+/g, (match) => {
-    const content = match.replace(/(?:^|\n)> /g, "\n").trim();
-    return `\n<blockquote>${content}</blockquote>\n`;
-  });
+  // Lists: - item → • item
+  html = html.replace(/^- /gm, "• ");
 
-  // Lists: - item → • item (Telegram has no list tags)
-  html = html.replace(/^- (.+)/gm, "• $1");
+  // Blockquotes: > line
+  html = html.replace(/^> (.+)$/gm, "<blockquote>$1</blockquote>");
+  // Merge adjacent blockquotes
+  html = html.replace(/<\/blockquote>\n<blockquote>/g, "\n");
+
+  // Escape < and > that aren't part of our tags
+  // Skip — too risky to break our tags. Telegram is lenient.
 
   return html;
+}
+
+function stripMarkdown(text: string): string {
+  let plain = text;
+  plain = plain.replace(/```\w*\n([\s\S]*?)```/g, "$1");
+  plain = plain.replace(/`([^`]+)`/g, "$1");
+  plain = plain.replace(/\*\*(.+?)\*\*/g, "$1");
+  plain = plain.replace(/(?<![*])(\*)(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "$2");
+  plain = plain.replace(/~~(.+?)~~/g, "$1");
+  plain = plain.replace(/^- /gm, "• ");
+  plain = plain.replace(/^> /gm, "");
+  return plain;
 }
 
 export class TelegramInterface implements Interface {
@@ -94,17 +106,15 @@ export class TelegramInterface implements Interface {
     messageId: number,
     text: string,
   ): Promise<void> {
+    const truncated =
+      text.length > 4000 ? text.slice(-4000) + "\n...(truncated)" : text;
+    const content = truncated || "...";
     try {
-      const truncated =
-        text.length > 4000 ? text.slice(-4000) + "\n...(truncated)" : text;
-      const html = mdToHtml(truncated || "...");
-      await ctx.api.editMessageText(ctx.chat.id, messageId, html, { parse_mode: "HTML" });
+      await ctx.api.editMessageText(ctx.chat.id, messageId, mdToHtml(content), { parse_mode: "HTML" });
     } catch {
-      // HTML parse failed — fall back to plain text
+      // HTML failed — fall back to clean plain text
       try {
-        const truncated =
-          text.length > 4000 ? text.slice(-4000) + "\n...(truncated)" : text;
-        await ctx.api.editMessageText(ctx.chat.id, messageId, truncated || "...");
+        await ctx.api.editMessageText(ctx.chat.id, messageId, stripMarkdown(content));
       } catch {
         // ignore
       }
