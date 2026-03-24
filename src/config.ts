@@ -27,7 +27,7 @@ const defaults: KernConfig = {
   provider: "anthropic",
   toolScope: "full",
   maxSteps: 30,
-  maxContextTokens: 40000,
+  maxContextTokens: 100000,
 };
 
 export function getToolsForScope(scope: ToolScope): string[] {

@@ -20,8 +20,18 @@ function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): ModelMe
   if (total <= maxTokens) return messages;
 
   // Trim from front until under budget
+  // Skip tool-result and assistant messages that follow tool calls to keep pairs intact
   let trimmed = [...messages];
   while (trimmed.length > 1 && estimateTokens(trimmed) > maxTokens) {
+    trimmed.shift();
+    // Keep shifting if we landed on a tool role or assistant with tool content
+    // to avoid orphaned tool-results
+    while (trimmed.length > 1 && trimmed[0].role === "tool") {
+      trimmed.shift();
+    }
+  }
+  // Ensure we start with a user message
+  while (trimmed.length > 1 && trimmed[0].role !== "user") {
     trimmed.shift();
   }
   return trimmed;
