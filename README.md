@@ -8,7 +8,7 @@ kern gives an AI agent a single mind — one continuous session shared across CL
 
 Most agent frameworks give you sessions that reset, memory that's a black box, or infrastructure you have to manage. kern takes a different approach:
 
-- **One brain** — a single continuous session across every interface. Message from Telegram, pick up in the CLI, continue in Slack. The agent always knows what happened.
+- **One brain** — a single continuous session across every interface. Message from Telegram, pick up in the TUI, continue in Slack. The agent always knows what happened.
 - **Context-aware** — the agent knows who's talking and where. It sees the user, the channel, and the interface — so it can adjust tone, filter context, and keep track of different conversations within the same session.
 - **A folder is the agent** — AGENTS.md defines behavior, IDENTITY.md defines who it is, knowledge/ and notes/ are its memory. Everything is plain text, git-tracked, and inspectable.
 - **No infra** — no server, no database, no vector store. A folder, an API key, and `npx kern-ai`.
@@ -19,15 +19,15 @@ kern pairs with [agent-kernel](https://github.com/oguzbilgic/agent-kernel) — t
 
 ```bash
 npx kern-ai init my-agent
-npx kern-ai start my-agent
+npx kern-ai tui
 ```
 
-The init wizard asks for a provider, API key, and model — then scaffolds and starts your agent.
+The init wizard scaffolds your agent, asks for a provider and API key, then starts it. `kern tui` opens an interactive chat.
 
 ## How it works
 
 ```
-Terminal ─────────┐
+TUI ──────────────┐
 Telegram DM ──────┤── kern ── one session ── one folder
 #engineering ─────┤
 Slack DM ─────────┘
@@ -52,19 +52,21 @@ my-agent/
     sessions/            # conversation history (gitignored)
 ```
 
-Everything the agent needs is in this folder. Move it, zip it, clone it — the agent comes with it.
+Everything the agent needs is in this folder. Move it, zip it, clone it — the agent comes with it. Run `kern init` on any existing repo to adopt it as a kern agent.
 
 ## CLI
 
 ```bash
-kern init <name>          # create a new agent
-kern start [name|path]    # start agents (all if no name)
-kern stop [name]          # stop agents (all if no name)
+kern init <name>          # create or configure an agent
+kern start [name|path]    # start agents in background
+kern stop [name]          # stop agents
+kern restart [name]       # restart agents
+kern tui [name]           # interactive chat
 kern list                 # show all agents
-kern run <name|path>      # run in foreground (dev/debug)
+kern remove <name>        # unregister an agent
 ```
 
-Agents auto-register when you init, start, or run them. `kern list` shows every agent kern knows about.
+Agents auto-register when you init, start, or run them. `kern list` shows every agent with its running state.
 
 ## Configuration
 
@@ -72,7 +74,7 @@ Agents auto-register when you init, start, or run them. `kern list` shows every 
 
 ```json
 {
-  "model": "anthropic/claude-opus-4",
+  "model": "anthropic/claude-opus-4.6",
   "provider": "openrouter",
   "toolScope": "full",
   "maxSteps": 30
@@ -100,7 +102,7 @@ TELEGRAM_BOT_TOKEN=...
 
 ## Telegram
 
-Set `TELEGRAM_BOT_TOKEN` in `.kern/.env` and kern connects via long polling. No public URL needed — works behind NAT.
+Set `TELEGRAM_BOT_TOKEN` in `.kern/.env` and kern connects via long polling. No public URL needed — works behind NAT. Messages from Telegram show up in real time in the TUI.
 
 ```json
 {
