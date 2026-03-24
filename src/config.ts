@@ -23,8 +23,8 @@ const TOOL_SCOPES: Record<ToolScope, string[]> = {
 };
 
 const defaults: KernConfig = {
-  model: "claude-sonnet-4-20250514",
-  provider: "anthropic",
+  model: "anthropic/claude-opus-4.6",
+  provider: "openrouter",
   toolScope: "full",
   maxSteps: 30,
   maxContextTokens: 40000,
