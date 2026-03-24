@@ -94,7 +94,7 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig): Pr
   };
   const toolList = tools.map(t => `- **${t}**: ${toolDescriptions[t] || t}`).join("\n");
 
-  parts.push(`### Your tools\n${toolList}\n\n### Current config\n- Model: ${config.provider}/${config.model}\n- Tool scope: ${config.toolScope}\n- Max steps: ${config.maxSteps}`);
+  parts.push(`### Your tools\n${toolList}`);
 
   if (parts.length === 0) {
     return "You are a helpful AI assistant.";
