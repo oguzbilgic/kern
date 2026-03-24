@@ -65,6 +65,8 @@ kern restart [name]       # restart agents
 kern tui [name]           # interactive chat
 kern list                 # show all agents
 kern remove <name>        # unregister an agent
+kern backup <name>        # backup agent to .tar.gz
+kern restore <file>       # restore agent from backup
 ```
 
 Agents auto-register when you init, start, or run them. `kern list` shows every agent with its running state.

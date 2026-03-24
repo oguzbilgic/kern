@@ -64,6 +64,23 @@ Unregister an agent. Stops it if running. Does not delete files.
 
 Alias: `kern rm`
 
+## kern backup \<name\>
+
+Backup an agent to a `.tar.gz` file.
+
+- Creates `{name}-{date}.tar.gz` in the current directory
+- Includes everything: AGENTS.md, IDENTITY.md, knowledge/, notes/, .kern/config.json, .kern/sessions/, .kern/.env, .kern/pairing.json
+- Excludes: .kern/logs/
+
+## kern restore \<file\>
+
+Restore an agent from a backup archive.
+
+- Extracts to `./{agent-name}/` in the current directory
+- Registers the agent in `~/.kern/agents.json`
+- If agent already exists: warns and asks to confirm overwrite
+- If agent is running: stops it before overwriting
+
 ## kern run \<name|path\>
 
 Run an agent in the foreground (for development/debugging). Starts all interfaces (Telegram, Slack) in-process.
