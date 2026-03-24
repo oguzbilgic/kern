@@ -88,20 +88,23 @@ export const kernTool = tool({
               : `${secs}s`;
 
         const stats = _getSessionStats ? _getSessionStats() : null;
-        const contextLine = stats
-          ? `context: ~${stats.estimatedTokens} tokens (${stats.totalMessages} messages, window: ~${stats.windowTokens})`
+        const sessionLine = stats
+          ? `session: ~${stats.estimatedTokens} tokens (${stats.totalMessages} messages)`
           : `messages: ${_messageCount}`;
+        const contextLine = stats
+          ? `context: ~${stats.windowTokens} tokens (sent to API after trim)`
+          : "";
 
         return [
           `kern: ${_version}`,
           `agent: ${_agentDir}`,
-          `session: ${_sessionId}`,
           `model: ${_config.provider}/${_config.model}`,
           `toolScope: ${_config.toolScope}`,
+          sessionLine,
           contextLine,
           `api usage: ${_totalPromptTokens + _totalCompletionTokens} tokens (in: ${_totalPromptTokens}, out: ${_totalCompletionTokens})`,
           `uptime: ${uptimeStr}`,
-        ].join("\n");
+        ].filter(Boolean).join("\n");
       }
 
       case "config": {

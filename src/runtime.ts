@@ -5,14 +5,13 @@ import { allTools, type ToolName } from "./tools/index.js";
 import { SessionManager } from "./session.js";
 import { loadConfig, loadSystemPrompt, getToolsForScope, type KernConfig } from "./config.js";
 
-// Token estimate: stringify everything. Calibrated against real API token counts.
-// JSON.stringify length roughly matches actual token count (1 char ≈ 1 token for serialized messages)
+// Token estimate: stringify everything, ~4 chars per token
 function estimateTokens(messages: ModelMessage[]): number {
   let chars = 0;
   for (const msg of messages) {
     chars += JSON.stringify(msg).length;
   }
-  return chars;
+  return Math.ceil(chars / 4);
 }
 
 function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): ModelMessage[] {
