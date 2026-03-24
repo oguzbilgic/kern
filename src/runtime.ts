@@ -33,7 +33,7 @@ export class Runtime {
     await this.session.init();
     await this.session.load();
 
-    initKernTool({
+    await initKernTool({
       agentDir: this.agentDir,
       config: this.config,
       sessionId: this.session.getSessionId() || "unknown",

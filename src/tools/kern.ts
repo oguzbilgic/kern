@@ -9,8 +9,9 @@ let _startedAt = Date.now();
 let _messageCount = 0;
 let _config: any = {};
 let _sessionId = "";
+let _version = "unknown";
 
-export function initKernTool(opts: {
+export async function initKernTool(opts: {
   agentDir: string;
   config: any;
   sessionId: string;
@@ -20,6 +21,12 @@ export function initKernTool(opts: {
   _sessionId = opts.sessionId;
   _startedAt = Date.now();
   _messageCount = 0;
+  try {
+    const pkg = JSON.parse(await readFile(join(import.meta.dirname, "..", "..", "package.json"), "utf-8"));
+    _version = pkg.version || "unknown";
+  } catch {
+    _version = "unknown";
+  }
 }
 
 export function incrementMessageCount() {
@@ -51,6 +58,7 @@ export const kernTool = tool({
               : `${secs}s`;
 
         return [
+          `kern: ${_version}`,
           `agent: ${_agentDir}`,
           `session: ${_sessionId}`,
           `model: ${_config.provider}/${_config.model}`,
