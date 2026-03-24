@@ -74,6 +74,14 @@ Unregister an agent. Stops it if running. Does not delete files.
 
 Alias: `kern rm`
 
+## kern pair \<agent\> \<code\>
+
+Approve a pairing code from the command line. No agent interaction needed.
+
+```bash
+kern pair atlas KERN-7X4M
+```
+
 ## kern backup \<name\>
 
 Backup an agent to a `.tar.gz` file.

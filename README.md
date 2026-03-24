@@ -75,11 +75,11 @@ Agents auto-register when you init, start, or run them. `kern list` shows every 
 
 ## User pairing
 
-Users pair with a code before they can chat:
+The first person to message the bot becomes the operator — auto-paired, no code needed. Every user after pairs with a code:
 
 1. Unknown user messages the bot → gets a `KERN-XXXX` code
 2. User shares code with the operator
-3. Operator tells the agent: "pair KERN-7X4M — that's Sarah, cofounder"
+3. Operator approves: tell the agent, or `kern pair atlas KERN-XXXX` from CLI
 4. Agent pairs them and writes USERS.md with identity and access notes
 
 No allowlists. The agent manages its own access.

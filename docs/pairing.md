@@ -46,7 +46,17 @@ The agent manages this file — reads it to know who people are, updates it as i
 
 ## Operator
 
-The TUI user is always the operator — the person who created and manages the agent. They don't need a pairing code. The operator approves all other users.
+The first person to message the bot is auto-paired as the operator — no code needed, silent. The TUI is also always the operator.
+
+Every subsequent user goes through the pairing code flow.
+
+## Approving users
+
+Three ways to approve:
+
+1. **Through the agent** — tell it "pair KERN-XXXX — that's Sarah"
+2. **CLI** — `kern pair <agent> <code>` (no agent interaction needed)
+3. **kern tool** — agent calls `kern({ action: "pair", code: "KERN-XXXX" })`
 
 ## Checking users
 

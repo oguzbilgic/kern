@@ -1,8 +1,10 @@
 # Changelog
 
-## v0.6.1
+## v0.6.2
 
 ### Features
+- **Auto-pair first user** — first person to message the bot becomes the operator. No code needed, silent pairing. Every user after goes through the code flow.
+- **`kern pair` CLI command** — approve pairing codes from the command line: `kern pair <agent> <code>`. No agent interaction needed.
 - **Non-interactive init** — `kern init <name> --api-key <key>` for automation. Defaults to openrouter + opus 4.6. Optional flags: `--provider`, `--model`, `--telegram-token`, `--slack-bot-token`, `--slack-app-token`.
 
 ## v0.6.0
