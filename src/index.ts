@@ -37,6 +37,8 @@ async function showHelp() {
   w(`    ${cyan("kern restart")} ${dim("[name]")}         restart agents`);
   w(`    ${cyan("kern list")}                   show all agents`);
   w(`    ${cyan("kern remove")} ${dim("<name>")}          unregister an agent`);
+  w(`    ${cyan("kern backup")} ${dim("<name>")}          backup agent to .tar.gz`);
+  w(`    ${cyan("kern restore")} ${dim("<file>")}         restore agent from backup`);
   w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
   w("");
 }
@@ -127,6 +129,18 @@ async function main() {
     await removeAgent(name);
     console.log(`  Removed ${name}`);
     process.exit(0);
+  }
+
+  if (cmd === "backup") {
+    const { backupAgent } = await import("./backup.js");
+    await backupAgent(args[1]);
+    return;
+  }
+
+  if (cmd === "restore") {
+    const { restoreAgent } = await import("./backup.js");
+    await restoreAgent(args[1]);
+    return;
   }
 
   if (cmd === "tui") {
