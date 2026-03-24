@@ -11,6 +11,17 @@ const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
 const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
 
+const magenta = (s: string) => `\x1b[35m${s}\x1b[0m`;
+
+const TOOL_COLORS: Record<string, (s: string) => string> = {
+  bash: red,
+  read: cyan,
+  write: green,
+  edit: yellow,
+  glob: magenta,
+  grep: blue,
+};
+
 const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const CLEAR_LINE = "\r\x1b[K";
 
@@ -109,8 +120,9 @@ export class CliInterface implements Interface {
               case "tool-call":
                 toolCount++;
                 spinner.stop();
+                const colorFn = TOOL_COLORS[event.toolName || ""] || yellow;
                 process.stdout.write(
-                  `  ${yellow(event.toolName || "tool")} ${dim(event.toolDetail || "")}\n`
+                  `  ${colorFn(event.toolName || "tool")} ${dim(event.toolDetail || "")}\n`
                 );
                 spinner.start("thinking...");
                 break;
