@@ -1,5 +1,6 @@
 import { Bot } from "grammy";
 import type { Interface, StartOptions } from "./types.js";
+import type { PairingManager } from "../pairing.js";
 
 function mdToHtml(text: string): string {
   let html = text;
@@ -27,9 +28,6 @@ function mdToHtml(text: string): string {
   // Merge adjacent blockquotes
   html = html.replace(/<\/blockquote>\n<blockquote>/g, "\n");
 
-  // Escape < and > that aren't part of our tags
-  // Skip — too risky to break our tags. Telegram is lenient.
-
   return html;
 }
 
@@ -47,24 +45,32 @@ function stripMarkdown(text: string): string {
 
 export class TelegramInterface implements Interface {
   private bot: Bot;
-  private allowedUsers: number[];
+  private pairing: PairingManager | null;
 
-  constructor(token: string, allowedUsers: number[] = []) {
+  constructor(token: string, pairing?: PairingManager) {
     this.bot = new Bot(token);
-    this.allowedUsers = allowedUsers;
+    this.pairing = pairing || null;
   }
 
   async start({ onMessage }: StartOptions): Promise<void> {
     this.bot.on("message:text", async (ctx) => {
       const userId = ctx.from.id;
-
-      if (this.allowedUsers.length > 0 && !this.allowedUsers.includes(userId)) {
-        await ctx.reply("Not authorized.");
-        return;
-      }
-
       const text = ctx.message.text;
       const chatId = ctx.chat.id.toString();
+
+      // Check pairing
+      if (this.pairing && !this.pairing.isPaired(userId.toString())) {
+        const code = await this.pairing.getOrCreateCode(
+          userId.toString(),
+          "telegram",
+          `telegram:${chatId}`,
+        );
+        await ctx.reply(
+          `You're not paired with this agent.\n\nYour pairing code: <b>${code}</b>\n\nShare this code with the agent's operator to get access.`,
+          { parse_mode: "HTML" },
+        );
+        return;
+      }
 
       // Keep typing indicator alive every 4s (Telegram expires it after 5s)
       const typingInterval = setInterval(() => {

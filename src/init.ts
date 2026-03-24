@@ -352,6 +352,13 @@ node_modules/
     print("  ○ KNOWLEDGE.md (exists)");
   }
 
+  if (!existsSync(join(dir, "USERS.md"))) {
+    await writeFile(join(dir, "USERS.md"), `# Users\n\nNo paired users yet. Users pair via Telegram with a pairing code.\n`);
+    print("  + USERS.md");
+  } else {
+    print("  ○ USERS.md (exists)");
+  }
+
   // .kern/ config always written (new agent or adopt)
   await writeFile(join(dir, ".kern", "config.json"), JSON.stringify(config, null, 2) + "\n");
   print("  + .kern/config.json");

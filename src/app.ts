@@ -7,6 +7,7 @@ import { join, basename } from "path";
 import type { Interface, MessageHandler } from "./interfaces/types.js";
 import { registerAgent, setPort } from "./registry.js";
 import { AgentServer } from "./server.js";
+import { PairingManager } from "./pairing.js";
 
 export async function startApp(agentDir: string, forceCli = false): Promise<void> {
   const config = await loadConfig(agentDir);
@@ -17,15 +18,20 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   await registerAgent(agentName, agentDir);
   process.chdir(agentDir);
 
+  // Initialize pairing
+  const pairing = new PairingManager(agentDir);
+  await pairing.load();
+
+  // Pass pairing manager to runtime so kern tool can use it
+  runtime.setPairingManager(pairing);
+
   // Start HTTP server
   const server = new AgentServer();
 
   // Handler for messages from any channel
   const handleMessage = async (text: string, userId: string, iface: string, channel: string) => {
-    // Inject context metadata for all channels
     const context = `[via ${iface}${channel ? `, ${channel}` : ""}, user: ${userId}]\n${text}`;
 
-    // Broadcast the incoming message to all SSE clients
     server.broadcast({
       type: "incoming" as any,
       text,
@@ -35,7 +41,6 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     });
 
     await runtime.handleMessage(context, (event: StreamEvent) => {
-      // Broadcast all events to SSE clients
       server.broadcast(event);
     });
   };
@@ -45,16 +50,14 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   const port = await server.start();
   await setPort(agentName, port);
 
-  // Start Telegram if configured and not forced CLI
+  // Start Telegram if configured
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!forceCli && telegramToken) {
-    const allowedUsers = config.telegram?.allowedUsers || [];
-    const telegram = new TelegramInterface(telegramToken, allowedUsers);
+    const telegram = new TelegramInterface(telegramToken, pairing);
     await telegram.start({
       onMessage: async (msg, onEvent) => {
         const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}]\n${msg.text}`;
 
-        // Broadcast incoming to SSE clients
         server.broadcast({
           type: "incoming" as any,
           text: msg.text,
@@ -93,7 +96,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     const cli = new CliInterface();
     await cli.start({
       onMessage: async (msg, onEvent) => {
-        const context = msg.text;
+        const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}]\n${msg.text}`;
         return runtime.handleMessage(context, (event: StreamEvent) => {
           onEvent(event);
           server.broadcast(event);

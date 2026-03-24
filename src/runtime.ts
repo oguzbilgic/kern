@@ -58,6 +58,29 @@ export class Runtime {
     this.agentDir = agentDir;
   }
 
+  async setPairingManager(pairing: any): Promise<void> {
+    const { initKernTool } = await import("./tools/kern.js");
+    const session = this.session;
+    const config = this.config;
+    await initKernTool({
+      agentDir: this.agentDir,
+      config: this.config,
+      sessionId: this.session.getSessionId() || "unknown",
+      getSessionStats: () => {
+        const allMessages = session.getMessages();
+        const totalTokens = estimateTokens(allMessages);
+        const windowMessages = trimToTokenBudget(allMessages, config.maxContextTokens);
+        const windowTokens = estimateTokens(windowMessages);
+        return {
+          totalMessages: allMessages.length,
+          estimatedTokens: totalTokens,
+          windowTokens,
+        };
+      },
+      pairingManager: pairing,
+    });
+  }
+
   async init(): Promise<void> {
     this.config = await loadConfig(this.agentDir);
     this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config);

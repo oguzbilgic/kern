@@ -15,6 +15,7 @@ let _totalCompletionTokens = 0;
 let _usageFile = "";
 let _getSessionStats: (() => { totalMessages: number; estimatedTokens: number; windowTokens: number }) | null = null;
 let _reloadFn: (() => Promise<void>) | null = null;
+let _pairingManager: any = null;
 
 export async function initKernTool(opts: {
   agentDir: string;
@@ -22,6 +23,7 @@ export async function initKernTool(opts: {
   sessionId: string;
   getSessionStats?: () => { totalMessages: number; estimatedTokens: number; windowTokens: number };
   reload?: () => Promise<void>;
+  pairingManager?: any;
 }) {
   _agentDir = opts.agentDir;
   _config = opts.config;
@@ -30,6 +32,7 @@ export async function initKernTool(opts: {
   _messageCount = 0;
   _getSessionStats = opts.getSessionStats || null;
   _reloadFn = opts.reload || null;
+  _pairingManager = opts.pairingManager || null;
   _usageFile = join(_agentDir, ".kern", "usage.json");
   // Load persisted usage
   try {
@@ -68,15 +71,19 @@ export async function addTokenUsage(promptTokens: number, completionTokens: numb
 
 export const kernTool = tool({
   description:
-    "Manage your own kern runtime. Check status, view config, or reload after changes.",
+    "Manage your own kern runtime. Check status, view config, or pair users.",
   inputSchema: z.object({
     action: z
-      .enum(["status", "config", "env"])
+      .enum(["status", "config", "env", "pair", "users"])
       .describe(
-        "status: runtime info. config: show config. env: show env var names.",
+        "status: runtime info. config: show config. env: show env var names. pair: approve a pairing code (provide code param). users: list paired users.",
       ),
+    code: z
+      .string()
+      .optional()
+      .describe("Pairing code to approve (for pair action). Format: KERN-XXXX"),
   }),
-  execute: async ({ action }) => {
+  execute: async ({ action, code }) => {
     switch (action) {
       case "status": {
         const uptime = Math.floor((Date.now() - _startedAt) / 1000);
@@ -137,6 +144,36 @@ export const kernTool = tool({
         } catch {
           return "Error: could not read .kern/.env";
         }
+      }
+
+      case "pair": {
+        if (!_pairingManager) return "Pairing not available.";
+        if (!code) return "Provide a pairing code. Usage: kern({ action: 'pair', code: 'KERN-XXXX' })";
+        const result = await _pairingManager.pair(code);
+        if (!result) return `Invalid or expired pairing code: ${code}`;
+        return `Paired! User ${result.userId} from ${result.interface} is now approved.\n\nYou should now update USERS.md with their identity, role, and any access notes your operator provided.`;
+      }
+
+      case "users": {
+        if (!_pairingManager) return "Pairing not available.";
+        const paired = _pairingManager.getPairedUsers();
+        const pending = _pairingManager.getPendingCodes();
+        const lines: string[] = [];
+        if (paired.length > 0) {
+          lines.push("Paired users:");
+          for (const u of paired) {
+            lines.push(`  ${u.userId} (${u.interface}, paired ${u.pairedAt})`);
+          }
+        } else {
+          lines.push("No paired users.");
+        }
+        if (pending.length > 0) {
+          lines.push("\nPending codes:");
+          for (const p of pending) {
+            lines.push(`  ${p.code} → ${p.userId} (${p.interface})`);
+          }
+        }
+        return lines.join("\n");
       }
 
       default:
