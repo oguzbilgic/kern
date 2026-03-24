@@ -3,12 +3,9 @@
 ## next
 
 ### Features
-- **Slack integration** — Bolt SDK + Socket Mode. DMs with pairing, channels with NO_REPLY. Agent reads all messages, speaks selectively.
-- **Slack formatting** — markdown bold/strikethrough converted to Slack format
-- **Documentation** — `docs/` with config, tools, interfaces, pairing, commands reference. Linked from KERN.md.
-
-### Changes
-- Slack channel replies post to channel directly (not in threads)
+- **Slack integration** — Bolt SDK + Socket Mode. DMs with pairing. Channels: agent reads all messages, only responds when @mentioned or relevant (NO_REPLY suppression). Replies post to channel directly. Markdown converted to Slack mrkdwn. Rich text blocks parsed for full message content.
+- **Agent-to-agent awareness** — KERN.md teaches agents not to loop with other agents. NO_REPLY to break infinite volleys, let humans drive.
+- **Documentation** — `docs/` with config, tools, interfaces, pairing, commands reference. Linked from KERN.md for agent self-reference.
 
 ## v0.4.0
 
