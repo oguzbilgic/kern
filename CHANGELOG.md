@@ -8,9 +8,13 @@
 - **`kern({ action: "users" })`** — list paired and pending users
 - **USERS.md** — per-agent user directory with identity, role, guardrails. Created by `kern init`.
 - **No more allowlist** — pairing replaces `telegram.allowedUsers` config. Everyone pairs, including the operator.
+- **Message tool** — agent can proactively send messages to paired users on any channel. `message({ userId, interface, text })`.
+- **Outgoing messages in TUI** — green `→` marker shows when agent sends a message to a channel.
 
 ### Changes
 - Telegram adapter uses PairingManager instead of allowedUsers array
+- PairedUser stores chatId for outgoing messages
+- 10 built-in tools (was 8): added message, updated kern with pair/users actions
 - KERN.md documents full pairing flow for agents
 
 ## v0.3.0
