@@ -14,8 +14,6 @@ Most agent frameworks give you sessions that reset, memory that's a black box, o
 - **Context-aware** — the agent knows who's talking and where. It sees the user, the channel, and the interface — so it can adjust tone, filter context, and keep track of different conversations within the same session.
 - **A folder is the agent** — AGENTS.md defines behavior, IDENTITY.md defines who it is, knowledge/ and notes/ are its memory. Everything is plain text, git-tracked, and inspectable.
 - **No infra** — no server, no database, no vector store. A folder, an API key, and `npx kern-ai`.
-- **Model-agnostic** — OpenRouter, Anthropic, OpenAI. Swap providers in one config line.
-- **Messaging built in** — Telegram today, Slack next. Talk to your agent from your phone.
 
 kern pairs with [agent-kernel](https://github.com/oguzbilgic/agent-kernel) — the kernel defines how an agent remembers, kern runs it.
 
