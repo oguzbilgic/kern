@@ -8,6 +8,7 @@ import type { Interface, MessageHandler } from "./interfaces/types.js";
 import { registerAgent, setPort } from "./registry.js";
 import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
+import { setMessageSender } from "./tools/message.js";
 
 export async function startApp(agentDir: string, forceCli = false): Promise<void> {
   const config = await loadConfig(agentDir);
@@ -52,9 +53,10 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   // Start Telegram if configured
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
+  let telegramBot: TelegramInterface | null = null;
   if (!forceCli && telegramToken) {
-    const telegram = new TelegramInterface(telegramToken, pairing);
-    await telegram.start({
+    telegramBot = new TelegramInterface(telegramToken, pairing);
+    await telegramBot.start({
       onMessage: async (msg, onEvent) => {
         const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}]\n${msg.text}`;
 
@@ -73,6 +75,25 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       },
     });
   }
+
+  // Wire message tool — agent can send messages to users
+  setMessageSender(async (userId: string, iface: string, text: string) => {
+    if (iface === "telegram" && telegramBot) {
+      const chatId = pairing.getChatId(userId) || userId;
+      const sent = await telegramBot.sendToUser(chatId, text);
+      if (sent) {
+        // Broadcast outgoing to TUI
+        server.broadcast({
+          type: "outgoing" as any,
+          text,
+          fromInterface: iface,
+          fromUserId: userId,
+        });
+      }
+      return sent;
+    }
+    return false;
+  });
 
   // Print header
   const w = (s: string) => process.stdout.write(s + "\n");

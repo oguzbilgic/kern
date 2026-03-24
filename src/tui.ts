@@ -111,6 +111,14 @@ export async function connectTui(port: number, agentName: string): Promise<void>
             continue;
           }
 
+          // Outgoing message from agent to a channel
+          if ((event as any).type === "outgoing") {
+            const to = event.fromInterface || "unknown";
+            const user = event.fromUserId || "";
+            w(`  ${green("→")} ${dim(`[${to}${user ? ` ${user}` : ""}]`)} ${event.text}\n`);
+            continue;
+          }
+
           switch (event.type) {
             case "text-delta":
               if (!hasText) {

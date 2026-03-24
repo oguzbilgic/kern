@@ -126,6 +126,15 @@ export class TelegramInterface implements Interface {
     this.bot.stop();
   }
 
+  async sendToUser(chatId: string, text: string): Promise<boolean> {
+    try {
+      await this.bot.api.sendMessage(chatId, text);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   private async editMessage(
     ctx: any,
     messageId: number,

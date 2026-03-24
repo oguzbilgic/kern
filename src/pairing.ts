@@ -12,6 +12,7 @@ interface PairingCode {
 
 interface PairedUser {
   userId: string;
+  chatId: string;
   interface: string;
   pairedAt: string;
 }
@@ -78,21 +79,30 @@ export class PairingManager {
   }
 
   // Validate a code and return the associated user info
-  async pair(code: string): Promise<{ userId: string; interface: string } | null> {
+  async pair(code: string): Promise<{ userId: string; chatId: string; interface: string } | null> {
     const idx = this.data.pending.findIndex(
       (p) => p.code.toUpperCase() === code.toUpperCase(),
     );
     if (idx < 0) return null;
 
     const pending = this.data.pending[idx];
+    // Extract chatId from channel (e.g. "telegram:12345" → "12345")
+    const chatId = pending.channel.includes(":") ? pending.channel.split(":")[1] : pending.userId;
     this.data.pending.splice(idx, 1);
     this.data.paired.push({
       userId: pending.userId,
+      chatId,
       interface: pending.interface,
       pairedAt: new Date().toISOString(),
     });
     await this.save();
-    return { userId: pending.userId, interface: pending.interface };
+    return { userId: pending.userId, chatId, interface: pending.interface };
+  }
+
+  // Look up a paired user's chatId
+  getChatId(userId: string): string | null {
+    const user = this.data.paired.find((u) => u.userId === userId);
+    return user?.chatId || null;
   }
 
   // Get all paired users
