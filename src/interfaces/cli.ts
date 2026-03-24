@@ -20,6 +20,7 @@ const TOOL_COLORS: Record<string, (s: string) => string> = {
   edit: yellow,
   glob: magenta,
   grep: blue,
+  webfetch: cyan,
 };
 
 const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];

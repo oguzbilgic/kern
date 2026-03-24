@@ -69,7 +69,7 @@ export class Runtime {
           onEvent({ type: "text-delta", text: part.text });
         } else if (part.type === "tool-call") {
           const args = ("args" in part ? part.args : part.input) as Record<string, unknown>;
-          const detail = String(args.path || args.command || args.pattern || "");
+          const detail = String(args.path || args.command || args.pattern || args.url || "");
           onEvent({ type: "tool-call", toolName: part.toolName, toolDetail: detail });
         } else if (part.type === "tool-result") {
           onEvent({ type: "tool-result" });
