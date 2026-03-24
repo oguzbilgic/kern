@@ -21,8 +21,14 @@ function mdToHtml(text: string): string {
   // Strikethrough: ~~...~~ → <s>...</s>
   html = html.replace(/~~(.+?)~~/g, "<s>$1</s>");
 
-  // Escape remaining HTML special chars (but not our tags)
-  // Skip — Telegram is lenient with unescaped text outside tags
+  // Blockquotes: lines starting with > → <blockquote>
+  html = html.replace(/(?:^|\n)(?:> (.+?)(?:\n|$))+/g, (match) => {
+    const content = match.replace(/(?:^|\n)> /g, "\n").trim();
+    return `\n<blockquote>${content}</blockquote>\n`;
+  });
+
+  // Lists: - item → • item (Telegram has no list tags)
+  html = html.replace(/^- (.+)/gm, "• $1");
 
   return html;
 }
