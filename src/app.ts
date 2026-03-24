@@ -1,6 +1,6 @@
 import { Runtime } from "./runtime.js";
 import { TelegramInterface } from "./interfaces/telegram.js";
-import { CliInterface } from "./interfaces/cli.js";
+import { CliInterface, dim, bold, cyan } from "./interfaces/cli.js";
 import { loadConfig } from "./config.js";
 import type { Interface } from "./interfaces/types.js";
 
@@ -50,11 +50,10 @@ export async function startApp(agentDir: string): Promise<void> {
     }
   };
 
-  console.log(`kern running in ${agentDir}`);
-  console.log(`Session: ${runtime.getSessionId()}`);
-  console.log(`Model: ${config.provider}/${config.model}`);
-  console.log(`Tools: ${config.tools.join(", ")}`);
-  console.log(`Interface: ${telegramToken ? "telegram" : "cli"}`);
+  console.log(bold("kern") + " " + dim(agentDir));
+  console.log(dim(`session  ${runtime.getSessionId()}`));
+  console.log(dim(`model    ${config.provider}/${config.model}`));
+  console.log(dim(`tools    ${config.tools.join(", ")}`));
   console.log("");
 
   await iface.start({ onMessage: handler, history: runtime.getMessages() });

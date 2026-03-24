@@ -1,6 +1,14 @@
 import { createInterface } from "readline";
 import type { Interface, StartOptions } from "./types.js";
 
+// ANSI colors
+const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
+const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
+const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
+const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
+const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
+const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
+
 export class CliInterface implements Interface {
   private rl: ReturnType<typeof createInterface> | null = null;
 
@@ -13,11 +21,11 @@ export class CliInterface implements Interface {
 
     // Show recent history
     if (history && history.length > 0) {
-      // Show last few user/assistant exchanges
       const recent = history.slice(-6);
+      process.stdout.write(dim("  recent history:\n"));
       for (const msg of recent) {
         if (msg.role === "user" && typeof msg.content === "string") {
-          process.stdout.write(`> ${msg.content}\n`);
+          process.stdout.write(dim(`  > ${msg.content}\n`));
         } else if (msg.role === "assistant") {
           const text =
             typeof msg.content === "string"
@@ -29,19 +37,19 @@ export class CliInterface implements Interface {
                     .join("")
                 : "";
           if (text) {
-            const preview = text.length > 200 ? text.slice(0, 200) + "..." : text;
-            process.stdout.write(`${preview}\n\n`);
+            const preview = text.length > 150 ? text.slice(0, 150) + "..." : text;
+            process.stdout.write(dim(`  ${preview}\n\n`));
           }
         }
       }
-      process.stdout.write("---\n");
+      process.stdout.write("\n");
     }
 
-    process.stdout.write("> ");
+    process.stdout.write(green("> "));
 
     this.rl.on("line", async (text) => {
       if (!text.trim()) {
-        process.stdout.write("> ");
+        process.stdout.write(green("> "));
         return;
       }
 
@@ -51,9 +59,9 @@ export class CliInterface implements Interface {
           userId: "cli",
           chatId: "cli",
         });
-        process.stdout.write(`\n${response}\n\n> `);
+        process.stdout.write(`\n${response}\n\n${green("> ")}`);
       } catch (error: any) {
-        process.stdout.write(`\nError: ${error.message}\n\n> `);
+        process.stdout.write(`\n${red(`Error: ${error.message}`)}\n\n${green("> ")}`);
       }
     });
   }
@@ -62,3 +70,6 @@ export class CliInterface implements Interface {
     this.rl?.close();
   }
 }
+
+// Export colors for use in runtime tool logging
+export { dim, bold, cyan, green, yellow, red };

@@ -70,9 +70,11 @@ export class Runtime {
         } else if (part.type === "tool-call") {
           const args = ("args" in part ? part.args : part.input) as Record<string, unknown>;
           const detail = args.path || args.command || args.pattern || "";
-          console.error(`[kern] ${part.toolName}: ${detail}`);
+          const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
+          const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
+          process.stderr.write(dim(`  ${yellow(part.toolName)} ${detail}\n`));
         } else if (part.type === "error") {
-          console.error("[kern] error:", part.error);
+          process.stderr.write(`\x1b[31m  error: ${part.error}\x1b[0m\n`);
         }
       }
 
