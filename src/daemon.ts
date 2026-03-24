@@ -107,7 +107,6 @@ export async function startAgent(nameOrPath?: string): Promise<void> {
     }
     console.log("");
   }
-  process.exit(0);
 }
 
 async function stopOne(name: string): Promise<void> {
@@ -158,5 +157,4 @@ export async function stopAgent(name?: string): Promise<void> {
     }
     console.log("");
   }
-  process.exit(0);
 }

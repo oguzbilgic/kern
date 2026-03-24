@@ -92,20 +92,19 @@ async function main() {
 
   if (cmd === "start") {
     await startAgent(args[1]);
-    return;
+    process.exit(0);
   }
 
   if (cmd === "stop") {
     await stopAgent(args[1]);
-    return;
+    process.exit(0);
   }
 
   if (cmd === "restart") {
     await stopAgent(args[1]);
-    // Small delay for clean shutdown
     await new Promise((r) => setTimeout(r, 500));
     await startAgent(args[1]);
-    return;
+    process.exit(0);
   }
 
   if (cmd === "tui") {
