@@ -115,7 +115,7 @@ export async function connectTui(port: number, agentName: string): Promise<void>
           if ((event as any).type === "outgoing") {
             const to = event.fromInterface || "unknown";
             const user = event.fromUserId || "";
-            w(`  ${green("→")} ${dim(`[${to}${user ? ` ${user}` : ""}]`)} ${event.text}\n`);
+            w(`\n  ${green("→")} ${dim(`[${to}${user ? ` ${user}` : ""}]`)} ${event.text}\n`);
             continue;
           }
 
@@ -123,7 +123,7 @@ export async function connectTui(port: number, agentName: string): Promise<void>
             case "text-delta":
               if (!hasText) {
                 spinner.stop();
-                if (toolCount > 0) w("\n");
+                w("\n");
                 w(`${blue("◆")} `);
                 hasText = true;
                 busy = true;
@@ -134,7 +134,6 @@ export async function connectTui(port: number, agentName: string): Promise<void>
             case "tool-call": {
               if (toolCount === 0) {
                 if (waitingForResponse) spinner.stop();
-                else w("\n");
               }
               toolCount++;
               busy = true;
