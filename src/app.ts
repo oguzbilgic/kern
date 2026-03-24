@@ -2,6 +2,8 @@ import { Runtime } from "./runtime.js";
 import { TelegramInterface } from "./interfaces/telegram.js";
 import { CliInterface, dim, bold, cyan } from "./interfaces/cli.js";
 import { loadConfig } from "./config.js";
+import { readFile } from "fs/promises";
+import { join } from "path";
 import type { Interface, MessageHandler } from "./interfaces/types.js";
 
 export async function startApp(agentDir: string): Promise<void> {
@@ -33,8 +35,14 @@ export async function startApp(agentDir: string): Promise<void> {
 
   const w = (s: string) => process.stdout.write(s + "\n");
 
+  let version = "unknown";
+  try {
+    const pkg = JSON.parse(await readFile(join(import.meta.dirname, "..", "package.json"), "utf-8"));
+    version = pkg.version;
+  } catch {}
+
   w("");
-  w(`  ${bold("kern")} ${cyan(agentDir)}`);
+  w(`  ${bold("kern")} ${dim("v" + version)} ${cyan(agentDir)}`);
   w(`  ${"model"}    ${dim(config.provider + "/" + config.model)}`);
   w(`  ${"session"}  ${dim(runtime.getSessionId() || "new")}`);
   w(`  ${"tools"}    ${dim(config.toolScope)}`);
