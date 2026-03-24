@@ -98,12 +98,23 @@ export class Runtime {
       return fullText || "(no text response)";
     } catch (error: any) {
       // Extract a useful error message from nested errors
-      const cause = error.lastError?.cause || error.cause;
+      const lastErr = error.lastError || error;
+      const cause = lastErr?.cause || error.cause;
+      const status = lastErr?.statusCode || lastErr?.data?.error?.code;
+      const apiMsg = lastErr?.data?.error?.message || lastErr?.responseBody;
       let msg: string;
       if (cause?.code === "EAI_AGAIN" || cause?.code === "ENOTFOUND") {
         msg = "DNS resolution failed — check network connection";
-      } else if (error.lastError?.message) {
-        msg = error.lastError.message;
+      } else if (status === 429 || apiMsg?.includes("rate limit")) {
+        msg = "Rate limit hit — wait a moment and try again";
+      } else if (status === 402 || apiMsg?.includes("credit") || apiMsg?.includes("insufficient")) {
+        msg = "API credits exhausted — check your OpenRouter/provider balance";
+      } else if (status === 401 || status === 403) {
+        msg = "API authentication failed — check your API key in .kern/.env";
+      } else if (apiMsg) {
+        msg = apiMsg;
+      } else if (lastErr?.message && !lastErr.message.includes("No output generated")) {
+        msg = lastErr.message;
       } else if (error.message?.includes("No output generated")) {
         msg = "No response from model — likely a network or API error, try again";
       } else {
