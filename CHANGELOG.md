@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.6.3
+
+### Fixes
+- **Streaming actually works now** — `text-delta` events use `delta` field in AI SDK v6, not `text`. Was reading undefined since v0.1.0. Text now streams word-by-word instead of appearing all at once.
+
 ## v0.6.2
 
 ### Features
