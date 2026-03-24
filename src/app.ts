@@ -22,10 +22,8 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   // Handler for messages from any channel
   const handleMessage = async (text: string, userId: string, iface: string, channel: string) => {
-    // Inject context for non-CLI
-    const context = iface !== "cli" && iface !== "tui"
-      ? `[via ${iface}${channel ? `, ${channel}` : ""}, user: ${userId}]\n${text}`
-      : text;
+    // Inject context metadata for all channels
+    const context = `[via ${iface}${channel ? `, ${channel}` : ""}, user: ${userId}]\n${text}`;
 
     // Broadcast the incoming message to all SSE clients
     server.broadcast({
