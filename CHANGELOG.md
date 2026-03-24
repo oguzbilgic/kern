@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.6.0
 
 ### Features
 - **Backup & restore** — `kern backup <name>` creates `.tar.gz` in `~/.kern/backups/`. `kern restore <file>` extracts, registers, warns on overwrite. Full agent portability — move agents between machines with memory intact.
