@@ -8,7 +8,7 @@ import { startAgent } from "./daemon.js";
 const MODELS: Record<string, { name: string; value: string }[]> = {
   openrouter: [
     { name: "Claude Opus 4.6", value: "anthropic/claude-opus-4.6" },
-    { name: "Claude Sonnet 4", value: "anthropic/claude-sonnet-4" },
+    { name: "Claude Sonnet 4.5", value: "anthropic/claude-sonnet-4.5" },
     { name: "GPT-4o", value: "openai/gpt-4o" },
     { name: "GPT-4.1", value: "openai/gpt-4.1" },
     { name: "Gemini 2.5 Pro", value: "google/gemini-2.5-pro-preview-06-05" },
@@ -17,7 +17,7 @@ const MODELS: Record<string, { name: string; value: string }[]> = {
   ],
   anthropic: [
     { name: "Claude Opus 4.6", value: "claude-opus-4-20250514" },
-    { name: "Claude Sonnet 4", value: "claude-sonnet-4-20250514" },
+    { name: "Claude Sonnet 4.5", value: "claude-sonnet-4-5-20250514" },
   ],
   openai: [
     { name: "GPT-4o", value: "gpt-4o" },
