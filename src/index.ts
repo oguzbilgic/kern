@@ -84,7 +84,18 @@ async function main() {
   }
 
   if (cmd === "init") {
-    await runInit(args[1]);
+    // Parse flags for non-interactive mode
+    const flags: Record<string, string> = {};
+    let initTarget = args[1];
+    for (let i = 1; i < args.length; i++) {
+      if (args[i].startsWith("--") && i + 1 < args.length && !args[i + 1].startsWith("--")) {
+        flags[args[i].slice(2)] = args[i + 1];
+        i++;
+      } else if (!args[i].startsWith("--")) {
+        initTarget = args[i];
+      }
+    }
+    await runInit(initTarget, Object.keys(flags).length > 0 ? flags : undefined);
     return;
   }
 

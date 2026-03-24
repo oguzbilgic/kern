@@ -182,9 +182,9 @@ async function runConfig(name: string, dir: string): Promise<void> {
   await startAgent(name);
 }
 
-export async function runInit(targetArg?: string): Promise<void> {
+export async function runInit(targetArg?: string, flags?: Record<string, string>): Promise<void> {
   // Check if target is an existing agent — go straight to config
-  if (targetArg) {
+  if (targetArg && !flags) {
     const registered = await findAgent(targetArg);
     const dir = registered ? registered.path : resolve(targetArg);
     if (existsSync(dir) && (existsSync(join(dir, "AGENTS.md")) || existsSync(join(dir, ".kern")))) {
@@ -193,6 +193,31 @@ export async function runInit(targetArg?: string): Promise<void> {
     }
   }
 
+  // Non-interactive mode
+  if (flags && flags["api-key"]) {
+    const name = targetArg;
+    if (!name) {
+      console.error("Usage: kern init <name> --api-key <key>");
+      process.exit(1);
+    }
+
+    const provider = flags.provider || "openrouter";
+    const model = flags.model || (MODELS[provider]?.[0]?.value || "anthropic/claude-opus-4.6");
+    const apiKey = flags["api-key"];
+    const envVar = API_KEY_ENV[provider] || "OPENROUTER_API_KEY";
+    const telegramToken = flags["telegram-token"] || "";
+    const slackBotToken = flags["slack-bot-token"] || "";
+    const slackAppToken = flags["slack-app-token"] || "";
+    const dir = resolve(name);
+
+    await scaffoldAgent({
+      name, dir, provider, model, apiKey, envVar,
+      telegramToken, slackBotToken, slackAppToken,
+    });
+    return;
+  }
+
+  // Interactive mode
   print("");
   print("  kern init");
   print("");
@@ -248,6 +273,27 @@ export async function runInit(targetArg?: string): Promise<void> {
       mask: "*",
     });
   }
+
+  await scaffoldAgent({
+    name, dir, provider, model, apiKey, envVar,
+    telegramToken, slackBotToken, slackAppToken,
+  });
+}
+
+interface ScaffoldOpts {
+  name: string;
+  dir: string;
+  provider: string;
+  model: string;
+  apiKey: string;
+  envVar: string;
+  telegramToken: string;
+  slackBotToken: string;
+  slackAppToken: string;
+}
+
+async function scaffoldAgent(opts: ScaffoldOpts): Promise<void> {
+  const { name, dir, provider, model, apiKey, envVar, telegramToken, slackBotToken, slackAppToken } = opts;
 
   const dirExists = existsSync(dir);
   print("");
