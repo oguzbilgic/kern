@@ -15,6 +15,8 @@ const MODELS: Record<string, { name: string; value: string }[]> = {
     { name: "GLM 5 Turbo", value: "z-ai/glm-5-turbo" },
     { name: "Gemini 3 Flash Preview", value: "google/gemini-3-flash-preview" },
     { name: "Hunter Alpha", value: "openrouter/hunter-alpha" },
+    { name: "GPT-5.4", value: "openai/gpt-5.4" },
+    { name: "Gemini 3.1 Pro", value: "google/gemini-3.1-pro" },
     { name: "Gemini 2.5 Flash", value: "google/gemini-2.5-flash" },
     { name: "Step 3.5 Flash (free)", value: "stepfun/step-3.5-flash" },
   ],
