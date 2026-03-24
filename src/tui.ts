@@ -115,7 +115,7 @@ export async function connectTui(port: number, agentName: string): Promise<void>
           if ((event as any).type === "outgoing") {
             const to = event.fromInterface || "unknown";
             const user = event.fromUserId || "";
-            w(`\n  ${green("→")} ${dim(`[${to}${user ? ` ${user}` : ""}]`)} ${event.text}\n`);
+            w(`\n${green("→")} ${dim(`[${to}${user ? ` ${user}` : ""}]`)} ${event.text}\n`);
             continue;
           }
 
@@ -138,7 +138,7 @@ export async function connectTui(port: number, agentName: string): Promise<void>
               toolCount++;
               busy = true;
               const colorFn = TOOL_COLORS[event.toolName || ""] || yellow;
-              w(`  ${colorFn(event.toolName || "tool")} ${dim(event.toolDetail || "")}\n`);
+              w(`${colorFn(event.toolName || "tool")} ${dim(event.toolDetail || "")}\n`);
               break;
             }
 
