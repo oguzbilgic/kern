@@ -99,8 +99,9 @@ export async function connectTui(port: number, agentName: string): Promise<void>
         try {
           const event: ServerEvent = JSON.parse(data);
 
-          // Cross-channel incoming message
+          // Cross-channel incoming message (skip our own)
           if ((event as any).type === "incoming") {
+            if (event.fromInterface === "tui") continue;
             if (waitingForResponse) spinner.stop();
             if (!busy) w(CLEAR_LINE);
             const from = event.fromInterface || "unknown";
