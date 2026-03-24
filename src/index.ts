@@ -31,10 +31,8 @@ async function showHelp() {
   w("");
   w(`  ${yellow("Commands")}`);
   w(`    ${cyan("kern init")} ${dim("<name>")}            create a new agent`);
-  w(`    ${cyan("kern start")}                  start all agents`);
-  w(`    ${cyan("kern start")} ${dim("<name|path>")}      start one agent`);
-  w(`    ${cyan("kern stop")}                   stop all agents`);
-  w(`    ${cyan("kern stop")} ${dim("<name>")}            stop one agent`);
+  w(`    ${cyan("kern start")} ${dim("[name|path]")}      start agents`);
+  w(`    ${cyan("kern stop")} ${dim("[name]")}            stop agents`);
   w(`    ${cyan("kern list")}                   show all agents`);
   w(`    ${cyan("kern run")} ${dim("<name|path>")}        run in foreground`);
   w("");

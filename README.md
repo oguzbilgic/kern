@@ -58,10 +58,8 @@ Everything the agent needs is in this folder. Move it, zip it, clone it — the 
 
 ```bash
 kern init <name>          # create a new agent
-kern start                # start all agents (background)
-kern start <name|path>    # start one agent
-kern stop                 # stop all agents
-kern stop <name>          # stop one agent
+kern start [name|path]    # start agents (all if no name)
+kern stop [name]          # stop agents (all if no name)
 kern list                 # show all agents
 kern run <name|path>      # run in foreground (dev/debug)
 ```
