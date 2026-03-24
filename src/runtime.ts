@@ -3,7 +3,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import { allTools, type ToolName } from "./tools/index.js";
 import { SessionManager } from "./session.js";
-import { loadConfig, loadSystemPrompt, type KernConfig } from "./config.js";
+import { loadConfig, loadSystemPrompt, getToolsForScope, type KernConfig } from "./config.js";
 
 export interface StreamEvent {
   type: "text-delta" | "tool-call" | "tool-result" | "finish" | "error";
@@ -41,9 +41,9 @@ export class Runtime {
     const userMsg: ModelMessage = { role: "user", content: userMessage };
     await this.session.append([userMsg]);
 
-    // Build tools from config
+    // Build tools from scope
     const tools: Record<string, any> = {};
-    for (const name of this.config.tools) {
+    for (const name of getToolsForScope(this.config.toolScope)) {
       if (name in allTools) {
         tools[name] = allTools[name as ToolName];
       }

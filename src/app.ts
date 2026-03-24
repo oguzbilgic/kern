@@ -37,7 +37,7 @@ export async function startApp(agentDir: string): Promise<void> {
   w(`  ${bold("kern")} ${cyan(agentDir)}`);
   w(`  ${"model"}    ${dim(config.provider + "/" + config.model)}`);
   w(`  ${"session"}  ${dim(runtime.getSessionId() || "new")}`);
-  w(`  ${"tools"}    ${dim(config.tools.join(", "))}`);
+  w(`  ${"tools"}    ${dim(config.toolScope)}`);
   w(`  ${dim("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")}`);
   w("");
 

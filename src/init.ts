@@ -151,7 +151,7 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
   const config: any = {
     model,
     provider,
-    tools: ["bash", "read", "write", "edit", "glob", "grep", "webfetch"],
+    toolScope: "full",
     maxSteps: 30,
   };
   if (allowedUsers.length > 0) {

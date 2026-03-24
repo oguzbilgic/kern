@@ -3,23 +3,34 @@ import { join } from "path";
 import { existsSync } from "fs";
 import { config as loadDotenv } from "dotenv";
 
+export type ToolScope = "full" | "write" | "read";
+
 export interface KernConfig {
   model: string;
   provider: string;
-  tools: string[];
+  toolScope: ToolScope;
   maxSteps: number;
   telegram?: {
     allowedUsers?: number[];
   };
-
 }
+
+const TOOL_SCOPES: Record<ToolScope, string[]> = {
+  full: ["bash", "read", "write", "edit", "glob", "grep", "webfetch"],
+  write: ["read", "write", "edit", "glob", "grep", "webfetch"],
+  read: ["read", "glob", "grep", "webfetch"],
+};
 
 const defaults: KernConfig = {
   model: "claude-sonnet-4-20250514",
   provider: "anthropic",
-  tools: ["bash", "read", "write", "edit", "glob", "grep", "webfetch"],
+  toolScope: "full",
   maxSteps: 30,
 };
+
+export function getToolsForScope(scope: ToolScope): string[] {
+  return TOOL_SCOPES[scope] || TOOL_SCOPES.full;
+}
 
 export async function loadConfig(agentDir: string): Promise<KernConfig> {
   // Load .kern/.env
@@ -37,7 +48,9 @@ export async function loadConfig(agentDir: string): Promise<KernConfig> {
   try {
     const raw = await readFile(configPath, "utf-8");
     const userConfig = JSON.parse(raw);
-    return { ...defaults, ...userConfig };
+    // Support legacy "tools" array — ignore it, use toolScope
+    const { tools, ...rest } = userConfig;
+    return { ...defaults, ...rest };
   } catch {
     return defaults;
   }
