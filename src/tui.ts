@@ -124,6 +124,7 @@ export async function connectTui(port: number, agentName: string): Promise<void>
               break;
 
             case "tool-call": {
+              if (toolCount === 0 && !waitingForResponse) w("\n");
               toolCount++;
               if (waitingForResponse) spinner.stop();
               busy = true;
