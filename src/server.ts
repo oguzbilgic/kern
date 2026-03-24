@@ -87,10 +87,16 @@ export class AgentServer {
       });
       res.write(":\n\n"); // SSE comment to establish connection
 
+      // Keepalive ping every 15s to prevent body timeout
+      const keepalive = setInterval(() => {
+        try { res.write(":\n\n"); } catch {}
+      }, 15000);
+
       const client: SSEClient = { res };
       this.clients.push(client);
 
       req.on("close", () => {
+        clearInterval(keepalive);
         this.clients = this.clients.filter((c) => c !== client);
       });
       return;
