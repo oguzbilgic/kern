@@ -5,17 +5,11 @@ import { allTools, type ToolName } from "./tools/index.js";
 import { SessionManager } from "./session.js";
 import { loadConfig, loadSystemPrompt, getToolsForScope, type KernConfig } from "./config.js";
 
-// Rough token estimate: ~4 chars per token
+// Rough token estimate: stringify everything, ~4 chars per token
 function estimateTokens(messages: ModelMessage[]): number {
   let chars = 0;
   for (const msg of messages) {
-    if (typeof msg.content === "string") {
-      chars += msg.content.length;
-    } else if (Array.isArray(msg.content)) {
-      for (const part of msg.content) {
-        if ("text" in part) chars += (part as any).text.length;
-      }
-    }
+    chars += JSON.stringify(msg).length;
   }
   return Math.ceil(chars / 4);
 }
