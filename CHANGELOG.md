@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.3.0
 
 ### Features
 - **Daemon mode** — `kern start` / `kern stop` / `kern restart` to run agents in background with PID tracking
