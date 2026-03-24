@@ -14,6 +14,8 @@ const cmd = args[0];
 
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
+const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
+const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
 
 async function showHelp() {
   let version = "unknown";
@@ -27,14 +29,14 @@ async function showHelp() {
   w(`  ${bold("kern")} ${dim("v" + version)}`);
   w(`  ${dim("One agent. One folder. One continuous conversation.")}`);
   w("");
-  w(`  ${bold("Commands")}`);
-  w(`    kern init <name>          create a new agent`);
-  w(`    kern start                start all agents`);
-  w(`    kern start <name|path>    start one agent`);
-  w(`    kern stop                 stop all agents`);
-  w(`    kern stop <name>          stop one agent`);
-  w(`    kern status               show all agents`);
-  w(`    kern run <name|path>      run agent in foreground`);
+  w(`  ${yellow("Commands")}`);
+  w(`    ${cyan("kern init")} ${dim("<name>")}            create a new agent`);
+  w(`    ${cyan("kern start")}                  start all agents`);
+  w(`    ${cyan("kern start")} ${dim("<name|path>")}      start one agent`);
+  w(`    ${cyan("kern stop")}                   stop all agents`);
+  w(`    ${cyan("kern stop")} ${dim("<name>")}            stop one agent`);
+  w(`    ${cyan("kern status")}                 show all agents`);
+  w(`    ${cyan("kern run")} ${dim("<name|path>")}        run in foreground`);
   w("");
 }
 
