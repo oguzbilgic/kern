@@ -53,7 +53,8 @@ export async function runInit(targetArg?: string): Promise<void> {
   const provider = await ask("Provider", "anthropic");
 
   // API key
-  const apiKey = await ask("API key (ANTHROPIC_API_KEY)");
+  const apiKeyLabel = provider === "openrouter" ? "OPENROUTER_API_KEY" : "ANTHROPIC_API_KEY";
+  const apiKey = await ask(`API key (${apiKeyLabel})`);
 
   // Telegram bot token (optional)
   const telegramToken = await ask("Telegram bot token (optional)");
@@ -150,9 +151,11 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
   // .kern/.env
   const envLines: string[] = [];
   if (apiKey) {
-    envLines.push(`ANTHROPIC_API_KEY=${apiKey}`);
+    const envVar = provider === "openrouter" ? "OPENROUTER_API_KEY" : "ANTHROPIC_API_KEY";
+    envLines.push(`${envVar}=${apiKey}`);
   } else {
     envLines.push(`# ANTHROPIC_API_KEY=sk-ant-...`);
+    envLines.push(`# OPENROUTER_API_KEY=sk-or-...`);
   }
   if (telegramToken) {
     envLines.push(`TELEGRAM_BOT_TOKEN=${telegramToken}`);

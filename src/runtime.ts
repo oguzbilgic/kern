@@ -1,5 +1,6 @@
 import { streamText, type ModelMessage, stepCountIs } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { createOpenAI } from "@ai-sdk/openai";
 import { allTools, type ToolName } from "./tools/index.js";
 import { SessionManager } from "./session.js";
 import { loadConfig, loadSystemPrompt, type KernConfig } from "./config.js";
@@ -86,6 +87,18 @@ export class Runtime {
       case "anthropic": {
         const anthropic = createAnthropic();
         return anthropic(this.config.model);
+      }
+      case "openrouter": {
+        const openrouter = createOpenAI({
+          baseURL: "https://openrouter.ai/api/v1",
+          apiKey: process.env.OPENROUTER_API_KEY,
+          compatibility: "compatible",
+        });
+        return openrouter.chat(this.config.model);
+      }
+      case "openai": {
+        const openai = createOpenAI();
+        return openai(this.config.model);
       }
       default:
         throw new Error(`Unknown provider: ${this.config.provider}`);
