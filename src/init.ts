@@ -108,17 +108,24 @@ async function runConfig(name: string, dir: string): Promise<void> {
     mask: "*",
   });
 
-  // Allowed users
-  let allowedUsers: number[] = currentConfig.telegram?.allowedUsers || [];
-  if (telegramToken && !telegramToken.startsWith("****")) {
-    const currentUsers = allowedUsers.length > 0 ? allowedUsers.join(", ") : "";
-    const usersStr = await input({
-      message: "Allowed Telegram user IDs (comma-separated)",
-      default: currentUsers,
+  // Slack
+  const currentSlackBot = currentEnv["SLACK_BOT_TOKEN"];
+  const maskedSlackBot = currentSlackBot ? `****${currentSlackBot.slice(-4)}` : "";
+  const slackBotMsg = maskedSlackBot ? `Slack bot token (${maskedSlackBot}, enter to keep)` : "Slack bot token (xoxb-...)";
+  const slackBotToken = await password({
+    message: slackBotMsg,
+    mask: "*",
+  });
+
+  const currentSlackApp = currentEnv["SLACK_APP_TOKEN"];
+  const maskedSlackApp = currentSlackApp ? `****${currentSlackApp.slice(-4)}` : "";
+  let slackAppToken = "";
+  if (slackBotToken || currentSlackBot) {
+    const slackAppMsg = maskedSlackApp ? `Slack app token (${maskedSlackApp}, enter to keep)` : "Slack app token (xapp-...)";
+    slackAppToken = await password({
+      message: slackAppMsg,
+      mask: "*",
     });
-    if (usersStr) {
-      allowedUsers = usersStr.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n));
-    }
   }
 
   // Build new config
@@ -128,10 +135,6 @@ async function runConfig(name: string, dir: string): Promise<void> {
     toolScope: currentConfig.toolScope || "full",
     maxSteps: currentConfig.maxSteps || 30,
   };
-  if (allowedUsers.length > 0) {
-    config.telegram = { allowedUsers };
-  }
-
   // Build new env
   const envLines: string[] = [];
   const actualKey = !apiKey ? currentKey : apiKey;
@@ -145,6 +148,18 @@ async function runConfig(name: string, dir: string): Promise<void> {
     envLines.push(`TELEGRAM_BOT_TOKEN=${actualTg}`);
   } else {
     envLines.push(`# TELEGRAM_BOT_TOKEN=`);
+  }
+  const actualSlackBot = !slackBotToken ? currentSlackBot : slackBotToken;
+  if (actualSlackBot) {
+    envLines.push(`SLACK_BOT_TOKEN=${actualSlackBot}`);
+  } else {
+    envLines.push(`# SLACK_BOT_TOKEN=`);
+  }
+  const actualSlackApp = !slackAppToken ? currentSlackApp : slackAppToken;
+  if (actualSlackApp) {
+    envLines.push(`SLACK_APP_TOKEN=${actualSlackApp}`);
+  } else {
+    envLines.push(`# SLACK_APP_TOKEN=`);
   }
 
   // Write
@@ -220,15 +235,18 @@ export async function runInit(targetArg?: string): Promise<void> {
     mask: "*",
   });
 
-  // Allowed Telegram user IDs (optional)
-  let allowedUsers: number[] = [];
-  if (telegramToken) {
-    const usersStr = await input({
-      message: "Allowed Telegram user IDs (comma-separated)",
+  // Slack (optional)
+  const slackBotToken = await password({
+    message: "Slack bot token (optional, xoxb-...)",
+    mask: "*",
+  });
+
+  let slackAppToken = "";
+  if (slackBotToken) {
+    slackAppToken = await password({
+      message: "Slack app token (xapp-...)",
+      mask: "*",
     });
-    if (usersStr) {
-      allowedUsers = usersStr.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n));
-    }
   }
 
   const dirExists = existsSync(dir);
@@ -306,10 +324,6 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
     toolScope: "full",
     maxSteps: 30,
   };
-  if (allowedUsers.length > 0) {
-    config.telegram = { allowedUsers };
-  }
-
   // .kern/.env
   const envLines: string[] = [];
   if (apiKey) {
@@ -321,6 +335,16 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
     envLines.push(`TELEGRAM_BOT_TOKEN=${telegramToken}`);
   } else {
     envLines.push(`# TELEGRAM_BOT_TOKEN=`);
+  }
+  if (slackBotToken) {
+    envLines.push(`SLACK_BOT_TOKEN=${slackBotToken}`);
+  } else {
+    envLines.push(`# SLACK_BOT_TOKEN=`);
+  }
+  if (slackAppToken) {
+    envLines.push(`SLACK_APP_TOKEN=${slackAppToken}`);
+  } else {
+    envLines.push(`# SLACK_APP_TOKEN=`);
   }
 
   // .gitignore

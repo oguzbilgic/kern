@@ -1,5 +1,6 @@
 import { Runtime, type StreamEvent } from "./runtime.js";
 import { TelegramInterface } from "./interfaces/telegram.js";
+import { SlackInterface } from "./interfaces/slack.js";
 import { CliInterface, dim, bold, cyan } from "./interfaces/cli.js";
 import { loadConfig } from "./config.js";
 import { readFile } from "fs/promises";
@@ -76,13 +77,51 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     });
   }
 
+  // Start Slack if configured
+  const slackBotToken = process.env.SLACK_BOT_TOKEN;
+  const slackAppToken = process.env.SLACK_APP_TOKEN;
+  let slackBot: SlackInterface | null = null;
+  if (!forceCli && slackBotToken && slackAppToken) {
+    slackBot = new SlackInterface(slackBotToken, slackAppToken, pairing);
+    await slackBot.start({
+      onMessage: async (msg, onEvent) => {
+        const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}]\n${msg.text}`;
+
+        server.broadcast({
+          type: "incoming" as any,
+          text: msg.text,
+          fromInterface: msg.interface,
+          fromUserId: msg.userId,
+          fromChannel: msg.channel,
+        });
+
+        return runtime.handleMessage(context, (event: StreamEvent) => {
+          onEvent(event);
+          server.broadcast(event);
+        });
+      },
+    });
+  }
+
   // Wire message tool — agent can send messages to users
   setMessageSender(async (userId: string, iface: string, text: string) => {
     if (iface === "telegram" && telegramBot) {
       const chatId = pairing.getChatId(userId) || userId;
       const sent = await telegramBot.sendToUser(chatId, text);
       if (sent) {
-        // Broadcast outgoing to TUI
+        server.broadcast({
+          type: "outgoing" as any,
+          text,
+          fromInterface: iface,
+          fromUserId: userId,
+        });
+      }
+      return sent;
+    }
+    if (iface === "slack" && slackBot) {
+      const chatId = pairing.getChatId(userId) || userId;
+      const sent = await slackBot.sendToUser(chatId, text);
+      if (sent) {
         server.broadcast({
           type: "outgoing" as any,
           text,

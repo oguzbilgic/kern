@@ -36,6 +36,7 @@
     "@ai-sdk/anthropic": "^2.0.0",
     "@ai-sdk/openai": "^3.0.48",
     "@inquirer/prompts": "^8.3.2",
+    "@slack/bolt": "^4.6.0",
     "ai": "^6.0.0",
     "dotenv": "^16.4.0",
     "glob": "^11.0.0",
