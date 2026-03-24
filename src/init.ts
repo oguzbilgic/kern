@@ -1,27 +1,9 @@
 import { mkdir, writeFile, readFile } from "fs/promises";
 import { join, resolve } from "path";
 import { existsSync } from "fs";
-import { createInterface } from "readline";
+import { input, select, password } from "@inquirer/prompts";
 import { registerAgent, findAgent, isProcessRunning, setPid } from "./registry.js";
-import { startAgent, stopAgent } from "./daemon.js";
-
-const rl = createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
-
-function ask(question: string, defaultValue?: string): Promise<string> {
-  const suffix = defaultValue ? ` (${defaultValue})` : "";
-  return new Promise((resolve) => {
-    rl.question(`  ${question}${suffix}: `, (answer) => {
-      resolve(answer.trim() || defaultValue || "");
-    });
-  });
-}
-
-function print(text: string) {
-  console.log(text);
-}
+import { startAgent } from "./daemon.js";
 
 const MODEL_DEFAULTS: Record<string, string> = {
   openrouter: "anthropic/claude-opus-4",
@@ -29,16 +11,25 @@ const MODEL_DEFAULTS: Record<string, string> = {
   openai: "gpt-4o",
 };
 
-const API_KEY_LABELS: Record<string, string> = {
+const PROVIDERS = [
+  { name: "OpenRouter", value: "openrouter", keyLabel: "OpenRouter API key" },
+  { name: "Anthropic", value: "anthropic", keyLabel: "Anthropic API key" },
+  { name: "OpenAI", value: "openai", keyLabel: "OpenAI API key" },
+];
+
+const API_KEY_ENV: Record<string, string> = {
   openrouter: "OPENROUTER_API_KEY",
   anthropic: "ANTHROPIC_API_KEY",
   openai: "OPENAI_API_KEY",
 };
 
+function print(text: string) {
+  console.log(text);
+}
+
 async function runConfig(name: string, dir: string): Promise<void> {
   print("");
   print(`  kern config — ${name}`);
-  print("  ─────────────");
   print("");
 
   // Load existing config and env
@@ -61,34 +52,52 @@ async function runConfig(name: string, dir: string): Promise<void> {
   } catch {}
 
   // Provider
-  const provider = await ask("Provider", currentConfig.provider || "openrouter");
+  const provider = await select({
+    message: "Provider",
+    choices: PROVIDERS.map((p) => ({ name: p.name, value: p.value })),
+    default: currentConfig.provider || "openrouter",
+  });
 
-  // API key — show masked current value
-  const apiKeyLabel = API_KEY_LABELS[provider] || "API_KEY";
-  const currentKey = currentEnv[apiKeyLabel];
-  const maskedKey = currentKey ? `****${currentKey.slice(-4)}` : undefined;
-  const apiKey = await ask(apiKeyLabel, maskedKey);
+  // API key
+  const providerInfo = PROVIDERS.find((p) => p.value === provider)!;
+  const envVar = API_KEY_ENV[provider];
+  const currentKey = currentEnv[envVar];
+  const maskedKey = currentKey ? `****${currentKey.slice(-4)}` : "";
+
+  const apiKeyMsg = maskedKey ? `${providerInfo.keyLabel} (${maskedKey}, enter to keep)` : providerInfo.keyLabel;
+  const apiKey = await password({
+    message: apiKeyMsg,
+    mask: "*",
+  });
 
   // Model
   const defaultModel = currentConfig.model || MODEL_DEFAULTS[provider] || "anthropic/claude-opus-4";
-  const model = await ask("Model", defaultModel);
+  const model = await input({
+    message: "Model",
+    default: defaultModel,
+  });
 
   // Telegram
   const currentTgToken = currentEnv["TELEGRAM_BOT_TOKEN"];
-  const maskedTg = currentTgToken ? `****${currentTgToken.slice(-4)}` : undefined;
-  const telegramToken = await ask("Telegram bot token", maskedTg);
+  const maskedTg = currentTgToken ? `****${currentTgToken.slice(-4)}` : "";
+  const tgMsg = maskedTg ? `Telegram bot token (${maskedTg}, enter to keep)` : "Telegram bot token";
+  const telegramToken = await password({
+    message: tgMsg,
+    mask: "*",
+  });
 
   // Allowed users
   let allowedUsers: number[] = currentConfig.telegram?.allowedUsers || [];
   if (telegramToken && !telegramToken.startsWith("****")) {
-    const currentUsers = allowedUsers.length > 0 ? allowedUsers.join(", ") : undefined;
-    const usersStr = await ask("Allowed Telegram user IDs", currentUsers?.toString());
+    const currentUsers = allowedUsers.length > 0 ? allowedUsers.join(", ") : "";
+    const usersStr = await input({
+      message: "Allowed Telegram user IDs (comma-separated)",
+      default: currentUsers,
+    });
     if (usersStr) {
       allowedUsers = usersStr.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n));
     }
   }
-
-  rl.close();
 
   // Build new config
   const config: any = {
@@ -103,20 +112,20 @@ async function runConfig(name: string, dir: string): Promise<void> {
 
   // Build new env
   const envLines: string[] = [];
-  const actualKey = apiKey?.startsWith("****") ? currentKey : apiKey;
+  const actualKey = !apiKey ? currentKey : apiKey;
   if (actualKey) {
-    envLines.push(`${apiKeyLabel}=${actualKey}`);
+    envLines.push(`${envVar}=${actualKey}`);
   } else {
-    envLines.push(`# ${apiKeyLabel}=`);
+    envLines.push(`# ${envVar}=`);
   }
-  const actualTg = telegramToken?.startsWith("****") ? currentTgToken : telegramToken;
+  const actualTg = !telegramToken ? currentTgToken : telegramToken;
   if (actualTg) {
     envLines.push(`TELEGRAM_BOT_TOKEN=${actualTg}`);
   } else {
     envLines.push(`# TELEGRAM_BOT_TOKEN=`);
   }
 
-  // Write config and env
+  // Write
   await writeFile(join(dir, ".kern", "config.json"), JSON.stringify(config, null, 2) + "\n");
   await writeFile(join(dir, ".kern", ".env"), envLines.join("\n") + "\n");
   print("");
@@ -128,7 +137,6 @@ async function runConfig(name: string, dir: string): Promise<void> {
     process.kill(agent.pid, "SIGTERM");
     await setPid(name, null);
     print("  ✓ Stopped");
-    // Small delay for clean shutdown
     await new Promise((r) => setTimeout(r, 500));
   }
 
@@ -150,43 +158,55 @@ export async function runInit(targetArg?: string): Promise<void> {
 
   print("");
   print("  kern init");
-  print("  ─────────");
   print("");
 
   // Agent name
-  const name = await ask("Agent name", targetArg);
-  if (!name) {
-    print("  Name is required.");
-    rl.close();
-    process.exit(1);
-  }
+  const name = await input({
+    message: "Agent name",
+    default: targetArg,
+    required: true,
+  });
 
   const dir = resolve(targetArg || name);
 
   // Provider
-  const provider = await ask("Provider", "openrouter");
+  const provider = await select({
+    message: "Provider",
+    choices: PROVIDERS.map((p) => ({ name: p.name, value: p.value })),
+    default: "openrouter",
+  });
 
   // API key
-  const apiKeyLabel = API_KEY_LABELS[provider] || "API_KEY";
-  const apiKey = await ask(apiKeyLabel);
+  const providerInfo = PROVIDERS.find((p) => p.value === provider)!;
+  const envVar = API_KEY_ENV[provider];
+  const apiKey = await password({
+    message: providerInfo.keyLabel,
+    mask: "*",
+  });
 
   // Model
   const defaultModel = MODEL_DEFAULTS[provider] || "anthropic/claude-opus-4";
-  const model = await ask("Model", defaultModel);
+  const model = await input({
+    message: "Model",
+    default: defaultModel,
+  });
 
   // Telegram bot token (optional)
-  const telegramToken = await ask("Telegram bot token (optional)");
+  const telegramToken = await password({
+    message: "Telegram bot token (optional)",
+    mask: "*",
+  });
 
   // Allowed Telegram user IDs (optional)
   let allowedUsers: number[] = [];
   if (telegramToken) {
-    const usersStr = await ask("Allowed Telegram user IDs (comma-separated, optional)");
+    const usersStr = await input({
+      message: "Allowed Telegram user IDs (comma-separated)",
+    });
     if (usersStr) {
       allowedUsers = usersStr.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n));
     }
   }
-
-  rl.close();
 
   print("");
   print(`  Creating ${dir}/...`);
@@ -269,9 +289,9 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
   // .kern/.env
   const envLines: string[] = [];
   if (apiKey) {
-    envLines.push(`${apiKeyLabel}=${apiKey}`);
+    envLines.push(`${envVar}=${apiKey}`);
   } else {
-    envLines.push(`# ${apiKeyLabel}=`);
+    envLines.push(`# ${envVar}=`);
   }
   if (telegramToken) {
     envLines.push(`TELEGRAM_BOT_TOKEN=${telegramToken}`);
