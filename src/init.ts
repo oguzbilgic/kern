@@ -21,6 +21,18 @@ function print(text: string) {
   console.log(text);
 }
 
+const MODEL_DEFAULTS: Record<string, string> = {
+  openrouter: "anthropic/claude-opus-4",
+  anthropic: "claude-opus-4-20250514",
+  openai: "gpt-4o",
+};
+
+const API_KEY_LABELS: Record<string, string> = {
+  openrouter: "OPENROUTER_API_KEY",
+  anthropic: "ANTHROPIC_API_KEY",
+  openai: "OPENAI_API_KEY",
+};
+
 export async function runInit(targetArg?: string): Promise<void> {
   print("");
   print("  kern init");
@@ -43,18 +55,16 @@ export async function runInit(targetArg?: string): Promise<void> {
     return;
   }
 
-  // What does this agent do?
-  const role = await ask("What does this agent do?");
-
-  // Model
-  const model = await ask("Model", "claude-sonnet-4-20250514");
-
   // Provider
-  const provider = await ask("Provider", "anthropic");
+  const provider = await ask("Provider", "openrouter");
 
   // API key
-  const apiKeyLabel = provider === "openrouter" ? "OPENROUTER_API_KEY" : "ANTHROPIC_API_KEY";
-  const apiKey = await ask(`API key (${apiKeyLabel})`);
+  const apiKeyLabel = API_KEY_LABELS[provider] || "API_KEY";
+  const apiKey = await ask(apiKeyLabel);
+
+  // Model
+  const defaultModel = MODEL_DEFAULTS[provider] || "anthropic/claude-opus-4";
+  const model = await ask("Model", defaultModel);
 
   // Telegram bot token (optional)
   const telegramToken = await ask("Telegram bot token (optional)");
@@ -125,7 +135,7 @@ Two kinds of memory, kept separate:
   const capitalName = name.charAt(0).toUpperCase() + name.slice(1);
   const identityMd = `# Identity
 
-You are ${capitalName}${role ? `, ${role}` : ""}. Ask your human for more details about your role and responsibilities.
+You are ${capitalName}. Ask your human to define your role and responsibilities.
 
 ## Home
 - Repo: this directory
@@ -151,11 +161,9 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
   // .kern/.env
   const envLines: string[] = [];
   if (apiKey) {
-    const envVar = provider === "openrouter" ? "OPENROUTER_API_KEY" : "ANTHROPIC_API_KEY";
-    envLines.push(`${envVar}=${apiKey}`);
+    envLines.push(`${apiKeyLabel}=${apiKey}`);
   } else {
-    envLines.push(`# ANTHROPIC_API_KEY=sk-ant-...`);
-    envLines.push(`# OPENROUTER_API_KEY=sk-or-...`);
+    envLines.push(`# ${apiKeyLabel}=`);
   }
   if (telegramToken) {
     envLines.push(`TELEGRAM_BOT_TOKEN=${telegramToken}`);
@@ -200,6 +208,6 @@ node_modules/
   }
 
   print("");
-  print(`  Done. Run: cd ${name} && npx kern`);
+  print(`  Done. Run: cd ${name} && kern`);
   print("");
 }
