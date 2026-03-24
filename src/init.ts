@@ -138,6 +138,16 @@ async function runConfig(name: string, dir: string): Promise<void> {
 }
 
 export async function runInit(targetArg?: string): Promise<void> {
+  // Check if target is an existing agent — go straight to config
+  if (targetArg) {
+    const registered = await findAgent(targetArg);
+    const dir = registered ? registered.path : resolve(targetArg);
+    if (existsSync(dir) && (existsSync(join(dir, "AGENTS.md")) || existsSync(join(dir, ".kern")))) {
+      await runConfig(registered?.name || targetArg, dir);
+      return;
+    }
+  }
+
   print("");
   print("  kern init");
   print("  ─────────");
@@ -151,15 +161,7 @@ export async function runInit(targetArg?: string): Promise<void> {
     process.exit(1);
   }
 
-  // Determine directory — check registry first, then resolve path
-  const registered = await findAgent(name);
-  const dir = registered ? registered.path : resolve(targetArg || name);
-
-  // If agent exists, switch to config mode
-  if (existsSync(dir) && (existsSync(join(dir, "AGENTS.md")) || existsSync(join(dir, ".kern")))) {
-    await runConfig(name, dir);
-    return;
-  }
+  const dir = resolve(targetArg || name);
 
   // Provider
   const provider = await ask("Provider", "openrouter");
