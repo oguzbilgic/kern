@@ -1,8 +1,20 @@
 # kern
 
-Simple agent runtime. Give any AI agent persistent memory and a Telegram interface.
+One agent. One folder. One continuous conversation.
 
-kern-ai pairs with [agent-kernel](https://github.com/oguzbilgic/agent-kernel) — the kernel defines how an agent remembers, kern runs it.
+kern is a simple agent runtime where each agent lives in a single directory — its identity, memory, config, and conversation all in one place. No server, no database, no multi-tenant complexity. Just a folder and a persistent session.
+
+## Why kern
+
+Most agent frameworks give you sessions that reset, memory that's a black box, or infrastructure you have to manage. kern takes a different approach:
+
+- **Single session per agent** — one continuous conversation that persists as a plain JSONL file. Resume where you left off, every time.
+- **A folder is the agent** — AGENTS.md defines behavior, IDENTITY.md defines who it is, knowledge/ and notes/ are its memory. Everything is plain text, git-tracked, and inspectable.
+- **No infra** — no server, no database, no vector store. A folder, an API key, and `npx kern-ai`.
+- **Model-agnostic** — OpenRouter, Anthropic, OpenAI. Swap providers in one config line.
+- **Messaging built in** — Telegram today, Slack next. Talk to your agent from your phone.
+
+kern pairs with [agent-kernel](https://github.com/oguzbilgic/agent-kernel) — the kernel defines how an agent remembers, kern runs it.
 
 ## Quick start
 
@@ -12,15 +24,7 @@ cd my-agent
 npx kern-ai
 ```
 
-The init wizard asks for a provider, API key, and model — then scaffolds an agent with persistent memory.
-
-## What it does
-
-- **Runs an AI agent** with tools (bash, file read/write/edit, glob, grep)
-- **Persists conversation** as JSONL — sessions resume where they left off
-- **Streams responses** to the terminal with a live TUI
-- **Reads AGENTS.md** as system prompt — the agent-kernel pattern for stateful agents
-- **Connects to Telegram** (optional) — message your agent from anywhere
+The init wizard asks for a provider, API key, and model — then scaffolds a ready-to-run agent.
 
 ## How it works
 
@@ -33,17 +37,17 @@ You (CLI or Telegram)
   → conversation saved to .kern/sessions/
 ```
 
-The agent's memory lives in the repo — AGENTS.md, IDENTITY.md, KNOWLEDGE.md, knowledge/, notes/. The agent reads and writes these files through tools. Everything is plain text and git-tracked.
+The agent reads and writes its own memory files through tools. It takes notes, updates knowledge, commits to git — all on its own. The next time you start a conversation, it picks up exactly where it left off.
 
-## Project structure
+## Agent structure
 
-After `kern init`, your agent directory looks like:
+After `kern-ai init`, your agent directory looks like:
 
 ```
 my-agent/
-  AGENTS.md              # agent kernel — how the agent behaves
+  AGENTS.md              # how the agent behaves (system prompt)
   IDENTITY.md            # who the agent is
-  KNOWLEDGE.md           # index of knowledge files
+  KNOWLEDGE.md           # index of what it knows
   knowledge/             # mutable state files
   notes/                 # daily logs (append-only)
   .kern/
@@ -51,6 +55,8 @@ my-agent/
     .env                 # API keys, bot tokens (gitignored)
     sessions/            # conversation history (gitignored)
 ```
+
+Everything the agent needs is in this folder. Move it, zip it, clone it — the agent comes with it.
 
 ## Configuration
 
@@ -78,19 +84,17 @@ TELEGRAM_BOT_TOKEN=...
 - **anthropic** — direct Anthropic API
 - **openai** — OpenAI / Azure
 
-## CLI usage
+## CLI
 
 ```bash
 npx kern-ai init <name>     # create a new agent
 npx kern-ai <dir>           # run agent in directory
-npx kern-ai                 # run agent in current directory
+npx kern-ai                 # run in current directory
 ```
 
 ## Telegram
 
-Set `TELEGRAM_BOT_TOKEN` in `.kern/.env` and kern automatically connects via long polling. No public URL needed — works behind NAT.
-
-Optional: restrict access with allowed user IDs in `.kern/config.json`:
+Set `TELEGRAM_BOT_TOKEN` in `.kern/.env` and kern connects via long polling. No public URL needed — works behind NAT.
 
 ```json
 {
