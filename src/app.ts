@@ -1,6 +1,6 @@
 import { Runtime } from "./runtime.js";
 import { TelegramInterface } from "./interfaces/telegram.js";
-import { CliInterface, dim, bold } from "./interfaces/cli.js";
+import { CliInterface, dim, bold, cyan } from "./interfaces/cli.js";
 import { loadConfig } from "./config.js";
 import type { Interface, MessageHandler } from "./interfaces/types.js";
 
@@ -27,11 +27,14 @@ export async function startApp(agentDir: string): Promise<void> {
     return runtime.handleMessage(msg.text, onEvent);
   };
 
-  console.log(bold("kern") + " " + dim(agentDir));
-  console.log(dim(`session  ${runtime.getSessionId()}`));
-  console.log(dim(`model    ${config.provider}/${config.model}`));
-  console.log(dim(`tools    ${config.tools.join(", ")}`));
-  console.log("");
+  const w = (s: string) => process.stdout.write(s + "\n");
+
+  w("");
+  w(`  ${bold("kern")} ${cyan(agentDir)}`);
+  w(`  ${dim("session")}  ${dim(runtime.getSessionId() || "new")}`);
+  w(`  ${dim("model")}    ${dim(config.provider + "/" + config.model)}`);
+  w(`  ${dim("tools")}    ${dim(config.tools.join(", "))}`);
+  w("");
 
   await iface.start({ onMessage: handler, history: runtime.getMessages() });
 }
