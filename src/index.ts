@@ -34,6 +34,7 @@ async function showHelp() {
   w(`    ${cyan("kern init")} ${dim("<name>")}            create or configure an agent`);
   w(`    ${cyan("kern start")} ${dim("[name|path]")}      start agents`);
   w(`    ${cyan("kern stop")} ${dim("[name]")}            stop agents`);
+  w(`    ${cyan("kern restart")} ${dim("[name]")}         restart agents`);
   w(`    ${cyan("kern list")}                   show all agents`);
   w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
   w("");
@@ -96,6 +97,14 @@ async function main() {
 
   if (cmd === "stop") {
     await stopAgent(args[1]);
+    return;
+  }
+
+  if (cmd === "restart") {
+    await stopAgent(args[1]);
+    // Small delay for clean shutdown
+    await new Promise((r) => setTimeout(r, 500));
+    await startAgent(args[1]);
     return;
   }
 
