@@ -66,6 +66,10 @@ export class TelegramInterface implements Interface {
       const text = ctx.message.text;
       const chatId = ctx.chat.id.toString();
 
+      // Keep typing indicator alive every 4s (Telegram expires it after 5s)
+      const typingInterval = setInterval(() => {
+        ctx.replyWithChatAction("typing").catch(() => {});
+      }, 4000);
       await ctx.replyWithChatAction("typing");
       const reply = await ctx.reply("...");
 
@@ -87,8 +91,10 @@ export class TelegramInterface implements Interface {
           }
         );
 
+        clearInterval(typingInterval);
         await this.editMessage(ctx, reply.message_id, response);
       } catch (error: any) {
+        clearInterval(typingInterval);
         await this.editMessage(ctx, reply.message_id, `Error: ${error.message}`);
       }
     });
