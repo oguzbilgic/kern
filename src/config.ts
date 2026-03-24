@@ -56,7 +56,7 @@ export async function loadConfig(agentDir: string): Promise<KernConfig> {
   }
 }
 
-export async function loadSystemPrompt(agentDir: string): Promise<string> {
+export async function loadSystemPrompt(agentDir: string, config: KernConfig): Promise<string> {
   const parts: string[] = [];
 
   // Load AGENTS.md (kernel)
@@ -79,6 +79,22 @@ export async function loadSystemPrompt(agentDir: string): Promise<string> {
   } else if (existsSync(kernMdPackage)) {
     parts.push(await readFile(kernMdPackage, "utf-8"));
   }
+
+  // Inject live runtime info
+  const tools = getToolsForScope(config.toolScope);
+  const toolDescriptions: Record<string, string> = {
+    bash: "run shell commands",
+    read: "read files and directories",
+    write: "create or overwrite files",
+    edit: "find and replace in files",
+    glob: "find files by pattern",
+    grep: "search file contents",
+    webfetch: "fetch URLs",
+    kern: "manage your own runtime (status, config, env)",
+  };
+  const toolList = tools.map(t => `- **${t}**: ${toolDescriptions[t] || t}`).join("\n");
+
+  parts.push(`### Your tools\n${toolList}\n\n### Current config\n- Model: ${config.provider}/${config.model}\n- Tool scope: ${config.toolScope}\n- Max steps: ${config.maxSteps}`);
 
   if (parts.length === 0) {
     return "You are a helpful AI assistant.";
