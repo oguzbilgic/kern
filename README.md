@@ -2,7 +2,7 @@
 
 Simple agent runtime. Give any AI agent persistent memory and a Telegram interface.
 
-kern pairs with [agent-kernel](https://github.com/oguzbilgic/agent-kernel) — the kernel defines how an agent remembers, kern runs it.
+kern-ai pairs with [agent-kernel](https://github.com/oguzbilgic/agent-kernel) — the kernel defines how an agent remembers, kern runs it.
 
 ## Quick start
 
