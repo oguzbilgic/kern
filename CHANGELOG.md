@@ -1,11 +1,14 @@
 # Changelog
 
-## next
+## v0.5.0
 
 ### Features
 - **Slack integration** — Bolt SDK + Socket Mode. DMs with pairing. Channels: agent reads all messages, only responds when @mentioned or relevant (NO_REPLY suppression). Replies post to channel directly. Markdown converted to Slack mrkdwn. Rich text blocks parsed for full message content.
 - **Agent-to-agent awareness** — KERN.md teaches agents not to loop with other agents. NO_REPLY to break infinite volleys, let humans drive.
 - **Documentation** — `docs/` with config, tools, interfaces, pairing, commands reference. Linked from KERN.md for agent self-reference.
+
+### Fixes
+- SSE keepalive pings every 15s — prevents TUI body timeout crash on long-lived connections
 
 ## v0.4.0
 
