@@ -30,15 +30,14 @@ The init wizard asks for a provider, API key, and model — then scaffolds a rea
 ## How it works
 
 ```
-You (CLI or Telegram)
-  → kern runtime
-    → Vercel AI SDK (model-agnostic)
-      → tools execute (bash, read, write, edit, glob, grep)
-    → response streams back
-  → conversation saved to .kern/sessions/
+  CLI ──┐
+        │
+  Telegram ──┼── kern runtime ── one session ── one folder
+        │
+  Slack ──┘
 ```
 
-The agent reads and writes its own memory files through tools. It takes notes, updates knowledge, commits to git — all on its own. The next time you start a conversation, it picks up exactly where it left off.
+Every interface feeds into the same session. The agent reads and writes its own memory files through tools — takes notes, updates knowledge, commits to git. The next time you talk to it, from any interface, it picks up exactly where it left off.
 
 ## Agent structure
 
