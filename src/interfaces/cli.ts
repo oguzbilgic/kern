@@ -107,7 +107,7 @@ export class CliInterface implements Interface {
                 spinner.stop();
                 // Print completed tool line
                 process.stdout.write(
-                  dim(`  ${yellow(event.toolName || "tool")} ${event.toolDetail || ""}\n`)
+                  `  ${yellow(event.toolName || "tool")} ${dim(event.toolDetail || "")}\n`
                 );
                 // Show spinner for execution
                 spinner.start(`running ${event.toolName}...`);
