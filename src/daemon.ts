@@ -49,13 +49,25 @@ async function startOne(name: string, path: string): Promise<void> {
   console.log(`  ${green("●")} ${bold(name)} started ${dim(`(pid ${pid})`)}`);
 }
 
-export async function startAgent(name?: string): Promise<void> {
-  if (name) {
-    // Start specific agent
-    const agent = await findAgent(name);
+export async function startAgent(nameOrPath?: string): Promise<void> {
+  if (nameOrPath) {
+    // Try registry first
+    let agent = await findAgent(nameOrPath);
+
     if (!agent) {
-      console.error(`Agent not found: ${name}`);
-      console.error("Use an agent name from 'kern status'.");
+      // Check if it's a directory path
+      const { resolve } = await import("path");
+      const dir = resolve(nameOrPath);
+      if (existsSync(dir) && (existsSync(join(dir, ".kern")) || existsSync(join(dir, "AGENTS.md")))) {
+        const name = basename(dir);
+        await registerAgent(name, dir);
+        agent = { name, path: dir, pid: null, addedAt: new Date().toISOString() };
+      }
+    }
+
+    if (!agent) {
+      console.error(`Agent not found: ${nameOrPath}`);
+      console.error("Use an agent name from 'kern status' or a path to an agent directory.");
       process.exit(1);
       return;
     }

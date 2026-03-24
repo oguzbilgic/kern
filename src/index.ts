@@ -6,11 +6,41 @@ import { startApp } from "./app.js";
 import { runInit } from "./init.js";
 import { showStatus } from "./status.js";
 import { startAgent, stopAgent } from "./daemon.js";
+import { readFile } from "fs/promises";
+import { join } from "path";
 
 const args = process.argv.slice(2);
 const cmd = args[0];
 
-if (cmd === "init") {
+const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
+const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
+
+async function showHelp() {
+  let version = "unknown";
+  try {
+    const pkg = JSON.parse(await readFile(join(import.meta.dirname, "..", "package.json"), "utf-8"));
+    version = pkg.version;
+  } catch {}
+
+  const w = (s: string) => process.stdout.write(s + "\n");
+  w("");
+  w(`  ${bold("kern")} ${dim("v" + version)}`);
+  w(`  ${dim("One agent. One folder. One continuous conversation.")}`);
+  w("");
+  w(`  ${bold("Commands")}`);
+  w(`    kern init <name>          create a new agent`);
+  w(`    kern start                start all agents`);
+  w(`    kern start <name|path>    start one agent`);
+  w(`    kern stop                 stop all agents`);
+  w(`    kern stop <name>          stop one agent`);
+  w(`    kern status               show all agents`);
+  w(`    kern run <name|path>      run agent in foreground`);
+  w("");
+}
+
+if (!cmd || cmd === "help" || cmd === "--help" || cmd === "-h") {
+  showHelp().then(() => process.exit(0));
+} else if (cmd === "init") {
   runInit(args[1]).catch((error) => {
     console.error("Error:", error.message);
     process.exit(1);
@@ -30,29 +60,41 @@ if (cmd === "init") {
     console.error("Error:", error.message);
     process.exit(1);
   });
-} else {
-  // Determine agent directory
-  const agentDir = resolve(args[0] || ".");
-
-  if (!existsSync(agentDir)) {
-    console.error(`Directory not found: ${agentDir}`);
+} else if (cmd === "run") {
+  // Foreground mode — resolve name or path
+  const nameOrPath = args[1];
+  if (!nameOrPath) {
+    console.error("Usage: kern run <name|path>");
     process.exit(1);
   }
 
-  // Check for .kern/ or AGENTS.md to verify it's an agent dir
-  const hasKernDir = existsSync(resolve(agentDir, ".kern"));
-  const hasAgentsMd = existsSync(resolve(agentDir, "AGENTS.md"));
+  // Try registry first, then path
+  import("./registry.js").then(async ({ findAgent, registerAgent }) => {
+    let agentDir: string;
+    const agent = await findAgent(nameOrPath);
+    if (agent) {
+      agentDir = agent.path;
+    } else {
+      agentDir = resolve(nameOrPath);
+      if (!existsSync(agentDir)) {
+        console.error(`Agent not found: ${nameOrPath}`);
+        process.exit(1);
+        return;
+      }
+    }
 
-  if (!hasKernDir && !hasAgentsMd) {
-    console.error(`Not an agent directory: ${agentDir}`);
-    console.error(
-      "Run 'kern init' to set up a new agent, or point to an existing one.",
-    );
-    process.exit(1);
-  }
+    if (!existsSync(resolve(agentDir, ".kern")) && !existsSync(resolve(agentDir, "AGENTS.md"))) {
+      console.error(`Not an agent directory: ${agentDir}`);
+      process.exit(1);
+      return;
+    }
 
-  startApp(agentDir).catch((error) => {
-    console.error("Fatal:", error.message);
-    process.exit(1);
+    startApp(agentDir).catch((error) => {
+      console.error("Fatal:", error.message);
+      process.exit(1);
+    });
   });
+} else {
+  console.error(`Unknown command: ${cmd}`);
+  showHelp().then(() => process.exit(1));
 }
