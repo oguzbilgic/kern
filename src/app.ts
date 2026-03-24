@@ -3,15 +3,17 @@ import { TelegramInterface } from "./interfaces/telegram.js";
 import { CliInterface, dim, bold, cyan } from "./interfaces/cli.js";
 import { loadConfig } from "./config.js";
 import { readFile } from "fs/promises";
-import { join } from "path";
+import { join, basename } from "path";
 import type { Interface, MessageHandler } from "./interfaces/types.js";
+import { registerAgent } from "./registry.js";
 
 export async function startApp(agentDir: string): Promise<void> {
   const config = await loadConfig(agentDir);
   const runtime = new Runtime(agentDir);
   await runtime.init();
 
-  // Set working directory to agent dir so tools operate there
+  // Register agent and set working directory
+  await registerAgent(basename(agentDir), agentDir);
   process.chdir(agentDir);
 
   // Pick interface: Telegram if token set, otherwise CLI

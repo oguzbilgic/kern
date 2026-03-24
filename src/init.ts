@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "fs/promises";
 import { join, resolve } from "path";
 import { existsSync } from "fs";
 import { createInterface } from "readline";
+import { registerAgent } from "./registry.js";
 
 const rl = createInterface({
   input: process.stdin,
@@ -206,6 +207,9 @@ node_modules/
   } catch {
     print("  (git init skipped)");
   }
+
+  // Register in ~/.kern/agents.json
+  await registerAgent(name, dir);
 
   print("");
   print(`  Done. Run: cd ${name} && kern`);

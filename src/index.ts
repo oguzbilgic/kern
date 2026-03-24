@@ -4,11 +4,17 @@ import { resolve } from "path";
 import { existsSync } from "fs";
 import { startApp } from "./app.js";
 import { runInit } from "./init.js";
+import { showStatus } from "./status.js";
 
 const args = process.argv.slice(2);
 
 if (args[0] === "init") {
   runInit(args[1]).catch((error) => {
+    console.error("Error:", error.message);
+    process.exit(1);
+  });
+} else if (args[0] === "status") {
+  showStatus().catch((error) => {
     console.error("Error:", error.message);
     process.exit(1);
   });
