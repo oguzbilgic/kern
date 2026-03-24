@@ -1,11 +1,4 @@
-#!/usr/bin/env node
-
-// Suppress punycode deprecation warning from transitive dependencies
-const originalEmitWarning = process.emitWarning;
-process.emitWarning = (warning: any, ...args: any[]) => {
-  if (typeof warning === "string" && warning.includes("punycode")) return;
-  return (originalEmitWarning as any).call(process, warning, ...args);
-};
+#!/usr/bin/env -S node --no-deprecation
 
 import { resolve } from "path";
 import { existsSync } from "fs";
