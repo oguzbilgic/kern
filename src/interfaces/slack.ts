@@ -45,7 +45,25 @@ export class SlackInterface implements Interface {
       if (message.user === this.botUserId) return;
 
       const userId = message.user;
-      const text = message.text || "";
+      // Use blocks text if available (richer), fall back to message.text
+      let text = message.text || "";
+      if (message.blocks) {
+        try {
+          const blockText = message.blocks
+            .filter((b: any) => b.type === "rich_text")
+            .flatMap((b: any) => b.elements || [])
+            .flatMap((e: any) => e.elements || [])
+            .filter((e: any) => e.type === "text" || e.type === "link" || e.type === "user")
+            .map((e: any) => {
+              if (e.type === "text") return e.text;
+              if (e.type === "link") return e.url;
+              if (e.type === "user") return `<@${e.user_id}>`;
+              return "";
+            })
+            .join("");
+          if (blockText.length > text.length) text = blockText;
+        } catch {}
+      }
       const channelId = message.channel;
       const threadTs = ("thread_ts" in message ? message.thread_ts : undefined) as string | undefined;
 
