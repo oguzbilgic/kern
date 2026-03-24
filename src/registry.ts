@@ -7,6 +7,7 @@ export interface AgentEntry {
   name: string;
   path: string;
   pid?: number | null;
+  port?: number | null;
   addedAt: string;
 }
 
@@ -58,6 +59,16 @@ export async function setPid(nameOrPath: string, pid: number | null): Promise<vo
   const agent = agents.find((a) => a.name === nameOrPath || a.path === nameOrPath);
   if (agent) {
     agent.pid = pid;
+    if (!pid) agent.port = null;
+    await saveRegistry(agents);
+  }
+}
+
+export async function setPort(nameOrPath: string, port: number | null): Promise<void> {
+  const agents = await loadRegistry();
+  const agent = agents.find((a) => a.name === nameOrPath || a.path === nameOrPath);
+  if (agent) {
+    agent.port = port;
     await saveRegistry(agents);
   }
 }

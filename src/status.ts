@@ -56,10 +56,11 @@ export async function showStatus(): Promise<void> {
     const dot = !exists ? red("●") : running ? green("●") : dim("●");
     const nameStr = bold(agent.name);
     const modelStr = provider && model ? dim(`${provider}/${model}`) : dim("no config");
+    const portStr = agent.port ? `:${agent.port}` : "";
     const statusStr = !exists
       ? red("not found")
       : running
-        ? green(`running`) + dim(` (pid ${agent.pid})`)
+        ? green(`running`) + dim(` (pid ${agent.pid}${portStr})`)
         : dim("stopped");
 
     w(`  ${dot} ${nameStr}  ${modelStr}  ${statusStr}`);

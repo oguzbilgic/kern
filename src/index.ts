@@ -100,8 +100,49 @@ async function main() {
   }
 
   if (cmd === "tui") {
-    const agentDir = await resolveAgentDir(args[1]);
-    await startApp(agentDir, true);
+    const { connectTui } = await import("./tui.js");
+    const { findAgent, loadRegistry } = await import("./registry.js");
+    const { startAgent } = await import("./daemon.js");
+
+    let agentName = args[1];
+
+    // Auto-select if no arg
+    if (!agentName) {
+      const agents = await loadRegistry();
+      if (agents.length === 0) {
+        console.error("No agents registered. Run 'kern init <name>' first.");
+        process.exit(1);
+      } else if (agents.length === 1) {
+        agentName = agents[0].name;
+      } else {
+        const { select } = await import("@inquirer/prompts");
+        agentName = await select({
+          message: "Select agent",
+          choices: agents.map((a) => ({ name: a.name, value: a.name })),
+        });
+      }
+    }
+
+    // Check if running, auto-start if not
+    let agent = await findAgent(agentName);
+    if (!agent) {
+      console.error(`Agent not found: ${agentName}`);
+      process.exit(1);
+    }
+
+    const { isProcessRunning } = await import("./registry.js");
+    if (!agent.pid || !isProcessRunning(agent.pid)) {
+      await startAgent(agentName);
+      // Reload to get the port
+      agent = await findAgent(agentName);
+    }
+
+    if (!agent?.port) {
+      console.error(`Cannot determine port for ${agentName}. Is it running?`);
+      process.exit(1);
+    }
+
+    await connectTui(agent.port, agentName);
     return;
   }
 
