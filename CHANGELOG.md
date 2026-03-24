@@ -1,5 +1,18 @@
 # Changelog
 
+## next
+
+### Features
+- **User pairing** — code-based user approval for Telegram. Unpaired users get a `KERN-XXXX` code, operator approves via agent with context, agent writes USERS.md.
+- **`kern({ action: "pair" })`** — approve a pairing code from within the agent
+- **`kern({ action: "users" })`** — list paired and pending users
+- **USERS.md** — per-agent user directory with identity, role, guardrails. Created by `kern init`.
+- **No more allowlist** — pairing replaces `telegram.allowedUsers` config. Everyone pairs, including the operator.
+
+### Changes
+- Telegram adapter uses PairingManager instead of allowedUsers array
+- KERN.md documents full pairing flow for agents
+
 ## v0.3.0
 
 ### Features
