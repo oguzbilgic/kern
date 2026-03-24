@@ -54,12 +54,13 @@ export async function showStatus(): Promise<void> {
       } catch {}
     }
 
-    const status = exists ? green("●") : red("●");
+    const status = exists ? dim("●") : red("●");
     const nameStr = bold(agent.name);
     const modelStr = provider && model ? dim(`${provider}/${model}`) : dim("no config");
+    const pathStatus = !exists ? `  ${red("(not found)")}` : "";
 
     w(`  ${status} ${nameStr}  ${modelStr}`);
-    w(`    ${dim("path")}  ${agent.path}`);
+    w(`    ${dim("path")}  ${agent.path}${pathStatus}`);
     w(`    ${dim("tools")} ${toolScope || "—"}  ${dim("sessions")} ${sessionInfo}`);
     w("");
   }
