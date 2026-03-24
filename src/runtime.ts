@@ -87,8 +87,12 @@ export class Runtime {
       const response = await result.response;
       await this.session.append(response.messages as ModelMessage[]);
 
-      const usage = await result.totalUsage;
-      addTokenUsage(usage.inputTokens || 0, usage.outputTokens || 0);
+      try {
+        const usage = await result.totalUsage;
+        addTokenUsage(usage.inputTokens || 0, usage.outputTokens || 0);
+      } catch {
+        // usage tracking failed — non-critical
+      }
 
       onEvent({ type: "finish", text: fullText });
       return fullText || "(no text response)";
