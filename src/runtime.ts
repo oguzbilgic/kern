@@ -93,9 +93,18 @@ export class Runtime {
       onEvent({ type: "finish", text: fullText });
       return fullText || "(no text response)";
     } catch (error: any) {
-      const msg = error.lastError?.cause?.code === "EAI_AGAIN"
-        ? "DNS resolution failed — retrying may help"
-        : error.lastError?.message || error.message || "Unknown error";
+      // Extract a useful error message from nested errors
+      const cause = error.lastError?.cause || error.cause;
+      let msg: string;
+      if (cause?.code === "EAI_AGAIN" || cause?.code === "ENOTFOUND") {
+        msg = "DNS resolution failed — check network connection";
+      } else if (error.lastError?.message) {
+        msg = error.lastError.message;
+      } else if (error.message?.includes("No output generated")) {
+        msg = "No response from model — likely a network or API error, try again";
+      } else {
+        msg = error.message || "Unknown error";
+      }
       onEvent({ type: "error", error: msg });
       throw new Error(msg);
     }
