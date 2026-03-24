@@ -8,16 +8,19 @@ import { startAgent } from "./daemon.js";
 const MODELS: Record<string, { name: string; value: string }[]> = {
   openrouter: [
     { name: "Claude Opus 4.6", value: "anthropic/claude-opus-4.6" },
-    { name: "Claude Sonnet 4.5", value: "anthropic/claude-sonnet-4.5" },
-    { name: "GPT-4o", value: "openai/gpt-4o" },
-    { name: "GPT-4.1", value: "openai/gpt-4.1" },
-    { name: "Gemini 2.5 Pro", value: "google/gemini-2.5-pro-preview-06-05" },
-    { name: "DeepSeek V3", value: "deepseek/deepseek-chat-v3-0324" },
-    { name: "Llama 4 Maverick", value: "meta-llama/llama-4-maverick" },
+    { name: "Claude Sonnet 4.6", value: "anthropic/claude-sonnet-4.6" },
+    { name: "MiMo-V2-Pro", value: "xiaomi/mimo-v2-pro" },
+    { name: "MiniMax M2.5", value: "minimax/minimax-m2.5" },
+    { name: "DeepSeek V3.2", value: "deepseek/deepseek-chat-v3.2" },
+    { name: "GLM 5 Turbo", value: "z-ai/glm-5-turbo" },
+    { name: "Gemini 3 Flash Preview", value: "google/gemini-3-flash-preview" },
+    { name: "Hunter Alpha", value: "openrouter/hunter-alpha" },
+    { name: "Gemini 2.5 Flash", value: "google/gemini-2.5-flash" },
+    { name: "Step 3.5 Flash (free)", value: "stepfun/step-3.5-flash" },
   ],
   anthropic: [
     { name: "Claude Opus 4.6", value: "claude-opus-4-20250514" },
-    { name: "Claude Sonnet 4.5", value: "claude-sonnet-4-5-20250514" },
+    { name: "Claude Sonnet 4.6", value: "claude-sonnet-4-20250514" },
   ],
   openai: [
     { name: "GPT-4o", value: "gpt-4o" },
