@@ -11,16 +11,20 @@ const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
 const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
 
 const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const CLEAR_LINE = "\r\x1b[K";
 
 class Spinner {
   private interval: ReturnType<typeof setInterval> | null = null;
   private frame = 0;
+  private label = "";
 
-  start(label = "thinking") {
+  start(label: string) {
+    this.stop();
+    this.label = label;
     this.frame = 0;
     this.interval = setInterval(() => {
       const s = SPINNER[this.frame % SPINNER.length];
-      process.stderr.write(`\r${dim(`${s} ${label}`)}`);
+      process.stdout.write(`${CLEAR_LINE}  ${dim(`${s} ${this.label}`)}`);
       this.frame++;
     }, 80);
   }
@@ -29,7 +33,7 @@ class Spinner {
     if (this.interval) {
       clearInterval(this.interval);
       this.interval = null;
-      process.stderr.write("\r\x1b[K"); // clear line
+      process.stdout.write(CLEAR_LINE);
     }
   }
 }
@@ -44,7 +48,7 @@ export class CliInterface implements Interface {
       terminal: false,
     });
 
-    // Show recent history (last 2 exchanges only)
+    // Show recent history (last 2 exchanges)
     if (history && history.length > 0) {
       const recent = history.slice(-4);
       for (const msg of recent) {
@@ -80,9 +84,9 @@ export class CliInterface implements Interface {
       }
 
       const spinner = new Spinner();
-      spinner.start();
-      let hasOutput = false;
-      let inToolSequence = false;
+      spinner.start("thinking...");
+      let hasText = false;
+      let toolCount = 0;
 
       try {
         await onMessage(
@@ -90,38 +94,37 @@ export class CliInterface implements Interface {
           (event: StreamEvent) => {
             switch (event.type) {
               case "text-delta":
-                if (!hasOutput) {
+                if (!hasText) {
                   spinner.stop();
                   process.stdout.write("\n");
-                  hasOutput = true;
-                  inToolSequence = false;
+                  hasText = true;
                 }
                 process.stdout.write(event.text || "");
                 break;
 
               case "tool-call":
+                toolCount++;
                 spinner.stop();
-                if (!inToolSequence && hasOutput) {
-                  process.stdout.write("\n");
-                }
+                // Print completed tool line
                 process.stdout.write(
                   dim(`  ${yellow(event.toolName || "tool")} ${event.toolDetail || ""}\n`)
                 );
-                inToolSequence = true;
-                // Restart spinner while tool executes
-                spinner.start(event.toolName || "running");
+                // Show spinner for execution
+                spinner.start(`running ${event.toolName}...`);
                 break;
 
               case "tool-result":
+                // Tool done, waiting for next action
                 spinner.stop();
+                spinner.start("thinking...");
                 break;
 
               case "finish":
                 spinner.stop();
-                if (hasOutput) {
+                if (hasText) {
                   process.stdout.write(`\n\n${green("> ")}`);
                 } else {
-                  process.stdout.write(`\n${dim("(no response)")}\n\n${green("> ")}`);
+                  process.stdout.write(`${dim("(no response)")}\n\n${green("> ")}`);
                 }
                 break;
 
@@ -134,9 +137,8 @@ export class CliInterface implements Interface {
         );
       } catch {
         spinner.stop();
-        // Error already handled via event
-        if (!hasOutput) {
-          process.stdout.write(`\n${green("> ")}`);
+        if (!hasText) {
+          process.stdout.write(green("> "));
         }
       }
     });
