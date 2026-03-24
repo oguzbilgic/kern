@@ -6,6 +6,7 @@ import { startApp } from "./app.js";
 import { runInit } from "./init.js";
 import { showStatus } from "./status.js";
 import { startAgent, stopAgent } from "./daemon.js";
+import { findAgent, loadRegistry } from "./registry.js";
 import { readFile } from "fs/promises";
 import { join } from "path";
 
@@ -34,67 +35,82 @@ async function showHelp() {
   w(`    ${cyan("kern start")} ${dim("[name|path]")}      start agents`);
   w(`    ${cyan("kern stop")} ${dim("[name]")}            stop agents`);
   w(`    ${cyan("kern list")}                   show all agents`);
-  w(`    ${cyan("kern run")} ${dim("<name|path>")}        run in foreground`);
+  w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
   w("");
 }
 
-if (!cmd || cmd === "help" || cmd === "--help" || cmd === "-h") {
-  showHelp().then(() => process.exit(0));
-} else if (cmd === "init") {
-  runInit(args[1]).catch((error) => {
-    console.error("Error:", error.message);
-    process.exit(1);
-  });
-} else if (cmd === "list" || cmd === "ls" || cmd === "status") {
-  showStatus().then(() => process.exit(0)).catch((error) => {
-    console.error("Error:", error.message);
-    process.exit(1);
-  });
-} else if (cmd === "start") {
-  startAgent(args[1]).catch((error) => {
-    console.error("Error:", error.message);
-    process.exit(1);
-  });
-} else if (cmd === "stop") {
-  stopAgent(args[1]).catch((error) => {
-    console.error("Error:", error.message);
-    process.exit(1);
-  });
-} else if (cmd === "run") {
-  // Foreground mode — resolve name or path
-  const nameOrPath = args[1];
-  if (!nameOrPath) {
-    console.error("Usage: kern run <name|path>");
+async function resolveAgentDir(nameOrPath?: string): Promise<string> {
+  if (nameOrPath) {
+    // Check registry
+    const agent = await findAgent(nameOrPath);
+    if (agent) return agent.path;
+
+    // Check path
+    const dir = resolve(nameOrPath);
+    if (existsSync(dir) && (existsSync(join(dir, ".kern")) || existsSync(join(dir, "AGENTS.md")))) {
+      return dir;
+    }
+
+    console.error(`Agent not found: ${nameOrPath}`);
     process.exit(1);
   }
 
-  // Try registry first, then path
-  import("./registry.js").then(async ({ findAgent, registerAgent }) => {
-    let agentDir: string;
-    const agent = await findAgent(nameOrPath);
-    if (agent) {
-      agentDir = agent.path;
-    } else {
-      agentDir = resolve(nameOrPath);
-      if (!existsSync(agentDir)) {
-        console.error(`Agent not found: ${nameOrPath}`);
-        process.exit(1);
-        return;
-      }
-    }
+  // No arg — auto-select
+  const agents = await loadRegistry();
+  if (agents.length === 0) {
+    console.error("No agents registered. Run 'kern init <name>' first.");
+    process.exit(1);
+  }
+  if (agents.length === 1) {
+    return agents[0].path;
+  }
 
-    if (!existsSync(resolve(agentDir, ".kern")) && !existsSync(resolve(agentDir, "AGENTS.md"))) {
-      console.error(`Not an agent directory: ${agentDir}`);
-      process.exit(1);
-      return;
-    }
-
-    startApp(agentDir).catch((error) => {
-      console.error("Fatal:", error.message);
-      process.exit(1);
-    });
+  // Multiple agents — prompt to select
+  const { select } = await import("@inquirer/prompts");
+  return select({
+    message: "Select agent",
+    choices: agents.map((a) => ({ name: a.name, value: a.path })),
   });
-} else {
-  console.error(`Unknown command: ${cmd}`);
-  showHelp().then(() => process.exit(1));
 }
+
+async function main() {
+  if (!cmd || cmd === "help" || cmd === "--help" || cmd === "-h") {
+    await showHelp();
+    process.exit(0);
+  }
+
+  if (cmd === "init") {
+    await runInit(args[1]);
+    return;
+  }
+
+  if (cmd === "list" || cmd === "ls" || cmd === "status") {
+    await showStatus();
+    process.exit(0);
+  }
+
+  if (cmd === "start") {
+    await startAgent(args[1]);
+    return;
+  }
+
+  if (cmd === "stop") {
+    await stopAgent(args[1]);
+    return;
+  }
+
+  if (cmd === "tui" || cmd === "run") {
+    const agentDir = await resolveAgentDir(args[1]);
+    await startApp(agentDir);
+    return;
+  }
+
+  console.error(`Unknown command: ${cmd}`);
+  await showHelp();
+  process.exit(1);
+}
+
+main().catch((error) => {
+  console.error("Fatal:", error.message);
+  process.exit(1);
+});
