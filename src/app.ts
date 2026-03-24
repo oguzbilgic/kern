@@ -24,7 +24,11 @@ export async function startApp(agentDir: string): Promise<void> {
   }
 
   const handler: MessageHandler = async (msg, onEvent) => {
-    return runtime.handleMessage(msg.text, onEvent);
+    // Inject context so the model knows who/where
+    const context = msg.interface !== "cli"
+      ? `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}]\n${msg.text}`
+      : msg.text;
+    return runtime.handleMessage(context, onEvent);
   };
 
   const w = (s: string) => process.stdout.write(s + "\n");

@@ -105,7 +105,7 @@ export class CliInterface implements Interface {
 
       try {
         await onMessage(
-          { text: text.trim(), userId: "cli", chatId: "cli" },
+          { text: text.trim(), userId: "cli", chatId: "cli", interface: "cli", channel: "terminal" },
           (event: StreamEvent) => {
             switch (event.type) {
               case "text-delta":

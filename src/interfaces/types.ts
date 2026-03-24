@@ -5,6 +5,8 @@ export interface IncomingMessage {
   text: string;
   userId: string;
   chatId: string;
+  interface: string;
+  channel?: string;
 }
 
 export type MessageHandler = (

@@ -30,7 +30,7 @@ export class TelegramInterface implements Interface {
 
       try {
         const response = await onMessage(
-          { text, userId: userId.toString(), chatId },
+          { text, userId: userId.toString(), chatId, interface: "telegram", channel: `telegram:${chatId}` },
           (event) => {
             if (event.type === "text-delta") {
               currentText += event.text || "";
