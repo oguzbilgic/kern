@@ -10,6 +10,7 @@ export interface KernConfig {
   provider: string;
   toolScope: ToolScope;
   maxSteps: number;
+  maxContextTokens: number;
   telegram?: {
     allowedUsers?: number[];
   };
@@ -26,6 +27,7 @@ const defaults: KernConfig = {
   provider: "anthropic",
   toolScope: "full",
   maxSteps: 30,
+  maxContextTokens: 150000,
 };
 
 export function getToolsForScope(scope: ToolScope): string[] {

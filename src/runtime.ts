@@ -4,6 +4,34 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { allTools, type ToolName } from "./tools/index.js";
 import { SessionManager } from "./session.js";
 import { loadConfig, loadSystemPrompt, getToolsForScope, type KernConfig } from "./config.js";
+
+// Rough token estimate: ~4 chars per token
+function estimateTokens(messages: ModelMessage[]): number {
+  let chars = 0;
+  for (const msg of messages) {
+    if (typeof msg.content === "string") {
+      chars += msg.content.length;
+    } else if (Array.isArray(msg.content)) {
+      for (const part of msg.content) {
+        if ("text" in part) chars += (part as any).text.length;
+      }
+    }
+  }
+  return Math.ceil(chars / 4);
+}
+
+function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): ModelMessage[] {
+  if (maxTokens <= 0) return messages;
+  const total = estimateTokens(messages);
+  if (total <= maxTokens) return messages;
+
+  // Trim from front until under budget
+  let trimmed = [...messages];
+  while (trimmed.length > 1 && estimateTokens(trimmed) > maxTokens) {
+    trimmed.shift();
+  }
+  return trimmed;
+}
 import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern.js";
 
 export interface StreamEvent {
@@ -62,10 +90,19 @@ export class Runtime {
     try {
       let fullText = "";
 
+      // Trim messages to fit context window
+      const allMessages = this.session.getMessages();
+      const contextMessages = trimToTokenBudget(allMessages, this.config.maxContextTokens);
+      if (contextMessages.length < allMessages.length) {
+        const trimmed = allMessages.length - contextMessages.length;
+        // Log silently — messages still in JSONL, just not sent to API
+        process.stderr.write(`[kern] context trimmed: ${trimmed} old messages excluded\n`);
+      }
+
       const result = streamText({
         model,
         system: this.systemPrompt,
-        messages: this.session.getMessages(),
+        messages: contextMessages,
         tools,
         stopWhen: stepCountIs(this.config.maxSteps),
         onError: () => {},
