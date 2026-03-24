@@ -2,7 +2,7 @@
 
 One agent. One folder. One continuous conversation.
 
-kern is a simple agent runtime where each agent lives in a single directory — its identity, memory, config, and conversation all in one place. No server, no database, no multi-tenant complexity. Just a folder and a persistent session.
+kern gives an AI agent a single mind — one continuous session shared across CLI, Telegram, and Slack. Identity, memory, and conversation live in a plain folder. No server, no database. Just `npx kern-ai`.
 
 ## Why kern
 
