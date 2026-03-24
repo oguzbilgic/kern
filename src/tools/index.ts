@@ -5,6 +5,7 @@ import { editTool } from "./edit.js";
 import { globTool } from "./glob.js";
 import { grepTool } from "./grep.js";
 import { webfetchTool } from "./webfetch.js";
+import { kernTool } from "./kern.js";
 
 export const allTools = {
   bash: bashTool,
@@ -14,6 +15,7 @@ export const allTools = {
   glob: globTool,
   grep: grepTool,
   webfetch: webfetchTool,
+  kern: kernTool,
 };
 
 export type ToolName = keyof typeof allTools;

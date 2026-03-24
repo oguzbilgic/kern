@@ -4,6 +4,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { allTools, type ToolName } from "./tools/index.js";
 import { SessionManager } from "./session.js";
 import { loadConfig, loadSystemPrompt, getToolsForScope, type KernConfig } from "./config.js";
+import { initKernTool, incrementMessageCount } from "./tools/kern.js";
 
 export interface StreamEvent {
   type: "text-delta" | "tool-call" | "tool-result" | "finish" | "error";
@@ -31,6 +32,12 @@ export class Runtime {
     this.session = new SessionManager(this.agentDir);
     await this.session.init();
     await this.session.load();
+
+    initKernTool({
+      agentDir: this.agentDir,
+      config: this.config,
+      sessionId: this.session.getSessionId() || "unknown",
+    });
   }
 
   async handleMessage(
@@ -40,6 +47,7 @@ export class Runtime {
     // Add user message to session
     const userMsg: ModelMessage = { role: "user", content: userMessage };
     await this.session.append([userMsg]);
+    incrementMessageCount();
 
     // Build tools from scope
     const tools: Record<string, any> = {};

@@ -21,6 +21,7 @@ const TOOL_COLORS: Record<string, (s: string) => string> = {
   glob: magenta,
   grep: blue,
   webfetch: cyan,
+  kern: bold,
 };
 
 const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
