@@ -35,6 +35,7 @@ export class SlackInterface implements Interface {
     try {
       const auth = await this.app.client.auth.test();
       this.botUserId = auth.user_id as string || "";
+      console.log(`Slack bot user ID: ${this.botUserId}`);
     } catch {}
 
     // Listen to all messages
@@ -69,9 +70,12 @@ export class SlackInterface implements Interface {
       // Detect @mention
       const isMentioned = text.includes(`<@${this.botUserId}>`);
       // Clean @mention from text
-      const cleanText = text.replace(new RegExp(`<@${this.botUserId}>`, "g"), "").trim();
+      let cleanText = text.replace(new RegExp(`<@${this.botUserId}>`, "g"), "").trim();
 
-      if (!cleanText) return;
+      // If just a bare mention with no text, skip
+      if (!cleanText && !isMentioned) return;
+      // If mentioned with no text, use "hello" as default
+      if (!cleanText && isMentioned) cleanText = "(mentioned with no message)";
 
       // Build channel label
       const channelLabel = isDM ? `slack-dm` : channelName;
