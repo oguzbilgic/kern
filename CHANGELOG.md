@@ -3,18 +3,35 @@
 ## next
 
 ### Features
-- **Daemon mode** — `kern start` / `kern stop` to run agents in background with PID tracking
+- **Daemon mode** — `kern start` / `kern stop` / `kern restart` to run agents in background with PID tracking
+- **HTTP server per agent** — each agent runs an HTTP server on a random local port for TUI and future web UI
+- **SSE event stream** — all events (text, tool calls, cross-channel messages) broadcast via Server-Sent Events
+- **`kern tui`** — connects to running daemon via HTTP/SSE, auto-starts if needed, auto-selects if one agent
+- **Cross-channel TUI** — see Telegram messages in real time from the TUI (yellow ◇ marker)
 - **Agent registry** — `~/.kern/agents.json` auto-populated by init, start, and run commands
-- **`kern list`** — show all registered agents with running state (green/red/dim dots)
-- **`kern run`** — foreground mode for dev/debug, accepts name or path
-- **`kern start` accepts paths** — `kern start ./cloned-repo` auto-registers and starts
+- **`kern list`** — show all registered agents with running state (green/red/dim dots), port numbers
+- **`kern init` config mode** — re-run on existing agent to reconfigure (arrow-key select, masked passwords), auto-restart
+- **Inquirer prompts** — arrow-key provider and model selection in init wizard
 - **Startup verification** — `kern start` waits 2s, shows error log if agent crashes
-- **Help screen** — `kern` with no args shows colorized command reference
+- **Context window trimming** — sliding window over message history, configurable `maxContextTokens`
+- **Persistent API usage** — token counts saved to `.kern/usage.json`, survives restarts
+- **Status shows session vs context** — full session size and trimmed context window separately
+- **Uniform channel metadata** — all messages (TUI, Telegram, Slack) tagged with `[via interface, channel, user]`
+- **OpenRouter app headers** — requests show "kern-ai" in OpenRouter logs
+- **Model list** — updated from OpenRouter leaderboard (Opus 4.6, Sonnet 4.6, MiMo, DeepSeek V3.2, GPT-5.4, Gemini 3.1 Pro, etc.)
 
 ### Changes
 - `kern` (no args) shows help instead of running in cwd
+- `kern tui` always CLI, `kern start` runs Telegram/Slack in background
 - `kern status` renamed to `kern list` (`status` still works as alias)
-- CLI restructured: init, start, stop, list, run
+- All channels get metadata prefix — no special cases for TUI
+- Default `maxContextTokens`: 40000 (estimated, ~160k real tokens)
+
+### Fixes
+- `kern restart` works (process.exit removed from daemon internals)
+- TUI doesn't echo own messages from SSE broadcast
+- TUI spinner only runs when TUI sent the message (no clearing cross-channel content)
+- Token estimate uses full JSON.stringify (was undercounting with text-only)
 
 ## v0.2.0
 
