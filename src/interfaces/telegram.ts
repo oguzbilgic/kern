@@ -1,6 +1,32 @@
 import { Bot } from "grammy";
 import type { Interface, StartOptions } from "./types.js";
 
+function mdToHtml(text: string): string {
+  // Convert common markdown to Telegram HTML
+  // Order matters — do code blocks first to avoid processing inside them
+  let html = text;
+
+  // Code blocks: ```lang\n...\n``` → <pre><code>...</code></pre>
+  html = html.replace(/```\w*\n([\s\S]*?)```/g, "<pre><code>$1</code></pre>");
+
+  // Inline code: `...` → <code>...</code>
+  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+
+  // Bold: **...** → <b>...</b>
+  html = html.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+
+  // Italic: *...* → <i>...</i>
+  html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<i>$1</i>");
+
+  // Strikethrough: ~~...~~ → <s>...</s>
+  html = html.replace(/~~(.+?)~~/g, "<s>$1</s>");
+
+  // Escape remaining HTML special chars (but not our tags)
+  // Skip — Telegram is lenient with unescaped text outside tags
+
+  return html;
+}
+
 export class TelegramInterface implements Interface {
   private bot: Bot;
   private allowedUsers: number[];
@@ -65,9 +91,17 @@ export class TelegramInterface implements Interface {
     try {
       const truncated =
         text.length > 4000 ? text.slice(-4000) + "\n...(truncated)" : text;
-      await ctx.api.editMessageText(ctx.chat.id, messageId, truncated || "...");
+      const html = mdToHtml(truncated || "...");
+      await ctx.api.editMessageText(ctx.chat.id, messageId, html, { parse_mode: "HTML" });
     } catch {
-      // ignore
+      // HTML parse failed — fall back to plain text
+      try {
+        const truncated =
+          text.length > 4000 ? text.slice(-4000) + "\n...(truncated)" : text;
+        await ctx.api.editMessageText(ctx.chat.id, messageId, truncated || "...");
+      } catch {
+        // ignore
+      }
     }
   }
 }
