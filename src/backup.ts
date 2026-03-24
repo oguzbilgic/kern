@@ -26,18 +26,24 @@ export async function backupAgent(nameOrPath?: string): Promise<void> {
   const folderName = basename(agentDir);
   const date = new Date().toISOString().slice(0, 10);
   const tarName = `${agent.name}-${date}.tar.gz`;
-  const tarPath = resolve(tarName);
+
+  // Store backups in ~/.kern/backups/
+  const { homedir } = await import("os");
+  const { mkdir } = await import("fs/promises");
+  const backupDir = join(homedir(), ".kern", "backups");
+  await mkdir(backupDir, { recursive: true });
+  const tarPath = join(backupDir, tarName);
 
   console.log("");
   console.log(`  ${bold("kern backup")} ${agent.name}`);
-  console.log(`  ${dim(agentDir)} → ${tarName}`);
+  console.log(`  ${dim(agentDir)} → ${dim(tarPath)}`);
 
   try {
     execSync(
       `tar czf "${tarPath}" --exclude='.kern/logs' -C "${parentDir}" "${folderName}/"`,
       { stdio: "pipe" },
     );
-    console.log(`  ${green("✓")} ${tarName}`);
+    console.log(`  ${green("✓")} ${tarPath}`);
   } catch (e: any) {
     console.error(`  ${red("✗")} backup failed: ${e.message}`);
     process.exit(1);
