@@ -5,10 +5,25 @@ import { input, select, password } from "@inquirer/prompts";
 import { registerAgent, findAgent, isProcessRunning, setPid } from "./registry.js";
 import { startAgent } from "./daemon.js";
 
-const MODEL_DEFAULTS: Record<string, string> = {
-  openrouter: "anthropic/claude-opus-4",
-  anthropic: "claude-opus-4-20250514",
-  openai: "gpt-4o",
+const MODELS: Record<string, { name: string; value: string }[]> = {
+  openrouter: [
+    { name: "Claude Opus 4", value: "anthropic/claude-opus-4" },
+    { name: "Claude Sonnet 4", value: "anthropic/claude-sonnet-4" },
+    { name: "GPT-4o", value: "openai/gpt-4o" },
+    { name: "GPT-4.1", value: "openai/gpt-4.1" },
+    { name: "Gemini 2.5 Pro", value: "google/gemini-2.5-pro-preview-06-05" },
+    { name: "DeepSeek V3", value: "deepseek/deepseek-chat-v3-0324" },
+    { name: "Llama 4 Maverick", value: "meta-llama/llama-4-maverick" },
+  ],
+  anthropic: [
+    { name: "Claude Opus 4", value: "claude-opus-4-20250514" },
+    { name: "Claude Sonnet 4", value: "claude-sonnet-4-20250514" },
+  ],
+  openai: [
+    { name: "GPT-4o", value: "gpt-4o" },
+    { name: "GPT-4.1", value: "gpt-4.1" },
+    { name: "o3", value: "o3" },
+  ],
 };
 
 const PROVIDERS = [
@@ -71,10 +86,12 @@ async function runConfig(name: string, dir: string): Promise<void> {
   });
 
   // Model
-  const defaultModel = currentConfig.model || MODEL_DEFAULTS[provider] || "anthropic/claude-opus-4";
-  const model = await input({
+  const modelChoices = MODELS[provider] || MODELS.openrouter;
+  const currentModel = currentConfig.model || modelChoices[0].value;
+  const model = await select({
     message: "Model",
-    default: defaultModel,
+    choices: modelChoices,
+    default: currentModel,
   });
 
   // Telegram
@@ -185,10 +202,11 @@ export async function runInit(targetArg?: string): Promise<void> {
   });
 
   // Model
-  const defaultModel = MODEL_DEFAULTS[provider] || "anthropic/claude-opus-4";
-  const model = await input({
+  const modelChoices = MODELS[provider] || MODELS.openrouter;
+  const model = await select({
     message: "Model",
-    default: defaultModel,
+    choices: modelChoices,
+    default: modelChoices[0].value,
   });
 
   // Telegram bot token (optional)
