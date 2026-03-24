@@ -73,6 +73,15 @@ export async function setPort(nameOrPath: string, port: number | null): Promise<
   }
 }
 
+export async function removeAgent(nameOrPath: string): Promise<boolean> {
+  const agents = await loadRegistry();
+  const idx = agents.findIndex((a) => a.name === nameOrPath || a.path === nameOrPath);
+  if (idx < 0) return false;
+  agents.splice(idx, 1);
+  await saveRegistry(agents);
+  return true;
+}
+
 export function isProcessRunning(pid: number): boolean {
   try {
     process.kill(pid, 0);

@@ -36,6 +36,7 @@ async function showHelp() {
   w(`    ${cyan("kern stop")} ${dim("[name]")}            stop agents`);
   w(`    ${cyan("kern restart")} ${dim("[name]")}         restart agents`);
   w(`    ${cyan("kern list")}                   show all agents`);
+  w(`    ${cyan("kern remove")} ${dim("<name>")}          unregister an agent`);
   w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
   w("");
 }
@@ -104,6 +105,27 @@ async function main() {
     await stopAgent(args[1]);
     await new Promise((r) => setTimeout(r, 500));
     await startAgent(args[1]);
+    process.exit(0);
+  }
+
+  if (cmd === "remove" || cmd === "rm") {
+    const name = args[1];
+    if (!name) {
+      console.error("Usage: kern remove <name>");
+      process.exit(1);
+    }
+    const { removeAgent, findAgent, isProcessRunning } = await import("./registry.js");
+    const { stopAgent } = await import("./daemon.js");
+    const agent = await findAgent(name);
+    if (!agent) {
+      console.error(`Agent not found: ${name}`);
+      process.exit(1);
+    }
+    if (agent.pid && isProcessRunning(agent.pid)) {
+      await stopAgent(name);
+    }
+    await removeAgent(name);
+    console.log(`  Removed ${name}`);
     process.exit(0);
   }
 
