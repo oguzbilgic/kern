@@ -75,14 +75,27 @@ export class TelegramInterface implements Interface {
 
       let lastEditTime = 0;
       let currentText = "";
+      let toolLines: string[] = [];
+      let streaming = false;
 
       try {
         const response = await onMessage(
           { text, userId: userId.toString(), chatId, interface: "telegram", channel: `telegram:${chatId}` },
           (event) => {
-            if (event.type === "text-delta") {
+            const now = Date.now();
+            if (event.type === "tool-call") {
+              const detail = event.toolDetail ? ` ${event.toolDetail}` : "";
+              toolLines.push(`⚙ ${event.toolName}${detail}`);
+              if (now - lastEditTime > 500) {
+                lastEditTime = now;
+                this.editMessage(ctx, reply.message_id, toolLines.join("\n"), false).catch(() => {});
+              }
+            } else if (event.type === "text-delta") {
+              if (!streaming) {
+                streaming = true;
+                currentText = "";
+              }
               currentText += event.text || "";
-              const now = Date.now();
               if (now - lastEditTime > 1000) {
                 lastEditTime = now;
                 this.editMessage(ctx, reply.message_id, currentText).catch(() => {});
@@ -111,19 +124,23 @@ export class TelegramInterface implements Interface {
     ctx: any,
     messageId: number,
     text: string,
+    useHtml = true,
   ): Promise<void> {
     const truncated =
       text.length > 4000 ? text.slice(-4000) + "\n...(truncated)" : text;
     const content = truncated || "...";
+    if (!useHtml) {
+      try {
+        await ctx.api.editMessageText(ctx.chat.id, messageId, content);
+      } catch { /* ignore */ }
+      return;
+    }
     try {
       await ctx.api.editMessageText(ctx.chat.id, messageId, mdToHtml(content), { parse_mode: "HTML" });
     } catch {
-      // HTML failed — fall back to clean plain text
       try {
         await ctx.api.editMessageText(ctx.chat.id, messageId, stripMarkdown(content));
-      } catch {
-        // ignore
-      }
+      } catch { /* ignore */ }
     }
   }
 }
