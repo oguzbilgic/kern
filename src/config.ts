@@ -57,8 +57,20 @@ export async function loadSystemPrompt(agentDir: string): Promise<string> {
     parts.push(await readFile(identityPath, "utf-8"));
   }
 
-  if (parts.length === 0) {
-    return "You are a helpful AI assistant.";
+  // Kern runtime context
+  parts.push(`## Runtime Context
+
+You are running inside kern, an agent runtime. Messages may include metadata:
+\`[via <interface>, <channel>, user: <id>]\`
+
+This tells you where and who the message came from. Pay attention to it:
+- Adjust response length to the interface (brief on Telegram, detailed on CLI)
+- Keep track of who said what when multiple users interact with you
+- If no metadata is present, the message is from the CLI`);
+
+  if (parts.length === 1) {
+    // Only the runtime context, no AGENTS.md or IDENTITY.md
+    return "You are a helpful AI assistant.\n\n" + parts[0];
   }
 
   return parts.join("\n\n---\n\n");
