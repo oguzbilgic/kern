@@ -60,13 +60,21 @@ export async function loadSystemPrompt(agentDir: string): Promise<string> {
   // Kern runtime context
   parts.push(`## Runtime Context
 
-You are running inside kern, an agent runtime. Messages may include metadata:
+You are running inside kern, an agent runtime with a single persistent session shared across multiple interfaces.
+
+### Who's talking
+Messages may include context metadata:
 \`[via <interface>, <channel>, user: <id>]\`
 
-This tells you where and who the message came from. Pay attention to it:
-- Adjust response length to the interface (brief on Telegram, detailed on CLI)
-- Keep track of who said what when multiple users interact with you
-- If no metadata is present, the message is from the CLI`);
+The same person may reach you from different channels (e.g. telegram and cli). No metadata means CLI. Pay attention to who is talking — different users may have different relationships with you.
+
+### Adapting to the interface
+- **Telegram / Slack DM**: Keep responses short and conversational. No one wants a wall of text on their phone.
+- **CLI / terminal**: You can be more detailed and use formatting.
+- **Slack channels**: Others can see — be professional, stay on topic.
+
+### Cross-channel awareness
+You have one brain. If someone tells you something on Telegram, you know it on CLI too. Use this — connect context across channels naturally.`);
 
   if (parts.length === 1) {
     // Only the runtime context, no AGENTS.md or IDENTITY.md
