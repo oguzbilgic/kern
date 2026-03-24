@@ -33,8 +33,8 @@ async function startOne(name: string, path: string): Promise<void> {
   // Find the kern entry point
   const kernBin = join(import.meta.dirname, "index.js");
 
-  // Fork detached process
-  const child = spawn("node", ["--no-deprecation", kernBin, path], {
+  // Fork detached process using kern run
+  const child = spawn("node", ["--no-deprecation", kernBin, "run", path], {
     detached: true,
     stdio: ["ignore", logFd, logFd],
     cwd: path,
@@ -46,7 +46,24 @@ async function startOne(name: string, path: string): Promise<void> {
   await registerAgent(name, path);
   await setPid(name, pid);
 
-  console.log(`  ${green("●")} ${bold(name)} started ${dim(`(pid ${pid})`)}`);
+  // Wait and verify the process stays alive
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+
+  if (isProcessRunning(pid)) {
+    console.log(`  ${green("●")} ${bold(name)} started ${dim(`(pid ${pid})`)}`);
+  } else {
+    await setPid(name, null);
+    console.log(`  ${red("●")} ${bold(name)} failed to start`);
+    // Show last few lines of log
+    try {
+      const { readFile } = await import("fs/promises");
+      const log = await readFile(logFile, "utf-8");
+      const lines = log.trim().split("\n").slice(-5);
+      for (const line of lines) {
+        console.log(`    ${dim(line)}`);
+      }
+    } catch {}
+  }
 }
 
 export async function startAgent(nameOrPath?: string): Promise<void> {
