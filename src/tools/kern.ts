@@ -14,12 +14,14 @@ let _totalPromptTokens = 0;
 let _totalCompletionTokens = 0;
 let _usageFile = "";
 let _getSessionStats: (() => { totalMessages: number; estimatedTokens: number; windowTokens: number }) | null = null;
+let _reloadFn: (() => Promise<void>) | null = null;
 
 export async function initKernTool(opts: {
   agentDir: string;
   config: any;
   sessionId: string;
   getSessionStats?: () => { totalMessages: number; estimatedTokens: number; windowTokens: number };
+  reload?: () => Promise<void>;
 }) {
   _agentDir = opts.agentDir;
   _config = opts.config;
@@ -27,6 +29,7 @@ export async function initKernTool(opts: {
   _startedAt = Date.now();
   _messageCount = 0;
   _getSessionStats = opts.getSessionStats || null;
+  _reloadFn = opts.reload || null;
   _usageFile = join(_agentDir, ".kern", "usage.json");
   // Load persisted usage
   try {
@@ -68,9 +71,9 @@ export const kernTool = tool({
     "Manage your own kern runtime. Check status, view config, or reload after changes.",
   inputSchema: z.object({
     action: z
-      .enum(["status", "config", "env"])
+      .enum(["status", "config", "env", "restart"])
       .describe(
-        "status: runtime info (uptime, messages, model). config: show .kern/config.json. env: show .kern/.env variable names (not values).",
+        "status: runtime info. config: show config. env: show env var names. restart: restart the runtime (picks up config/env changes).",
       ),
   }),
   execute: async ({ action }) => {
@@ -134,6 +137,20 @@ export const kernTool = tool({
         } catch {
           return "Error: could not read .kern/.env";
         }
+      }
+
+      case "restart": {
+        const { spawn } = await import("child_process");
+        const { basename } = await import("path");
+        const kernBin = join(import.meta.dirname, "..", "index.js");
+        const name = basename(_agentDir);
+        // Spawn detached restart — it will kill us then start a new process
+        const child = spawn("node", ["--no-deprecation", kernBin, "restart", name], {
+          detached: true,
+          stdio: "ignore",
+        });
+        child.unref();
+        return "Restarting... I'll be back in a few seconds.";
       }
 
       default:
