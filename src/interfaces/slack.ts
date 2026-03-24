@@ -77,15 +77,7 @@ export class SlackInterface implements Interface {
 
         // NO_REPLY suppression
         if (response && response.trim() !== "NO_REPLY") {
-          if (isDM) {
-            await say(response);
-          } else {
-            // Channel: reply in thread
-            await say({
-              text: response,
-              thread_ts: threadTs || (message as any).ts,
-            });
-          }
+          await say(response);
         }
       } catch (error: any) {
         if (isDM) {
