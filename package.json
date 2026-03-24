@@ -8,7 +8,8 @@
     "kern-ai": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "KERN.md"
   ],
   "scripts": {
     "build": "tsc",

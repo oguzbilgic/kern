@@ -11,7 +11,7 @@ export interface KernConfig {
   telegram?: {
     allowedUsers?: number[];
   };
-  kernRepo?: string;
+
 }
 
 const defaults: KernConfig = {
@@ -43,7 +43,7 @@ export async function loadConfig(agentDir: string): Promise<KernConfig> {
   }
 }
 
-export async function loadSystemPrompt(agentDir: string, config?: KernConfig): Promise<string> {
+export async function loadSystemPrompt(agentDir: string): Promise<string> {
   const parts: string[] = [];
 
   // Load AGENTS.md (kernel)
@@ -58,33 +58,17 @@ export async function loadSystemPrompt(agentDir: string, config?: KernConfig): P
     parts.push(await readFile(identityPath, "utf-8"));
   }
 
-  // Kern runtime context
-  parts.push(`## Runtime Context
+  // Load KERN.md (runtime context) — from agent dir first, fall back to kern package
+  const kernMdAgent = join(agentDir, "KERN.md");
+  const kernMdPackage = join(import.meta.dirname, "..", "KERN.md");
+  if (existsSync(kernMdAgent)) {
+    parts.push(await readFile(kernMdAgent, "utf-8"));
+  } else if (existsSync(kernMdPackage)) {
+    parts.push(await readFile(kernMdPackage, "utf-8"));
+  }
 
-You are running inside kern, an agent runtime with a single persistent session shared across multiple interfaces.
-
-### Who's talking
-Messages may include context metadata:
-\`[via <interface>, <channel>, user: <id>]\`
-
-The same person may reach you from different channels (e.g. telegram and cli). No metadata means CLI. Pay attention to who is talking — different users may have different relationships with you.
-
-### Adapting to the interface
-- **Telegram / Slack DM**: Keep responses short and conversational. No one wants a wall of text on their phone.
-- **CLI / terminal**: You can be more detailed and use formatting.
-- **Slack channels**: Others can see — be professional, stay on topic.
-
-### Cross-channel awareness
-You have one brain. If someone tells you something on Telegram, you know it on CLI too. Use this — connect context across channels naturally.
-
-### Self-awareness
-You are running on kern (npm: kern-ai). You can understand and configure yourself:
-- Your config: \`.kern/config.json\` — read or modify it to change model, tools, etc.
-- Runtime docs and source: ${config?.kernRepo ? `\`${config.kernRepo}\`` : 'kern-ai repo (if available)'} — read README.md and source code when you need to understand how you work.`);
-
-  if (parts.length === 1) {
-    // Only the runtime context, no AGENTS.md or IDENTITY.md
-    return "You are a helpful AI assistant.\n\n" + parts[0];
+  if (parts.length === 0) {
+    return "You are a helpful AI assistant.";
   }
 
   return parts.join("\n\n---\n\n");
