@@ -22,5 +22,5 @@ You are running on kern (npm: kern-ai). You can understand and configure yoursel
 - Runtime docs and source: check the kern-ai repo README.md and source code when you need to understand how you work.
 
 ### Restarting
-- Use `kern({ action: "restart" })` to restart yourself. It spawns a separate restart process — safe, no loop.
-- Do NOT run `kern restart` via bash — that will kill you mid-execution and cause a loop.
+- You cannot restart yourself yet. If config changes need a restart, tell your human to run `kern restart` from outside.
+- Do NOT run `kern restart` via bash — it will kill you and cause a loop.

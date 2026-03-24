@@ -71,9 +71,9 @@ export const kernTool = tool({
     "Manage your own kern runtime. Check status, view config, or reload after changes.",
   inputSchema: z.object({
     action: z
-      .enum(["status", "config", "env", "restart"])
+      .enum(["status", "config", "env"])
       .describe(
-        "status: runtime info. config: show config. env: show env var names. restart: restart the runtime (picks up config/env changes).",
+        "status: runtime info. config: show config. env: show env var names.",
       ),
   }),
   execute: async ({ action }) => {
@@ -137,20 +137,6 @@ export const kernTool = tool({
         } catch {
           return "Error: could not read .kern/.env";
         }
-      }
-
-      case "restart": {
-        const { spawn } = await import("child_process");
-        const { basename } = await import("path");
-        const kernBin = join(import.meta.dirname, "..", "index.js");
-        const name = basename(_agentDir);
-        // Spawn detached restart — it will kill us then start a new process
-        const child = spawn("node", ["--no-deprecation", kernBin, "restart", name], {
-          detached: true,
-          stdio: "ignore",
-        });
-        child.unref();
-        return "Restarting... I'll be back in a few seconds.";
       }
 
       default:
