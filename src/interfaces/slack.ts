@@ -3,6 +3,19 @@ import { App as SlackApp } from "@slack/bolt";
 import type { Interface, StartOptions } from "./types.js";
 import type { PairingManager } from "../pairing.js";
 
+function mdToSlack(text: string): string {
+  let s = text;
+  // Code blocks — leave as-is, Slack supports ```
+  // Bold: **text** → *text*
+  s = s.replace(/\*\*(.+?)\*\*/g, "*$1*");
+  // Italic: *text* → _text_ (but not inside bold)
+  // Skip — after converting **→*, single * is now bold in Slack
+  // Strikethrough: ~~text~~ → ~text~
+  s = s.replace(/~~(.+?)~~/g, "~$1~");
+  // Lists: - item stays as-is, Slack renders them
+  return s;
+}
+
 export class SlackInterface implements Interface {
   private app: InstanceType<typeof SlackApp>;
   private pairing: PairingManager | null;
@@ -77,7 +90,7 @@ export class SlackInterface implements Interface {
 
         // NO_REPLY suppression
         if (response && response.trim() !== "NO_REPLY") {
-          await say(response);
+          await say(mdToSlack(response));
         }
       } catch (error: any) {
         if (isDM) {
