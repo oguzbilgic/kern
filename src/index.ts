@@ -5,16 +5,28 @@ import { existsSync } from "fs";
 import { startApp } from "./app.js";
 import { runInit } from "./init.js";
 import { showStatus } from "./status.js";
+import { startAgent, stopAgent } from "./daemon.js";
 
 const args = process.argv.slice(2);
+const cmd = args[0];
 
-if (args[0] === "init") {
+if (cmd === "init") {
   runInit(args[1]).catch((error) => {
     console.error("Error:", error.message);
     process.exit(1);
   });
-} else if (args[0] === "status") {
+} else if (cmd === "status") {
   showStatus().then(() => process.exit(0)).catch((error) => {
+    console.error("Error:", error.message);
+    process.exit(1);
+  });
+} else if (cmd === "start") {
+  startAgent(args[1]).catch((error) => {
+    console.error("Error:", error.message);
+    process.exit(1);
+  });
+} else if (cmd === "stop") {
+  stopAgent(args[1]).catch((error) => {
     console.error("Error:", error.message);
     process.exit(1);
   });

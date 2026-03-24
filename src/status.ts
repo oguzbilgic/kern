@@ -1,13 +1,12 @@
-import { loadRegistry } from "./registry.js";
+import { loadRegistry, isProcessRunning } from "./registry.js";
 import { existsSync } from "fs";
-import { readFile } from "fs/promises";
+import { readFile, readdir } from "fs/promises";
 import { join } from "path";
 
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
-const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
 
 export async function showStatus(): Promise<void> {
   const agents = await loadRegistry();
@@ -25,9 +24,10 @@ export async function showStatus(): Promise<void> {
 
   for (const agent of agents) {
     const exists = existsSync(agent.path);
+    const running = agent.pid ? isProcessRunning(agent.pid) : false;
     const hasConfig = exists && existsSync(join(agent.path, ".kern", "config.json"));
 
-    // Try to read config for model info
+    // Read config
     let model = "";
     let provider = "";
     let toolScope = "";
@@ -40,12 +40,11 @@ export async function showStatus(): Promise<void> {
       } catch {}
     }
 
-    // Check if session exists
+    // Check sessions
     let sessionInfo = "no session";
     const sessDir = join(agent.path, ".kern", "sessions");
     if (existsSync(sessDir)) {
       try {
-        const { readdir } = await import("fs/promises");
         const files = await readdir(sessDir);
         const jsonl = files.filter((f) => f.endsWith(".jsonl"));
         if (jsonl.length > 0) {
@@ -54,13 +53,17 @@ export async function showStatus(): Promise<void> {
       } catch {}
     }
 
-    const status = exists ? dim("●") : red("●");
+    const dot = !exists ? red("●") : running ? green("●") : dim("●");
     const nameStr = bold(agent.name);
     const modelStr = provider && model ? dim(`${provider}/${model}`) : dim("no config");
-    const pathStatus = !exists ? `  ${red("(not found)")}` : "";
+    const statusStr = !exists
+      ? red("not found")
+      : running
+        ? green(`running`) + dim(` (pid ${agent.pid})`)
+        : dim("stopped");
 
-    w(`  ${status} ${nameStr}  ${modelStr}`);
-    w(`    ${dim("path")}  ${agent.path}${pathStatus}`);
+    w(`  ${dot} ${nameStr}  ${modelStr}  ${statusStr}`);
+    w(`    ${dim("path")}  ${agent.path}`);
     w(`    ${dim("tools")} ${toolScope || "—"}  ${dim("sessions")} ${sessionInfo}`);
     w("");
   }

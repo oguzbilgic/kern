@@ -6,6 +6,7 @@ import { homedir } from "os";
 export interface AgentEntry {
   name: string;
   path: string;
+  pid?: number | null;
   addedAt: string;
 }
 
@@ -35,14 +36,37 @@ export async function registerAgent(name: string, path: string): Promise<void> {
   const agents = await loadRegistry();
   const existing = agents.findIndex((a) => a.path === path);
   if (existing >= 0) {
-    // Update name if changed
     agents[existing].name = name;
   } else {
     agents.push({
       name,
       path,
+      pid: null,
       addedAt: new Date().toISOString(),
     });
   }
   await saveRegistry(agents);
+}
+
+export async function findAgent(nameOrPath: string): Promise<AgentEntry | null> {
+  const agents = await loadRegistry();
+  return agents.find((a) => a.name === nameOrPath || a.path === nameOrPath) || null;
+}
+
+export async function setPid(nameOrPath: string, pid: number | null): Promise<void> {
+  const agents = await loadRegistry();
+  const agent = agents.find((a) => a.name === nameOrPath || a.path === nameOrPath);
+  if (agent) {
+    agent.pid = pid;
+    await saveRegistry(agents);
+  }
+}
+
+export function isProcessRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
 }
