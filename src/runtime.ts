@@ -58,16 +58,20 @@ export class Runtime {
         messages: this.session.getMessages(),
         tools,
         stopWhen: stepCountIs(this.config.maxSteps),
-        onStepFinish: (step) => {
-          if (step.text) {
-            callbacks.onStepFinish?.(step.text);
-          }
+        onError: ({ error }) => {
+          console.error("[kern] stream error:", error);
         },
       });
 
-      for await (const chunk of result.textStream) {
-        fullText += chunk;
-        callbacks.onText(fullText);
+      for await (const part of result.fullStream) {
+        if (part.type === "text-delta") {
+          fullText += part.text;
+          callbacks.onText(fullText);
+        } else if (part.type === "tool-call") {
+          console.error(`[kern] tool: ${part.toolName}`);
+        } else if (part.type === "error") {
+          console.error("[kern] error:", part.error);
+        }
       }
 
       // Consume the stream fully and get response messages
@@ -75,7 +79,7 @@ export class Runtime {
       await this.session.append(response.messages as ModelMessage[]);
 
       callbacks.onFinish(fullText);
-      return fullText;
+      return fullText || "(no text response)";
     } catch (error: any) {
       callbacks.onError(error);
       throw error;

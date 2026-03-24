@@ -15,6 +15,7 @@ export async function startApp(agentDir: string): Promise<void> {
   // Pick interface: Telegram if token set, otherwise CLI
   let iface: Interface;
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
+  const isCli = !telegramToken;
 
   if (telegramToken) {
     const allowedUsers = config.telegram?.allowedUsers || [];
@@ -24,21 +25,29 @@ export async function startApp(agentDir: string): Promise<void> {
   }
 
   const handler = async (msg: { text: string; userId: string; chatId: string }) => {
-    console.log(`[${new Date().toISOString()}] ${msg.userId}: ${msg.text}`);
+    if (!isCli) {
+      console.log(`[${new Date().toISOString()}] ${msg.userId}: ${msg.text}`);
+    }
 
-    const response = await runtime.handleMessage(msg.text, {
-      onText: () => {},
-      onFinish: (text) => {
-        console.log(
-          `[${new Date().toISOString()}] response: ${text.slice(0, 100)}...`,
-        );
-      },
-      onError: (error) => {
-        console.error(`[${new Date().toISOString()}] error:`, error.message);
-      },
-    });
+    try {
+      const response = await runtime.handleMessage(msg.text, {
+        onText: () => {},
+        onFinish: (text) => {
+          if (!isCli) {
+            console.log(
+              `[${new Date().toISOString()}] response: ${text.slice(0, 100)}...`,
+            );
+          }
+        },
+        onError: (error) => {
+          console.error(`Error: ${error.message}`);
+        },
+      });
 
-    return response;
+      return response;
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
   };
 
   console.log(`kern running in ${agentDir}`);
@@ -46,6 +55,7 @@ export async function startApp(agentDir: string): Promise<void> {
   console.log(`Model: ${config.provider}/${config.model}`);
   console.log(`Tools: ${config.tools.join(", ")}`);
   console.log(`Interface: ${telegramToken ? "telegram" : "cli"}`);
+  console.log("");
 
   await iface.start(handler);
 }
