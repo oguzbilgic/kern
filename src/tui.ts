@@ -106,7 +106,7 @@ export async function connectTui(port: number, agentName: string): Promise<void>
             if (!busy) w(CLEAR_LINE);
             const from = event.fromInterface || "unknown";
             const user = event.fromUserId || "";
-            w(`${dim("◇")} ${dim(`[${from}${user ? ` ${user}` : ""}]`)} ${event.text}\n`);
+            w(`${yellow("◇")} ${dim(`[${from}${user ? ` ${user}` : ""}]`)} ${event.text}\n`);
             busy = true;
             continue;
           }
