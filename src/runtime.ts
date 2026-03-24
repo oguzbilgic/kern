@@ -61,10 +61,23 @@ export class Runtime {
     await this.session.init();
     await this.session.load();
 
+    const session = this.session;
+    const config = this.config;
     await initKernTool({
       agentDir: this.agentDir,
       config: this.config,
       sessionId: this.session.getSessionId() || "unknown",
+      getSessionStats: () => {
+        const allMessages = session.getMessages();
+        const totalTokens = estimateTokens(allMessages);
+        const windowMessages = trimToTokenBudget(allMessages, config.maxContextTokens);
+        const windowTokens = estimateTokens(windowMessages);
+        return {
+          totalMessages: allMessages.length,
+          estimatedTokens: totalTokens,
+          windowTokens,
+        };
+      },
     });
   }
 

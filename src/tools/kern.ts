@@ -12,17 +12,20 @@ let _sessionId = "";
 let _version = "unknown";
 let _totalPromptTokens = 0;
 let _totalCompletionTokens = 0;
+let _getSessionStats: (() => { totalMessages: number; estimatedTokens: number; windowTokens: number }) | null = null;
 
 export async function initKernTool(opts: {
   agentDir: string;
   config: any;
   sessionId: string;
+  getSessionStats?: () => { totalMessages: number; estimatedTokens: number; windowTokens: number };
 }) {
   _agentDir = opts.agentDir;
   _config = opts.config;
   _sessionId = opts.sessionId;
   _startedAt = Date.now();
   _messageCount = 0;
+  _getSessionStats = opts.getSessionStats || null;
   try {
     const pkg = JSON.parse(await readFile(join(import.meta.dirname, "..", "..", "package.json"), "utf-8"));
     _version = pkg.version || "unknown";
@@ -64,14 +67,19 @@ export const kernTool = tool({
               ? `${mins}m ${secs}s`
               : `${secs}s`;
 
+        const stats = _getSessionStats ? _getSessionStats() : null;
+        const contextLine = stats
+          ? `context: ~${stats.estimatedTokens} tokens (${stats.totalMessages} messages, window: ~${stats.windowTokens})`
+          : `messages: ${_messageCount}`;
+
         return [
           `kern: ${_version}`,
           `agent: ${_agentDir}`,
           `session: ${_sessionId}`,
           `model: ${_config.provider}/${_config.model}`,
           `toolScope: ${_config.toolScope}`,
-          `messages: ${_messageCount}`,
-          `tokens: ${_totalPromptTokens + _totalCompletionTokens} (prompt: ${_totalPromptTokens}, completion: ${_totalCompletionTokens})`,
+          contextLine,
+          `api usage: ${_totalPromptTokens + _totalCompletionTokens} tokens (in: ${_totalPromptTokens}, out: ${_totalCompletionTokens})`,
           `uptime: ${uptimeStr}`,
         ].join("\n");
       }
