@@ -27,7 +27,7 @@ export class Runtime {
 
   async init(): Promise<void> {
     this.config = await loadConfig(this.agentDir);
-    this.systemPrompt = await loadSystemPrompt(this.agentDir);
+    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config);
     this.session = new SessionManager(this.agentDir);
     await this.session.init();
     await this.session.load();
