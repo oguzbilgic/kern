@@ -31,9 +31,9 @@ export async function startApp(agentDir: string): Promise<void> {
 
   w("");
   w(`  ${bold("kern")} ${cyan(agentDir)}`);
-  w(`  ${dim("model")}    ${config.provider}/${config.model}`);
-  w(`  ${dim("session")}  ${runtime.getSessionId() || "new"}`);
-  w(`  ${dim("tools")}    ${config.tools.join(", ")}`);
+  w(`  ${"model"}    ${dim(config.provider + "/" + config.model)}`);
+  w(`  ${"session"}  ${dim(runtime.getSessionId() || "new")}`);
+  w(`  ${"tools"}    ${dim(config.tools.join(", "))}`);
   w(`  ${dim("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")}`);
   w("");
 
