@@ -109,18 +109,13 @@ export class CliInterface implements Interface {
               case "tool-call":
                 toolCount++;
                 spinner.stop();
-                // Print completed tool line
                 process.stdout.write(
                   `  ${yellow(event.toolName || "tool")} ${dim(event.toolDetail || "")}\n`
                 );
-                // Show spinner for execution
-                spinner.start(`running ${event.toolName}...`);
+                spinner.start("thinking...");
                 break;
 
               case "tool-result":
-                // Tool done, waiting for next action
-                spinner.stop();
-                spinner.start("thinking...");
                 break;
 
               case "finish":
