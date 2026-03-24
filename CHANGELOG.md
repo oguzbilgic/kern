@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.4.0
 
 ### Features
 - **User pairing** — code-based user approval for Telegram. Unpaired users get a `KERN-XXXX` code, operator approves via agent with context, agent writes USERS.md.
