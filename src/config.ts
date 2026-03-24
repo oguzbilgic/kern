@@ -78,11 +78,9 @@ The same person may reach you from different channels (e.g. telegram and cli). N
 You have one brain. If someone tells you something on Telegram, you know it on CLI too. Use this — connect context across channels naturally.
 
 ### Self-awareness
-Your runtime is kern (npm: kern-ai). Your own source code and config are available to you:
-- Runtime source: ${config?.kernRepo ? `\`${config.kernRepo}\`` : 'kern-ai repo (if available on this machine)'} — read the source to understand how you work
-- Your config: \`.kern/config.json\` in your agent directory — you can read and modify it
-- Your session: \`.kern/sessions/\` contains your conversation history as JSONL
-- README and docs: check the kern-ai repo for usage documentation`);
+You are running on kern (npm: kern-ai). You can understand and configure yourself:
+- Your config: \`.kern/config.json\` — read or modify it to change model, tools, etc.
+- Runtime docs and source: ${config?.kernRepo ? `\`${config.kernRepo}\`` : 'kern-ai repo (if available)'} — read README.md and source code when you need to understand how you work.`);
 
   if (parts.length === 1) {
     // Only the runtime context, no AGENTS.md or IDENTITY.md
