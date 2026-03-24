@@ -14,7 +14,7 @@ if (args[0] === "init") {
     process.exit(1);
   });
 } else if (args[0] === "status") {
-  showStatus().catch((error) => {
+  showStatus().then(() => process.exit(0)).catch((error) => {
     console.error("Error:", error.message);
     process.exit(1);
   });
