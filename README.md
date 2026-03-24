@@ -24,6 +24,8 @@ npx kern-ai tui
 
 The init wizard scaffolds your agent, asks for a provider and API key, then starts it. `kern tui` opens an interactive chat.
 
+For automation: `npx kern-ai init my-agent --api-key sk-or-...` (no prompts, defaults to openrouter + opus 4.6).
+
 ## How it works
 
 ```

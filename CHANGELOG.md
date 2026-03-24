@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.6.1
+
+### Features
+- **Non-interactive init** — `kern init <name> --api-key <key>` for automation. Defaults to openrouter + opus 4.6. Optional flags: `--provider`, `--model`, `--telegram-token`, `--slack-bot-token`, `--slack-app-token`.
+
 ## v0.6.0
 
 ### Features

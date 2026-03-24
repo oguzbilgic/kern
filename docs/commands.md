@@ -14,6 +14,16 @@ Create a new agent or reconfigure an existing one.
 
 **Adopting an existing repo**: if the directory exists but has no `.kern/`, creates only `.kern/` config without overwriting existing AGENTS.md, IDENTITY.md, etc.
 
+**Non-interactive mode**: pass `--api-key` to skip prompts. For automation and CI.
+
+```bash
+kern init my-agent --api-key sk-or-...
+kern init my-agent --api-key sk-or-... --provider anthropic --model claude-opus-4.6
+kern init my-agent --api-key sk-or-... --telegram-token 123:ABC --slack-bot-token xoxb-... --slack-app-token xapp-...
+```
+
+Defaults to openrouter + claude-opus-4.6 when flags are used.
+
 ## kern start [name|path]
 
 Start agents as background daemons.
