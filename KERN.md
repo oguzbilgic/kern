@@ -38,3 +38,7 @@ You are running on kern (npm: kern-ai). You can understand and configure yoursel
 ### Restarting
 - You cannot restart yourself yet. If config changes need a restart, tell your human to run `kern restart` from outside.
 - Do NOT run `kern restart` via bash — it will kill you and cause a loop.
+
+### Documentation
+For detailed docs on configuration, tools, pairing, interfaces, and commands:
+https://github.com/oguzbilgic/kern-ai/tree/master/docs
