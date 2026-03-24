@@ -60,16 +60,22 @@ export class TelegramInterface implements Interface {
 
       // Check pairing
       if (this.pairing && !this.pairing.isPaired(userId.toString())) {
-        const code = await this.pairing.getOrCreateCode(
-          userId.toString(),
-          "telegram",
-          `telegram:${chatId}`,
-        );
-        await ctx.reply(
-          `You're not paired with this agent.\n\nYour pairing code: <b>${code}</b>\n\nShare this code with the agent's operator to get access.`,
-          { parse_mode: "HTML" },
-        );
-        return;
+        // Auto-pair first user ever — they become the operator
+        if (!this.pairing.hasAnyPairedUsers()) {
+          await this.pairing.autoPairFirst(userId.toString(), "telegram", chatId);
+          // Fall through to normal message handling
+        } else {
+          const code = await this.pairing.getOrCreateCode(
+            userId.toString(),
+            "telegram",
+            `telegram:${chatId}`,
+          );
+          await ctx.reply(
+            `You're not paired with this agent.\n\nYour pairing code: <b>${code}</b>\n\nShare this code with the agent's operator to get access.`,
+            { parse_mode: "HTML" },
+          );
+          return;
+        }
       }
 
       // Keep typing indicator alive every 4s (Telegram expires it after 5s)

@@ -80,9 +80,13 @@ export class SlackInterface implements Interface {
 
       // Check pairing for DMs
       if (isDM && this.pairing && !this.pairing.isPaired(userId)) {
-        const code = await this.pairing.getOrCreateCode(userId, "slack", channelName);
-        await say(`You're not paired with this agent.\n\nYour pairing code: *${code}*\n\nShare this code with the agent's operator to get access.`);
-        return;
+        if (!this.pairing.hasAnyPairedUsers()) {
+          await this.pairing.autoPairFirst(userId, "slack", channelId);
+        } else {
+          const code = await this.pairing.getOrCreateCode(userId, "slack", channelName);
+          await say(`You're not paired with this agent.\n\nYour pairing code: *${code}*\n\nShare this code with the agent's operator to get access.`);
+          return;
+        }
       }
 
       // Detect @mention

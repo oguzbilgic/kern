@@ -60,6 +60,21 @@ export class PairingManager {
     return this.data.paired.some((u) => u.userId === userId);
   }
 
+  // Check if this is the first user ever — auto-pair them
+  hasAnyPairedUsers(): boolean {
+    return this.data.paired.length > 0;
+  }
+
+  async autoPairFirst(userId: string, iface: string, chatId: string): Promise<void> {
+    this.data.paired.push({
+      userId,
+      chatId,
+      interface: iface,
+      pairedAt: new Date().toISOString(),
+    });
+    await this.save();
+  }
+
   // Generate or return existing code for an unpaired user
   async getOrCreateCode(userId: string, iface: string, channel: string): Promise<string> {
     // Already have a pending code for this user?

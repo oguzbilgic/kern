@@ -37,6 +37,7 @@ async function showHelp() {
   w(`    ${cyan("kern restart")} ${dim("[name]")}         restart agents`);
   w(`    ${cyan("kern list")}                   show all agents`);
   w(`    ${cyan("kern remove")} ${dim("<name>")}          unregister an agent`);
+  w(`    ${cyan("kern pair")} ${dim("<agent> <code>")}    approve a pairing code`);
   w(`    ${cyan("kern backup")} ${dim("<name>")}          backup agent to .tar.gz`);
   w(`    ${cyan("kern restore")} ${dim("<file>")}         restore agent from backup`);
   w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
@@ -139,6 +140,31 @@ async function main() {
     }
     await removeAgent(name);
     console.log(`  Removed ${name}`);
+    process.exit(0);
+  }
+
+  if (cmd === "pair") {
+    const agentName = args[1];
+    const code = args[2];
+    if (!agentName || !code) {
+      console.error("Usage: kern pair <agent> <code>");
+      process.exit(1);
+    }
+    const { findAgent } = await import("./registry.js");
+    const { PairingManager } = await import("./pairing.js");
+    const agent = await findAgent(agentName);
+    if (!agent) {
+      console.error(`Agent not found: ${agentName}`);
+      process.exit(1);
+    }
+    const pairing = new PairingManager(agent.path);
+    await pairing.load();
+    const result = await pairing.pair(code);
+    if (result) {
+      console.log(`  Paired user ${result.userId} (${result.interface}) to ${agentName}`);
+    } else {
+      console.error(`  Invalid or expired code: ${code}`);
+    }
     process.exit(0);
   }
 
