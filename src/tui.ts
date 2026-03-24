@@ -78,6 +78,7 @@ export async function connectTui(port: number, agentName: string): Promise<void>
   let hasText = false;
   let toolCount = 0;
   let waitingForResponse = false;
+  let busy = false;
 
   // Process SSE events in background
   (async () => {
@@ -101,9 +102,12 @@ export async function connectTui(port: number, agentName: string): Promise<void>
           // Cross-channel incoming message
           if ((event as any).type === "incoming") {
             spinner.stop();
+            // Clear the prompt line if we're idle
+            if (!busy) w(CLEAR_LINE);
             const from = event.fromInterface || "unknown";
             const user = event.fromUserId || "";
-            w(`\n  ${dim(`[${from}${user ? ` ${user}` : ""}]`)} ${event.text}\n`);
+            w(`  ${dim(`[${from}${user ? ` ${user}` : ""}]`)} ${event.text}\n`);
+            busy = true;
             continue;
           }
 
@@ -114,6 +118,7 @@ export async function connectTui(port: number, agentName: string): Promise<void>
                 if (toolCount > 0) w("\n");
                 w(`${blue("◆")} `);
                 hasText = true;
+                busy = true;
               }
               w(event.text || "");
               break;
@@ -121,6 +126,7 @@ export async function connectTui(port: number, agentName: string): Promise<void>
             case "tool-call": {
               toolCount++;
               spinner.stop();
+              busy = true;
               const colorFn = TOOL_COLORS[event.toolName || ""] || yellow;
               w(`  ${colorFn(event.toolName || "tool")} ${dim(event.toolDetail || "")}\n`);
               spinner.start("thinking...");
@@ -130,10 +136,11 @@ export async function connectTui(port: number, agentName: string): Promise<void>
             case "finish":
               spinner.stop();
               waitingForResponse = false;
+              busy = false;
               if (hasText) {
                 w(`\n\n${green("> ")}`);
               } else {
-                w(`${dim("(no response)")}\n\n${green("> ")}`);
+                w(`\n${green("> ")}`);
               }
               hasText = false;
               toolCount = 0;
@@ -142,6 +149,7 @@ export async function connectTui(port: number, agentName: string): Promise<void>
             case "error":
               spinner.stop();
               waitingForResponse = false;
+              busy = false;
               w(`\n${red(event.error || "Unknown error")}\n\n${green("> ")}`);
               hasText = false;
               toolCount = 0;
