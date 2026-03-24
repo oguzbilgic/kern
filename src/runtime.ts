@@ -68,7 +68,9 @@ export class Runtime {
           fullText += part.text;
           callbacks.onText(fullText);
         } else if (part.type === "tool-call") {
-          console.error(`[kern] tool: ${part.toolName}`);
+          const args = ("args" in part ? part.args : part.input) as Record<string, unknown>;
+          const detail = args.path || args.command || args.pattern || "";
+          console.error(`[kern] ${part.toolName}: ${detail}`);
         } else if (part.type === "error") {
           console.error("[kern] error:", part.error);
         }
