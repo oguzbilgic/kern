@@ -5,6 +5,7 @@ import type { StreamEvent } from "../runtime.js";
 // ANSI
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
+const blue = (s: string) => `\x1b[34m${s}\x1b[0m`;
 const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
@@ -17,14 +18,16 @@ class Spinner {
   private interval: ReturnType<typeof setInterval> | null = null;
   private frame = 0;
   private label = "";
+  private prefix = "";
 
-  start(label: string) {
+  start(label: string, prefix = "") {
     this.stop();
     this.label = label;
+    this.prefix = prefix;
     this.frame = 0;
     this.interval = setInterval(() => {
       const s = SPINNER[this.frame % SPINNER.length];
-      process.stdout.write(`${CLEAR_LINE}  ${dim(`${s} ${this.label}`)}`);
+      process.stdout.write(`${CLEAR_LINE}${this.prefix}${dim(`${s} ${this.label}`)}`);
       this.frame++;
     }, 80);
   }
@@ -84,7 +87,8 @@ export class CliInterface implements Interface {
       }
 
       const spinner = new Spinner();
-      spinner.start("thinking...");
+      process.stdout.write("\n");
+      spinner.start("thinking...", `${blue("◆")} `);
       let hasText = false;
       let toolCount = 0;
 
@@ -96,7 +100,7 @@ export class CliInterface implements Interface {
               case "text-delta":
                 if (!hasText) {
                   spinner.stop();
-                  process.stdout.write(`\n${cyan("◆")} `);
+                  process.stdout.write(`${blue("◆")} `);
                   hasText = true;
                 }
                 process.stdout.write(event.text || "");
