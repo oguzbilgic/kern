@@ -99,7 +99,13 @@ async function main() {
     return;
   }
 
-  if (cmd === "tui" || cmd === "run") {
+  if (cmd === "tui") {
+    const agentDir = await resolveAgentDir(args[1]);
+    await startApp(agentDir, true);
+    return;
+  }
+
+  if (cmd === "run") {
     const agentDir = await resolveAgentDir(args[1]);
     await startApp(agentDir);
     return;

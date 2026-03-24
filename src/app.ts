@@ -7,7 +7,7 @@ import { join, basename } from "path";
 import type { Interface, MessageHandler } from "./interfaces/types.js";
 import { registerAgent } from "./registry.js";
 
-export async function startApp(agentDir: string): Promise<void> {
+export async function startApp(agentDir: string, forceCli = false): Promise<void> {
   const config = await loadConfig(agentDir);
   const runtime = new Runtime(agentDir);
   await runtime.init();
@@ -16,11 +16,11 @@ export async function startApp(agentDir: string): Promise<void> {
   await registerAgent(basename(agentDir), agentDir);
   process.chdir(agentDir);
 
-  // Pick interface: Telegram if token set, otherwise CLI
+  // Pick interface
   let iface: Interface;
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
 
-  if (telegramToken) {
+  if (!forceCli && telegramToken) {
     const allowedUsers = config.telegram?.allowedUsers || [];
     iface = new TelegramInterface(telegramToken, allowedUsers);
   } else {
