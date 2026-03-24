@@ -6,9 +6,6 @@ kern gives an AI agent a single mind — one continuous session shared across CL
 
 ## Why kern
 
-One brain. Multiple interfaces. Talk to the same agent from the CLI, a Telegram DM, a Slack channel, or all three — it's always the same conversation, the same memory, the same context. Just like humans have one brain, your agent has one session.
-
-Most agent frameworks give you sessions that reset, memory that's a black box, or infrastructure you have to manage. kern takes a different approach:
 
 - **One brain** — a single continuous session across every interface. Message from Telegram, pick up in the CLI, continue in Slack. The agent always knows what happened.
 - **Context-aware** — the agent knows who's talking and where. It sees the user, the channel, and the interface — so it can adjust tone, filter context, and keep track of different conversations within the same session.
