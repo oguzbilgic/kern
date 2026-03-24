@@ -231,8 +231,9 @@ export async function runInit(targetArg?: string): Promise<void> {
     }
   }
 
+  const dirExists = existsSync(dir);
   print("");
-  print(`  Creating ${dir}/...`);
+  print(dirExists ? `  Adding kern to ${dir}/...` : `  Creating ${dir}/...`);
 
   // Create directories
   await mkdir(dir, { recursive: true });
@@ -329,34 +330,55 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
 node_modules/
 `;
 
-  // Write all files
-  await writeFile(join(dir, "AGENTS.md"), agentsMd);
-  print("  + AGENTS.md");
+  // Write files — only create if they don't exist (except .kern/ which always gets written)
+  if (!existsSync(join(dir, "AGENTS.md"))) {
+    await writeFile(join(dir, "AGENTS.md"), agentsMd);
+    print("  + AGENTS.md");
+  } else {
+    print("  ○ AGENTS.md (exists)");
+  }
 
-  await writeFile(join(dir, "IDENTITY.md"), identityMd);
-  print(`  + IDENTITY.md (${capitalName})`);
+  if (!existsSync(join(dir, "IDENTITY.md"))) {
+    await writeFile(join(dir, "IDENTITY.md"), identityMd);
+    print(`  + IDENTITY.md (${capitalName})`);
+  } else {
+    print("  ○ IDENTITY.md (exists)");
+  }
 
-  await writeFile(join(dir, "KNOWLEDGE.md"), knowledgeMd);
-  print("  + KNOWLEDGE.md");
+  if (!existsSync(join(dir, "KNOWLEDGE.md"))) {
+    await writeFile(join(dir, "KNOWLEDGE.md"), knowledgeMd);
+    print("  + KNOWLEDGE.md");
+  } else {
+    print("  ○ KNOWLEDGE.md (exists)");
+  }
 
+  // .kern/ config always written (new agent or adopt)
   await writeFile(join(dir, ".kern", "config.json"), JSON.stringify(config, null, 2) + "\n");
   print("  + .kern/config.json");
 
   await writeFile(join(dir, ".kern", ".env"), envLines.join("\n") + "\n");
   print("  + .kern/.env");
 
-  await writeFile(join(dir, ".gitignore"), gitignore);
-  print("  + .gitignore");
+  if (!existsSync(join(dir, ".gitignore"))) {
+    await writeFile(join(dir, ".gitignore"), gitignore);
+    print("  + .gitignore");
+  } else {
+    print("  ○ .gitignore (exists)");
+  }
 
-  // Git init
-  const { execSync } = await import("child_process");
-  try {
-    execSync("git init", { cwd: dir, stdio: "ignore" });
-    execSync("git add -A", { cwd: dir, stdio: "ignore" });
-    execSync('git commit -m "initial agent setup"', { cwd: dir, stdio: "ignore" });
-    print("  + git init + first commit");
-  } catch {
-    print("  (git init skipped)");
+  // Git init only for new repos
+  if (!existsSync(join(dir, ".git"))) {
+    const { execSync } = await import("child_process");
+    try {
+      execSync("git init", { cwd: dir, stdio: "ignore" });
+      execSync("git add -A", { cwd: dir, stdio: "ignore" });
+      execSync('git commit -m "initial agent setup"', { cwd: dir, stdio: "ignore" });
+      print("  + git init + first commit");
+    } catch {
+      print("  (git init skipped)");
+    }
+  } else {
+    print("  ○ git repo (exists)");
   }
 
   // Register and start
