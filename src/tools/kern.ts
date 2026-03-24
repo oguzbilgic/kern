@@ -12,6 +12,7 @@ let _sessionId = "";
 let _version = "unknown";
 let _totalPromptTokens = 0;
 let _totalCompletionTokens = 0;
+let _usageFile = "";
 let _getSessionStats: (() => { totalMessages: number; estimatedTokens: number; windowTokens: number }) | null = null;
 
 export async function initKernTool(opts: {
@@ -26,6 +27,16 @@ export async function initKernTool(opts: {
   _startedAt = Date.now();
   _messageCount = 0;
   _getSessionStats = opts.getSessionStats || null;
+  _usageFile = join(_agentDir, ".kern", "usage.json");
+  // Load persisted usage
+  try {
+    const usage = JSON.parse(await readFile(_usageFile, "utf-8"));
+    _totalPromptTokens = usage.promptTokens || 0;
+    _totalCompletionTokens = usage.completionTokens || 0;
+  } catch {
+    _totalPromptTokens = 0;
+    _totalCompletionTokens = 0;
+  }
   try {
     const pkg = JSON.parse(await readFile(join(import.meta.dirname, "..", "..", "package.json"), "utf-8"));
     _version = pkg.version || "unknown";
@@ -38,9 +49,18 @@ export function incrementMessageCount() {
   _messageCount++;
 }
 
-export function addTokenUsage(promptTokens: number, completionTokens: number) {
+export async function addTokenUsage(promptTokens: number, completionTokens: number) {
   _totalPromptTokens += promptTokens;
   _totalCompletionTokens += completionTokens;
+  // Persist
+  try {
+    const { writeFile } = await import("fs/promises");
+    await writeFile(_usageFile, JSON.stringify({
+      promptTokens: _totalPromptTokens,
+      completionTokens: _totalCompletionTokens,
+      updatedAt: new Date().toISOString(),
+    }, null, 2) + "\n");
+  } catch {}
 }
 
 export const kernTool = tool({
