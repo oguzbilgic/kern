@@ -10,6 +10,8 @@ let _messageCount = 0;
 let _config: any = {};
 let _sessionId = "";
 let _version = "unknown";
+let _totalPromptTokens = 0;
+let _totalCompletionTokens = 0;
 
 export async function initKernTool(opts: {
   agentDir: string;
@@ -31,6 +33,11 @@ export async function initKernTool(opts: {
 
 export function incrementMessageCount() {
   _messageCount++;
+}
+
+export function addTokenUsage(promptTokens: number, completionTokens: number) {
+  _totalPromptTokens += promptTokens;
+  _totalCompletionTokens += completionTokens;
 }
 
 export const kernTool = tool({
@@ -64,6 +71,7 @@ export const kernTool = tool({
           `model: ${_config.provider}/${_config.model}`,
           `toolScope: ${_config.toolScope}`,
           `messages: ${_messageCount}`,
+          `tokens: ${_totalPromptTokens + _totalCompletionTokens} (prompt: ${_totalPromptTokens}, completion: ${_totalCompletionTokens})`,
           `uptime: ${uptimeStr}`,
         ].join("\n");
       }

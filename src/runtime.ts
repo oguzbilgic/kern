@@ -4,7 +4,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { allTools, type ToolName } from "./tools/index.js";
 import { SessionManager } from "./session.js";
 import { loadConfig, loadSystemPrompt, getToolsForScope, type KernConfig } from "./config.js";
-import { initKernTool, incrementMessageCount } from "./tools/kern.js";
+import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern.js";
 
 export interface StreamEvent {
   type: "text-delta" | "tool-call" | "tool-result" | "finish" | "error";
@@ -86,6 +86,9 @@ export class Runtime {
 
       const response = await result.response;
       await this.session.append(response.messages as ModelMessage[]);
+
+      const usage = await result.totalUsage;
+      addTokenUsage(usage.inputTokens || 0, usage.outputTokens || 0);
 
       onEvent({ type: "finish", text: fullText });
       return fullText || "(no text response)";
