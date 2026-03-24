@@ -17,7 +17,7 @@ export interface KernConfig {
 const defaults: KernConfig = {
   model: "claude-sonnet-4-20250514",
   provider: "anthropic",
-  tools: ["bash", "read", "write", "edit", "glob", "grep"],
+  tools: ["bash", "read", "write", "edit", "glob", "grep", "webfetch"],
   maxSteps: 30,
 };
 
