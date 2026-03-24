@@ -35,7 +35,7 @@ async function showHelp() {
   w(`    ${cyan("kern start")} ${dim("<name|path>")}      start one agent`);
   w(`    ${cyan("kern stop")}                   stop all agents`);
   w(`    ${cyan("kern stop")} ${dim("<name>")}            stop one agent`);
-  w(`    ${cyan("kern status")}                 show all agents`);
+  w(`    ${cyan("kern list")}                   show all agents`);
   w(`    ${cyan("kern run")} ${dim("<name|path>")}        run in foreground`);
   w("");
 }
@@ -47,7 +47,7 @@ if (!cmd || cmd === "help" || cmd === "--help" || cmd === "-h") {
     console.error("Error:", error.message);
     process.exit(1);
   });
-} else if (cmd === "status") {
+} else if (cmd === "list" || cmd === "ls" || cmd === "status") {
   showStatus().then(() => process.exit(0)).catch((error) => {
     console.error("Error:", error.message);
     process.exit(1);
