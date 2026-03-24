@@ -151,8 +151,9 @@ export async function runInit(targetArg?: string): Promise<void> {
     process.exit(1);
   }
 
-  // Determine directory
-  const dir = resolve(targetArg || name);
+  // Determine directory — check registry first, then resolve path
+  const registered = await findAgent(name);
+  const dir = registered ? registered.path : resolve(targetArg || name);
 
   // If agent exists, switch to config mode
   if (existsSync(dir) && (existsSync(join(dir, "AGENTS.md")) || existsSync(join(dir, ".kern")))) {
