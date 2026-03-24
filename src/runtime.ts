@@ -150,8 +150,9 @@ export class Runtime {
 
       for await (const part of result.fullStream) {
         if (part.type === "text-delta") {
-          fullText += part.text;
-          onEvent({ type: "text-delta", text: part.text });
+          const text = ("delta" in part ? part.delta : (part as any).text) || "";
+          fullText += text;
+          onEvent({ type: "text-delta", text });
         } else if (part.type === "tool-call") {
           const args = ("args" in part ? part.args : part.input) as Record<string, unknown>;
           const detail = String(args.path || args.command || args.pattern || args.url || "");
