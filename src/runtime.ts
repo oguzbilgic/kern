@@ -58,9 +58,7 @@ export class Runtime {
         messages: this.session.getMessages(),
         tools,
         stopWhen: stepCountIs(this.config.maxSteps),
-        onError: ({ error }) => {
-          console.error("[kern] stream error:", error);
-        },
+        onError: () => {},
       });
 
       for await (const part of result.fullStream) {
@@ -74,7 +72,7 @@ export class Runtime {
           const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
           process.stderr.write(dim(`  ${yellow(part.toolName)} ${detail}\n`));
         } else if (part.type === "error") {
-          process.stderr.write(`\x1b[31m  error: ${part.error}\x1b[0m\n`);
+          // silently collect — error surfaces in catch block
         }
       }
 
@@ -85,8 +83,13 @@ export class Runtime {
       callbacks.onFinish(fullText);
       return fullText || "(no text response)";
     } catch (error: any) {
-      callbacks.onError(error);
-      throw error;
+      // Extract a clean error message
+      const msg = error.lastError?.cause?.code === "EAI_AGAIN"
+        ? "DNS resolution failed — retrying may help"
+        : error.lastError?.message || error.message || "Unknown error";
+      const cleanError = new Error(msg);
+      callbacks.onError(cleanError);
+      throw cleanError;
     }
   }
 
