@@ -179,6 +179,10 @@ export class Runtime {
         const openrouter = createOpenAI({
           baseURL: "https://openrouter.ai/api/v1",
           apiKey: process.env.OPENROUTER_API_KEY,
+          headers: {
+            "HTTP-Referer": "https://github.com/oguzbilgic/kern-ai",
+            "X-Title": "kern-ai",
+          },
         });
         return openrouter.chat(this.config.model);
       }
