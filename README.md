@@ -7,9 +7,9 @@ kern pairs with [agent-kernel](https://github.com/oguzbilgic/agent-kernel) — t
 ## Quick start
 
 ```bash
-npx kern init my-agent
+npx kern-ai init my-agent
 cd my-agent
-npx kern
+npx kern-ai
 ```
 
 The init wizard asks for a provider, API key, and model — then scaffolds an agent with persistent memory.
@@ -81,9 +81,9 @@ TELEGRAM_BOT_TOKEN=...
 ## CLI usage
 
 ```bash
-kern init <name>     # create a new agent
-kern <dir>           # run agent in directory
-kern                 # run agent in current directory
+npx kern-ai init <name>     # create a new agent
+npx kern-ai <dir>           # run agent in directory
+npx kern-ai                 # run agent in current directory
 ```
 
 ## Telegram
