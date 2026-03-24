@@ -19,6 +19,9 @@
 - **Uniform channel metadata** — all messages (TUI, Telegram, Slack) tagged with `[via interface, channel, user]`
 - **OpenRouter app headers** — requests show "kern-ai" in OpenRouter logs
 - **Model list** — updated from OpenRouter leaderboard (Opus 4.6, Sonnet 4.6, MiMo, DeepSeek V3.2, GPT-5.4, Gemini 3.1 Pro, etc.)
+- **`kern init` adopts existing repos** — adds `.kern/` without overwriting AGENTS.md, IDENTITY.md, etc.
+- **`kern remove`** — unregister an agent (stops if running, doesn't delete files)
+- **Help screen** — colorized command reference with `kern` or `kern help`
 
 ### Changes
 - `kern` (no args) shows help instead of running in cwd
@@ -30,8 +33,9 @@
 ### Fixes
 - `kern restart` works (process.exit removed from daemon internals)
 - TUI doesn't echo own messages from SSE broadcast
-- TUI spinner only runs when TUI sent the message (no clearing cross-channel content)
+- TUI spinner only when sending, no CLEAR_LINE wiping cross-channel content
 - Token estimate uses full JSON.stringify (was undercounting with text-only)
+- `kern init` detects agents by registry name, not just path
 
 ## v0.2.0
 
