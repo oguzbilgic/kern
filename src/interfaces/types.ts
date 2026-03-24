@@ -1,4 +1,5 @@
 import type { ModelMessage } from "ai";
+import type { StreamEvent } from "../runtime.js";
 
 export interface IncomingMessage {
   text: string;
@@ -6,8 +7,13 @@ export interface IncomingMessage {
   chatId: string;
 }
 
+export type MessageHandler = (
+  msg: IncomingMessage,
+  onEvent: (event: StreamEvent) => void,
+) => Promise<string>;
+
 export interface StartOptions {
-  onMessage: (msg: IncomingMessage) => Promise<string>;
+  onMessage: MessageHandler;
   history?: ModelMessage[];
 }
 

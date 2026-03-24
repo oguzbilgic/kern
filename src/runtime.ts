@@ -5,12 +5,15 @@ import { allTools, type ToolName } from "./tools/index.js";
 import { SessionManager } from "./session.js";
 import { loadConfig, loadSystemPrompt, type KernConfig } from "./config.js";
 
-export interface StreamCallbacks {
-  onText: (text: string) => void;
-  onStepFinish?: (stepText: string) => void;
-  onFinish: (fullText: string) => void;
-  onError: (error: Error) => void;
+export interface StreamEvent {
+  type: "text-delta" | "tool-call" | "tool-result" | "finish" | "error";
+  text?: string;
+  toolName?: string;
+  toolDetail?: string;
+  error?: string;
 }
+
+export type StreamHandler = (event: StreamEvent) => void;
 
 export class Runtime {
   private config!: KernConfig;
@@ -32,7 +35,7 @@ export class Runtime {
 
   async handleMessage(
     userMessage: string,
-    callbacks: StreamCallbacks,
+    onEvent: StreamHandler,
   ): Promise<string> {
     // Add user message to session
     const userMsg: ModelMessage = { role: "user", content: userMessage };
@@ -46,7 +49,6 @@ export class Runtime {
       }
     }
 
-    // Create provider
     const model = this.createModel();
 
     try {
@@ -64,32 +66,27 @@ export class Runtime {
       for await (const part of result.fullStream) {
         if (part.type === "text-delta") {
           fullText += part.text;
-          callbacks.onText(fullText);
+          onEvent({ type: "text-delta", text: part.text });
         } else if (part.type === "tool-call") {
           const args = ("args" in part ? part.args : part.input) as Record<string, unknown>;
-          const detail = args.path || args.command || args.pattern || "";
-          const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
-          const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
-          process.stderr.write(dim(`  ${yellow(part.toolName)} ${detail}\n`));
-        } else if (part.type === "error") {
-          // silently collect — error surfaces in catch block
+          const detail = String(args.path || args.command || args.pattern || "");
+          onEvent({ type: "tool-call", toolName: part.toolName, toolDetail: detail });
+        } else if (part.type === "tool-result") {
+          onEvent({ type: "tool-result" });
         }
       }
 
-      // Consume the stream fully and get response messages
       const response = await result.response;
       await this.session.append(response.messages as ModelMessage[]);
 
-      callbacks.onFinish(fullText);
+      onEvent({ type: "finish", text: fullText });
       return fullText || "(no text response)";
     } catch (error: any) {
-      // Extract a clean error message
       const msg = error.lastError?.cause?.code === "EAI_AGAIN"
         ? "DNS resolution failed — retrying may help"
         : error.lastError?.message || error.message || "Unknown error";
-      const cleanError = new Error(msg);
-      callbacks.onError(cleanError);
-      throw cleanError;
+      onEvent({ type: "error", error: msg });
+      throw new Error(msg);
     }
   }
 

@@ -14,7 +14,6 @@ export class TelegramInterface implements Interface {
     this.bot.on("message:text", async (ctx) => {
       const userId = ctx.from.id;
 
-      // Check allowlist
       if (this.allowedUsers.length > 0 && !this.allowedUsers.includes(userId)) {
         await ctx.reply("Not authorized.");
         return;
@@ -23,30 +22,30 @@ export class TelegramInterface implements Interface {
       const text = ctx.message.text;
       const chatId = ctx.chat.id.toString();
 
-      // Send typing indicator
       await ctx.replyWithChatAction("typing");
-
-      // Send initial "thinking" message that we'll edit with streaming updates
       const reply = await ctx.reply("...");
 
-      let lastEdit = 0;
-      const EDIT_INTERVAL = 1000; // Edit at most every 1s to avoid rate limits
+      let lastEditTime = 0;
+      let currentText = "";
 
       try {
-        const response = await onMessage({
-          text,
-          userId: userId.toString(),
-          chatId,
-        });
+        const response = await onMessage(
+          { text, userId: userId.toString(), chatId },
+          (event) => {
+            if (event.type === "text-delta") {
+              currentText += event.text || "";
+              const now = Date.now();
+              if (now - lastEditTime > 1000) {
+                lastEditTime = now;
+                this.editMessage(ctx, reply.message_id, currentText).catch(() => {});
+              }
+            }
+          }
+        );
 
-        // Final edit with complete response
         await this.editMessage(ctx, reply.message_id, response);
       } catch (error: any) {
-        await this.editMessage(
-          ctx,
-          reply.message_id,
-          `Error: ${error.message}`,
-        );
+        await this.editMessage(ctx, reply.message_id, `Error: ${error.message}`);
       }
     });
 
@@ -64,12 +63,11 @@ export class TelegramInterface implements Interface {
     text: string,
   ): Promise<void> {
     try {
-      // Telegram has a 4096 char limit per message
       const truncated =
         text.length > 4000 ? text.slice(-4000) + "\n...(truncated)" : text;
       await ctx.api.editMessageText(ctx.chat.id, messageId, truncated || "...");
     } catch {
-      // Edit can fail if text hasn't changed, ignore
+      // ignore
     }
   }
 }

@@ -1,8 +1,8 @@
 import { Runtime } from "./runtime.js";
 import { TelegramInterface } from "./interfaces/telegram.js";
-import { CliInterface, dim, bold, cyan } from "./interfaces/cli.js";
+import { CliInterface, dim, bold } from "./interfaces/cli.js";
 import { loadConfig } from "./config.js";
-import type { Interface } from "./interfaces/types.js";
+import type { Interface, MessageHandler } from "./interfaces/types.js";
 
 export async function startApp(agentDir: string): Promise<void> {
   const config = await loadConfig(agentDir);
@@ -15,7 +15,6 @@ export async function startApp(agentDir: string): Promise<void> {
   // Pick interface: Telegram if token set, otherwise CLI
   let iface: Interface;
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
-  const isCli = !telegramToken;
 
   if (telegramToken) {
     const allowedUsers = config.telegram?.allowedUsers || [];
@@ -24,30 +23,8 @@ export async function startApp(agentDir: string): Promise<void> {
     iface = new CliInterface();
   }
 
-  const handler = async (msg: { text: string; userId: string; chatId: string }) => {
-    if (!isCli) {
-      console.log(`[${new Date().toISOString()}] ${msg.userId}: ${msg.text}`);
-    }
-
-    try {
-      const response = await runtime.handleMessage(msg.text, {
-        onText: () => {},
-        onFinish: (text) => {
-          if (!isCli) {
-            console.log(
-              `[${new Date().toISOString()}] response: ${text.slice(0, 100)}...`,
-            );
-          }
-        },
-        onError: (error) => {
-          console.error(`Error: ${error.message}`);
-        },
-      });
-
-      return response;
-    } catch (error: any) {
-      return `Error: ${error.message}`;
-    }
+  const handler: MessageHandler = async (msg, onEvent) => {
+    return runtime.handleMessage(msg.text, onEvent);
   };
 
   console.log(bold("kern") + " " + dim(agentDir));
