@@ -114,7 +114,7 @@ export async function connectTui(port: number, agentName: string): Promise<void>
           switch (event.type) {
             case "text-delta":
               if (!hasText) {
-                if (waitingForResponse) spinner.stop();
+                spinner.stop();
                 if (toolCount > 0) w("\n");
                 w(`${blue("◆")} `);
                 hasText = true;
@@ -124,14 +124,14 @@ export async function connectTui(port: number, agentName: string): Promise<void>
               break;
 
             case "tool-call": {
-              if (toolCount === 0 && !waitingForResponse) w("\n");
+              if (toolCount === 0) {
+                if (waitingForResponse) spinner.stop();
+                else w("\n");
+              }
               toolCount++;
-              if (waitingForResponse) spinner.stop();
               busy = true;
               const colorFn = TOOL_COLORS[event.toolName || ""] || yellow;
               w(`  ${colorFn(event.toolName || "tool")} ${dim(event.toolDetail || "")}\n`);
-              // Only show spinner if we sent this message
-              if (waitingForResponse) spinner.start("thinking...");
               break;
             }
 
