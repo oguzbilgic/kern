@@ -1,5 +1,5 @@
 import { Bot } from "grammy";
-import type { Interface, IncomingMessage } from "./types.js";
+import type { Interface, StartOptions } from "./types.js";
 
 export class TelegramInterface implements Interface {
   private bot: Bot;
@@ -10,9 +10,7 @@ export class TelegramInterface implements Interface {
     this.allowedUsers = allowedUsers;
   }
 
-  async start(
-    onMessage: (msg: IncomingMessage) => Promise<string>,
-  ): Promise<void> {
+  async start({ onMessage }: StartOptions): Promise<void> {
     this.bot.on("message:text", async (ctx) => {
       const userId = ctx.from.id;
 

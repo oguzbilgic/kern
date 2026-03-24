@@ -57,5 +57,5 @@ export async function startApp(agentDir: string): Promise<void> {
   console.log(`Interface: ${telegramToken ? "telegram" : "cli"}`);
   console.log("");
 
-  await iface.start(handler);
+  await iface.start({ onMessage: handler, history: runtime.getMessages() });
 }

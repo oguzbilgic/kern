@@ -1,19 +1,43 @@
 import { createInterface } from "readline";
-import type { Interface, IncomingMessage } from "./types.js";
+import type { Interface, StartOptions } from "./types.js";
 
 export class CliInterface implements Interface {
   private rl: ReturnType<typeof createInterface> | null = null;
 
-  async start(
-    onMessage: (msg: IncomingMessage) => Promise<string>,
-  ): Promise<void> {
+  async start({ onMessage, history }: StartOptions): Promise<void> {
     this.rl = createInterface({
       input: process.stdin,
       output: process.stdout,
       terminal: false,
     });
 
-    process.stdout.write("kern cli — type a message, press enter. ctrl+c to quit.\n\n> ");
+    // Show recent history
+    if (history && history.length > 0) {
+      // Show last few user/assistant exchanges
+      const recent = history.slice(-6);
+      for (const msg of recent) {
+        if (msg.role === "user" && typeof msg.content === "string") {
+          process.stdout.write(`> ${msg.content}\n`);
+        } else if (msg.role === "assistant") {
+          const text =
+            typeof msg.content === "string"
+              ? msg.content
+              : Array.isArray(msg.content)
+                ? msg.content
+                    .filter((p: any) => p.type === "text")
+                    .map((p: any) => p.text)
+                    .join("")
+                : "";
+          if (text) {
+            const preview = text.length > 200 ? text.slice(0, 200) + "..." : text;
+            process.stdout.write(`${preview}\n\n`);
+          }
+        }
+      }
+      process.stdout.write("---\n");
+    }
+
+    process.stdout.write("> ");
 
     this.rl.on("line", async (text) => {
       if (!text.trim()) {
