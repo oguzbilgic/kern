@@ -31,9 +31,10 @@ export async function startApp(agentDir: string): Promise<void> {
 
   w("");
   w(`  ${bold("kern")} ${cyan(agentDir)}`);
-  w(`  ${dim("session")}  ${runtime.getSessionId() || "new"}`);
   w(`  ${dim("model")}    ${config.provider}/${config.model}`);
+  w(`  ${dim("session")}  ${runtime.getSessionId() || "new"}`);
   w(`  ${dim("tools")}    ${config.tools.join(", ")}`);
+  w(`  ${dim("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")}`);
   w("");
 
   await iface.start({ onMessage: handler, history: runtime.getMessages() });
