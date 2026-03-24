@@ -15,7 +15,9 @@
 - Telegram adapter uses PairingManager instead of allowedUsers array
 - PairedUser stores chatId for outgoing messages
 - 10 built-in tools (was 8): added message, updated kern with pair/users actions
-- KERN.md documents full pairing flow for agents
+- KERN.md documents full pairing flow and operator identity
+- TUI recognized as operator in system prompt — no pairing needed, full trust
+- TUI layout flush left for all markers (◇ ◆ → and tool calls)
 
 ## v0.3.0
 
