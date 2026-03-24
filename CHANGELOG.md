@@ -1,5 +1,15 @@
 # Changelog
 
+## next
+
+### Features
+- **Slack integration** — Bolt SDK + Socket Mode. DMs with pairing, channels with NO_REPLY. Agent reads all messages, speaks selectively.
+- **Slack formatting** — markdown bold/strikethrough converted to Slack format
+- **Documentation** — `docs/` with config, tools, interfaces, pairing, commands reference. Linked from KERN.md.
+
+### Changes
+- Slack channel replies post to channel directly (not in threads)
+
 ## v0.4.0
 
 ### Features

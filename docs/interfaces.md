@@ -74,5 +74,5 @@ Socket Mode connection. No public URL needed.
 
 - **DMs**: pairing required. Unpaired users get a code.
 - **Channels**: agent reads ALL messages but only responds when @mentioned or directly relevant. Returns `NO_REPLY` to suppress silent messages.
-- **Threading**: channel replies go in threads. DM replies are flat.
+- **Replies**: all replies post directly to the channel or DM (no threading).
 - Agent can send proactive messages via the `message` tool.

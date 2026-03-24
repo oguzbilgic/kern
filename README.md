@@ -44,6 +44,7 @@ my-agent/
   AGENTS.md              # how the agent behaves (system prompt)
   IDENTITY.md            # who the agent is
   KNOWLEDGE.md           # index of what it knows
+  USERS.md               # paired users with roles and guardrails
   knowledge/             # mutable state files
   notes/                 # daily logs (append-only)
   .kern/
@@ -68,6 +69,31 @@ kern remove <name>        # unregister an agent
 
 Agents auto-register when you init, start, or run them. `kern list` shows every agent with its running state.
 
+## User pairing
+
+Users pair with a code before they can chat:
+
+1. Unknown user messages the bot → gets a `KERN-XXXX` code
+2. User shares code with the operator
+3. Operator tells the agent: "pair KERN-7X4M — that's Sarah, cofounder"
+4. Agent pairs them and writes USERS.md with identity and access notes
+
+No allowlists. The agent manages its own access.
+
+## Telegram
+
+Set `TELEGRAM_BOT_TOKEN` in `.kern/.env` and kern connects via long polling. No public URL needed — works behind NAT. Messages show up in real time in the TUI.
+
+## Slack
+
+Set `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` in `.kern/.env`. Uses Socket Mode — no public URL needed.
+
+- **DMs**: pairing required, same as Telegram
+- **Channels**: agent reads all messages, only responds when @mentioned or relevant
+- **NO_REPLY**: agent silently absorbs channel context without cluttering the conversation
+
+Invite the bot to channels where it should listen.
+
 ## Configuration
 
 `.kern/config.json`:
@@ -81,17 +107,10 @@ Agents auto-register when you init, start, or run them. `kern list` shows every 
 }
 ```
 
-`.kern/.env`:
-
-```
-OPENROUTER_API_KEY=sk-or-...
-TELEGRAM_BOT_TOKEN=...
-```
-
 ### Tool scopes
 
-- **full** — bash, read, write, edit, glob, grep, webfetch, kern
-- **write** — read, write, edit, glob, grep, webfetch, kern
+- **full** — bash, read, write, edit, glob, grep, webfetch, kern, message
+- **write** — read, write, edit, glob, grep, webfetch, kern, message
 - **read** — read, glob, grep, webfetch, kern
 
 ### Providers
@@ -100,22 +119,15 @@ TELEGRAM_BOT_TOKEN=...
 - **anthropic** — direct Anthropic API
 - **openai** — OpenAI / Azure
 
-## Telegram
+## Documentation
 
-Set `TELEGRAM_BOT_TOKEN` in `.kern/.env` and kern connects via long polling. No public URL needed — works behind NAT. Messages from Telegram show up in real time in the TUI.
-
-```json
-{
-  "telegram": {
-    "allowedUsers": [123456789]
-  }
-}
-```
+Detailed docs: [docs/](https://github.com/oguzbilgic/kern-ai/tree/master/docs)
 
 ## Built with
 
 - [Vercel AI SDK](https://sdk.vercel.ai) — model-agnostic AI layer
 - [grammY](https://grammy.dev) — Telegram bot framework
+- [@slack/bolt](https://slack.dev/bolt-js) — Slack bot framework
 - [agent-kernel](https://github.com/oguzbilgic/agent-kernel) — the memory pattern
 
 ## License
