@@ -44,12 +44,13 @@ export class CliInterface implements Interface {
       terminal: false,
     });
 
-    // Show recent history
+    // Show recent history (last 2 exchanges only)
     if (history && history.length > 0) {
-      const recent = history.slice(-6);
+      const recent = history.slice(-4);
       for (const msg of recent) {
         if (msg.role === "user" && typeof msg.content === "string") {
-          process.stdout.write(dim(`  > ${msg.content}\n`));
+          const preview = msg.content.length > 80 ? msg.content.slice(0, 80) + "..." : msg.content;
+          process.stdout.write(dim(`  you: ${preview}\n`));
         } else if (msg.role === "assistant") {
           const text =
             typeof msg.content === "string"
@@ -61,12 +62,13 @@ export class CliInterface implements Interface {
                     .join("")
                 : "";
           if (text) {
-            const preview = text.length > 150 ? text.slice(0, 150) + "..." : text;
-            process.stdout.write(dim(`  ${preview}\n\n`));
+            const firstLine = text.split("\n")[0];
+            const preview = firstLine.length > 80 ? firstLine.slice(0, 80) + "..." : firstLine;
+            process.stdout.write(dim(`  bot: ${preview}\n`));
           }
         }
       }
-      process.stdout.write("\n");
+      process.stdout.write(dim("  ───\n"));
     }
 
     process.stdout.write(green("> "));
