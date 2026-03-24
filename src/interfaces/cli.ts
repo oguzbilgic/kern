@@ -111,6 +111,9 @@ export class CliInterface implements Interface {
               case "text-delta":
                 if (!hasText) {
                   spinner.stop();
+                  if (toolCount > 0) {
+                    process.stdout.write("\n");
+                  }
                   process.stdout.write(`${blue("◆")} `);
                   hasText = true;
                 }
