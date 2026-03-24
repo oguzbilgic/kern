@@ -1,8 +1,9 @@
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, writeFile, readFile } from "fs/promises";
 import { join, resolve } from "path";
 import { existsSync } from "fs";
 import { createInterface } from "readline";
-import { registerAgent } from "./registry.js";
+import { registerAgent, findAgent, isProcessRunning, setPid } from "./registry.js";
+import { startAgent, stopAgent } from "./daemon.js";
 
 const rl = createInterface({
   input: process.stdin,
@@ -34,6 +35,108 @@ const API_KEY_LABELS: Record<string, string> = {
   openai: "OPENAI_API_KEY",
 };
 
+async function runConfig(name: string, dir: string): Promise<void> {
+  print("");
+  print(`  kern config — ${name}`);
+  print("  ─────────────");
+  print("");
+
+  // Load existing config and env
+  let currentConfig: any = {};
+  try {
+    currentConfig = JSON.parse(await readFile(join(dir, ".kern", "config.json"), "utf-8"));
+  } catch {}
+
+  let currentEnv: Record<string, string> = {};
+  try {
+    const envContent = await readFile(join(dir, ".kern", ".env"), "utf-8");
+    for (const line of envContent.split("\n")) {
+      if (line.trim() && !line.startsWith("#")) {
+        const eq = line.indexOf("=");
+        if (eq > 0) {
+          currentEnv[line.slice(0, eq)] = line.slice(eq + 1);
+        }
+      }
+    }
+  } catch {}
+
+  // Provider
+  const provider = await ask("Provider", currentConfig.provider || "openrouter");
+
+  // API key — show masked current value
+  const apiKeyLabel = API_KEY_LABELS[provider] || "API_KEY";
+  const currentKey = currentEnv[apiKeyLabel];
+  const maskedKey = currentKey ? `****${currentKey.slice(-4)}` : undefined;
+  const apiKey = await ask(apiKeyLabel, maskedKey);
+
+  // Model
+  const defaultModel = currentConfig.model || MODEL_DEFAULTS[provider] || "anthropic/claude-opus-4";
+  const model = await ask("Model", defaultModel);
+
+  // Telegram
+  const currentTgToken = currentEnv["TELEGRAM_BOT_TOKEN"];
+  const maskedTg = currentTgToken ? `****${currentTgToken.slice(-4)}` : undefined;
+  const telegramToken = await ask("Telegram bot token", maskedTg);
+
+  // Allowed users
+  let allowedUsers: number[] = currentConfig.telegram?.allowedUsers || [];
+  if (telegramToken && !telegramToken.startsWith("****")) {
+    const currentUsers = allowedUsers.length > 0 ? allowedUsers.join(", ") : undefined;
+    const usersStr = await ask("Allowed Telegram user IDs", currentUsers?.toString());
+    if (usersStr) {
+      allowedUsers = usersStr.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n));
+    }
+  }
+
+  rl.close();
+
+  // Build new config
+  const config: any = {
+    model,
+    provider,
+    toolScope: currentConfig.toolScope || "full",
+    maxSteps: currentConfig.maxSteps || 30,
+  };
+  if (allowedUsers.length > 0) {
+    config.telegram = { allowedUsers };
+  }
+
+  // Build new env
+  const envLines: string[] = [];
+  const actualKey = apiKey?.startsWith("****") ? currentKey : apiKey;
+  if (actualKey) {
+    envLines.push(`${apiKeyLabel}=${actualKey}`);
+  } else {
+    envLines.push(`# ${apiKeyLabel}=`);
+  }
+  const actualTg = telegramToken?.startsWith("****") ? currentTgToken : telegramToken;
+  if (actualTg) {
+    envLines.push(`TELEGRAM_BOT_TOKEN=${actualTg}`);
+  } else {
+    envLines.push(`# TELEGRAM_BOT_TOKEN=`);
+  }
+
+  // Write config and env
+  await writeFile(join(dir, ".kern", "config.json"), JSON.stringify(config, null, 2) + "\n");
+  await writeFile(join(dir, ".kern", ".env"), envLines.join("\n") + "\n");
+  print("");
+  print("  ✓ Config updated");
+
+  // Restart if running, otherwise start
+  const agent = await findAgent(name);
+  if (agent?.pid && isProcessRunning(agent.pid)) {
+    process.kill(agent.pid, "SIGTERM");
+    await setPid(name, null);
+    print("  ✓ Stopped");
+    // Small delay for clean shutdown
+    await new Promise((r) => setTimeout(r, 500));
+  }
+
+  print("  ✓ Starting...");
+  print("");
+  await startAgent(name);
+}
+
 export async function runInit(targetArg?: string): Promise<void> {
   print("");
   print("  kern init");
@@ -50,9 +153,10 @@ export async function runInit(targetArg?: string): Promise<void> {
 
   // Determine directory
   const dir = resolve(targetArg || name);
-  if (existsSync(dir) && existsSync(join(dir, "AGENTS.md"))) {
-    print(`  ${dir} already exists and has AGENTS.md. Skipping scaffold.`);
-    rl.close();
+
+  // If agent exists, switch to config mode
+  if (existsSync(dir) && (existsSync(join(dir, "AGENTS.md")) || existsSync(join(dir, ".kern")))) {
+    await runConfig(name, dir);
     return;
   }
 
@@ -175,6 +279,7 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
   // .gitignore
   const gitignore = `.kern/.env
 .kern/sessions/
+.kern/logs/
 node_modules/
 `;
 
@@ -208,10 +313,10 @@ node_modules/
     print("  (git init skipped)");
   }
 
-  // Register in ~/.kern/agents.json
+  // Register and start
   await registerAgent(name, dir);
-
   print("");
-  print(`  Done. Run: cd ${name} && kern`);
+  print("  ✓ Starting...");
   print("");
+  await startAgent(name);
 }

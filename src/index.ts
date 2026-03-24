@@ -30,7 +30,7 @@ async function showHelp() {
   w(`  ${dim("One agent. One folder. One continuous conversation.")}`);
   w("");
   w(`  ${yellow("Commands")}`);
-  w(`    ${cyan("kern init")} ${dim("<name>")}            create a new agent`);
+  w(`    ${cyan("kern init")} ${dim("<name>")}            create or configure an agent`);
   w(`    ${cyan("kern start")} ${dim("[name|path]")}      start agents`);
   w(`    ${cyan("kern stop")} ${dim("[name]")}            stop agents`);
   w(`    ${cyan("kern list")}                   show all agents`);
