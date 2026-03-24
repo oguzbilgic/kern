@@ -1,19 +1,25 @@
 # Changelog
 
-## next
+## next (0.2.0-next)
 
 ### Features
 - **WebFetch tool** — fetch URLs directly, no need for `curl` via bash
+- **Kern self-management tool** — agent can check its own status, view config, inspect env vars via `kern({ action: "status" | "config" | "env" })`
 - **Tool scopes** — replace per-tool config with `toolScope: "full" | "write" | "read"`. New tools automatically available to all agents.
 - **Context-aware messaging** — messages include `[via <interface>, <channel>, user: <id>]` metadata so the agent knows who's talking and where
 - **Runtime context injection** — system prompt includes interface adaptation rules (brief on Telegram, detailed on CLI, professional in Slack channels)
+- **Tool list injection** — available tools and descriptions injected into system prompt dynamically
 - **KERN.md** — externalized runtime context file, editable per agent, ships with package as fallback
-- **Telegram formatting** — markdown converted to Telegram HTML (bold, italic, code, blockquotes, lists)
+- **Telegram formatting** — markdown converted to Telegram HTML (bold, italic, code, blockquotes, lists) with plain text fallback
+- **Telegram typing indicator** — stays active throughout long responses, refreshes every 4 seconds
+- **Telegram tool visibility** — tool calls shown live (⚙ read, ⚙ bash...) then replaced by response
+- **Version display** — shown in CLI header and kern tool status
 - **Dual bin** — both `kern` and `kern-ai` commands work
 
 ### Changes
 - Renamed repo and npm package to `kern-ai`
 - `toolScope` replaces `tools` array in config (legacy `tools` field ignored)
+- Version set to `0.2.0-next` for development
 
 ## v0.1.0
 
