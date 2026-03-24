@@ -68,9 +68,10 @@ Alias: `kern rm`
 
 Backup an agent to a `.tar.gz` file.
 
-- Creates `{name}-{date}.tar.gz` in the current directory
+- Creates `~/.kern/backups/{name}-{date}.tar.gz`
 - Includes everything: AGENTS.md, IDENTITY.md, knowledge/, notes/, .kern/config.json, .kern/sessions/, .kern/.env, .kern/pairing.json
 - Excludes: .kern/logs/
+- Agent can be running during backup
 
 ## kern restore \<file\>
 
