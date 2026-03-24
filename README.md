@@ -6,9 +6,11 @@ kern is a simple agent runtime where each agent lives in a single directory — 
 
 ## Why kern
 
+One brain. Multiple interfaces. Talk to the same agent from the CLI, a Telegram DM, a Slack channel, or all three — it's always the same conversation, the same memory, the same context. Just like humans have one brain, your agent has one session.
+
 Most agent frameworks give you sessions that reset, memory that's a black box, or infrastructure you have to manage. kern takes a different approach:
 
-- **Single session per agent** — one continuous conversation that persists as a plain JSONL file. Resume where you left off, every time.
+- **One brain** — a single continuous session across every interface. Message from Telegram, pick up in the CLI, continue in Slack. The agent always knows what happened.
 - **A folder is the agent** — AGENTS.md defines behavior, IDENTITY.md defines who it is, knowledge/ and notes/ are its memory. Everything is plain text, git-tracked, and inspectable.
 - **No infra** — no server, no database, no vector store. A folder, an API key, and `npx kern-ai`.
 - **Model-agnostic** — OpenRouter, Anthropic, OpenAI. Swap providers in one config line.
