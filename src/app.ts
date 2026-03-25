@@ -1,4 +1,5 @@
 import { Runtime, type StreamEvent } from "./runtime.js";
+import { updateKernel } from "./kernel.js";
 import { TelegramInterface } from "./interfaces/telegram.js";
 import { SlackInterface } from "./interfaces/slack.js";
 import { CliInterface, dim, bold, cyan } from "./interfaces/cli.js";
@@ -12,6 +13,9 @@ import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
 
 export async function startApp(agentDir: string, forceCli = false): Promise<void> {
+  // Update kernel if newer version available
+  await updateKernel(agentDir);
+
   const config = await loadConfig(agentDir);
   const runtime = new Runtime(agentDir);
   await runtime.init();
