@@ -307,7 +307,7 @@ async function scaffoldAgent(opts: ScaffoldOpts): Promise<void> {
 
   // AGENTS.md — the kernel
   // Load bundled AGENTS.md
-  const agentsMd = await readFile(join(import.meta.dirname, "..", "AGENTS.md"), "utf-8");
+  const agentsMd = await readFile(join(import.meta.dirname, "..", "templates", "AGENTS.md"), "utf-8");
 
   // IDENTITY.md
   const capitalName = name.charAt(0).toUpperCase() + name.slice(1);

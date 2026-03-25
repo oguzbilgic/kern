@@ -75,7 +75,7 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig): Pr
 
   // Load KERN.md (runtime context) — from agent dir first, fall back to kern package
   const kernMdAgent = join(agentDir, "KERN.md");
-  const kernMdPackage = join(import.meta.dirname, "..", "KERN.md");
+  const kernMdPackage = join(import.meta.dirname, "..", "templates", "KERN.md");
   if (existsSync(kernMdAgent)) {
     parts.push(await readFile(kernMdAgent, "utf-8"));
   } else if (existsSync(kernMdPackage)) {

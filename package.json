@@ -9,8 +9,7 @@
   },
   "files": [
     "dist",
-    "AGENTS.md",
-    "KERN.md"
+    "templates"
   ],
   "scripts": {
     "build": "tsc",

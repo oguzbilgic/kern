@@ -2,7 +2,7 @@ import { readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 
-const BUNDLED_AGENTS = join(import.meta.dirname, "..", "AGENTS.md");
+const BUNDLED_AGENTS = join(import.meta.dirname, "..", "templates", "AGENTS.md");
 
 function extractVersion(content: string): string | null {
   const match = content.match(/<!-- kernel: (v[\d.]+) -->/);
