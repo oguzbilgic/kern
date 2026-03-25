@@ -1,8 +1,8 @@
 # kern
 
-One agent. One folder. One continuous conversation.
+AI agents built for coworking.
 
-kern gives an AI agent a single mind — one continuous session shared across CLI, Telegram, and Slack. Identity, memory, and conversation live in a plain folder. No server, no database. Just `npx kern-ai`.
+One brain across every channel. Your agent sits in Slack channels, Telegram DMs, and the terminal. It knows who's talking, reads the room, and remembers everything. Humans and agents, same channels, same conversation.
 
 ## Why kern
 
