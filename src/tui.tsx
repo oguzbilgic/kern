@@ -3,6 +3,7 @@ import { render, Box, Text, Static, useInput, useApp, useStdout } from "ink";
 // @ts-ignore
 import Spinner from "ink-spinner";
 import type { ServerEvent } from "./server.js";
+import { findAgent } from "./registry.js";
 
 // --- Types ---
 
@@ -360,7 +361,8 @@ function App({ port, agentName, version }: TuiProps) {
   const [streamingText, setStreamingText] = useState("");
   const [model, setModel] = useState("");
   const [connected, setConnected] = useState(false);
-  const baseUrl = `http://127.0.0.1:${port}`;
+  const [currentPort, setCurrentPort] = useState(port);
+  const baseUrl = `http://127.0.0.1:${currentPort}`;
   const cols = stdout?.columns || 80;
 
   // Load history + status
@@ -382,6 +384,8 @@ function App({ port, agentName, version }: TuiProps) {
   // SSE
   useEffect(() => {
     let aborted = false;
+    const baseUrl = `http://127.0.0.1:${currentPort}`;
+    
     function handle(event: ServerEvent) {
       if ((event as any).type === "incoming" && event.fromInterface !== "tui") {
         setMessages((m: ChatMessage[]) => [...m, {
@@ -457,18 +461,32 @@ function App({ port, agentName, version }: TuiProps) {
         }
         if (!aborted) {
           setConnected(false);
-          setTimeout(connect, 2000);
+          import("./registry.js").then(async ({ findAgent, isProcessRunning }) => {
+            const agent = await findAgent(agentName);
+            if (agent?.port && agent.port !== currentPort && agent.pid && isProcessRunning(agent.pid)) {
+              setCurrentPort(agent.port);
+            } else {
+              setTimeout(connect, 2000);
+            }
+          }).catch(() => setTimeout(connect, 2000));
         }
       } catch {
         if (!aborted) {
           setConnected(false);
-          setTimeout(connect, 2000);
+          import("./registry.js").then(async ({ findAgent, isProcessRunning }) => {
+            const agent = await findAgent(agentName);
+            if (agent?.port && agent.port !== currentPort && agent.pid && isProcessRunning(agent.pid)) {
+              setCurrentPort(agent.port);
+            } else {
+              setTimeout(connect, 2000);
+            }
+          }).catch(() => setTimeout(connect, 2000));
         }
       }
     }
     connect();
     return () => { aborted = true; };
-  }, []);
+  }, [currentPort, agentName]);
 
   // Input
   useInput((ch: string, key: any) => {
