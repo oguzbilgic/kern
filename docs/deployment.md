@@ -231,26 +231,42 @@ curl http://localhost:8080/health
 
 Docker compose healthcheck is included in all examples above. The `start_period` gives the agent time to boot and connect to Slack/Telegram before health checks begin.
 
-## WSL2 (Windows + Linux Containers)
+## Platform Notes
 
-If running Docker via WSL2 on Windows, set the Docker context first:
+### Linux / macOS
 
-```powershell
-docker context use wsl2-docker
+No special setup. Docker runs natively, volume mounts and compose work as shown above.
+
+### Windows
+
+kern and the Docker image target Linux containers. On Windows, you need a Linux Docker daemon -- either Docker Desktop (Linux containers mode) or a standalone Docker Engine in WSL2.
+
+If your Docker daemon runs in WSL2, use a Docker context to route commands from your Windows terminal:
+
+```bash
+# Create context (one time)
+docker context create wsl2 --docker "host=tcp://localhost:2375"
+
+# Switch to it
+docker context use wsl2
 ```
 
-Run compose from WSL to avoid Windows path issues:
+Volume mounts using relative paths (e.g., `./my-agent:/agent`) may not resolve correctly when `docker compose` runs from a Windows shell against a Linux daemon. Two workarounds:
 
-```powershell
-wsl -e bash -c "cd /mnt/c/work/agents && docker compose up -d"
+**Option A:** Run compose from within WSL:
+
+```bash
+wsl -e bash -c "cd /mnt/c/path/to/agents && docker compose up -d"
 ```
 
-TUI and remote commands work from PowerShell as normal:
+**Option B:** Use absolute `/mnt/` paths in your compose file:
 
-```powershell
-kern remote add my-agent localhost:8080
-kern tui my-agent
+```yaml
+volumes:
+  - /mnt/c/path/to/agents/my-agent:/agent
 ```
+
+The `kern` CLI itself (TUI, remotes, etc.) works from any terminal regardless of platform.
 
 ## Logs
 
