@@ -170,17 +170,44 @@ export async function importOpenCode(agentName?: string): Promise<void> {
         kernMessages.push({ role: "assistant", content: textParts.join("\n") });
       }
 
-      // Tool results as separate tool messages (required by AI SDK)
-      for (const tr of toolResults) {
-        kernMessages.push({ role: "tool", content: [tr] });
+      // ALL tool results in one tool message (AI SDK requires this)
+      if (toolResults.length > 0) {
+        kernMessages.push({ role: "tool", content: toolResults });
       }
     }
   }
 
+  // Post-process: fix broken patterns
+  const cleaned: any[] = [];
+  for (let i = 0; i < kernMessages.length; i++) {
+    const m = kernMessages[i];
+    const next = kernMessages[i + 1];
+
+    // Skip assistant tool-calls that have no matching tool result
+    if (m.role === "assistant" && Array.isArray(m.content)) {
+      const hasToolCall = m.content.some((p: any) => p.type === "tool-call");
+      if (hasToolCall && (!next || next.role !== "tool")) {
+        skipped++;
+        continue;
+      }
+    }
+
+    // Skip consecutive user messages (keep last)
+    if (m.role === "user" && next?.role === "user") {
+      skipped++;
+      continue;
+    }
+
+    cleaned.push(m);
+  }
+
+  const kernMessagesFinal = cleaned;
+
   db.close();
 
   console.log(`  Converted: ${converted} parts`);
-  console.log(`  Skipped: ${skipped} parts (step markers, reasoning, etc.)`);
+  console.log(`  Skipped: ${skipped} parts`);
+  console.log(`  Cleaned: ${kernMessages.length} → ${kernMessagesFinal.length} messages`);
 
   // Write to kern session JSONL
   const sessionsDir = join(agent.path, ".kern", "sessions");
@@ -198,12 +225,12 @@ export async function importOpenCode(agentName?: string): Promise<void> {
     originalSessionId: sessionId,
   });
 
-  const lines = [meta, ...kernMessages.map((m) => JSON.stringify(m))];
+  const lines = [meta, ...kernMessagesFinal.map((m: any) => JSON.stringify(m))];
   await writeFile(jsonlPath, lines.join("\n") + "\n");
 
   console.log(`\n  Imported to ${jsonlPath}`);
   console.log(`  Session ID: ${sessionUuid}`);
-  console.log(`  ${kernMessages.length} messages`);
+  console.log(`  ${kernMessagesFinal.length} messages`);
   console.log("");
 
   process.exit(0);
