@@ -173,6 +173,7 @@ function MsgBox({ text, borderColor, width, label }: {
         {lines.map((l, i) => (
           <Text key={i} backgroundColor="#1a1a1a" color="white">{l}</Text>
         ))}
+        <Text backgroundColor="#1a1a1a" color="white">{empty}</Text>
       </Box>
     </Box>
   );
