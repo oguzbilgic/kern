@@ -74,9 +74,9 @@ export const kernTool = tool({
     "Manage your own kern runtime. Check status, view config, or pair users.",
   inputSchema: z.object({
     action: z
-      .enum(["status", "config", "env", "pair", "users"])
+      .enum(["status", "config", "env", "pair", "users", "restart"])
       .describe(
-        "status: runtime info. config: show config. env: show env var names. pair: approve a pairing code (provide code param). users: list paired users.",
+        "status: runtime info. config: show config. env: show env var names. pair: approve a pairing code (provide code param). users: list paired users. restart: restart the runtime to pick up config changes.",
       ),
     code: z
       .string()
@@ -174,6 +174,19 @@ export const kernTool = tool({
           }
         }
         return lines.join("\n");
+      }
+
+      case "restart": {
+        const { spawn } = await import("child_process");
+        const { basename } = await import("path");
+        const kernBin = join(import.meta.dirname, "..", "index.js");
+        const name = basename(_agentDir);
+        const child = spawn("node", ["--no-deprecation", kernBin, "restart", name], {
+          detached: true,
+          stdio: "ignore",
+        });
+        child.unref();
+        return "Restarting... The turn will be interrupted but I'll pick up where I left off.";
       }
 
       default:
