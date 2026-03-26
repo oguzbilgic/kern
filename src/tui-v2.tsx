@@ -86,6 +86,48 @@ function MessageView({ msg }: { msg: ChatMessage }) {
   }
 }
 
+function parseUserMessage(content: string): { type: ChatMessage["type"]; text: string; meta?: string } {
+  // Parse [via interface, channel, user: id, time: ...]\ntext
+  const match = content.match(/^\[via ([^,]+),?\s*([^,]*),?\s*user:\s*([^,\]]*),?\s*(?:time:\s*([^\]]*))?\]\n?([\s\S]*)$/);
+  if (match) {
+    const [, iface, channel, userId, , text] = match;
+    const cleanText = text.trim();
+    if (iface.trim() === "tui") {
+      return { type: "user", text: cleanText || "(empty)" };
+    }
+    if (iface.trim() === "system" && channel?.trim() === "heartbeat") {
+      return { type: "heartbeat", text: "" };
+    }
+    const meta = `[${iface.trim()} ${userId.trim()}]`;
+    return { type: "incoming", text: cleanText || "(empty)", meta };
+  }
+  // No metadata — plain user message
+  if (content === "[heartbeat]") {
+    return { type: "heartbeat", text: "" };
+  }
+  return { type: "user", text: content };
+}
+
+function convertHistory(history: any[]): ChatMessage[] {
+  const converted: ChatMessage[] = [];
+  for (const m of history) {
+    if (m.role === "user" && typeof m.content === "string") {
+      converted.push(parseUserMessage(m.content));
+    } else if (m.role === "assistant") {
+      const text = typeof m.content === "string"
+        ? m.content
+        : Array.isArray(m.content)
+          ? m.content.filter((p: any) => p.type === "text").map((p: any) => p.text).join("")
+          : "";
+      if (text && text !== "NO_REPLY" && text !== "(no text response)") {
+        converted.push({ type: "assistant", text });
+      }
+    }
+    // Skip tool messages in history view
+  }
+  return converted;
+}
+
 function App({ port, agentName, version }: TuiProps) {
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -108,19 +150,7 @@ function App({ port, agentName, version }: TuiProps) {
         const res = await fetch(`${baseUrl}/history?limit=50`);
         const history = await res.json();
         if (history.length > 0) {
-          const converted: ChatMessage[] = [];
-          for (const m of history) {
-            if (m.role === "user" && typeof m.content === "string") {
-              converted.push({ type: "user", text: m.content });
-            } else if (m.role === "assistant") {
-              const text = typeof m.content === "string"
-                ? m.content
-                : Array.isArray(m.content)
-                  ? m.content.filter((p: any) => p.type === "text").map((p: any) => p.text).join("")
-                  : "";
-              if (text) converted.push({ type: "assistant", text });
-            }
-          }
+          const converted = convertHistory(history);
           setMessages(converted);
           if (history[0]?.index !== undefined) {
             setOldestIndex(history[0].index);
@@ -232,19 +262,7 @@ function App({ port, agentName, version }: TuiProps) {
             .then((r) => r.json())
             .then((history: any[]) => {
               if (history.length > 0) {
-                const converted: ChatMessage[] = [];
-                for (const m of history) {
-                  if (m.role === "user" && typeof m.content === "string") {
-                    converted.push({ type: "user", text: m.content });
-                  } else if (m.role === "assistant") {
-                    const text = typeof m.content === "string"
-                      ? m.content
-                      : Array.isArray(m.content)
-                        ? m.content.filter((p: any) => p.type === "text").map((p: any) => p.text).join("")
-                        : "";
-                    if (text) converted.push({ type: "assistant", text });
-                  }
-                }
+                const converted = convertHistory(history);
                 setMessages((m: ChatMessage[]) => [...converted, ...m]);
                 if (history[0]?.index !== undefined) {
                   setOldestIndex(history[0].index);
@@ -343,10 +361,18 @@ export async function connectTuiV2(port: number, agentName: string): Promise<voi
     version = pkg.version;
   } catch {}
 
+  // Enter alternate screen
+  process.stdout.write("\x1b[?1049h");
+  process.stdout.write("\x1b[?25l"); // hide cursor
+
   const { waitUntilExit } = render(
     <App port={port} agentName={agentName} version={version} />,
     { exitOnCtrlC: true }
   );
 
   await waitUntilExit();
+
+  // Restore terminal
+  process.stdout.write("\x1b[?25h"); // show cursor
+  process.stdout.write("\x1b[?1049l");
 }
