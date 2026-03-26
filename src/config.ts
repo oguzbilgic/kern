@@ -104,10 +104,15 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig): Pr
 
   parts.push(`### Your tools\n${toolList}`);
 
-  // Docker-specific instructions — injected when running in a container
-  // KERN_CONTAINER=1 is set by docker-entrypoint.sh
-  if (process.env.KERN_CONTAINER === "1") {
-    parts.push(DOCKER_INSTRUCTIONS);
+  // Load extra prompt fragments (e.g., .kern/context/docker.md written by entrypoint)
+  const contextDir = join(agentDir, ".kern", "context");
+  if (existsSync(contextDir)) {
+    const { readdirSync } = await import("fs");
+    for (const file of readdirSync(contextDir).sort()) {
+      if (file.endsWith(".md")) {
+        parts.push(await readFile(join(contextDir, file), "utf-8"));
+      }
+    }
   }
 
   if (parts.length === 0) {
@@ -116,25 +121,3 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig): Pr
 
   return parts.join("\n\n---\n\n");
 }
-
-const DOCKER_INSTRUCTIONS = `### Docker environment
-You are running inside a Docker container. Only \`/agent\` (this repo) is on a persistent volume — everything else is ephemeral and lost on restart.
-
-#### Installing tools
-System packages (\`apt-get install\`) do not survive container restarts. Use these options instead:
-
-1. **Persistent binaries** — install standalone binaries to \`/agent/.local/bin/\`. This directory is on PATH and persists across restarts. Gitignored.
-   \`\`\`bash
-   mkdir -p /agent/.local/bin
-   # download or build binary to /agent/.local/bin/
-   \`\`\`
-
-2. **Startup script** — create \`.kern/init.sh\` for packages that need \`apt-get\`. This runs on every container start before you. Gitignored. Make it executable.
-   \`\`\`bash
-   #!/bin/sh
-   apt-get update && apt-get install -y python3-pip
-   \`\`\`
-
-3. **Ask your operator** — for permanent dependencies, suggest they add \`RUN apt-get install ...\` to the agent Dockerfile and rebuild.
-
-Prefer option 1 when possible (no restart needed). Use option 2 for things that can't be installed to a custom path. Option 3 is best for tools that are always needed.`;
