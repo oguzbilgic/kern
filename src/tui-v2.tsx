@@ -279,8 +279,7 @@ function App({ port, agentName, version }: TuiProps) {
     <Box flexDirection="column">
       <Static items={messages.map((msg, i) => ({ id: String(i), msg, prevType: i > 0 ? messages[i-1].type : null }))}>
         {({ id, msg, prevType }: { id: string; msg: ChatMessage; prevType: string | null }) => {
-          const isBox = msg.type === "user" || msg.type === "incoming" || msg.type === "outgoing" || msg.type === "heartbeat";
-          const needsMargin = prevType !== null && !(msg.type === "tool" && prevType === "tool") && !isBox;
+          const needsMargin = prevType !== null && !(msg.type === "tool" && prevType === "tool");
           return (
             <Box key={id} marginTop={needsMargin ? 1 : 0}>
               <MessageView msg={msg} width={cols} />
