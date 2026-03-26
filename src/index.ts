@@ -43,6 +43,9 @@ async function showHelp() {
   w(`    ${cyan("kern restore")} ${dim("<file>")}         restore agent from backup`);
     w(`    ${cyan("kern logs")} ${dim("[name]")}            tail agent logs`);
     w(`    ${cyan("kern daemon")} ${dim("[name|path]")}     run as foreground supervisor`);
+    w(`    ${cyan("kern remote")} ${dim("add <name> <host:port>")}  add a remote agent`);
+    w(`    ${cyan("kern remote")} ${dim("rm <name>")}        remove a remote agent`);
+    w(`    ${cyan("kern remote")} ${dim("list")}             show remote agents`);
     w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
     w("");
 }
@@ -216,6 +219,31 @@ async function main() {
     const { startAgent } = await import("./daemon.js");
 
     let agentName = args[1];
+    let tuiPort: number | undefined;
+
+    // Check for --port flag
+    const portIdx = args.indexOf("--port");
+    if (portIdx !== -1 && args[portIdx + 1]) {
+      tuiPort = parseInt(args[portIdx + 1], 10);
+      // If --port is the second arg, agentName might be the port flag
+      if (agentName === "--port") agentName = undefined as any;
+    }
+
+    // Direct port connection — skip registry lookup
+    if (tuiPort) {
+      await connectTui(tuiPort, agentName || "remote");
+      return;
+    }
+
+    // Check remotes — if name matches a remote, connect directly
+    if (agentName) {
+      const { findRemote } = await import("./remotes.js");
+      const remote = await findRemote(agentName);
+      if (remote) {
+        await connectTui(remote.port, remote.name, remote.host);
+        return;
+      }
+    }
 
     // Auto-select if no arg
     if (!agentName) {
@@ -255,6 +283,64 @@ async function main() {
 
     await connectTui(agent.port, agentName);
     return;
+  }
+
+  if (cmd === "remote") {
+    const { addRemote, removeRemote, loadRemotes } = await import("./remotes.js");
+    const sub = args[1];
+
+    if (sub === "add") {
+      const name = args[2];
+      const target = args[3]; // host:port
+      if (!name || !target) {
+        console.error("Usage: kern remote add <name> <host:port>");
+        process.exit(1);
+      }
+      const parts = target.split(":");
+      const host = parts.slice(0, -1).join(":") || "localhost";
+      const port = parseInt(parts[parts.length - 1], 10);
+      if (isNaN(port)) {
+        console.error(`Invalid port in "${target}". Expected <host:port> or <port>.`);
+        process.exit(1);
+      }
+      await addRemote(name, host, port);
+      console.log(`  Added remote ${bold(name)} → ${host}:${port}`);
+      process.exit(0);
+    }
+
+    if (sub === "rm" || sub === "remove") {
+      const name = args[2];
+      if (!name) {
+        console.error("Usage: kern remote rm <name>");
+        process.exit(1);
+      }
+      const removed = await removeRemote(name);
+      if (removed) {
+        console.log(`  Removed remote ${bold(name)}`);
+      } else {
+        console.error(`  Remote not found: ${name}`);
+      }
+      process.exit(0);
+    }
+
+    if (!sub || sub === "list" || sub === "ls") {
+      const remotes = await loadRemotes();
+      if (remotes.length === 0) {
+        console.log("  No remotes configured. Use 'kern remote add <name> <host:port>'.");
+      } else {
+        console.log("");
+        console.log(`  ${bold("remotes")}`);
+        console.log("");
+        for (const r of remotes) {
+          console.log(`  ${bold(r.name)}  →  ${r.host}:${r.port}`);
+        }
+        console.log("");
+      }
+      process.exit(0);
+    }
+
+    console.error(`Unknown remote command: ${sub}`);
+    process.exit(1);
   }
 
   if (cmd === "daemon") {

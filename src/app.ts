@@ -105,7 +105,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     }));
   });
 
-  const port = await server.start();
+  const port = await server.start(config.port, config.host);
   await setPort(agentName, port);
 
   // Start Telegram if configured

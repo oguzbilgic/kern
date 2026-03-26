@@ -37,10 +37,10 @@ export class AgentServer {
     this.historyFn = fn;
   }
 
-  async start(fixedPort?: number): Promise<number> {
+  async start(fixedPort?: number, fixedHost?: string): Promise<number> {
     return new Promise((resolve) => {
       const port = fixedPort || parseInt(process.env.KERN_PORT || "0", 10);
-      const host = process.env.KERN_HOST || "127.0.0.1";
+      const host = fixedHost || process.env.KERN_HOST || "127.0.0.1";
       this.server.listen(port, host, () => {
         this.port = (this.server.address() as any).port;
         log("server", `listening on ${host}:${this.port}`);

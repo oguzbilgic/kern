@@ -12,6 +12,8 @@ export interface KernConfig {
   maxSteps: number;
   maxContextTokens: number;
   heartbeatInterval: number;
+  port?: number;
+  host?: string;
   telegram?: {
     allowedUsers?: number[];
     showTools?: boolean;

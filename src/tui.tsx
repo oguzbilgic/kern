@@ -21,6 +21,7 @@ type RenderBlock =
 
 interface TuiProps {
   port: number;
+  host: string;
   agentName: string;
   version: string;
 }
@@ -380,7 +381,7 @@ function RenderBlockView({ block, width }: { block: RenderBlock; width: number }
 
 // --- App ---
 
-function App({ port, agentName, version }: TuiProps) {
+function App({ port, host, agentName, version }: TuiProps) {
   const { exit } = useApp();
   const { stdout } = useStdout();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -390,7 +391,7 @@ function App({ port, agentName, version }: TuiProps) {
   const [model, setModel] = useState("");
   const [connected, setConnected] = useState(false);
   const [currentPort, setCurrentPort] = useState(port);
-  const baseUrl = `http://127.0.0.1:${currentPort}`;
+  const baseUrl = `http://${host}:${currentPort}`;
   const [cols, setCols] = useState(stdout?.columns || 80);
 
   useEffect(() => {
@@ -423,7 +424,7 @@ function App({ port, agentName, version }: TuiProps) {
   // SSE
   useEffect(() => {
     let aborted = false;
-    const baseUrl = `http://127.0.0.1:${currentPort}`;
+    const baseUrl = `http://${host}:${currentPort}`;
     
     function handle(event: ServerEvent) {
       if ((event as any).type === "incoming" && event.fromInterface !== "tui") {
@@ -609,10 +610,10 @@ function App({ port, agentName, version }: TuiProps) {
 
 // --- Entry ---
 
-export async function connectTui(port: number, agentName: string): Promise<void> {
+export async function connectTui(port: number, agentName: string, host: string = "127.0.0.1"): Promise<void> {
   let model = "";
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/status`);
+    const res = await fetch(`http://${host}:${port}/status`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const status = await res.json();
     model = status.model || "";
@@ -630,7 +631,7 @@ export async function connectTui(port: number, agentName: string): Promise<void>
   } catch {}
 
   const { waitUntilExit } = render(
-    <App port={port} agentName={agentName} version={version} />,
+    <App port={port} host={host} agentName={agentName} version={version} />,
     { exitOnCtrlC: true }
   );
   await waitUntilExit();
