@@ -67,18 +67,20 @@ function convertHistory(history: any[]): ChatMessage[] {
 
 function addGaps(msgs: ChatMessage[]): ChatMessage[] {
   if (msgs.length === 0) return msgs;
-  const result: ChatMessage[] = [msgs[0]];
-  for (let i = 1; i < msgs.length; i++) {
-    const prev = msgs[i - 1].type;
-    const curr = msgs[i].type;
-    // Gap before: boxes, first tool after non-tool, assistant after tool
-    const isBox = curr === "user" || curr === "incoming" || curr === "outgoing" || curr === "heartbeat";
+  // Remove existing gaps first (prevents stacking)
+  const clean = msgs.filter(m => m.type !== "gap");
+  if (clean.length === 0) return clean;
+  const result: ChatMessage[] = [clean[0]];
+  for (let i = 1; i < clean.length; i++) {
+    const prev = clean[i - 1].type;
+    const curr = clean[i].type;
+    // Gap only before: first tool after non-tool, assistant after tool
     const isFirstTool = curr === "tool" && prev !== "tool";
     const isAssistantAfterTool = curr === "assistant" && prev === "tool";
-    if (isBox || isFirstTool || isAssistantAfterTool) {
+    if (isFirstTool || isAssistantAfterTool) {
       result.push({ type: "gap", text: "" });
     }
-    result.push(msgs[i]);
+    result.push(clean[i]);
   }
   return result;
 }
