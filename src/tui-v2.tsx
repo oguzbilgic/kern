@@ -207,42 +207,114 @@ function MarkdownText({ text, isMuted }: { text: string; isMuted?: boolean }) {
     );
   }
 
-  const parts = text.split(/(```[\s\S]*?```|\*\*[\s\S]*?\*\*|`[^`]+`)/g);
+  const blocks: { type: string; content: string }[] = [];
+  const codeSplit = text.split(/(```[\s\S]*?```)/g);
+  for (const part of codeSplit) {
+    if (part.startsWith("```") && part.endsWith("```")) {
+      let code = part.slice(3, -3);
+      const firstNewline = code.indexOf("\n");
+      if (firstNewline !== -1 && !code.slice(0, firstNewline).includes(" ")) {
+        code = code.slice(firstNewline + 1);
+      } else if (code.startsWith("\n")) {
+        code = code.slice(1);
+      }
+      if (code.endsWith("\n")) code = code.slice(0, -1);
+      blocks.push({ type: "code", content: code });
+    } else if (part) {
+      const lines = part.split("\n");
+      let currentType = "text";
+      let currentContent: string[] = [];
+      
+      const flush = () => {
+        if (currentContent.length > 0) {
+          blocks.push({ type: currentType, content: currentContent.join("\n") });
+          currentContent = [];
+        }
+      };
+
+      for (const line of lines) {
+        if (line.match(/^#{1,6}\s+/)) {
+          flush();
+          blocks.push({ type: "heading", content: line });
+        } else if (line.startsWith(">")) {
+          if (currentType !== "quote") flush();
+          currentType = "quote";
+          let quoteContent = line.slice(1);
+          if (quoteContent.startsWith(" ")) quoteContent = quoteContent.slice(1);
+          currentContent.push(quoteContent);
+        } else {
+          if (currentType === "quote" && line.trim() === "") {
+             flush();
+             currentType = "text";
+             currentContent.push(line);
+          } else if (currentType === "quote") {
+             let quoteContent = line.startsWith(">") ? line.slice(1) : line;
+             if (quoteContent.startsWith(" ")) quoteContent = quoteContent.slice(1);
+             currentContent.push(quoteContent);
+          } else {
+             currentType = "text";
+             currentContent.push(line);
+          }
+        }
+      }
+      flush();
+    }
+  }
+
+  const renderInline = (str: string) => {
+    const inlineParts = str.split(/(\**[\s\S]+?\**|\*[^*]+\*|`[^`]+`)/g);
+    return inlineParts.map((p, i) => {
+      if (!p) return null;
+      if (p.startsWith("**") && p.endsWith("**")) {
+        return <Text key={i} bold color="white">{p.slice(2, -2)}</Text>;
+      }
+      if (p.startsWith("*") && p.endsWith("*")) {
+        return <Text key={i} italic color="white">{p.slice(1, -1)}</Text>;
+      }
+      if (p.startsWith("`") && p.endsWith("`")) {
+        return <Text key={i} color="cyan">{p.slice(1, -1)}</Text>;
+      }
+      return <Text key={i} color="white">{p}</Text>;
+    });
+  };
 
   return (
-    <Text wrap="wrap">
-      {parts.map((part, i) => {
-        if (!part) return null;
-        if (part.startsWith("```") && part.endsWith("```")) {
-          let code = part.slice(3, -3);
-          const firstNewline = code.indexOf("\n");
-          if (firstNewline !== -1 && !code.slice(0, firstNewline).includes(" ")) {
-            code = code.slice(firstNewline + 1);
-          } else if (code.startsWith("\n")) {
-            code = code.slice(1);
-          }
-          if (code.endsWith("\n")) code = code.slice(0, -1);
-          
-          const lines = code.split("\n");
+    <Box flexDirection="column">
+      {blocks.map((b, i) => {
+        if (b.type === "code") {
           return (
-            <Text key={i}>
-              {"\n"}
-              <Text backgroundColor="#222" color="#eee">
-                {lines.map(l => "  " + l + "  ").join("\n")}
-              </Text>
-              {"\n"}
-            </Text>
+            <Box key={i} marginY={1} borderStyle="bold" borderLeft borderRight={false} borderTop={false} borderBottom={false} borderColor="#555">
+              <Box flexDirection="column" paddingLeft={1}>
+                {b.content.split("\n").map((l, j) => (
+                  <Text key={j} color="#ccc">{l}</Text>
+                ))}
+              </Box>
+            </Box>
           );
         }
-        if (part.startsWith("**") && part.endsWith("**")) {
-          return <Text key={i} bold color="white">{part.slice(2, -2)}</Text>;
+        if (b.type === "heading") {
+          return (
+            <Box key={i} marginTop={i === 0 ? 0 : 1} marginBottom={0}>
+              <Text bold color="yellow">{renderInline(b.content)}</Text>
+            </Box>
+          );
         }
-        if (part.startsWith("`") && part.endsWith("`")) {
-          return <Text key={i} color="cyan">{part.slice(1, -1)}</Text>;
+        if (b.type === "quote") {
+          return (
+            <Box key={i} marginY={1} borderStyle="bold" borderLeft borderRight={false} borderTop={false} borderBottom={false} borderColor="#888">
+              <Box flexDirection="column" paddingLeft={1}>
+                <Text wrap="wrap" color="#ccc" italic>{renderInline(b.content)}</Text>
+              </Box>
+            </Box>
+          );
         }
-        return <Text key={i} color="white">{part}</Text>;
+        return (
+          <Box key={i}>
+            <Text wrap="wrap">{renderInline(b.content)}</Text>
+          </Box>
+        );
       })}
-    </Text>
+    </Box>
   );
 }
 
