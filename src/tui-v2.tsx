@@ -101,6 +101,7 @@ function MsgBox({ text, borderColor, width, label }: {
         <Text backgroundColor="#1a1a1a" color="white">{empty}</Text>
         {label && <Text backgroundColor="#1a1a1a" dimColor>{("  " + label).padEnd(iw)}</Text>}
         <Text backgroundColor="#1a1a1a" color="white" wrap="wrap">{("  " + text).padEnd(iw)}</Text>
+        <Text backgroundColor="#1a1a1a" color="white">{empty}</Text>
       </Box>
     </Box>
   );
@@ -120,6 +121,7 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
           <Box flexDirection="column" width={width - 3}>
             <Text backgroundColor="#1a1a1a" dimColor>{" ".repeat(width - 3)}</Text>
             <Text backgroundColor="#1a1a1a" color="magenta">{("  ♡ heartbeat").padEnd(width - 3)}</Text>
+            <Text backgroundColor="#1a1a1a" dimColor>{" ".repeat(width - 3)}</Text>
           </Box>
         </Box>
       );
