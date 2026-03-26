@@ -451,26 +451,24 @@ function App({ port, agentName, version }: TuiProps) {
           break;
         case "tool-call": {
           const detail = event.toolDetail ? ` ${event.toolDetail}` : "";
-          setStreamingText((s: string) => {
-            if (s) {
-              setMessages((m: ChatMessage[]) => [
-                ...m,
-                { type: "assistant", text: s },
-                { type: "tool", text: `${event.toolName}${detail}` }
-              ]);
-            } else {
-              setMessages((m: ChatMessage[]) => [...m, { type: "tool", text: `${event.toolName}${detail}` }]);
-            }
-            return "";
-          });
+          if (streamingText) {
+            setMessages((m: ChatMessage[]) => [
+              ...m,
+              { type: "assistant", text: streamingText },
+              { type: "tool", text: `${event.toolName}${detail}` }
+            ]);
+          } else {
+            setMessages((m: ChatMessage[]) => [...m, { type: "tool", text: `${event.toolName}${detail}` }]);
+          }
+          setStreamingText("");
           setBusy(true);
           break;
         }
         case "finish":
-          setStreamingText((s: string) => {
-            if (s) setMessages((m: ChatMessage[]) => [...m, { type: "assistant", text: s }]);
-            return "";
-          });
+          if (streamingText) {
+            setMessages((m: ChatMessage[]) => [...m, { type: "assistant", text: streamingText }]);
+          }
+          setStreamingText("");
           setBusy(false);
           break;
         case "error":

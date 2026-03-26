@@ -37,7 +37,6 @@
     "@ai-sdk/openai": "^3.0.48",
     "@inquirer/prompts": "^8.3.2",
     "@slack/bolt": "^4.6.0",
-    "@types/ink-text-input": "^2.0.5",
     "ai": "^6.0.0",
     "better-sqlite3": "^12.8.0",
     "dotenv": "^16.4.0",
@@ -45,7 +44,6 @@
     "grammy": "^1.35.0",
     "ink": "^6.8.0",
     "ink-spinner": "^5.0.0",
-    "ink-text-input": "^6.0.0",
     "react": "^19.2.4",
     "zod": "^3.24.0"
   },
