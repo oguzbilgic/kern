@@ -97,9 +97,6 @@ export class Runtime {
           windowTokens,
         };
       },
-      reload: async () => {
-        this.pendingRestart = true;
-      },
       pairingManager: pairing,
     });
   }
@@ -133,8 +130,6 @@ export class Runtime {
 
   // Pending messages to inject via prepareStep
   private pendingInjections: (() => { role: string; content: string }[]) | null = null;
-
-  public pendingRestart: boolean = false;
 
   setPendingInjections(fn: () => { role: string; content: string }[]) {
     this.pendingInjections = fn;
@@ -243,19 +238,6 @@ export class Runtime {
       }
 
       onEvent({ type: "finish", text: fullText });
-      
-      // If a restart was requested during this turn, execute it now that session is saved
-      if (this.pendingRestart) {
-        log("runtime", "executing pending restart...");
-        const { execSync } = await import("child_process");
-        const { basename } = await import("path");
-        const name = basename(this.agentDir);
-        try {
-          execSync(`kern restart ${name}`, { stdio: "ignore", timeout: 10000 });
-        } catch {
-          // Expected — the restart kills this process
-        }
-      }
 
       return fullText || "(no text response)";
     } catch (error: any) {

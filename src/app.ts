@@ -49,6 +49,18 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   const queue = new MessageQueue();
 
   queue.setHandler(async (msg, getPendingMessages) => {
+    // Intercept /restart — handle at runtime level, never send to LLM
+    if (msg.text.trim() === "/restart") {
+      log("kern", `restart requested by ${msg.userId} via ${msg.interface}`);
+      const { execSync } = await import("child_process");
+      try {
+        execSync(`kern restart ${agentName}`, { stdio: "ignore", timeout: 10000 });
+      } catch {
+        // Expected — restart kills this process
+      }
+      return "Restarting...";
+    }
+
     const time = new Date().toISOString();
     const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}, time: ${time}]\n${msg.text}`;
 

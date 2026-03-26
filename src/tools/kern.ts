@@ -74,9 +74,9 @@ export const kernTool = tool({
     "Manage your own kern runtime. Check status, view config, or pair users.",
   inputSchema: z.object({
     action: z
-      .enum(["status", "config", "env", "pair", "users", "restart"])
+      .enum(["status", "config", "env", "pair", "users"])
       .describe(
-        "status: runtime info. config: show config. env: show env var names. pair: approve a pairing code (provide code param). users: list paired users. restart: restart the runtime to pick up config changes.",
+        "status: runtime info. config: show config. env: show env var names. pair: approve a pairing code (provide code param). users: list paired users.",
       ),
     code: z
       .string()
@@ -174,13 +174,6 @@ export const kernTool = tool({
           }
         }
         return lines.join("\n");
-      }
-
-      case "restart": {
-        if (_reloadFn) {
-          await _reloadFn();
-        }
-        return "Restarting... The turn will be interrupted but I'll pick up where I left off.";
       }
 
       default:

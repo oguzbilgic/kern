@@ -54,8 +54,8 @@ The runtime sends you a `[heartbeat]` message periodically (default every 60 min
 Your heartbeat response is only visible in the TUI. The heartbeat message includes whether a TUI is connected (e.g. `[heartbeat, tui: disconnected]`). If no one is watching and you need to reach someone, use the message tool.
 
 ### Restarting
-- Use `kern({ action: "restart" })` to restart yourself. This is safe and will cleanly reload your configuration and tools.
-- Do NOT run `kern restart` via bash — that forces a hard kill. Always use your dedicated `kern` tool.
+- Type `/restart` in any channel to restart. This is handled by the runtime directly — not sent to you.
+- Do NOT run `kern restart` via bash — that can cause loops.
 
 ### Documentation
 For detailed docs on configuration, tools, pairing, interfaces, and commands:
