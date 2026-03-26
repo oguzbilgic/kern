@@ -36,7 +36,7 @@ export class SlackInterface implements Interface {
     try {
       const auth = await this.app.client.auth.test();
       this.botUserId = auth.user_id as string || "";
-      console.log(`Slack bot user ID: ${this.botUserId}`);
+      log("slack", `bot user ID: ${this.botUserId}`);
     } catch {}
 
     // Listen to all messages
@@ -128,7 +128,7 @@ export class SlackInterface implements Interface {
     });
 
     await this.app.start();
-    console.log("Slack bot starting (socket mode)...");
+    log("slack", "started (socket mode)");
   }
 
   async stop(): Promise<void> {

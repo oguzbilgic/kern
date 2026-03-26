@@ -126,7 +126,7 @@ export class TelegramInterface implements Interface {
       }
     });
 
-    console.log("Telegram bot starting (long polling)...");
+    log("telegram", "started (long polling)");
     this.bot.start();
   }
 
