@@ -3,7 +3,6 @@ import { render, Box, Text, Static, useInput, useApp, useStdout } from "ink";
 // @ts-ignore
 import Spinner from "ink-spinner";
 import type { ServerEvent } from "./server.js";
-import { AutocompleteMenu, COMMANDS } from "./tui-autocomplete.js";
 import { findAgent } from "./registry.js";
 
 // --- Types ---
@@ -386,7 +385,6 @@ function App({ port, agentName, version }: TuiProps) {
   const { stdout } = useStdout();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const [autocompleteIndex, setAutocompleteIndex] = useState(0);
   const [busy, setBusy] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [model, setModel] = useState("");
@@ -533,30 +531,9 @@ function App({ port, agentName, version }: TuiProps) {
   useInput((ch: string, key: any) => {
     if (key.escape) { exit(); return; }
 
-    const isCommand = input.startsWith("/");
-    const matches = isCommand ? COMMANDS.filter(c => c.cmd.startsWith(input)) : [];
-    const safeIndex = Math.min(autocompleteIndex, Math.max(0, matches.length - 1));
-
-    if (isCommand && matches.length > 0) {
-      if (key.upArrow) {
-        setAutocompleteIndex((i) => (i > 0 ? i - 1 : matches.length - 1));
-        return;
-      }
-      if (key.downArrow) {
-        setAutocompleteIndex((i) => (i < matches.length - 1 ? i + 1 : 0));
-        return;
-      }
-      if (key.tab || (key.return && input !== matches[safeIndex].cmd)) {
-        setInput(matches[safeIndex].cmd);
-        setAutocompleteIndex(0);
-        return;
-      }
-    }
-
     if (key.return && input.trim() && !busy) {
       const text = input.trim();
       setInput("");
-      setAutocompleteIndex(0);
       setMessages((m: ChatMessage[]) => [...m, { type: "user", text }]);
       setBusy(true);
       fetch(`${baseUrl}/message`, {
@@ -570,23 +547,11 @@ function App({ port, agentName, version }: TuiProps) {
       return;
     }
     if (key.backspace || key.delete) { 
-      setInput((s: string) => {
-        const next = s.slice(0, -1);
-        if (next.startsWith("/") && COMMANDS.filter(c => c.cmd.startsWith(next)).length > 0) {
-          setAutocompleteIndex(0);
-        }
-        return next;
-      });
+      setInput((s: string) => s.slice(0, -1));
       return; 
     }
     if (ch && !key.ctrl && !key.meta) { 
-      setInput((s: string) => {
-        const next = s + ch;
-        if (next.startsWith("/") && COMMANDS.filter(c => c.cmd.startsWith(next)).length > 0) {
-          setAutocompleteIndex(0);
-        }
-        return next;
-      });
+      setInput((s: string) => s + ch);
     }
   });
 
@@ -623,7 +588,6 @@ function App({ port, agentName, version }: TuiProps) {
         )}
         <Box marginTop={1}>
           <Box flexDirection="column">
-            <AutocompleteMenu input={input} selectedIndex={autocompleteIndex} />
             <InputBox input={input} busy={busy} version={version} agentName={agentName} model={model} width={cols} connected={connected} />
           </Box>
         </Box>
