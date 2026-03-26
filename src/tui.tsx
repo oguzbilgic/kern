@@ -363,7 +363,18 @@ function App({ port, agentName, version }: TuiProps) {
   const [connected, setConnected] = useState(false);
   const [currentPort, setCurrentPort] = useState(port);
   const baseUrl = `http://127.0.0.1:${currentPort}`;
-  const cols = stdout?.columns || 80;
+  const [cols, setCols] = useState(stdout?.columns || 80);
+
+  useEffect(() => {
+    if (!stdout) return;
+    const handleResize = () => {
+      setCols(stdout.columns);
+      // Optional: force a clear of the current active render area to avoid artifacts
+      // but Ink might handle this if cols state updates
+    };
+    stdout.on("resize", handleResize);
+    return () => { stdout.off("resize", handleResize); };
+  }, [stdout]);
 
   // Load history + status
   useEffect(() => {
