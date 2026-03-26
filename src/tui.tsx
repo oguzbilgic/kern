@@ -399,7 +399,18 @@ function App({ port, agentName, version }: TuiProps) {
           break;
         case "tool-call": {
           const detail = event.toolDetail ? ` ${event.toolDetail}` : "";
-          setMessages((m: ChatMessage[]) => [...m, { type: "tool", text: `${event.toolName}${detail}` }]);
+          setStreamingText((s: string) => {
+            if (s) {
+              setMessages((m: ChatMessage[]) => [
+                ...m,
+                { type: "assistant", text: s },
+                { type: "tool", text: `${event.toolName}${detail}` }
+              ]);
+            } else {
+              setMessages((m: ChatMessage[]) => [...m, { type: "tool", text: `${event.toolName}${detail}` }]);
+            }
+            return "";
+          });
           setBusy(true);
           break;
         }
