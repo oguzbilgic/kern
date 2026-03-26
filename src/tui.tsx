@@ -108,27 +108,24 @@ function buildBlocks(messages: ChatMessage[]): RenderBlock[] {
 function InputBox({ input, busy, version, agentName, model, width, connected }: {
   input: string; busy: boolean; version: string; agentName: string; model: string; width: number; connected: boolean;
 }) {
-  const iw = width - 3;
-  const empty = " ".repeat(iw);
   const cursor = busy ? "" : "▎";
-  const inputLine = ("  " + input + cursor).padEnd(iw);
+  const inputLine = ("  " + input + cursor);
   const connectionStr = connected ? "●" : "○";
-  const statusLine = (`  kern v${version} · ${agentName}${model ? " · " + model : ""} · ${connectionStr}`).padEnd(iw);
   
   // Set border color based on connection status
   const borderColor = connected ? "green" : "red";
   return (
-    <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor={borderColor} width={width}>
-      <Box flexDirection="column" width={iw}>
-        <Text backgroundColor="#1a1a1a" color="white">{empty}</Text>
-        <Text backgroundColor="#1a1a1a" color="white">{inputLine}</Text>
-        <Text backgroundColor="#1a1a1a" color="white">{empty}</Text>
+    <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor={borderColor}>
+      <Box flexDirection="column" width={width - 3}>
+        <Text backgroundColor="#1a1a1a" color="white">  {"\x1b[K"}</Text>
+        <Text backgroundColor="#1a1a1a" color="white">{inputLine}{"\x1b[K"}</Text>
+        <Text backgroundColor="#1a1a1a" color="white">  {"\x1b[K"}</Text>
         <Text backgroundColor="#1a1a1a" dimColor italic>
           {"  kern v"}{version}{" · "}{agentName}{model ? " · " + model : ""}{" · "}
           <Text color={connected ? "green" : "red"}>{connectionStr}</Text>
-          {" ".repeat(Math.max(0, iw - 13 - version.length - agentName.length - model.length - (model ? 3 : 0) - 2))}
+          {"\x1b[K"}
         </Text>
-        <Text backgroundColor="#1a1a1a" color="white">{empty}</Text>
+        <Text backgroundColor="#1a1a1a" color="white">  {"\x1b[K"}</Text>
       </Box>
     </Box>
   );
@@ -137,15 +134,13 @@ function InputBox({ input, busy, version, agentName, model, width, connected }: 
 function MsgBox({ text, borderColor, width, label }: {
   text: string; borderColor: string; width: number; label?: string;
 }) {
-  const iw = width - 3;
-  const empty = " ".repeat(iw);
   return (
-    <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor={borderColor} width={width}>
-      <Box flexDirection="column" width={iw}>
-        <Text backgroundColor="#1a1a1a" color="white">{empty}</Text>
-        {label && <Text backgroundColor="#1a1a1a" dimColor>{("  " + label).padEnd(iw)}</Text>}
-        <Text backgroundColor="#1a1a1a" color="white" wrap="wrap">{("  " + text).padEnd(iw)}</Text>
-        <Text backgroundColor="#1a1a1a" color="white">{empty}</Text>
+    <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor={borderColor}>
+      <Box flexDirection="column">
+        <Text backgroundColor="#1a1a1a" color="white">  {"\x1b[K"}</Text>
+        {label && <Text backgroundColor="#1a1a1a" dimColor>{("  " + label)}{"\x1b[K"}</Text>}
+        <Text backgroundColor="#1a1a1a" color="white" wrap="wrap">{("  " + text)}{"\x1b[K"}</Text>
+        <Text backgroundColor="#1a1a1a" color="white">  {"\x1b[K"}</Text>
       </Box>
     </Box>
   );
