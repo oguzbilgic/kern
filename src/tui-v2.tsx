@@ -131,8 +131,17 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
         </Box>
       );
     }
-    case "tool":
-      return <Box><Text color="yellow">{msg.text}</Text></Box>;
+    case "tool": {
+      const spaceIdx = msg.text.indexOf(" ");
+      const toolName = spaceIdx > 0 ? msg.text.slice(0, spaceIdx) : msg.text;
+      const toolDetail = spaceIdx > 0 ? msg.text.slice(spaceIdx) : "";
+      return (
+        <Box paddingLeft={3} marginTop={0}>
+          <Text color="yellow">{toolName}</Text>
+          <Text dimColor>{toolDetail}</Text>
+        </Box>
+      );
+    }
     case "error":
       return <Box><Text color="red">{msg.text}</Text></Box>;
     default:
@@ -277,9 +286,10 @@ function App({ port, agentName, version }: TuiProps) {
       {/* Status bar removed from top — moved inside input box */}
 
       {/* Completed messages — rendered once, scroll up via terminal */}
-      <Static items={messages.map((msg, i) => ({ id: String(i), msg }))}>
-        {({ id, msg }) => (
-          <Box key={id}>
+      <Static items={messages.map((msg, i) => ({ id: String(i), msg, prevType: i > 0 ? messages[i-1].type : null }))}>
+        {({ id, msg, prevType }) => (
+          <Box key={id} flexDirection="column">
+            {msg.type === "tool" && prevType !== "tool" && <Text>{" "}</Text>}
             <MessageView msg={msg} width={cols} />
           </Box>
         )}
