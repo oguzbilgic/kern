@@ -52,15 +52,13 @@ function convertHistory(history: any[]): ChatMessage[] {
     } else if (m.role === "assistant") {
       if (Array.isArray(m.content)) {
         for (const p of m.content) {
-          if (p.type === "tool-call") {
+          if (p.type === "text" && p.text) {
+            raw.push({ type: "assistant", text: p.text });
+          } else if (p.type === "tool-call") {
             const input = p.input || {};
             const detail = input.path || input.command || input.pattern || input.url || input.action || input.userId || "";
             raw.push({ type: "tool", text: `${p.toolName} ${detail}` });
           }
-        }
-        const text = m.content.filter((p: any) => p.type === "text").map((p: any) => p.text).join("");
-        if (text) {
-          raw.push({ type: "assistant", text });
         }
       } else if (typeof m.content === "string") {
         raw.push({ type: "assistant", text: m.content });
