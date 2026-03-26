@@ -52,7 +52,18 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
   const maxW = width - 4;
   switch (msg.type) {
     case "user":
-      return <Box><Text color="green" bold>{">"} </Text><Text wrap="wrap">{msg.text}</Text></Box>;
+      return (
+        <Box flexDirection="column" marginY={1}>
+          <Box
+            borderStyle="round"
+            borderColor="gray"
+            paddingX={2}
+            paddingY={1}
+          >
+            <Text wrap="wrap">{msg.text}</Text>
+          </Box>
+        </Box>
+      );
     case "assistant":
       return <Box><Text color="blue">◆ </Text><Text wrap="wrap">{msg.text}</Text></Box>;
     case "incoming":
