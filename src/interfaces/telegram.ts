@@ -56,6 +56,7 @@ export class TelegramInterface implements Interface {
   async start({ onMessage }: StartOptions): Promise<void> {
     // Register bot commands with Telegram
     this.bot.api.setMyCommands([
+      { command: "status", description: "Show agent status" },
       { command: "restart", description: "Restart the agent" },
     ]).catch(() => {});
 

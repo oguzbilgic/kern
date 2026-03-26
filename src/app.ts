@@ -48,16 +48,36 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   // Message queue — serializes messages, same-channel injection
   const queue = new MessageQueue();
 
+  const startedAt = Date.now();
+
   queue.setHandler(async (msg, getPendingMessages) => {
+    const cmd = msg.text.trim();
+
     // Intercept /restart — handle at runtime level, never send to LLM
-    if (msg.text.trim() === "/restart") {
+    if (cmd === "/restart") {
       log("kern", `restart requested by ${msg.userId} via ${msg.interface}`);
-      // Delay restart to let this handler return and queue drain
       setTimeout(async () => {
         const { spawn } = await import("child_process");
         spawn("kern", ["restart", agentName], { detached: true, stdio: "ignore" }).unref();
       }, 2000);
       return "Restarting in 2 seconds...";
+    }
+
+    // Intercept /status — instant runtime status, no LLM
+    if (cmd === "/status") {
+      const uptime = Math.floor((Date.now() - startedAt) / 1000);
+      const h = Math.floor(uptime / 3600);
+      const m = Math.floor((uptime % 3600) / 60);
+      const s = uptime % 60;
+      const uptimeStr = h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
+      const msgs = runtime.getMessages();
+      const tui = server.hasConnectedClients() ? "connected" : "disconnected";
+      const lines = [
+        `**${agentName}** · ${config.provider}/${config.model}`,
+        `uptime: ${uptimeStr} · tui: ${tui}`,
+        `session: ${msgs.length} messages`,
+      ];
+      return lines.join("\n");
     }
 
     const time = new Date().toISOString();
