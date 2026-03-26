@@ -205,7 +205,7 @@ function RenderBlockView({ block, width }: { block: RenderBlock; width: number }
     case "toolGroup":
       return <ToolGroupView tools={block.tools} />;
     case "assistant": {
-      const isMuted = block.text.trim() === "NO_REPLY" || block.text.trim() === "(no text response)";
+      const isMuted = block.text.trim().endsWith("NO_REPLY") || block.text.trim().endsWith("(no text response)");
       return (
         <Box paddingLeft={3}>
           <Text color={isMuted ? undefined : "white"} dimColor={isMuted} italic={isMuted} wrap="wrap">
@@ -363,7 +363,7 @@ function App({ port, agentName, version }: TuiProps) {
         {streamingText && (
           <Box marginTop={1} paddingLeft={3}>
             {(() => {
-              const isMuted = streamingText.trim() === "NO_REPLY" || streamingText.trim() === "(no text response)";
+              const isMuted = streamingText.trim().endsWith("NO_REPLY") || streamingText.trim().endsWith("(no text response)");
               return (
                 <Text color={isMuted ? undefined : "white"} dimColor={isMuted} italic={isMuted} wrap="wrap">
                   {streamingText}
