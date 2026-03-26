@@ -261,18 +261,7 @@ function App({ port, agentName, version }: TuiProps) {
 
   return (
     <Box flexDirection="column">
-      {/* Status bar */}
-      <Box>
-        <Text bold color="white" backgroundColor="gray">
-          {" "}kern{" "}
-        </Text>
-        <Text backgroundColor="gray" dimColor>
-          {" "}v{version} · {agentName} · :{port}{" "}
-        </Text>
-        <Text backgroundColor="gray">
-          {" ".repeat(Math.max(0, cols - 20 - version.length - agentName.length - String(port).length))}
-        </Text>
-      </Box>
+      {/* Status bar removed from top — moved inside input box */}
 
       {/* Completed messages — rendered once, scroll up via terminal */}
       <Static items={messages.map((msg, i) => ({ id: String(i), msg }))}>
@@ -303,6 +292,8 @@ function App({ port, agentName, version }: TuiProps) {
             <Box flexDirection="column" width={cols - 3}>
               <Text backgroundColor="#1a1a1a" color="white">{" ".repeat(cols - 3)}</Text>
               <Text backgroundColor="#1a1a1a" color="white">{"  "}{input}{!busy ? "▎" : ""}{" ".repeat(Math.max(0, cols - 3 - input.length - 3 - (!busy ? 1 : 0)))}</Text>
+              <Text backgroundColor="#1a1a1a" color="white">{" ".repeat(cols - 3)}</Text>
+              <Text backgroundColor="#1a1a1a" dimColor italic>{("  kern v" + version + " · " + agentName + " · :" + port).padEnd(cols - 3)}</Text>
               <Text backgroundColor="#1a1a1a" color="white">{" ".repeat(cols - 3)}</Text>
             </Box>
           </Box>
