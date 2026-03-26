@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.7.0
+
+### Features
+- **Heartbeat** — periodic `[heartbeat]` message every N minutes (configurable). Agent reviews notes, updates knowledge, messages operator if needed. TUI-only visibility.
+- **Message queue** — all messages serialized through a queue. Same-channel messages injected mid-turn via `prepareStep`. Cross-channel messages wait in FIFO. Heartbeats deferred.
+- **Same-channel injection** — if you send a follow-up while the agent is working, it sees your message at the next tool step wrapped in `<system-reminder>`. No waiting for the full turn to finish.
+- **Kernel auto-update** — AGENTS.md ships with kern, versioned `<!-- kernel: v1.0 -->`. Updated automatically on `kern start` if a newer version is bundled.
+- **Templates folder** — AGENTS.md and KERN.md moved to `templates/` in the package.
+
 ## v0.6.3
 
 ### Fixes
