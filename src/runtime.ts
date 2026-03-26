@@ -155,6 +155,7 @@ export class Runtime {
     }
 
     const model = this.createModel();
+    let streamError: any = null;
 
     try {
       let fullText = "";
@@ -166,7 +167,6 @@ export class Runtime {
         const trimmed = allMessages.length - contextMessages.length;
         log("runtime", `context trimmed: ${trimmed} old messages excluded`);
       }
-
       log("runtime", `context: ${contextMessages.length} messages, ~${estimateTokens(contextMessages)} tokens`);
       if (contextMessages.length > 0) {
         const first = contextMessages[0];
@@ -183,6 +183,7 @@ export class Runtime {
         tools,
         stopWhen: stepCountIs(this.config.maxSteps),
         onError: ({ error }) => {
+          streamError = error;
           log("runtime", `streamText error: ${error}`);
         },
         prepareStep: ({ messages, stepNumber }) => {
@@ -240,8 +241,9 @@ export class Runtime {
       return fullText || "(no text response)";
     } catch (error: any) {
       // Extract a useful error message from nested errors
-      const lastErr = error.lastError || error;
-      const cause = lastErr?.cause || error.cause;
+      const realError = streamError || error;
+      const lastErr = realError.lastError || realError;
+      const cause = lastErr?.cause || realError.cause;
       const status = lastErr?.statusCode || lastErr?.data?.error?.code;
       const apiMsg = lastErr?.data?.error?.message || lastErr?.responseBody;
       let msg: string;
@@ -258,7 +260,7 @@ export class Runtime {
       } else if (lastErr?.message && !lastErr.message.includes("No output generated")) {
         msg = lastErr.message;
       } else if (error.message?.includes("No output generated")) {
-        msg = "No response from model — likely a network or API error, try again";
+        msg = `No response from model (Original error: ${cause?.message || cause || lastErr?.message || "None"})`;
       } else {
         msg = error.message || "Unknown error";
       }
