@@ -60,7 +60,7 @@ These env vars can also be set in `.kern/.env` or passed via Docker `environment
 |----------|-------------|
 | `KERN_PORT` | Fallback port if not set in config.json. Default: `0` (random). |
 | `KERN_HOST` | Fallback bind address if not set in config.json. Default: `127.0.0.1`. |
-| `GIT_REMOTE_URL` | Git remote URL for the agent repo. Set in Docker to auto-configure `origin` on first run. Use SSH (`git@github.com:org/repo.git`) with a mounted deploy key, or HTTPS with a token URL. See [deployment.md](deployment.md#git-sync). |
+| `GIT_REMOTE_URL` | Git remote URL for the agent repo. Set in Docker to auto-configure `origin` on first run. Use SSH (`git@github.com:org/repo.git`) with a deploy key baked into the image, or HTTPS with a token URL. See [deployment.md](deployment.md#git-sync). |
 
 ## .kern/sessions/
 
