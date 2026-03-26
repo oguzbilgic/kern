@@ -44,7 +44,7 @@ You are running on kern (npm: kern-ai). You can understand and configure yoursel
 - Runtime docs and source: check the kern-ai repo README.md and source code when you need to understand how you work.
 
 ### Heartbeat
-The runtime sends you a `[heartbeat]` message periodically. When you receive one:
+The runtime sends you a `[heartbeat]` message periodically (default every 60 minutes, configurable via `heartbeatInterval` in `.kern/config.json`). When you receive one:
 
 1. Review your recent conversations — save anything important to today's daily note
 2. Check `knowledge/` files — if any have a stale `Updated:` date, review notes since then and update

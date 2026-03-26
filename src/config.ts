@@ -29,7 +29,7 @@ const defaults: KernConfig = {
   toolScope: "full",
   maxSteps: 30,
   maxContextTokens: 40000,
-  heartbeatInterval: 120,
+  heartbeatInterval: 60,
 };
 
 export function getToolsForScope(scope: ToolScope): string[] {
