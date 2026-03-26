@@ -126,6 +126,15 @@ kern import opencode myagent
 kern import opencode /root/myagent
 ```
 
+## /restart
+
+Restart the agent daemon. This is a slash command — type it in any channel (TUI, Telegram, Slack). It is intercepted by the runtime and never sent to the LLM.
+
+- Handled at the queue level, before the message reaches the agent
+- 2-second delay to let Telegram acknowledge the message before the process dies
+- Registered as a Telegram bot command (shows in the `/` menu)
+- Safe — no restart loops, no session corruption
+
 ## kern run \<name|path\>
 
 Run an agent in the foreground (for development/debugging). Starts all interfaces (Telegram, Slack) in-process.
