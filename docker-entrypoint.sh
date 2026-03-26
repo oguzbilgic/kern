@@ -37,4 +37,17 @@ if [ -n "$GIT_REMOTE_URL" ] && [ -d /agent/.git ]; then
   fi
 fi
 
+# Add agent's persistent local bin to PATH (for runtime-installed tools)
+# Agent can install binaries to /agent/.local/bin/ and they survive restarts.
+if [ -d /agent/.local/bin ]; then
+  export PATH="/agent/.local/bin:$PATH"
+fi
+
+# Run agent init script if it exists (for runtime dependencies)
+# Agent can create/edit .kern/init.sh to install packages on every start.
+if [ -x /agent/.kern/init.sh ]; then
+  echo "[kern] running .kern/init.sh"
+  /agent/.kern/init.sh
+fi
+
 exec "$@"

@@ -440,6 +440,8 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
   const gitignore = `.kern/.env
 .kern/sessions/
 .kern/logs/
+.kern/init.sh
+.local/
 node_modules/
 `;
 

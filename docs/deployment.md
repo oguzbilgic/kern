@@ -274,6 +274,42 @@ docker compose down -v && docker compose up -d
 
 If the volume already has data, the seed is skipped. To force a re-seed, remove the volume first.
 
+## Runtime Dependencies
+
+In Docker, only `/agent` (the volume) persists across restarts. System packages installed with `apt-get` are lost when the container restarts. Three options:
+
+### Persistent local bin
+
+The agent can install standalone binaries to `/agent/.local/bin/`. The entrypoint adds this to `PATH` on startup. This directory is gitignored.
+
+```bash
+# Agent installs a tool at runtime
+mkdir -p /agent/.local/bin
+curl -o /agent/.local/bin/mytool https://...
+chmod +x /agent/.local/bin/mytool
+```
+
+### Init script
+
+The agent can create `.kern/init.sh` to install system packages on every container start. This runs before the agent process. Gitignored.
+
+```bash
+#!/bin/sh
+apt-get update && apt-get install -y python3-pip awscli
+```
+
+The agent can create and edit this file itself — it takes effect on next restart.
+
+### Dockerfile (recommended for known deps)
+
+For permanent dependencies, add them to the agent's `Dockerfile.agent`:
+
+```dockerfile
+RUN apt-get update && apt-get install -y python3-pip awscli && rm -rf /var/lib/apt/lists/*
+```
+
+This is the cleanest option for tools that are always needed. The agent can suggest this to the operator.
+
 ## Git Sync
 
 Agents commit and push to `origin` as part of their normal operation (defined in their kernel — see AGENTS.md). In Docker, set `GIT_REMOTE_URL` to configure the remote automatically on first run. The entrypoint checks if `origin` is already configured in the volume's git repo — if not, it adds it using the provided URL. The agent's own "commit and push" behavior then works out of the box.
