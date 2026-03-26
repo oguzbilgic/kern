@@ -57,7 +57,7 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
       const padded = pad + msg.text;
       const emptyLine = " ".repeat(innerWidth);
       return (
-        <Box flexDirection="column" marginY={1}>
+        <Box flexDirection="column" marginTop={1}>
           <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="green" width={width}>
             <Box flexDirection="column" width={innerWidth}>
               <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
