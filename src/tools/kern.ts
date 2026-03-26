@@ -177,15 +177,9 @@ export const kernTool = tool({
       }
 
       case "restart": {
-        const { spawn } = await import("child_process");
-        const { basename } = await import("path");
-        const kernBin = join(import.meta.dirname, "..", "index.js");
-        const name = basename(_agentDir);
-        const child = spawn("node", ["--no-deprecation", kernBin, "restart", name], {
-          detached: true,
-          stdio: "ignore",
-        });
-        child.unref();
+        if (_reloadFn) {
+          await _reloadFn();
+        }
         return "Restarting... The turn will be interrupted but I'll pick up where I left off.";
       }
 

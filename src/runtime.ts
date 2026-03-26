@@ -97,6 +97,9 @@ export class Runtime {
           windowTokens,
         };
       },
+      reload: async () => {
+        this.pendingRestart = true;
+      },
       pairingManager: pairing,
     });
   }
@@ -130,6 +133,8 @@ export class Runtime {
 
   // Pending messages to inject via prepareStep
   private pendingInjections: (() => { role: string; content: string }[]) | null = null;
+
+  public pendingRestart: boolean = false;
 
   setPendingInjections(fn: () => { role: string; content: string }[]) {
     this.pendingInjections = fn;
@@ -238,6 +243,23 @@ export class Runtime {
       }
 
       onEvent({ type: "finish", text: fullText });
+      
+      // If a restart was requested during this turn, execute it now that session is saved
+      if (this.pendingRestart) {
+        log("runtime", "executing pending restart...");
+        import("child_process").then(({ spawn }) => {
+          import("path").then(({ basename, join }) => {
+            const kernBin = join(import.meta.dirname, "..", "index.js");
+            const name = basename(this.agentDir);
+            const child = spawn("node", ["--no-deprecation", kernBin, "restart", name], {
+              detached: true,
+              stdio: "ignore",
+            });
+            child.unref();
+          });
+        });
+      }
+
       return fullText || "(no text response)";
     } catch (error: any) {
       // Extract a useful error message from nested errors
