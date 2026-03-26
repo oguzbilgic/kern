@@ -13,6 +13,7 @@ interface SupervisedAgent {
   restarts: number;
   lastStart: number;
   stopping: boolean;
+  restarting: boolean;
 }
 
 const MAX_RESTARTS = 10;
@@ -59,10 +60,8 @@ export class Supervisor {
     process.on("SIGTERM", shutdown);
     process.on("SIGINT", shutdown);
 
-    // On Windows, handle the console close event
-    if (process.platform === "win32") {
-      process.on("SIGHUP", shutdown);
-    }
+    // SIGHUP: terminal disconnect on Unix, console close on Windows
+    process.on("SIGHUP", shutdown);
 
     // Stop any already-running instances of these agents
     for (const entry of entries) {
@@ -71,7 +70,16 @@ export class Supervisor {
         try {
           process.kill(entry.pid, "SIGTERM");
         } catch {}
-        await new Promise((r) => setTimeout(r, 1000));
+        // Wait up to 5s for process to exit
+        for (let i = 0; i < 10; i++) {
+          await new Promise((r) => setTimeout(r, 500));
+          if (!isProcessRunning(entry.pid)) break;
+        }
+        if (isProcessRunning(entry.pid)) {
+          log("supervisor", `${entry.name} (pid ${entry.pid}) did not exit, force killing`);
+          try { process.kill(entry.pid, "SIGKILL"); } catch {}
+          await new Promise((r) => setTimeout(r, 500));
+        }
       }
     }
 
@@ -131,15 +139,23 @@ export class Supervisor {
 
     const kernBin = join(import.meta.dirname, "index.js");
 
-    const child = spawn("node", ["--no-deprecation", kernBin, "run", path], {
-      stdio: ["ignore", logFd, logFd],
-      cwd: path,
-    });
+    let child: ChildProcess;
+    try {
+      child = spawn("node", ["--no-deprecation", kernBin, "run", path], {
+        stdio: ["ignore", logFd, logFd],
+        cwd: path,
+      });
+    } finally {
+      // Close fd in parent — child process owns it now
+      closeSync(logFd);
+    }
 
-    // Close fd in parent — child process owns it now
-    closeSync(logFd);
+    if (!child.pid) {
+      log("supervisor", `${name}: failed to spawn process`);
+      return;
+    }
 
-    const pid = child.pid!;
+    const pid = child.pid;
     await registerAgent(name, path);
     await setPid(name, pid);
 
@@ -150,6 +166,7 @@ export class Supervisor {
       restarts: 0,
       lastStart: Date.now(),
       stopping: false,
+      restarting: false,
     };
 
     this.agents.set(name, supervised);
@@ -161,9 +178,11 @@ export class Supervisor {
       await setPid(name, null);
       await setPort(name, null);
 
-      if (this.shuttingDown || supervised.stopping) {
+      if (this.shuttingDown || supervised.stopping || supervised.restarting) {
         return;
       }
+
+      supervised.restarting = true;
 
       // Reset restart count if agent was stable
       if (Date.now() - supervised.lastStart > RESTART_WINDOW_MS) {
@@ -174,12 +193,14 @@ export class Supervisor {
 
       if (supervised.restarts > MAX_RESTARTS) {
         log("supervisor", `${name} exceeded max restarts (${MAX_RESTARTS}), giving up`);
+        supervised.restarting = false;
         return;
       }
 
       log("supervisor", `${name} restarting in ${RESTART_DELAY_MS}ms (restart ${supervised.restarts}/${MAX_RESTARTS})`);
       await new Promise((r) => setTimeout(r, RESTART_DELAY_MS));
 
+      supervised.restarting = false;
       if (!this.shuttingDown) {
         await this.startAgent(name, path);
       }

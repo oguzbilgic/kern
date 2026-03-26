@@ -218,15 +218,15 @@ async function main() {
     const { findAgent, loadRegistry } = await import("./registry.js");
     const { startAgent } = await import("./daemon.js");
 
-    let agentName = args[1];
+    let agentName: string | undefined = args[1];
     let tuiPort: number | undefined;
 
     // Check for --port flag
     const portIdx = args.indexOf("--port");
     if (portIdx !== -1 && args[portIdx + 1]) {
       tuiPort = parseInt(args[portIdx + 1], 10);
-      // If --port is the second arg, agentName might be the port flag
-      if (agentName === "--port") agentName = undefined as any;
+      // If --port is the second arg, agentName was actually the flag
+      if (agentName === "--port") agentName = undefined;
     }
 
     // Direct port connection — skip registry lookup

@@ -26,8 +26,8 @@ kern daemon /path/to/agent
 When an agent process exits unexpectedly:
 
 1. Supervisor waits 2 seconds, then restarts it
-2. If the agent has been running for more than 60 seconds, the restart counter resets (agent was stable)
-3. If the agent crashes more than 10 times within the restart window, the supervisor gives up on that agent
+2. If the agent was running for more than 60 seconds before crashing, the restart counter resets (agent was considered stable)
+3. If the agent crashes 10 times without ever staying up for 60 seconds, the supervisor gives up on that agent
 4. Other agents continue running normally
 
 ## Compared to `kern start`
@@ -46,7 +46,7 @@ When an agent process exits unexpectedly:
 |---|---|
 | SIGTERM | Graceful shutdown -- sends SIGTERM to all agents, waits up to 10s, then SIGKILL |
 | SIGINT | Same as SIGTERM (Ctrl-C in terminal) |
-| SIGHUP | Same as SIGTERM (Windows console close) |
+| SIGHUP | Same as SIGTERM (terminal disconnect on Unix, console close on Windows) |
 
 ## systemd
 
@@ -67,7 +67,7 @@ WantedBy=multi-user.target
 
 ## Logs
 
-Supervisor logs to stderr with `[supervisor]` prefix. Agent logs go to their respective `.kern/logs/kern.log` files as usual.
+Supervisor logs to stderr with `[supervisor]` prefix (captured by `docker compose logs` or systemd journal). Agent logs go to their respective `.kern/logs/kern.log` files as usual.
 
 ```
 2026-03-26T13:44:36.666Z [supervisor] starting in foreground mode

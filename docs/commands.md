@@ -170,7 +170,7 @@ Run as a foreground supervisor process. Starts agents as child processes, monito
 
 - No argument: supervises all registered agents
 - With name/path: supervises that single agent
-- Auto-restarts crashed agents (up to 10 times per minute, then gives up)
+- Auto-restarts crashed agents (gives up after 10 consecutive crashes without stability)
 - Designed for Docker (`CMD ["kern", "daemon"]`) and systemd
 - See [daemon.md](daemon.md) for full documentation
 

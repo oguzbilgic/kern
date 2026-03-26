@@ -7,7 +7,11 @@ if [ -d /agent-seed ] && [ ! -f /agent/AGENTS.md ]; then
   cp -r /agent-seed/. /agent/
   # Initialize git if not already a repo
   if [ ! -d /agent/.git ]; then
-    cd /agent && git init && git add -A && git commit -m "initial agent state" 2>/dev/null || true
+    cd /agent && git init \
+      && git config user.email "kern@localhost" \
+      && git config user.name "kern" \
+      && git add -A \
+      && git commit -m "initial agent state" 2>/dev/null || true
   fi
 fi
 

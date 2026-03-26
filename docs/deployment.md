@@ -302,7 +302,7 @@ The `kern` CLI itself (TUI, remotes, etc.) works from any terminal regardless of
 
 ## Logs
 
-Supervisor logs to container stdout (visible via `docker compose logs`). Agent logs go to `.kern/logs/kern.log` inside the volume.
+Supervisor logs to container stderr (visible via `docker compose logs`). Agent logs go to `.kern/logs/kern.log` inside the volume.
 
 ```bash
 # Supervisor logs
