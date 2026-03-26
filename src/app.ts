@@ -33,6 +33,15 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   // Pass pairing manager to runtime so kern tool can use it
   runtime.setPairingManager(pairing);
 
+  // Log + start
+  let version = "unknown";
+  try {
+    const pkg = JSON.parse(await readFile(join(import.meta.dirname, "..", "package.json"), "utf-8"));
+    version = pkg.version;
+  } catch {}
+  const hb = config.heartbeatInterval > 0 ? `, heartbeat:${config.heartbeatInterval}min` : "";
+  log("kern", `starting ${agentName} — v${version}, ${config.model}, tools:${config.toolScope}${hb}`);
+
   // Start HTTP server
   const server = new AgentServer();
 
@@ -136,22 +145,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     return false;
   });
 
-  // Log startup info
-  let version = "unknown";
-  try {
-    const pkg = JSON.parse(await readFile(join(import.meta.dirname, "..", "package.json"), "utf-8"));
-    version = pkg.version;
-  } catch {}
-
-  log("kern", `v${version} started`);
-  log("kern", `agent: ${agentDir}`);
-  log("kern", `model: ${config.provider}/${config.model}`);
-  log("kern", `session: ${runtime.getSessionId() || "new"}`);
-  log("kern", `tools: ${config.toolScope}`);
-  log("kern", `port: ${port}`);
-  if (config.heartbeatInterval > 0) {
-    log("kern", `heartbeat: every ${config.heartbeatInterval}min`);
-  }
+  log("kern", `started ${agentName}`);
 
   // If forceCli, start CLI interface connected to same runtime (also goes through queue)
   if (forceCli) {

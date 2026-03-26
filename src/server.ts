@@ -36,6 +36,7 @@ export class AgentServer {
     return new Promise((resolve) => {
       this.server.listen(0, "127.0.0.1", () => {
         this.port = (this.server.address() as any).port;
+        log("server", `listening on :${this.port}`);
         resolve(this.port);
       });
     });
