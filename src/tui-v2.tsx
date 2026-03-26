@@ -66,8 +66,13 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
         </Box>
       );
     }
-    case "assistant":
-      return <Box><Text color="blue">◆ </Text><Text wrap="wrap">{msg.text}</Text></Box>;
+    case "assistant": {
+      return (
+        <Box flexDirection="column" marginY={1} paddingX={2}>
+          <Text color="white" wrap="wrap">{msg.text}</Text>
+        </Box>
+      );
+    }
     case "incoming":
       return <Box><Text color="yellow">◇ </Text><Text dimColor>{msg.meta} </Text><Text wrap="wrap">{msg.text}</Text></Box>;
     case "outgoing":
