@@ -23,6 +23,7 @@ The main config file. Committed to git.
 | `toolScope` | `full` | Tool access level: `full`, `write`, `read` |
 | `maxSteps` | `30` | Max tool-use steps per message |
 | `maxContextTokens` | `40000` | Estimated token budget for context window. Messages beyond this are trimmed from the front (oldest first). Full history stays in JSONL. |
+| `heartbeatInterval` | `120` | Minutes between heartbeat prompts. Agent reviews notes, updates knowledge. 0 to disable. |
 
 ### Tool scopes
 

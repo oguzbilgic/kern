@@ -65,6 +65,7 @@ kern start [name|path]    # start agents in background
 kern stop [name]          # stop agents
 kern restart [name]       # restart agents
 kern tui [name]           # interactive chat
+kern logs [name]          # tail agent logs
 kern list                 # show all agents
 kern remove <name>        # unregister an agent
 kern backup <name>        # backup agent to .tar.gz
@@ -97,6 +98,26 @@ Set `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` in `.kern/.env`. Uses Socket Mode â€
 - **NO_REPLY**: agent silently absorbs channel context without cluttering the conversation
 
 Invite the bot to channels where it should listen.
+
+## Heartbeat
+
+Kern sends a periodic `[heartbeat]` to the agent. The agent reviews notes, updates knowledge files, and messages the operator if something needs attention. Visible in the TUI only â€” Telegram and Slack never see it.
+
+```json
+{
+  "heartbeatInterval": 120
+}
+```
+
+Interval in minutes. Default 120 (2 hours). Set to 0 to disable.
+
+## Logging
+
+```bash
+kern logs [name]        # tail agent logs
+```
+
+Structured, colored logs for queue, runtime, interfaces, and server. Logs stored in `.kern/logs/kern.log`.
 
 ## Configuration
 

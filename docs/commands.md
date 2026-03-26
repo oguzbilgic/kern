@@ -66,7 +66,17 @@ Interactive terminal chat. Connects to running daemon via HTTP/SSE.
 - No argument, multiple agents: arrow-key select
 - Auto-starts daemon if not running
 - Cross-channel messages visible in real time
+- Heartbeat activity visible
 - Ctrl-C only exits TUI, daemon stays alive
+
+## kern logs [name]
+
+Tail agent logs in real time. Structured, colored output.
+
+- No argument: auto-selects agent
+- Logs stored in `.kern/logs/kern.log`
+- Components: `[kern]` `[queue]` `[runtime]` `[telegram]` `[slack]` `[server]`
+- Ctrl-C to stop
 
 ## kern remove \<name\>
 
