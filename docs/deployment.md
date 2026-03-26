@@ -118,11 +118,7 @@ docker compose down -v     # removes volumes
 docker compose up -d       # fresh seed
 ```
 
-For off-host backup, configure the agent to push to a git remote. The agent already knows how to `git commit` and `git push` -- just add a remote in the volume:
-
-```bash
-docker exec kern-my-agent bash -c "cd /agent && git remote add origin <url> && git push -u origin master"
-```
+For off-host backup, see [Git Sync](#git-sync) below.
 
 ## Multiple Agents
 
@@ -277,6 +273,60 @@ docker compose down -v && docker compose up -d
 ```
 
 If the volume already has data, the seed is skipped. To force a re-seed, remove the volume first.
+
+## Git Sync
+
+Agents commit and push to `origin` as part of their normal operation (defined in their kernel — see AGENTS.md). In Docker, set `GIT_REMOTE_URL` to configure the remote automatically on first run:
+
+```yaml
+environment:
+  - GIT_REMOTE_URL=https://x-access-token:ghp_xxx@github.com/yourorg/agent-state.git
+```
+
+On container startup, the entrypoint checks if `origin` is configured in the volume's git repo. If not, it adds it using the provided URL. The agent's own "commit and push" behavior then works out of the box.
+
+### Authentication
+
+Use a token URL — no SSH keys or credential helpers needed:
+
+| Provider | URL format |
+|----------|-----------|
+| GitHub (PAT) | `https://x-access-token:ghp_xxx@github.com/org/repo.git` |
+| GitHub (fine-grained) | `https://x-access-token:github_pat_xxx@github.com/org/repo.git` |
+| GitLab (deploy token) | `https://deploy:gldt-xxx@gitlab.com/org/repo.git` |
+| Bitbucket (app password) | `https://user:app-password@bitbucket.org/org/repo.git` |
+
+The token is passed as an env var, same as API keys. For production, use fine-grained tokens with repo-only scope.
+
+### What happens
+
+- **First run (empty volume):** volume is seeded, git is initialized, remote is added, agent starts pushing
+- **Subsequent runs:** volume already has git + remote, entrypoint skips setup
+- **No `GIT_REMOTE_URL`:** no remote is configured, agent commits locally only (volume is still the source of truth)
+
+### Multiple agents
+
+Each agent gets its own repo:
+
+```yaml
+services:
+  sentinel:
+    environment:
+      - GIT_REMOTE_URL=https://x-access-token:ghp_xxx@github.com/org/sentinel-state.git
+  oms-dev:
+    environment:
+      - GIT_REMOTE_URL=https://x-access-token:ghp_xxx@github.com/org/oms-dev-state.git
+```
+
+### Restoring from git
+
+To restore an agent from its git repo into a fresh volume:
+
+```bash
+docker compose down -v                    # remove old volume
+docker compose up -d                      # creates fresh volume, seeds, adds remote
+docker exec kern-my-agent bash -c "cd /agent && git pull origin main"
+```
 
 ## Platform Notes
 

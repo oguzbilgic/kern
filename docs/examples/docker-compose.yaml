@@ -25,6 +25,7 @@ services:
     environment:
       - KERN_PORT=8080
       - KERN_HOST=0.0.0.0
+      # - GIT_REMOTE_URL=https://x-access-token:ghp_xxx@github.com/org/my-agent-state.git
     env_file:
       - ./my-agent/.kern/.env
     ports:
@@ -47,6 +48,7 @@ services:
   #   environment:
   #     - KERN_PORT=8080
   #     - KERN_HOST=0.0.0.0
+  #     - GIT_REMOTE_URL=https://x-access-token:ghp_xxx@github.com/org/another-agent-state.git
   #   env_file:
   #     - ./another-agent/.kern/.env
   #   ports:

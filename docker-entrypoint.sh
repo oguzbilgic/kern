@@ -15,4 +15,15 @@ if [ -d /agent-seed ] && [ ! -f /agent/AGENTS.md ]; then
   fi
 fi
 
+# Configure git remote if GIT_REMOTE_URL is set and origin doesn't exist yet.
+# Use a token URL for auth (no SSH keys needed):
+#   GIT_REMOTE_URL=https://x-access-token:ghp_xxx@github.com/org/repo.git
+if [ -n "$GIT_REMOTE_URL" ] && [ -d /agent/.git ]; then
+  cd /agent
+  if ! git remote get-url origin >/dev/null 2>&1; then
+    echo "[kern] adding git remote origin"
+    git remote add origin "$GIT_REMOTE_URL"
+  fi
+fi
+
 exec "$@"
