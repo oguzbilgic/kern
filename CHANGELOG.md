@@ -3,7 +3,7 @@
 ## v0.7.0
 
 ### Features
-- **Heartbeat** — periodic `[heartbeat]` message every N minutes (configurable `heartbeatInterval`, default 120). Agent reviews notes, updates knowledge, messages operator if needed. TUI-only visibility (`♡` marker).
+- **Heartbeat** — periodic `[heartbeat]` message every N minutes (configurable `heartbeatInterval`, default 60). Agent reviews notes, updates knowledge, messages operator if needed. TUI-only visibility (`♡` marker).
 - **Message queue** — all messages serialized through a queue with 5-minute timeout. Same-channel messages injected mid-turn via `prepareStep`. Cross-channel messages wait in FIFO. Heartbeats deferred.
 - **Same-channel injection** — send a follow-up while the agent is working, it sees your message at the next tool step wrapped in `<system-reminder>`. No waiting for the full turn to finish.
 - **Kernel auto-update** — AGENTS.md ships with kern, versioned `<!-- kernel: v1.0 -->`. Updated automatically on `kern start` if a newer version is bundled.

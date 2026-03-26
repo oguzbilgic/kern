@@ -105,11 +105,11 @@ Kern sends a periodic `[heartbeat]` to the agent. The agent reviews notes, updat
 
 ```json
 {
-  "heartbeatInterval": 120
+  "heartbeatInterval": 60
 }
 ```
 
-Interval in minutes. Default 120 (2 hours). Set to 0 to disable.
+Interval in minutes. Default 60 (1 hour). Set to 0 to disable.
 
 ## Logging
 
