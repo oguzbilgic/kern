@@ -182,20 +182,15 @@ export async function importOpenCode(args: string[]): Promise<void> {
       db.close();
       process.exit(1);
     }
-    if (projects.length === 1) {
-      projectId = projects[0].id;
-      projectWorktree = projects[0].worktree;
-    } else {
-      const chosen = await select({
-        message: "Select OpenCode project",
-        choices: projects.map((p) => ({
-          name: `${p.worktree} (${p.msgCount} msgs)`,
-          value: p.id,
-        })),
-      });
-      projectId = chosen;
-      projectWorktree = projects.find((p) => p.id === chosen)!.worktree;
-    }
+    const chosen = await select({
+      message: "Select OpenCode project",
+      choices: projects.map((p) => ({
+        name: `${p.worktree} (${p.msgCount} msgs)`,
+        value: p.id,
+      })),
+    });
+    projectId = chosen;
+    projectWorktree = projects.find((p) => p.id === chosen)!.worktree;
   }
   console.log(`  Project: ${projectWorktree}`);
 
@@ -223,9 +218,6 @@ export async function importOpenCode(args: string[]): Promise<void> {
     }
     sessionId = match.id;
     sessionTitle = match.title;
-  } else if (sessions.length === 1) {
-    sessionId = sessions[0].id;
-    sessionTitle = sessions[0].title;
   } else {
     const chosen = await select({
       message: "Select session",
@@ -263,21 +255,16 @@ export async function importOpenCode(args: string[]): Promise<void> {
       db.close();
       process.exit(1);
     }
-    if (agents.length === 1) {
-      agentPath = agents[0].path;
-      agentName = agents[0].name;
-    } else {
-      const chosen = await select({
-        message: "Import into which agent",
-        choices: agents.map((a) => ({
-          name: `${a.name} (${a.path})`,
-          value: a.name,
-        })),
-      });
-      const agent = agents.find((a) => a.name === chosen)!;
-      agentPath = agent.path;
-      agentName = agent.name;
-    }
+    const chosen = await select({
+      message: "Import into which agent",
+      choices: agents.map((a) => ({
+        name: `${a.name} (${a.path})`,
+        value: a.name,
+      })),
+    });
+    const agent = agents.find((a) => a.name === chosen)!;
+    agentPath = agent.path;
+    agentName = agent.name;
   }
   console.log(`  Agent: ${agentName} (${agentPath})`);
 
