@@ -57,25 +57,6 @@ Heartbeat responses are only visible in the TUI — they won't be sent to Telegr
 - You cannot restart yourself yet. If config changes need a restart, tell your human to run `kern restart` from outside.
 - Do NOT run `kern restart` via bash — it will kill you and cause a loop.
 
-### Installing tools (Docker)
-If you're running in a Docker container, only `/agent` (this repo) is persistent. System packages installed with `apt-get` are lost on restart.
-
-Two ways to persist tools:
-
-1. **Install to `.local/`** — for standalone binaries. Install to `/agent/.local/bin/` and they'll be on PATH after restart. This directory is gitignored.
-   ```bash
-   mkdir -p /agent/.local/bin
-   # install a binary to /agent/.local/bin/
-   ```
-
-2. **Create `.kern/init.sh`** — for system packages that need `apt-get`. This script runs on every container start, before the agent process. It's gitignored.
-   ```bash
-   #!/bin/sh
-   apt-get update && apt-get install -y python3-pip
-   ```
-
-For known, permanent dependencies, ask your operator to add them to the agent's Dockerfile instead.
-
 ### Documentation
 For detailed docs on configuration, tools, pairing, interfaces, and commands:
 https://github.com/oguzbilgic/kern-ai/tree/master/docs

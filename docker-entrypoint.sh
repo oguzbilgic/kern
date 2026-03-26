@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+# Mark that we're running inside the kern Docker container
+export KERN_CONTAINER=1
+
 # Seed the agent volume from baked-in defaults if present and volume is empty
 if [ -d /agent-seed ] && [ ! -f /agent/AGENTS.md ]; then
   echo "[kern] seeding agent volume from /agent-seed..."
