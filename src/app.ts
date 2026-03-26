@@ -52,13 +52,12 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     // Intercept /restart — handle at runtime level, never send to LLM
     if (msg.text.trim() === "/restart") {
       log("kern", `restart requested by ${msg.userId} via ${msg.interface}`);
-      const { execSync } = await import("child_process");
-      try {
-        execSync(`kern restart ${agentName}`, { stdio: "ignore", timeout: 10000 });
-      } catch {
-        // Expected — restart kills this process
-      }
-      return "Restarting...";
+      // Delay restart to let this handler return and queue drain
+      setTimeout(async () => {
+        const { spawn } = await import("child_process");
+        spawn("kern", ["restart", agentName], { detached: true, stdio: "ignore" }).unref();
+      }, 2000);
+      return "Restarting in 2 seconds...";
     }
 
     const time = new Date().toISOString();
