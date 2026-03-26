@@ -96,6 +96,7 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig): Pr
     grep: "search file contents",
     webfetch: "fetch URLs",
     kern: "manage your own runtime (status, config, env)",
+    message: "send messages proactively (do NOT use to reply to incoming messages)",
   };
   const toolList = tools.map(t => `- **${t}**: ${toolDescriptions[t] || t}`).join("\n");
 
