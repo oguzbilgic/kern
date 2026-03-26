@@ -14,6 +14,7 @@ export class MessageQueue {
   private activeChannel: string | null = null;
   private pendingSameChannel: QueuedMessage[] = [];
   private handler: ((msg: QueuedMessage, pendingMessages: () => QueuedMessage[]) => Promise<string>) | null = null;
+  private timeoutMs = 5 * 60 * 1000; // 5 minute timeout per message
 
   setHandler(fn: (msg: QueuedMessage, pendingMessages: () => QueuedMessage[]) => Promise<string>) {
     this.handler = fn;
@@ -30,10 +31,12 @@ export class MessageQueue {
       // If we're processing and this is same channel (not heartbeat), store as pending injection
       if (this.processing && !msg.isHeartbeat && this.activeChannel && msg.channel === this.activeChannel) {
         this.pendingSameChannel.push(queued);
+        process.stderr.write(`[kern:queue] same-channel message queued for injection (${msg.channel})\n`);
         return;
       }
 
       this.queue.push(queued);
+      process.stderr.write(`[kern:queue] enqueued (${msg.interface}:${msg.channel || "?"}) depth=${this.queue.length} processing=${this.processing}\n`);
       this.processNext();
     });
   }
@@ -53,25 +56,35 @@ export class MessageQueue {
     const msg = this.queue.shift()!;
     this.activeChannel = msg.isHeartbeat ? null : msg.channel;
 
+    process.stderr.write(`[kern:queue] processing (${msg.interface}:${msg.channel || "?"}) remaining=${this.queue.length}\n`);
+
     try {
-      const response = await this.handler!(msg, () => this.drainPendingSameChannel());
+      // Race handler against timeout
+      const response = await Promise.race([
+        this.handler!(msg, () => this.drainPendingSameChannel()),
+        new Promise<string>((_, reject) =>
+          setTimeout(() => reject(new Error("Message processing timed out")), this.timeoutMs)
+        ),
+      ]);
+
       msg.resolve(response);
 
-      // Resolve any same-channel pending messages with the same response
       for (const pending of this.pendingSameChannel) {
         pending.resolve(response);
       }
       this.pendingSameChannel = [];
     } catch (error: any) {
+      process.stderr.write(`[kern:queue] error: ${error.message}\n`);
       msg.reject(error);
       for (const pending of this.pendingSameChannel) {
         pending.reject(error);
       }
       this.pendingSameChannel = [];
+    } finally {
+      this.processing = false;
+      this.activeChannel = null;
+      process.stderr.write(`[kern:queue] done, remaining=${this.queue.length}\n`);
+      this.processNext();
     }
-
-    this.processing = false;
-    this.activeChannel = null;
-    this.processNext();
   }
 }
