@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { render, Box, Text, useInput, useApp, useStdout } from "ink";
+import { render, Box, Text, Static, useInput, useApp, useStdout } from "ink";
 // @ts-ignore
 import Spinner from "ink-spinner";
 import type { ServerEvent } from "./server.js";
@@ -211,31 +211,35 @@ function App({ port, agentName, version }: TuiProps) {
         </Text>
       </Box>
 
-      {/* Messages */}
-      {messages.slice(-20).map((msg, i) => (
-        <MessageView key={i} msg={msg} width={cols} />
-      ))}
+      {/* Completed messages — rendered once, scroll up via terminal */}
+      <Static items={messages.map((msg, i) => ({ id: String(i), msg }))}>
+        {({ id, msg }) => (
+          <Box key={id}>
+            <MessageView msg={msg} width={cols} />
+          </Box>
+        )}
+      </Static>
 
-      {/* Streaming */}
-      {streamingText && (
-        <Box><Text color="blue">◆ </Text><Text wrap="wrap">{streamingText}</Text></Box>
-      )}
+      {/* Active area — streaming, spinner, input */}
+      <Box flexDirection="column">
+        {streamingText && (
+          <Box><Text color="blue">◆ </Text><Text wrap="wrap">{streamingText}</Text></Box>
+        )}
 
-      {/* Spinner */}
-      {busy && !streamingText && (
-        <Box>
-          <Text color="blue">◆ </Text>
-          {/* @ts-ignore */}
-          <Text color="blue"><Spinner type="dots" /></Text>
-          <Text dimColor> thinking...</Text>
+        {busy && !streamingText && (
+          <Box>
+            <Text color="blue">◆ </Text>
+            {/* @ts-ignore */}
+            <Text color="blue"><Spinner type="dots" /></Text>
+            <Text dimColor> thinking...</Text>
+          </Box>
+        )}
+
+        <Box marginTop={1}>
+          <Text color="green" bold>{">"} </Text>
+          <Text>{input}</Text>
+          {!busy && <Text dimColor>▎</Text>}
         </Box>
-      )}
-
-      {/* Input */}
-      <Box marginTop={1}>
-        <Text color="green" bold>{">"} </Text>
-        <Text>{input}</Text>
-        {!busy && <Text dimColor>▎</Text>}
       </Box>
     </Box>
   );
