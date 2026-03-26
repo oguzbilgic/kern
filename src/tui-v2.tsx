@@ -338,7 +338,7 @@ function App({ port, agentName, version }: TuiProps) {
         return (
           <Static items={blocks.map((block, i) => ({ id: String(i), block }))}>
             {({ id, block }: { id: string; block: RenderBlock }) => (
-              <Box key={id} marginTop={block.kind === "box" ? 0 : 1}>
+              <Box key={id} marginTop={1}>
                 <RenderBlockView block={block} width={cols} />
               </Box>
             )}
