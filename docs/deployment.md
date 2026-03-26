@@ -48,28 +48,13 @@ docker build -t kern-ai .
 
 ### 3. Create docker-compose.yaml
 
-```yaml
-services:
-  my-agent:
-    image: kern-ai
-    container_name: kern-my-agent
-    volumes:
-      - ./my-agent:/agent
-    environment:
-      - KERN_PORT=8080
-      - KERN_HOST=0.0.0.0
-    env_file:
-      - ./my-agent/.kern/.env
-    ports:
-      - "8080:8080"
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+Copy the example and update paths for your agent:
+
+```bash
+cp docs/examples/docker-compose.yaml ./docker-compose.yaml
 ```
+
+See [examples/docker-compose.yaml](examples/docker-compose.yaml) for the full template.
 
 ### 4. Run
 
