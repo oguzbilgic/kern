@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.9.1
 
 ### Changes
 - **Dynamic model list** — `kern init` now fetches available models live from provider APIs (OpenRouter, Anthropic, OpenAI). Falls back to curated defaults if offline or API key not yet provided. (Community PR #1)
