@@ -1,12 +1,13 @@
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
 
 const COLORS: Record<string, string> = {
-  kern: "\x1b[1m",      // bold white
-  queue: "\x1b[33m",    // yellow
-  runtime: "\x1b[36m",  // cyan
-  telegram: "\x1b[34m", // blue
-  slack: "\x1b[35m",    // magenta
-  server: "\x1b[32m",   // green
+  kern: "\x1b[1m",         // bold white
+  queue: "\x1b[33m",       // yellow
+  runtime: "\x1b[36m",     // cyan
+  telegram: "\x1b[34m",    // blue
+  slack: "\x1b[35m",       // magenta
+  server: "\x1b[32m",      // green
+  supervisor: "\x1b[1;33m", // bold yellow
 };
 const RESET = "\x1b[0m";
 

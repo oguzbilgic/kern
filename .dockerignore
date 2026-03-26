@@ -1,5 +1,6 @@
 node_modules/
 dist/
 .git/
-*.md
 docs/
+CHANGELOG.md
+README.md

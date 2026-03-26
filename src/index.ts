@@ -41,13 +41,13 @@ async function showHelp() {
   w(`    ${cyan("kern backup")} ${dim("<name>")}          backup agent to .tar.gz`);
   w(`    ${cyan("kern import")} ${dim("opencode <name>")}  import session from OpenCode`);
   w(`    ${cyan("kern restore")} ${dim("<file>")}         restore agent from backup`);
-    w(`    ${cyan("kern logs")} ${dim("[name]")}            tail agent logs`);
-    w(`    ${cyan("kern daemon")} ${dim("[name|path]")}     run as foreground supervisor`);
-    w(`    ${cyan("kern remote")} ${dim("add <name> <host:port>")}  add a remote agent`);
-    w(`    ${cyan("kern remote")} ${dim("rm <name>")}        remove a remote agent`);
-    w(`    ${cyan("kern remote")} ${dim("list")}             show remote agents`);
-    w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
-    w("");
+  w(`    ${cyan("kern logs")} ${dim("[name]")}            tail agent logs`);
+  w(`    ${cyan("kern daemon")} ${dim("[name|path]")}     run as foreground supervisor`);
+  w(`    ${cyan("kern remote")} ${dim("add <name> <host:port>")}  add a remote agent`);
+  w(`    ${cyan("kern remote")} ${dim("rm <name>")}        remove a remote agent`);
+  w(`    ${cyan("kern remote")} ${dim("list")}             show remote agents`);
+  w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
+  w("");
 }
 
 async function resolveAgentDir(nameOrPath?: string): Promise<string> {
@@ -296,9 +296,16 @@ async function main() {
         console.error("Usage: kern remote add <name> <host:port>");
         process.exit(1);
       }
-      const parts = target.split(":");
-      const host = parts.slice(0, -1).join(":") || "localhost";
-      const port = parseInt(parts[parts.length - 1], 10);
+      let host: string;
+      let port: number;
+      if (target.includes(":")) {
+        const parts = target.split(":");
+        host = parts.slice(0, -1).join(":") || "localhost";
+        port = parseInt(parts[parts.length - 1], 10);
+      } else {
+        host = "localhost";
+        port = parseInt(target, 10);
+      }
       if (isNaN(port)) {
         console.error(`Invalid port in "${target}". Expected <host:port> or <port>.`);
         process.exit(1);

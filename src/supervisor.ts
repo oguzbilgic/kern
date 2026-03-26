@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "child_process";
 import { basename, join } from "path";
 import { existsSync } from "fs";
 import { mkdir } from "fs/promises";
-import { openSync } from "fs";
+import { openSync, closeSync } from "fs";
 import { loadRegistry, registerAgent, setPid, setPort, isProcessRunning, type AgentEntry } from "./registry.js";
 import { log } from "./log.js";
 
@@ -97,28 +97,17 @@ export class Supervisor {
       }
     }, 30_000);
 
-    // Wait forever (until signal)
+    // Wait forever (until signal triggers shutdown and all agents stop)
     await new Promise<void>((resolve) => {
       const check = setInterval(() => {
-        if (this.shuttingDown && this.agents.size === 0) {
+        if (!this.shuttingDown) return;
+        const allStopped = [...this.agents.values()].every(
+          (a) => !a.process || a.process.exitCode !== null,
+        );
+        if (allStopped) {
           clearInterval(check);
           clearInterval(healthCheck);
           resolve();
-        }
-        // Also resolve if all agents have been stopped and we're shutting down
-        if (this.shuttingDown) {
-          let allStopped = true;
-          for (const [, agent] of this.agents) {
-            if (agent.process && agent.process.exitCode === null) {
-              allStopped = false;
-              break;
-            }
-          }
-          if (allStopped) {
-            clearInterval(check);
-            clearInterval(healthCheck);
-            resolve();
-          }
         }
       }, 500);
     });
@@ -146,6 +135,9 @@ export class Supervisor {
       stdio: ["ignore", logFd, logFd],
       cwd: path,
     });
+
+    // Close fd in parent — child process owns it now
+    closeSync(logFd);
 
     const pid = child.pid!;
     await registerAgent(name, path);
