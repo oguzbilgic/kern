@@ -1,5 +1,15 @@
 # Changelog
 
+## next
+
+### Features
+- **TUI Redesign** — complete rewrite using Ink (React for CLIs).
+  - Clean block-based layout with deterministic vertical spacing (no double lines).
+  - Robust terminal resizing using ANSI erase-in-line (`\x1b[K`) logic.
+  - Live connection status indicator (`●`/`○`) that automatically reconnects and refetches agent status when the daemon restarts.
+- **TUI Markdown Support** — custom markdown parsing inside the TUI to render code blocks, blockquotes, headings, bold, italic, and inline code natively in the terminal.
+- **TUI Muted Content** — system output like `NO_REPLY` is now rendered dimmed and italicized to preserve visual hierarchy.
+
 ## v0.8.0
 
 ### Features

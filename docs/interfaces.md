@@ -14,6 +14,8 @@ kern tui [name]
 - Auto-starts daemon if not running
 - Auto-selects agent if only one registered
 - Shows cross-channel messages in real time
+- Renders Markdown (code blocks, quotes, bold, italic)
+- Live connection indicator (`●`/`○`) that automatically reconnects
 - Ctrl-C only kills TUI, daemon stays alive
 
 Markers:
