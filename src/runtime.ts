@@ -15,27 +15,46 @@ function estimateTokens(messages: ModelMessage[]): number {
   return Math.ceil(chars / 4);
 }
 
+// Per-message token size cache
+const msgSizeCache = new WeakMap<ModelMessage, number>();
+
+function getMsgSize(msg: ModelMessage): number {
+  let size = msgSizeCache.get(msg);
+  if (size === undefined) {
+    size = Math.ceil(JSON.stringify(msg).length / 4);
+    msgSizeCache.set(msg, size);
+  }
+  return size;
+}
+
 function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): ModelMessage[] {
   if (maxTokens <= 0) return messages;
-  const total = estimateTokens(messages);
+
+  // Compute total using cached per-message sizes
+  let total = 0;
+  for (const msg of messages) {
+    total += getMsgSize(msg);
+  }
   if (total <= maxTokens) return messages;
 
-  // Trim from front until under budget
-  // Skip tool-result and assistant messages that follow tool calls to keep pairs intact
-  let trimmed = [...messages];
-  while (trimmed.length > 1 && estimateTokens(trimmed) > maxTokens) {
-    trimmed.shift();
-    // Keep shifting if we landed on a tool role or assistant with tool content
-    // to avoid orphaned tool-results
-    while (trimmed.length > 1 && trimmed[0].role === "tool") {
-      trimmed.shift();
-    }
+  // Find cut point from the front
+  let cutTotal = total;
+  let cutIndex = 0;
+  while (cutIndex < messages.length - 1 && cutTotal > maxTokens) {
+    cutTotal -= getMsgSize(messages[cutIndex]);
+    cutIndex++;
+  }
+
+  // Adjust: skip orphaned tool messages
+  while (cutIndex < messages.length - 1 && messages[cutIndex].role === "tool") {
+    cutIndex++;
   }
   // Ensure we start with a user message
-  while (trimmed.length > 1 && trimmed[0].role !== "user") {
-    trimmed.shift();
+  while (cutIndex < messages.length - 1 && messages[cutIndex].role !== "user") {
+    cutIndex++;
   }
-  return trimmed;
+
+  return messages.slice(cutIndex);
 }
 import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern.js";
 
