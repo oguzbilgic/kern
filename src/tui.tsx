@@ -535,6 +535,7 @@ function App({ port, agentName, version }: TuiProps) {
 
     const isCommand = input.startsWith("/");
     const matches = isCommand ? COMMANDS.filter(c => c.cmd.startsWith(input)) : [];
+    const safeIndex = Math.min(autocompleteIndex, Math.max(0, matches.length - 1));
 
     if (isCommand && matches.length > 0) {
       if (key.upArrow) {
@@ -545,8 +546,9 @@ function App({ port, agentName, version }: TuiProps) {
         setAutocompleteIndex((i) => (i < matches.length - 1 ? i + 1 : 0));
         return;
       }
-      if (key.tab || (key.return && input !== matches[autocompleteIndex].cmd)) {
-        setInput(matches[autocompleteIndex].cmd);
+      if (key.tab || (key.return && input !== matches[safeIndex].cmd)) {
+        setInput(matches[safeIndex].cmd);
+        setAutocompleteIndex(0);
         return;
       }
     }
