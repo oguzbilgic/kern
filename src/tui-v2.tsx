@@ -142,13 +142,19 @@ function App({ port, agentName, version }: TuiProps) {
   const [streamingText, setStreamingText] = useState("");
   const [oldestIndex, setOldestIndex] = useState<number | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [model, setModel] = useState("");
   const baseUrl = `http://127.0.0.1:${port}`;
 
   const cols = stdout?.columns || 80;
 
-  // Load initial history
+  // Load initial history + status
   useEffect(() => {
     (async () => {
+      try {
+        const statusRes = await fetch(`${baseUrl}/status`);
+        const status = await statusRes.json();
+        if (status.model) setModel(status.model);
+      } catch {}
       try {
         const res = await fetch(`${baseUrl}/history?limit=30`);
         const history = await res.json();
@@ -293,7 +299,7 @@ function App({ port, agentName, version }: TuiProps) {
               <Text backgroundColor="#1a1a1a" color="white">{" ".repeat(cols - 3)}</Text>
               <Text backgroundColor="#1a1a1a" color="white">{"  "}{input}{!busy ? "▎" : ""}{" ".repeat(Math.max(0, cols - 3 - input.length - 3 - (!busy ? 1 : 0)))}</Text>
               <Text backgroundColor="#1a1a1a" color="white">{" ".repeat(cols - 3)}</Text>
-              <Text backgroundColor="#1a1a1a" dimColor italic>{("  kern v" + version + " · " + agentName + " · :" + port).padEnd(cols - 3)}</Text>
+              <Text backgroundColor="#1a1a1a" dimColor italic>{("  kern v" + version + " · " + agentName + (model ? " · " + model : "")).padEnd(cols - 3)}</Text>
               <Text backgroundColor="#1a1a1a" color="white">{" ".repeat(cols - 3)}</Text>
             </Box>
           </Box>

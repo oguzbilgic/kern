@@ -83,6 +83,13 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     return queue.enqueue({ text, userId, interface: iface, channel }, onEvent);
   };
 
+  server.setStatusFn(() => ({
+    model: config.model,
+    provider: config.provider,
+    toolScope: config.toolScope,
+    agentName,
+  }));
+
   server.setMessageHandler(async (text, userId, iface, channel) => {
     await enqueueMessage(text, userId, iface, channel);
   });
