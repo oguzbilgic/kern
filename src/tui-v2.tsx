@@ -348,4 +348,5 @@ export async function connectTuiV2(port: number, agentName: string): Promise<voi
   const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
   const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
   process.stdout.write(`\n  ${bold("kern")} ${dim("v" + version)} · ${agentName}${model ? " · " + model : ""} · ${dim("running")}\n\n`);
+  process.exit(0);
 }
