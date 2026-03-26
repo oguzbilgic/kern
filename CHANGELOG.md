@@ -15,6 +15,11 @@
 - Templates (AGENTS.md, KERN.md) moved to `templates/` in the package
 - Startup header replaced with structured log lines
 - All interfaces (Telegram, Slack, TUI, HTTP, heartbeat) route through message queue
+- Telegram event flow restored via queue onEvent callback — tool calls show during processing
+- Telegram multi-block: text → tools → text produces separate messages
+- Tool display shows action for kern tool, userId for message tool
+- Slack suppresses `(no text response)` alongside NO_REPLY
+- Kern agents noted as loop-aware in KERN.md
 
 ## v0.6.3
 
