@@ -198,6 +198,54 @@ function ToolGroupView({ tools }: { tools: ChatMessage[] }) {
   );
 }
 
+function MarkdownText({ text, isMuted }: { text: string; isMuted?: boolean }) {
+  if (isMuted) {
+    return (
+      <Text color={undefined} dimColor italic wrap="wrap">
+        {text}
+      </Text>
+    );
+  }
+
+  const parts = text.split(/(```[\s\S]*?```|\*\*[\s\S]*?\*\*|`[^`]+`)/g);
+
+  return (
+    <Text wrap="wrap">
+      {parts.map((part, i) => {
+        if (!part) return null;
+        if (part.startsWith("```") && part.endsWith("```")) {
+          let code = part.slice(3, -3);
+          const firstNewline = code.indexOf("\n");
+          if (firstNewline !== -1 && !code.slice(0, firstNewline).includes(" ")) {
+            code = code.slice(firstNewline + 1);
+          } else if (code.startsWith("\n")) {
+            code = code.slice(1);
+          }
+          if (code.endsWith("\n")) code = code.slice(0, -1);
+          
+          const lines = code.split("\n");
+          return (
+            <Text key={i}>
+              {"\n"}
+              <Text backgroundColor="#222" color="#eee">
+                {lines.map(l => "  " + l + "  ").join("\n")}
+              </Text>
+              {"\n"}
+            </Text>
+          );
+        }
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return <Text key={i} bold color="white">{part.slice(2, -2)}</Text>;
+        }
+        if (part.startsWith("`") && part.endsWith("`")) {
+          return <Text key={i} color="cyan">{part.slice(1, -1)}</Text>;
+        }
+        return <Text key={i} color="white">{part}</Text>;
+      })}
+    </Text>
+  );
+}
+
 function RenderBlockView({ block, width }: { block: RenderBlock; width: number }) {
   switch (block.kind) {
     case "box":
@@ -208,9 +256,7 @@ function RenderBlockView({ block, width }: { block: RenderBlock; width: number }
       const isMuted = block.text.trim().endsWith("NO_REPLY") || block.text.trim().endsWith("(no text response)");
       return (
         <Box paddingLeft={3}>
-          <Text color={isMuted ? undefined : "white"} dimColor={isMuted} italic={isMuted} wrap="wrap">
-            {block.text}
-          </Text>
+          <MarkdownText text={block.text} isMuted={isMuted} />
         </Box>
       );
     }
@@ -364,11 +410,7 @@ function App({ port, agentName, version }: TuiProps) {
           <Box marginTop={1} paddingLeft={3}>
             {(() => {
               const isMuted = streamingText.trim().endsWith("NO_REPLY") || streamingText.trim().endsWith("(no text response)");
-              return (
-                <Text color={isMuted ? undefined : "white"} dimColor={isMuted} italic={isMuted} wrap="wrap">
-                  {streamingText}
-                </Text>
-              );
+              return <MarkdownText text={streamingText} isMuted={isMuted} />;
             })()}
           </Box>
         )}
