@@ -92,6 +92,7 @@ export class TelegramInterface implements Interface {
       let toolLines: string[] = [];
       let streaming = false;
       let activeMessageId = reply.message_id;
+      let textBlocks: string[] = [];
       let pendingNewMessage: Promise<void> | null = null;
 
       try {
@@ -100,16 +101,22 @@ export class TelegramInterface implements Interface {
           (event) => {
             const now = Date.now();
             if (event.type === "tool-call") {
-              // If we had text streaming, finalize that message
+              // If we had text streaming, finalize that message and start new one for tools
               if (streaming && currentText) {
                 this.editMessage(ctx, activeMessageId, currentText).catch(() => {});
+                textBlocks.push(currentText);
                 streaming = false;
                 currentText = "";
                 toolLines = [];
+                // New message for tools + next text
+                pendingNewMessage = ctx.reply("...").then((msg) => {
+                  activeMessageId = msg.message_id;
+                  pendingNewMessage = null;
+                }).catch(() => { pendingNewMessage = null; });
               }
               const detail = event.toolDetail ? ` ${event.toolDetail}` : "";
               toolLines.push(`⚙ ${event.toolName}${detail}`);
-              if (now - lastEditTime > 500) {
+              if (now - lastEditTime > 500 && !pendingNewMessage) {
                 lastEditTime = now;
                 this.editMessage(ctx, activeMessageId, toolLines.join("\n"), false).catch(() => {});
               }
@@ -117,15 +124,7 @@ export class TelegramInterface implements Interface {
               if (!streaming) {
                 streaming = true;
                 currentText = "";
-                // New text block after tools — need a new message
-                if (toolLines.length > 0) {
-                  toolLines = [];
-                  // Create new message, block edits until ready
-                  pendingNewMessage = ctx.reply("...").then((msg) => {
-                    activeMessageId = msg.message_id;
-                    pendingNewMessage = null;
-                  }).catch(() => { pendingNewMessage = null; });
-                }
+                toolLines = [];
               }
               currentText += event.text || "";
               if (now - lastEditTime > 1000 && !pendingNewMessage) {
@@ -137,9 +136,8 @@ export class TelegramInterface implements Interface {
         );
 
         clearInterval(typingInterval);
-        // Wait for any pending message creation
         if (pendingNewMessage) await pendingNewMessage;
-        // Final edit on the last active message
+        // Final edit — overwrite tools with text on the last message
         const lastText = currentText || response;
         await this.editMessage(ctx, activeMessageId, lastText);
       } catch (error: any) {
