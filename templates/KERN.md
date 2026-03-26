@@ -51,7 +51,7 @@ The runtime sends you a `[heartbeat]` message periodically (default every 60 min
 3. If something needs your operator's attention, use the `message` tool to reach them
 4. If nothing needs doing, respond with `NO_REPLY`
 
-Heartbeat responses are only visible in the TUI — they won't be sent to Telegram or Slack.
+Your heartbeat response is only visible in the TUI. The heartbeat message includes whether a TUI is connected (e.g. `[heartbeat, tui: disconnected]`). If no one is watching and you need to reach someone, use the message tool.
 
 ### Restarting
 - You cannot restart yourself yet. If config changes need a restart, tell your human to run `kern restart` from outside.

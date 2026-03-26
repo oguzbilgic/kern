@@ -182,13 +182,16 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     const intervalMs = config.heartbeatInterval * 60 * 1000;
     setInterval(async () => {
       try {
+        const tuiStatus = server.hasConnectedClients() ? "connected" : "disconnected";
+        const heartbeatText = `[heartbeat, tui: ${tuiStatus}]`;
+
         server.broadcast({
           type: "heartbeat" as any,
-          text: "[heartbeat]",
+          text: heartbeatText,
         });
 
         await queue.enqueue({
-          text: "[heartbeat]",
+          text: heartbeatText,
           userId: "system",
           interface: "system",
           channel: "heartbeat",

@@ -47,6 +47,10 @@ export class AgentServer {
     });
   }
 
+  hasConnectedClients(): boolean {
+    return this.clients.length > 0;
+  }
+
   stop() {
     for (const client of this.clients) {
       client.res.end();
