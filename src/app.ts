@@ -87,6 +87,17 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     await enqueueMessage(text, userId, iface, channel);
   });
 
+  // History: return messages from session, paginated
+  server.setHistoryFn((limit: number, before?: number) => {
+    const msgs = runtime.getMessages();
+    const end = before !== undefined ? before : msgs.length;
+    const start = Math.max(0, end - limit);
+    return msgs.slice(start, end).map((m: any, i: number) => ({
+      index: start + i,
+      ...m,
+    }));
+  });
+
   const port = await server.start();
   await setPort(agentName, port);
 

@@ -98,6 +98,38 @@ function App({ port, agentName, version }: TuiProps) {
 
   const rows = stdout?.rows || 24;
   const chatHeight = rows - 4;
+  const [oldestIndex, setOldestIndex] = useState<number | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Load initial history
+  useEffect(() => {
+    async function loadHistory() {
+      try {
+        const res = await fetch(`${baseUrl}/history?limit=50`);
+        const history = await res.json();
+        if (history.length > 0) {
+          const converted: ChatMessage[] = [];
+          for (const m of history) {
+            if (m.role === "user" && typeof m.content === "string") {
+              converted.push({ type: "user", text: m.content });
+            } else if (m.role === "assistant") {
+              const text = typeof m.content === "string"
+                ? m.content
+                : Array.isArray(m.content)
+                  ? m.content.filter((p: any) => p.type === "text").map((p: any) => p.text).join("")
+                  : "";
+              if (text) converted.push({ type: "assistant", text });
+            }
+          }
+          setMessages(converted);
+          if (history[0]?.index !== undefined) {
+            setOldestIndex(history[0].index);
+          }
+        }
+      } catch {}
+    }
+    loadHistory();
+  }, []);
 
   useEffect(() => {
     let aborted = false;
@@ -191,7 +223,39 @@ function App({ port, agentName, version }: TuiProps) {
     }
 
     if (key.upArrow) {
-      setScrollOffset((n: number) => Math.min(n + 1, Math.max(0, messages.length - chatHeight)));
+      setScrollOffset((n: number) => {
+        const newOffset = Math.min(n + 1, Math.max(0, messages.length - chatHeight));
+        // Load more history when scrolling near the top
+        if (newOffset >= messages.length - chatHeight - 5 && oldestIndex && oldestIndex > 0 && !loadingHistory) {
+          setLoadingHistory(true);
+          fetch(`${baseUrl}/history?limit=50&before=${oldestIndex}`)
+            .then((r) => r.json())
+            .then((history: any[]) => {
+              if (history.length > 0) {
+                const converted: ChatMessage[] = [];
+                for (const m of history) {
+                  if (m.role === "user" && typeof m.content === "string") {
+                    converted.push({ type: "user", text: m.content });
+                  } else if (m.role === "assistant") {
+                    const text = typeof m.content === "string"
+                      ? m.content
+                      : Array.isArray(m.content)
+                        ? m.content.filter((p: any) => p.type === "text").map((p: any) => p.text).join("")
+                        : "";
+                    if (text) converted.push({ type: "assistant", text });
+                  }
+                }
+                setMessages((m: ChatMessage[]) => [...converted, ...m]);
+                if (history[0]?.index !== undefined) {
+                  setOldestIndex(history[0].index);
+                }
+              }
+              setLoadingHistory(false);
+            })
+            .catch(() => setLoadingHistory(false));
+        }
+        return newOffset;
+      });
       return;
     }
     if (key.downArrow) {
