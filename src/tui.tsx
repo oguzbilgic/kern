@@ -503,7 +503,7 @@ function App({ port, agentName, version }: TuiProps) {
 
 // --- Entry ---
 
-export async function connectTuiV2(port: number, agentName: string): Promise<void> {
+export async function connectTui(port: number, agentName: string): Promise<void> {
   let model = "";
   try {
     const res = await fetch(`http://127.0.0.1:${port}/status`);
