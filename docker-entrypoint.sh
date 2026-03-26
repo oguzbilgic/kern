@@ -15,7 +15,7 @@ if [ -d /agent-seed ] && [ ! -f /agent/AGENTS.md ]; then
   fi
 fi
 
-# Configure SSH for git if a deploy key is mounted at /run/secrets/deploy_key
+# Configure SSH if a deploy key exists (baked in via Dockerfile.agent COPY)
 if [ -f /run/secrets/deploy_key ]; then
   mkdir -p /root/.ssh
   cp /run/secrets/deploy_key /root/.ssh/id_ed25519
