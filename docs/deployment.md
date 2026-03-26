@@ -276,18 +276,47 @@ If the volume already has data, the seed is skipped. To force a re-seed, remove 
 
 ## Git Sync
 
-Agents commit and push to `origin` as part of their normal operation (defined in their kernel — see AGENTS.md). In Docker, set `GIT_REMOTE_URL` to configure the remote automatically on first run:
+Agents commit and push to `origin` as part of their normal operation (defined in their kernel — see AGENTS.md). In Docker, set `GIT_REMOTE_URL` to configure the remote automatically on first run. The entrypoint checks if `origin` is already configured in the volume's git repo — if not, it adds it using the provided URL. The agent's own "commit and push" behavior then works out of the box.
+
+### SSH deploy key (recommended)
+
+Generate a key per agent, add it to the repo with write access, and bake it into the agent image:
+
+```bash
+# Generate key (one per agent)
+mkdir -p deploy-keys
+ssh-keygen -t ed25519 -f ./deploy-keys/my-agent -N "" -C "my-agent-deploy"
+
+# Add to repo with write access (requires gh CLI)
+gh repo deploy-key add ./deploy-keys/my-agent.pub \
+  --repo yourorg/my-agent-state --title "my-agent-deploy" --allow-write
+```
+
+Add the COPY line to your agent's Dockerfile:
+
+```dockerfile
+COPY ./deploy-keys/my-agent /run/secrets/deploy_key
+```
+
+And set the remote URL in docker-compose:
 
 ```yaml
 environment:
-  - GIT_REMOTE_URL=https://x-access-token:ghp_xxx@github.com/yourorg/agent-state.git
+  - GIT_REMOTE_URL=git@github.com:yourorg/my-agent-state.git
 ```
 
-On container startup, the entrypoint checks if `origin` is configured in the volume's git repo. If not, it adds it using the provided URL. The agent's own "commit and push" behavior then works out of the box.
+The entrypoint copies the key to `/root/.ssh/`, sets permissions, and adds GitHub/GitLab/Bitbucket to `known_hosts` automatically. Each agent gets its own key with access only to its own state repo.
 
-### Authentication
+**Note:** the key ends up in the image layer. For private images that stay in your registry, this is fine. If you need to avoid that, mount the key as a volume instead: `./deploy-keys/my-agent:/run/secrets/deploy_key:ro`.
 
-Use a token URL — no SSH keys or credential helpers needed:
+### HTTPS token URL (alternative)
+
+No key files needed — embed a token directly in the URL:
+
+```yaml
+environment:
+  - GIT_REMOTE_URL=https://x-access-token:ghp_xxx@github.com/yourorg/my-agent-state.git
+```
 
 | Provider | URL format |
 |----------|-----------|
@@ -295,8 +324,6 @@ Use a token URL — no SSH keys or credential helpers needed:
 | GitHub (fine-grained) | `https://x-access-token:github_pat_xxx@github.com/org/repo.git` |
 | GitLab (deploy token) | `https://deploy:gldt-xxx@gitlab.com/org/repo.git` |
 | Bitbucket (app password) | `https://user:app-password@bitbucket.org/org/repo.git` |
-
-The token is passed as an env var, same as API keys. For production, use fine-grained tokens with repo-only scope.
 
 ### What happens
 
@@ -306,16 +333,16 @@ The token is passed as an env var, same as API keys. For production, use fine-gr
 
 ### Multiple agents
 
-Each agent gets its own repo:
+Each agent gets its own repo and its own deploy key (baked into each agent's Dockerfile):
 
 ```yaml
 services:
   sentinel:
     environment:
-      - GIT_REMOTE_URL=https://x-access-token:ghp_xxx@github.com/org/sentinel-state.git
+      - GIT_REMOTE_URL=git@github.com:org/sentinel-state.git
   oms-dev:
     environment:
-      - GIT_REMOTE_URL=https://x-access-token:ghp_xxx@github.com/org/oms-dev-state.git
+      - GIT_REMOTE_URL=git@github.com:org/oms-dev-state.git
 ```
 
 ### Restoring from git

@@ -15,9 +15,20 @@ if [ -d /agent-seed ] && [ ! -f /agent/AGENTS.md ]; then
   fi
 fi
 
+# Configure SSH for git if a deploy key is mounted at /run/secrets/deploy_key
+if [ -f /run/secrets/deploy_key ]; then
+  mkdir -p /root/.ssh
+  cp /run/secrets/deploy_key /root/.ssh/id_ed25519
+  chmod 600 /root/.ssh/id_ed25519
+  # Add common git hosts to known_hosts
+  ssh-keyscan -t ed25519 github.com gitlab.com bitbucket.org >> /root/.ssh/known_hosts 2>/dev/null
+  echo "[kern] SSH deploy key configured"
+fi
+
 # Configure git remote if GIT_REMOTE_URL is set and origin doesn't exist yet.
-# Use a token URL for auth (no SSH keys needed):
+# Works with both HTTPS token URLs and SSH URLs:
 #   GIT_REMOTE_URL=https://x-access-token:ghp_xxx@github.com/org/repo.git
+#   GIT_REMOTE_URL=git@github.com:org/repo.git
 if [ -n "$GIT_REMOTE_URL" ] && [ -d /agent/.git ]; then
   cd /agent
   if ! git remote get-url origin >/dev/null 2>&1; then

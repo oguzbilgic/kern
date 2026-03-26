@@ -20,3 +20,7 @@ COPY ${AGENT_DIR}/ /agent-seed/
 
 # Secrets should NOT be baked in — pass via env_file or environment
 RUN rm -f /agent-seed/.kern/.env
+
+# Optional: deploy key for git push to remote.
+# The entrypoint configures SSH from this path on startup.
+# COPY ./deploy-keys/my-agent /run/secrets/deploy_key
