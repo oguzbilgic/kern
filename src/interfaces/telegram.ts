@@ -91,6 +91,8 @@ export class TelegramInterface implements Interface {
       let currentText = "";
       let toolLines: string[] = [];
       let streaming = false;
+      let activeMessageId = reply.message_id;
+      let hadTextBeforeTools = false;
 
       try {
         const response = await onMessage(
@@ -98,28 +100,52 @@ export class TelegramInterface implements Interface {
           (event) => {
             const now = Date.now();
             if (event.type === "tool-call") {
+              // If we had text streaming, finalize that message and start fresh
+              if (streaming && currentText) {
+                this.editMessage(ctx, activeMessageId, currentText).catch(() => {});
+                hadTextBeforeTools = true;
+                streaming = false;
+                currentText = "";
+              }
               const detail = event.toolDetail ? ` ${event.toolDetail}` : "";
               toolLines.push(`⚙ ${event.toolName}${detail}`);
               if (now - lastEditTime > 500) {
                 lastEditTime = now;
-                this.editMessage(ctx, reply.message_id, toolLines.join("\n"), false).catch(() => {});
+                // Show tools in a new message if we finalized the previous one
+                if (hadTextBeforeTools) {
+                  ctx.reply(toolLines.join("\n")).then((msg) => {
+                    activeMessageId = msg.message_id;
+                  }).catch(() => {});
+                  hadTextBeforeTools = false;
+                } else {
+                  this.editMessage(ctx, activeMessageId, toolLines.join("\n"), false).catch(() => {});
+                }
               }
             } else if (event.type === "text-delta") {
               if (!streaming) {
                 streaming = true;
                 currentText = "";
+                // New text block after tools — send a new message
+                if (toolLines.length > 0) {
+                  ctx.reply("...").then((msg) => {
+                    activeMessageId = msg.message_id;
+                  }).catch(() => {});
+                  toolLines = [];
+                }
               }
               currentText += event.text || "";
               if (now - lastEditTime > 1000) {
                 lastEditTime = now;
-                this.editMessage(ctx, reply.message_id, currentText).catch(() => {});
+                this.editMessage(ctx, activeMessageId, currentText).catch(() => {});
               }
             }
           }
         );
 
         clearInterval(typingInterval);
-        await this.editMessage(ctx, reply.message_id, response);
+        // Final edit on the last active message
+        const lastText = currentText || response;
+        await this.editMessage(ctx, activeMessageId, lastText);
       } catch (error: any) {
         clearInterval(typingInterval);
         await this.editMessage(ctx, reply.message_id, `Error: ${error.message}`);
