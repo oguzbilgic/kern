@@ -74,6 +74,7 @@ async function fetchModels(
         .filter((m) => preferred.some((p) => m.id.startsWith(p)) && !OPENROUTER_EXCLUDE.test(m.id))
         .sort((a, b) => (b.context_length || 0) - (a.context_length || 0))
         .slice(0, 20)
+        .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
         .map((m) => ({ name: m.name || m.id, value: m.id }));
     }
 
