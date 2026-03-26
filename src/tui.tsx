@@ -207,8 +207,9 @@ function MarkdownText({ text, isMuted }: { text: string; isMuted?: boolean }) {
 
   const blocks: { type: string; content: string }[] = [];
   const codeSplit = text.split(/(```[\s\S]*?```)/g);
-  for (const part of codeSplit) {
-    if (part.startsWith("```") && part.endsWith("```")) {
+  for (let i = 0; i < codeSplit.length; i++) {
+    const part = codeSplit[i];
+    if (i % 2 === 1) {
       let code = part.slice(3, -3);
       const firstNewline = code.indexOf("\n");
       if (firstNewline !== -1 && !code.slice(0, firstNewline).includes(" ")) {
@@ -219,7 +220,12 @@ function MarkdownText({ text, isMuted }: { text: string; isMuted?: boolean }) {
       if (code.endsWith("\n")) code = code.slice(0, -1);
       blocks.push({ type: "code", content: code });
     } else if (part) {
-      const lines = part.split("\n");
+      let textPart = part;
+      if (i > 0 && textPart.startsWith("\n")) textPart = textPart.slice(1);
+      if (i < codeSplit.length - 1 && textPart.endsWith("\n")) textPart = textPart.slice(0, -1);
+      if (!textPart) continue;
+
+      const lines = textPart.split("\n");
       let currentType = "text";
       let currentContent: string[] = [];
       
