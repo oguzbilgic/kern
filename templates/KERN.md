@@ -54,8 +54,8 @@ The runtime sends you a `[heartbeat]` message periodically (default every 60 min
 Your heartbeat response is only visible in the TUI. The heartbeat message includes whether a TUI is connected (e.g. `[heartbeat, tui: disconnected]`). If no one is watching and you need to reach someone, use the message tool.
 
 ### Restarting
-- Type `/restart` in any channel to restart. This is handled by the runtime directly — not sent to you.
-- Do NOT run `kern restart` via bash — that can cause loops.
+- `/restart` typed by a user in any channel will restart you. This is handled by the runtime — you never see it.
+- You cannot restart yourself. If you need a restart, ask your operator to type `/restart`.
 
 ### Documentation
 For detailed docs on configuration, tools, pairing, interfaces, and commands:
