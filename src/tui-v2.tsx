@@ -252,7 +252,7 @@ function App({ port, agentName, version }: TuiProps) {
   }, []);
 
   useInput((ch: string, key: any) => {
-    // ctrl+c handled by SIGINT
+    if (key.escape) { exit(); return; }
     if (key.return && input.trim() && !busy) {
       const text = input.trim();
       setInput("");
@@ -338,17 +338,14 @@ export async function connectTuiV2(port: number, agentName: string): Promise<voi
 
   const { waitUntilExit } = render(
     <App port={port} agentName={agentName} version={version} />,
-    { exitOnCtrlC: false }
+    { exitOnCtrlC: true }
   );
 
-  process.on("SIGINT", () => {
-    // Clear screen and show exit status
-    process.stdout.write("\x1b[2J\x1b[H");
-    const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
-    const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
-    process.stdout.write(`\n  ${bold("kern")} ${dim("v" + version)} · ${agentName}${model ? " · " + model : ""} · ${dim("running")}\n\n`);
-    process.exit(0);
-  });
-
   await waitUntilExit();
+
+  // After exit — clear screen, show status
+  process.stdout.write("\x1b[2J\x1b[H");
+  const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
+  const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
+  process.stdout.write(`\n  ${bold("kern")} ${dim("v" + version)} · ${agentName}${model ? " · " + model : ""} · ${dim("running")}\n\n`);
 }
