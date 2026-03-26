@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.9.0
 
 ### Features
 - **TUI Redesign** — complete rewrite using Ink (React for CLIs).
