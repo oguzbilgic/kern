@@ -104,21 +104,29 @@ function buildBlocks(messages: ChatMessage[]): RenderBlock[] {
 
 // --- Components ---
 
-function InputBox({ input, busy, version, agentName, model, width }: {
-  input: string; busy: boolean; version: string; agentName: string; model: string; width: number;
+function InputBox({ input, busy, version, agentName, model, width, connected }: {
+  input: string; busy: boolean; version: string; agentName: string; model: string; width: number; connected: boolean;
 }) {
   const iw = width - 3;
   const empty = " ".repeat(iw);
   const cursor = busy ? "" : "▎";
   const inputLine = ("  " + input + cursor).padEnd(iw);
-  const statusLine = ("  kern v" + version + " · " + agentName + (model ? " · " + model : "")).padEnd(iw);
+  const connectionStr = connected ? "●" : "○";
+  const statusLine = (`  kern v${version} · ${agentName}${model ? " · " + model : ""} · ${connectionStr}`).padEnd(iw);
+  
+  // Set border color based on connection status
+  const borderColor = connected ? "green" : "red";
   return (
-    <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="green" width={width}>
+    <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor={borderColor} width={width}>
       <Box flexDirection="column" width={iw}>
         <Text backgroundColor="#1a1a1a" color="white">{empty}</Text>
         <Text backgroundColor="#1a1a1a" color="white">{inputLine}</Text>
         <Text backgroundColor="#1a1a1a" color="white">{empty}</Text>
-        <Text backgroundColor="#1a1a1a" dimColor italic>{statusLine}</Text>
+        <Text backgroundColor="#1a1a1a" dimColor italic>
+          {"  kern v"}{version}{" · "}{agentName}{model ? " · " + model : ""}{" · "}
+          <Text color={connected ? "green" : "red"}>{connectionStr}</Text>
+          {" ".repeat(Math.max(0, iw - 13 - version.length - agentName.length - model.length - (model ? 3 : 0) - 2))}
+        </Text>
         <Text backgroundColor="#1a1a1a" color="white">{empty}</Text>
       </Box>
     </Box>
@@ -351,6 +359,7 @@ function App({ port, agentName, version }: TuiProps) {
   const [busy, setBusy] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [model, setModel] = useState("");
+  const [connected, setConnected] = useState(false);
   const baseUrl = `http://127.0.0.1:${port}`;
   const cols = stdout?.columns || 80;
 
@@ -431,6 +440,7 @@ function App({ port, agentName, version }: TuiProps) {
     async function connect() {
       try {
         const res = await fetch(`${baseUrl}/events`);
+        setConnected(true);
         const reader = res.body!.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
@@ -445,8 +455,15 @@ function App({ port, agentName, version }: TuiProps) {
             try { handle(JSON.parse(line.slice(6))); } catch {}
           }
         }
+        if (!aborted) {
+          setConnected(false);
+          setTimeout(connect, 2000);
+        }
       } catch {
-        if (!aborted) setTimeout(connect, 2000);
+        if (!aborted) {
+          setConnected(false);
+          setTimeout(connect, 2000);
+        }
       }
     }
     connect();
@@ -507,7 +524,7 @@ function App({ port, agentName, version }: TuiProps) {
           </Box>
         )}
         <Box marginTop={1}>
-          <InputBox input={input} busy={busy} version={version} agentName={agentName} model={model} width={cols} />
+          <InputBox input={input} busy={busy} version={version} agentName={agentName} model={model} width={cols} connected={connected} />
         </Box>
       </Box>
     </Box>
