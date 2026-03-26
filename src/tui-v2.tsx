@@ -7,7 +7,7 @@ import type { ServerEvent } from "./server.js";
 // --- Types ---
 
 interface ChatMessage {
-  type: "user" | "assistant" | "incoming" | "outgoing" | "heartbeat" | "tool" | "error" | "gap";
+  type: "user" | "assistant" | "incoming" | "outgoing" | "heartbeat" | "tool" | "error";
   text: string;
   meta?: string;
 }
@@ -62,28 +62,10 @@ function convertHistory(history: any[]): ChatMessage[] {
     }
   }
   // Insert gaps between blocks
-  return addGaps(raw);
+  return raw;
 }
 
-function addGaps(msgs: ChatMessage[]): ChatMessage[] {
-  if (msgs.length === 0) return msgs;
-  // Remove existing gaps first (prevents stacking)
-  const clean = msgs.filter(m => m.type !== "gap");
-  if (clean.length === 0) return clean;
-  const result: ChatMessage[] = [clean[0]];
-  for (let i = 1; i < clean.length; i++) {
-    const prev = clean[i - 1].type;
-    const curr = clean[i].type;
-    // Gap only before: first tool after non-tool, assistant after tool
-    const isFirstTool = curr === "tool" && prev !== "tool";
-    const isAssistantAfterTool = curr === "assistant" && prev === "tool";
-    if (isFirstTool || isAssistantAfterTool) {
-      result.push({ type: "gap", text: "" });
-    }
-    result.push(clean[i]);
-  }
-  return result;
-}
+
 
 // --- Components ---
 
@@ -127,8 +109,6 @@ function MsgBox({ text, borderColor, width, label }: {
 
 function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
   switch (msg.type) {
-    case "gap":
-      return <Text>{" "}</Text>;
     case "user":
       return <MsgBox text={msg.text} borderColor="green" width={width} />;
     case "incoming":
@@ -206,21 +186,21 @@ function App({ port, agentName, version }: TuiProps) {
     let aborted = false;
     function handle(event: ServerEvent) {
       if ((event as any).type === "incoming" && event.fromInterface !== "tui") {
-        setMessages((m: ChatMessage[]) => addGaps([...m, {
+        setMessages((m: ChatMessage[]) => [...m, {
           type: "incoming", text: event.text || "",
           meta: `[${event.fromInterface} ${event.fromUserId || ""}]`,
-        }]));
+        }]);
         return;
       }
       if ((event as any).type === "outgoing") {
-        setMessages((m: ChatMessage[]) => addGaps([...m, {
+        setMessages((m: ChatMessage[]) => [...m, {
           type: "outgoing", text: event.text || "",
           meta: `[→ ${event.fromInterface} ${event.fromUserId || ""}]`,
-        }]));
+        }]);
         return;
       }
       if ((event as any).type === "heartbeat") {
-        setMessages((m: ChatMessage[]) => addGaps([...m, { type: "heartbeat", text: "" }]));
+        setMessages((m: ChatMessage[]) => [...m, { type: "heartbeat", text: "" }]);
         return;
       }
       switch (event.type) {
@@ -230,19 +210,19 @@ function App({ port, agentName, version }: TuiProps) {
           break;
         case "tool-call": {
           const detail = event.toolDetail ? ` ${event.toolDetail}` : "";
-          setMessages((m: ChatMessage[]) => addGaps([...m, { type: "tool", text: `${event.toolName}${detail}` }]));
+          setMessages((m: ChatMessage[]) => [...m, { type: "tool", text: `${event.toolName}${detail}` }]);
           setBusy(true);
           break;
         }
         case "finish":
           setStreamingText((s: string) => {
-            if (s) setMessages((m: ChatMessage[]) => addGaps([...m, { type: "assistant", text: s }]));
+            if (s) setMessages((m: ChatMessage[]) => [...m, { type: "assistant", text: s }]);
             return "";
           });
           setBusy(false);
           break;
         case "error":
-          setMessages((m: ChatMessage[]) => addGaps([...m, { type: "error", text: event.error || "Unknown error" }]));
+          setMessages((m: ChatMessage[]) => [...m, { type: "error", text: event.error || "Unknown error" }]);
           setStreamingText("");
           setBusy(false);
           break;
@@ -279,7 +259,7 @@ function App({ port, agentName, version }: TuiProps) {
     if (key.return && input.trim() && !busy) {
       const text = input.trim();
       setInput("");
-      setMessages((m: ChatMessage[]) => addGaps([...m, { type: "user", text }]));
+      setMessages((m: ChatMessage[]) => [...m, { type: "user", text }]);
       setBusy(true);
       fetch(`${baseUrl}/message`, {
         method: "POST",
@@ -297,8 +277,15 @@ function App({ port, agentName, version }: TuiProps) {
 
   return (
     <Box flexDirection="column">
-      <Static items={messages.map((msg, i) => ({ id: String(i), msg }))}>
-        {({ id, msg }) => <MessageView key={id} msg={msg} width={cols} />}
+      <Static items={messages.map((msg, i) => ({ id: String(i), msg, prevType: i > 0 ? messages[i-1].type : null }))}>
+        {({ id, msg, prevType }: { id: string; msg: ChatMessage; prevType: string | null }) => {
+          const needsMargin = prevType !== null && !(msg.type === "tool" && prevType === "tool");
+          return (
+            <Box key={id} marginTop={needsMargin ? 1 : 0}>
+              <MessageView msg={msg} width={cols} />
+            </Box>
+          );
+        }}
       </Static>
 
       <Box flexDirection="column">
