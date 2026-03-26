@@ -4,41 +4,47 @@ How to run kern agents in Docker containers.
 
 ## Overview
 
-Each agent is a folder with identity, memory, and config files. The kern Docker image provides the runtime. You mount your agent folder into the container and kern runs it.
+The workflow: develop your agent locally with `kern init` and `kern start`, then package it into a Docker image for production. The agent's initial state is baked into the image and seeds a Docker volume on first run. After that, the agent persists its own state in the volume.
 
 ```
-┌─────────────────────────┐
-│  Docker Container       │
-│                         │
-│  kern daemon /agent     │
-│    ├── supervisor       │
-│    └── agent process    │
-│         ├── Slack       │
-│         ├── Telegram    │
-│         └── HTTP :8080  │
-│                         │
-│  /agent (mounted)       │
-│    ├── AGENTS.md        │
-│    ├── IDENTITY.md      │
-│    ├── knowledge/       │
-│    ├── notes/           │
-│    └── .kern/           │
-└─────────────────────────┘
+┌──────────────────────────────┐
+│  Docker Container            │
+│                              │
+│  docker-entrypoint.sh        │
+│    └── seeds /agent from     │
+│        /agent-seed if empty  │
+│                              │
+│  kern daemon /agent          │
+│    ├── supervisor            │
+│    └── agent process         │
+│         ├── Slack            │
+│         ├── Telegram         │
+│         └── HTTP :8080       │
+│                              │
+│  /agent (named volume)       │
+│    ├── AGENTS.md             │
+│    ├── IDENTITY.md           │
+│    ├── knowledge/            │
+│    ├── notes/                │
+│    └── .kern/                │
+└──────────────────────────────┘
 ```
 
 ## Quick Start
 
-### 1. Init an agent
+### 1. Init and develop locally
 
 ```bash
 npm install -g kern-ai    # or build from source
 mkdir ~/agents && cd ~/agents
 kern init my-agent
+kern tui my-agent          # test it works
+kern stop my-agent
 ```
 
-The wizard asks for provider, API key, model, and optional Slack/Telegram tokens.
+The wizard asks for provider, API key, model, and optional Slack/Telegram tokens. Iterate until the agent is working how you want.
 
-### 2. Build the Docker image
+### 2. Build the kern base image
 
 ```bash
 git clone https://github.com/oguzbilgic/kern-ai.git
@@ -46,23 +52,40 @@ cd kern-ai
 docker build -t kern-ai .
 ```
 
-### 3. Create docker-compose.yaml
+### 3. Build your agent image
 
-Copy the example and update paths for your agent:
+Use the agent Dockerfile to bake your agent's state into an image. See [examples/Dockerfile.agent](examples/Dockerfile.agent).
 
 ```bash
-cp docs/examples/docker-compose.yaml ./docker-compose.yaml
+cd ~/agents
+docker build -f Dockerfile.agent -t my-agent \
+  --build-arg KERN_IMAGE=kern-ai \
+  --build-arg AGENT_DIR=./my-agent .
 ```
+
+This copies your agent's files (identity, memory, knowledge, config) into the image as seed data. Secrets (`.kern/.env`) are excluded -- they're passed at runtime.
+
+### 4. Create docker-compose.yaml
 
 See [examples/docker-compose.yaml](examples/docker-compose.yaml) for the full template.
 
-### 4. Run
+Create a `.env` file with your secrets:
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+SLACK_BOT_TOKEN=xoxb-...
+SLACK_APP_TOKEN=xapp-...
+```
+
+### 5. Run
 
 ```bash
 docker compose up -d
 ```
 
-### 5. Connect
+On first run, the entrypoint seeds the volume from the baked-in agent state. On subsequent runs, the existing volume is used as-is.
+
+### 6. Connect
 
 ```bash
 # Register the remote once
@@ -76,21 +99,45 @@ curl localhost:8080/health
 curl localhost:8080/status
 ```
 
+## How Persistence Works
+
+The agent's state lives in a Docker named volume mounted at `/agent`. On first run:
+
+1. Entrypoint checks if `/agent/AGENTS.md` exists
+2. If not (fresh volume), copies seed data from `/agent-seed/` (baked into the image)
+3. Initializes git in the volume
+4. Starts `kern daemon`
+
+On subsequent runs, the volume already has data, so seeding is skipped. The agent reads and writes to the volume normally.
+
+To re-seed (reset to initial state):
+
+```bash
+docker compose down -v     # removes volumes
+docker compose up -d       # fresh seed
+```
+
+For off-host backup, configure the agent to push to a git remote. The agent already knows how to `git commit` and `git push` -- just add a remote in the volume:
+
+```bash
+docker exec kern-my-agent bash -c "cd /agent && git remote add origin <url> && git push -u origin master"
+```
+
 ## Multiple Agents
 
-Each agent gets its own container, its own port, its own identity.
+Each agent gets its own container, its own volume, its own identity.
 
 ```yaml
 services:
   sentinel:
-    image: kern-ai
+    image: sentinel
     volumes:
-      - ./sentinel:/agent
+      - sentinel-data:/agent
     environment:
       - KERN_PORT=8080
       - KERN_HOST=0.0.0.0
     env_file:
-      - ./sentinel/.kern/.env
+      - .env.sentinel
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -102,14 +149,14 @@ services:
       start_period: 10s
 
   oms-dev:
-    image: kern-ai
+    image: oms-dev
     volumes:
-      - ./oms-dev:/agent
+      - oms-dev-data:/agent
     environment:
       - KERN_PORT=8080
       - KERN_HOST=0.0.0.0
     env_file:
-      - ./oms-dev/.kern/.env
+      - .env.oms-dev
     ports:
       - "8081:8080"
     restart: unless-stopped
@@ -119,6 +166,10 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+volumes:
+  sentinel-data:
+  oms-dev-data:
 ```
 
 Register remotes and connect:
@@ -135,7 +186,7 @@ Agents communicate with each other through shared Slack channels, not internal A
 
 ## Multiple Agents in One Container
 
-If agents are logically grouped (e.g., an OMS manager + dev pair), they can share a container. Each agent needs its own port set in `.kern/config.json`:
+If agents are logically grouped, they can share a container. Each agent needs its own port set in `.kern/config.json`:
 
 **oms-manager/.kern/config.json:**
 ```json
@@ -159,66 +210,27 @@ If agents are logically grouped (e.g., an OMS manager + dev pair), they can shar
 }
 ```
 
-```yaml
-services:
-  oms:
-    image: kern-ai
-    volumes:
-      - ./oms-manager:/agents/oms-manager
-      - ./oms-dev:/agents/oms-dev
-    environment:
-      - KERN_HOST=0.0.0.0
-    env_file:
-      - ./oms-manager/.kern/.env
-    ports:
-      - "8080:8080"
-      - "8081:8081"
-    command: ["kern", "daemon"]
-    restart: unless-stopped
-```
-
-Note: for multi-agent containers, agents must be registered before `kern daemon` can find them. Either register during build or use a custom entrypoint:
-
-```dockerfile
-CMD kern start /agents/oms-manager && kern stop oms-manager && \
-    kern start /agents/oms-dev && kern stop oms-dev && \
-    kern daemon
-```
+Note: for multi-agent containers, agents must be registered before `kern daemon` can find them. Use a custom entrypoint or register during build.
 
 ## Port Configuration
 
 Port priority (highest wins):
 
-1. `port` in `.kern/config.json` — per-agent, recommended for multi-agent setups
-2. `KERN_PORT` environment variable — per-container, good for single-agent containers
-3. Random port — default for local development
+1. `port` in `.kern/config.json` -- per-agent, recommended for multi-agent setups
+2. `KERN_PORT` environment variable -- per-container, good for single-agent containers
+3. Random port -- default for local development
 
 Same applies to `host` / `KERN_HOST`. Use `0.0.0.0` in containers so the port is reachable from outside.
 
 ## Secrets
 
-API keys and tokens live in `.kern/.env`, which is gitignored. Pass them to containers via:
+API keys and tokens should never be baked into images. Pass them at runtime via:
 
-- **env_file** — mount the `.env` file (shown in examples above)
-- **environment** — set individually in compose
-- **Docker secrets** — for production / swarm deployments
+- **env_file** -- a `.env` file referenced in compose (shown in examples above)
+- **environment** -- set individually in compose
+- **Docker secrets** -- for production / swarm deployments
 
-Never bake secrets into the Docker image.
-
-## Persistence
-
-Agent state (identity, memory, notes, config) is in the mounted agent folder. Sessions are in `.kern/sessions/`. Both persist as long as the mount exists.
-
-For volume-backed sessions:
-
-```yaml
-volumes:
-  - ./my-agent:/agent
-  - my-agent-sessions:/agent/.kern/sessions
-
-volumes:
-  my-agent-sessions:
-```
+The agent Dockerfile explicitly strips `.kern/.env` from the seed data.
 
 ## Health Checks
 
@@ -231,11 +243,28 @@ curl http://localhost:8080/health
 
 Docker compose healthcheck is included in all examples above. The `start_period` gives the agent time to boot and connect to Slack/Telegram before health checks begin.
 
+## Updating an Agent
+
+To update the agent's baked-in state (e.g., new identity, updated knowledge):
+
+```bash
+# Rebuild the agent image with new files
+docker build -f Dockerfile.agent -t my-agent --build-arg AGENT_DIR=./my-agent .
+
+# Recreate without removing volumes (existing state preserved)
+docker compose up -d
+
+# Or reset to new state
+docker compose down -v && docker compose up -d
+```
+
+If the volume already has data, the seed is skipped. To force a re-seed, remove the volume first.
+
 ## Platform Notes
 
 ### Linux / macOS
 
-No special setup. Docker runs natively, volume mounts and compose work as shown above.
+No special setup. Docker runs natively, named volumes and compose work as shown above.
 
 ### Windows
 
@@ -251,32 +280,18 @@ docker context create wsl2 --docker "host=tcp://localhost:2375"
 docker context use wsl2
 ```
 
-Volume mounts using relative paths (e.g., `./my-agent:/agent`) may not resolve correctly when `docker compose` runs from a Windows shell against a Linux daemon. Two workarounds:
-
-**Option A:** Run compose from within WSL:
-
-```bash
-wsl -e bash -c "cd /mnt/c/path/to/agents && docker compose up -d"
-```
-
-**Option B:** Use absolute `/mnt/` paths in your compose file:
-
-```yaml
-volumes:
-  - /mnt/c/path/to/agents/my-agent:/agent
-```
+With named volumes, there are no path translation issues between Windows and WSL2. The `docker compose` command works from any terminal.
 
 The `kern` CLI itself (TUI, remotes, etc.) works from any terminal regardless of platform.
 
 ## Logs
 
-Supervisor logs to container stdout (visible via `docker compose logs`). Agent logs go to `.kern/logs/kern.log` inside the mounted volume.
+Supervisor logs to container stdout (visible via `docker compose logs`). Agent logs go to `.kern/logs/kern.log` inside the volume.
 
 ```bash
 # Supervisor logs
 docker compose logs -f
 
-# Agent logs
-kern logs my-agent           # if registered locally
-cat ./my-agent/.kern/logs/kern.log  # direct file access
+# Agent logs (exec into container)
+docker exec kern-my-agent cat /agent/.kern/logs/kern.log
 ```

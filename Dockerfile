@@ -21,8 +21,10 @@ COPY --from=builder /opt/kern-ai/package-lock.json .
 COPY --from=builder /opt/kern-ai/templates/ templates/
 RUN npm ci --omit=dev && npm link
 
-# Agent directory — mount or copy your agent folder here
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 WORKDIR /agent
 
-ENTRYPOINT ["kern"]
-CMD ["daemon", "/agent"]
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["kern", "daemon", "/agent"]

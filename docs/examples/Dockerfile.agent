@@ -1,0 +1,22 @@
+# Agent-specific Dockerfile
+#
+# Bakes your agent's initial state into the image.
+# On first run, seeds the volume. After that, the agent
+# manages its own state and persists via the volume.
+#
+# Usage:
+#   docker build -f Dockerfile.agent -t my-agent \
+#     --build-arg AGENT_DIR=./my-agent .
+#   docker compose up
+
+ARG KERN_IMAGE=kern-ai
+
+FROM ${KERN_IMAGE}
+
+# Copy agent files as seed data
+# These are used only on first run when the volume is empty
+ARG AGENT_DIR=./agent
+COPY ${AGENT_DIR}/ /agent-seed/
+
+# Secrets should NOT be baked in — pass via env_file or environment
+RUN rm -f /agent-seed/.kern/.env
