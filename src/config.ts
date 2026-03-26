@@ -11,6 +11,7 @@ export interface KernConfig {
   toolScope: ToolScope;
   maxSteps: number;
   maxContextTokens: number;
+  heartbeatInterval: number;
   telegram?: {
     allowedUsers?: number[];
   };
@@ -28,6 +29,7 @@ const defaults: KernConfig = {
   toolScope: "full",
   maxSteps: 30,
   maxContextTokens: 40000,
+  heartbeatInterval: 120,
 };
 
 export function getToolsForScope(scope: ToolScope): string[] {

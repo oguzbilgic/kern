@@ -111,6 +111,14 @@ export async function connectTui(port: number, agentName: string): Promise<void>
             continue;
           }
 
+          // Heartbeat
+          if ((event as any).type === "heartbeat") {
+            if (!busy) w(CLEAR_LINE);
+            w(`\n${dim("♡ heartbeat")}\n`);
+            busy = true;
+            continue;
+          }
+
           // Outgoing message from agent to a channel
           if ((event as any).type === "outgoing") {
             const to = event.fromInterface || "unknown";

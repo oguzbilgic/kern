@@ -170,6 +170,34 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     });
   }
 
+  // Heartbeat
+  if (config.heartbeatInterval > 0) {
+    const intervalMs = config.heartbeatInterval * 60 * 1000;
+    setInterval(async () => {
+      try {
+        // Broadcast heartbeat start to TUI
+        server.broadcast({
+          type: "heartbeat" as any,
+          text: "[heartbeat]",
+        });
+
+        const response = await runtime.handleMessage(
+          "[heartbeat]",
+          (event: StreamEvent) => {
+            // Only broadcast to SSE (TUI) — not Telegram/Slack
+            server.broadcast(event);
+          },
+        );
+
+        // If agent wants to be silent, that's fine
+        // The message tool still works for proactive outreach
+      } catch (e: any) {
+        // Heartbeat failures are non-critical
+        process.stderr.write(`[kern] heartbeat error: ${e.message}\n`);
+      }
+    }, intervalMs);
+  }
+
   // Graceful shutdown
   process.on("SIGTERM", () => {
     server.stop();
