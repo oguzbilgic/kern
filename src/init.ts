@@ -21,8 +21,8 @@ const MODELS: Record<string, { name: string; value: string }[]> = {
     { name: "Step 3.5 Flash (free)", value: "stepfun/step-3.5-flash" },
   ],
   anthropic: [
-    { name: "Claude Opus 4.6", value: "claude-opus-4-6-20260301" },
-    { name: "Claude Sonnet 4.6", value: "claude-sonnet-4-6-20260301" },
+    { name: "Claude Opus 4", value: "claude-opus-4-20250514" },
+    { name: "Claude Sonnet 4", value: "claude-sonnet-4-20250514" },
   ],
   openai: [
     { name: "GPT-4o", value: "gpt-4o" },
