@@ -486,6 +486,15 @@ function App({ port, agentName, version }: TuiProps) {
       try {
         const res = await fetch(`${baseUrl}/events`);
         setConnected(true);
+
+        // Refetch status to update model on reconnect
+        fetch(`${baseUrl}/status`)
+          .then((r) => r.json())
+          .then((s) => {
+            if (s.model) setModel(s.model);
+          })
+          .catch(() => {});
+
         const reader = res.body!.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
