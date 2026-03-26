@@ -2,7 +2,7 @@ import { Runtime, type StreamEvent } from "./runtime.js";
 import { updateKernel } from "./kernel.js";
 import { TelegramInterface } from "./interfaces/telegram.js";
 import { SlackInterface } from "./interfaces/slack.js";
-import { CliInterface, dim, bold, cyan } from "./interfaces/cli.js";
+import { CliInterface } from "./interfaces/cli.js";
 import { loadConfig } from "./config.js";
 import { readFile } from "fs/promises";
 import { join, basename } from "path";
@@ -12,6 +12,7 @@ import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
 import { MessageQueue } from "./queue.js";
+import { log } from "./log.js";
 
 export async function startApp(agentDir: string, forceCli = false): Promise<void> {
   // Update kernel if newer version available
@@ -135,22 +136,22 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     return false;
   });
 
-  // Print header
-  const w = (s: string) => process.stdout.write(s + "\n");
+  // Log startup info
   let version = "unknown";
   try {
     const pkg = JSON.parse(await readFile(join(import.meta.dirname, "..", "package.json"), "utf-8"));
     version = pkg.version;
   } catch {}
 
-  w("");
-  w(`  ${bold("kern")} ${dim("v" + version)} ${cyan(agentDir)}`);
-  w(`  ${"model"}    ${dim(config.provider + "/" + config.model)}`);
-  w(`  ${"session"}  ${dim(runtime.getSessionId() || "new")}`);
-  w(`  ${"tools"}    ${dim(config.toolScope)}`);
-  w(`  ${"port"}     ${dim(String(port))}`);
-  w(`  ${dim("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")}`);
-  w("");
+  log("kern", `v${version} started`);
+  log("kern", `agent: ${agentDir}`);
+  log("kern", `model: ${config.provider}/${config.model}`);
+  log("kern", `session: ${runtime.getSessionId() || "new"}`);
+  log("kern", `tools: ${config.toolScope}`);
+  log("kern", `port: ${port}`);
+  if (config.heartbeatInterval > 0) {
+    log("kern", `heartbeat: every ${config.heartbeatInterval}min`);
+  }
 
   // If forceCli, start CLI interface connected to same runtime (also goes through queue)
   if (forceCli) {
