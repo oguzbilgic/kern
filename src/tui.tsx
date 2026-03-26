@@ -346,7 +346,6 @@ function App({ port, agentName, version }: TuiProps) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [streamingText, setStreamingText] = useState("");
-  const [oldestIndex, setOldestIndex] = useState<number | null>(null);
   const [model, setModel] = useState("");
   const baseUrl = `http://127.0.0.1:${port}`;
   const cols = stdout?.columns || 80;
@@ -362,7 +361,6 @@ function App({ port, agentName, version }: TuiProps) {
         const h = await (await fetch(`${baseUrl}/history?limit=30`)).json();
         if (h.length > 0) {
           setMessages(convertHistory(h));
-          if (h[0]?.index !== undefined) setOldestIndex(h[0].index);
         }
       } catch {}
     })();
