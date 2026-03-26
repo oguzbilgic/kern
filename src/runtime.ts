@@ -1,4 +1,5 @@
 import { streamText, type ModelMessage, stepCountIs } from "ai";
+import { log } from "./log.js";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import { allTools, type ToolName } from "./tools/index.js";
@@ -120,6 +121,8 @@ export class Runtime {
     onEvent: StreamHandler,
   ): Promise<string> {
     // Add user message to session
+    const preview = userMessage.slice(0, 80).replace(/\n/g, " ");
+    log("runtime", `handleMessage: ${preview}${userMessage.length > 80 ? "..." : ""}`);
     const userMsg: ModelMessage = { role: "user", content: userMessage };
     await this.session.append([userMsg]);
     incrementMessageCount();
@@ -142,7 +145,7 @@ export class Runtime {
       const contextMessages = trimToTokenBudget(allMessages, this.config.maxContextTokens);
       if (contextMessages.length < allMessages.length) {
         const trimmed = allMessages.length - contextMessages.length;
-        process.stderr.write(`[kern] context trimmed: ${trimmed} old messages excluded\n`);
+        log("runtime", `context trimmed: ${trimmed} old messages excluded`);
       }
 
       const pendingInjections = this.pendingInjections;
@@ -159,6 +162,8 @@ export class Runtime {
 
           const injections = pendingInjections();
           if (injections.length === 0) return {};
+
+          log("runtime", `prepareStep: injecting ${injections.length} same-channel message(s) at step ${stepNumber}`);
 
           // Inject pending same-channel messages wrapped in <system-reminder>
           const injectedMessages = injections.map((msg) => ({
@@ -190,6 +195,8 @@ export class Runtime {
           onEvent({ type: "tool-result" });
         }
       }
+
+      log("runtime", `stream finished, text length: ${fullText.length}`);
 
       const response = await result.response;
       await this.session.append(response.messages as ModelMessage[]);

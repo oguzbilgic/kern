@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
 import type { StreamEvent } from "./runtime.js";
+import { log } from "./log.js";
 
 export interface ServerEvent extends StreamEvent {
   // Extends StreamEvent with cross-channel messages
@@ -94,10 +95,12 @@ export class AgentServer {
 
       const client: SSEClient = { res };
       this.clients.push(client);
+      log("server", `SSE client connected (${this.clients.length} total)`);
 
       req.on("close", () => {
         clearInterval(keepalive);
         this.clients = this.clients.filter((c) => c !== client);
+        log("server", `SSE client disconnected (${this.clients.length} total)`);
       });
       return;
     }

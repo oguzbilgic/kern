@@ -2,6 +2,7 @@
 import { App as SlackApp } from "@slack/bolt";
 import type { Interface, StartOptions } from "./types.js";
 import type { PairingManager } from "../pairing.js";
+import { log } from "../log.js";
 
 function mdToSlack(text: string): string {
   let s = text;
@@ -66,6 +67,7 @@ export class SlackInterface implements Interface {
       }
       const channelId = message.channel;
       const threadTs = ("thread_ts" in message ? message.thread_ts : undefined) as string | undefined;
+      log("slack", `message from ${userId} in ${channelId}: ${text.slice(0, 50)}`);
 
       // Determine if DM or channel
       let channelName = channelId;

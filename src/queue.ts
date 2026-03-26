@@ -8,6 +8,8 @@ export interface QueuedMessage {
   isHeartbeat?: boolean;
 }
 
+import { log } from "./log.js";
+
 export class MessageQueue {
   private queue: QueuedMessage[] = [];
   private processing = false;
@@ -31,12 +33,12 @@ export class MessageQueue {
       // If we're processing and this is same channel (not heartbeat), store as pending injection
       if (this.processing && !msg.isHeartbeat && this.activeChannel && msg.channel === this.activeChannel) {
         this.pendingSameChannel.push(queued);
-        process.stderr.write(`[kern:queue] same-channel message queued for injection (${msg.channel})\n`);
+        log("queue", `same-channel injection queued (${msg.channel})`);
         return;
       }
 
       this.queue.push(queued);
-      process.stderr.write(`[kern:queue] enqueued (${msg.interface}:${msg.channel || "?"}) depth=${this.queue.length} processing=${this.processing}\n`);
+      log("queue", `enqueued (${msg.interface}:${msg.channel || "?"}) depth=${this.queue.length} processing=${this.processing}`);
       this.processNext();
     });
   }
@@ -56,7 +58,7 @@ export class MessageQueue {
     const msg = this.queue.shift()!;
     this.activeChannel = msg.isHeartbeat ? null : msg.channel;
 
-    process.stderr.write(`[kern:queue] processing (${msg.interface}:${msg.channel || "?"}) remaining=${this.queue.length}\n`);
+    log("queue", `processing (${msg.interface}:${msg.channel || "?"}) remaining=${this.queue.length}`);
 
     try {
       // Race handler against timeout
@@ -74,7 +76,7 @@ export class MessageQueue {
       }
       this.pendingSameChannel = [];
     } catch (error: any) {
-      process.stderr.write(`[kern:queue] error: ${error.message}\n`);
+      log("queue", `error: ${error.message}`);
       msg.reject(error);
       for (const pending of this.pendingSameChannel) {
         pending.reject(error);
@@ -83,7 +85,7 @@ export class MessageQueue {
     } finally {
       this.processing = false;
       this.activeChannel = null;
-      process.stderr.write(`[kern:queue] done, remaining=${this.queue.length}\n`);
+      log("queue", `done, remaining=${this.queue.length}`);
       this.processNext();
     }
   }

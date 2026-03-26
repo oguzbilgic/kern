@@ -1,6 +1,7 @@
 import { Bot } from "grammy";
 import type { Interface, StartOptions } from "./types.js";
 import type { PairingManager } from "../pairing.js";
+import { log } from "../log.js";
 
 function mdToHtml(text: string): string {
   let html = text;
@@ -57,6 +58,7 @@ export class TelegramInterface implements Interface {
       const userId = ctx.from.id;
       const text = ctx.message.text;
       const chatId = ctx.chat.id.toString();
+      log("telegram", `message from ${userId}: ${text.slice(0, 50)}`);
 
       // Check pairing
       if (this.pairing && !this.pairing.isPaired(userId.toString())) {
