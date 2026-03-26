@@ -55,7 +55,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     // Broadcast incoming to TUI
     if (!msg.isHeartbeat) {
       server.broadcast({
-        type: "incoming" as any,
+        type: "incoming",
         text: msg.text,
         fromInterface: msg.interface,
         fromUserId: msg.userId,
@@ -140,7 +140,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       const sent = await telegramBot.sendToUser(chatId, text);
       if (sent) {
         server.broadcast({
-          type: "outgoing" as any,
+          type: "outgoing",
           text,
           fromInterface: iface,
           fromUserId: userId,
@@ -153,7 +153,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       const sent = await slackBot.sendToUser(chatId, text);
       if (sent) {
         server.broadcast({
-          type: "outgoing" as any,
+          type: "outgoing",
           text,
           fromInterface: iface,
           fromUserId: userId,
@@ -183,7 +183,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     setInterval(async () => {
       try {
         server.broadcast({
-          type: "heartbeat" as any,
+          type: "heartbeat",
           text: "[heartbeat]",
         });
 

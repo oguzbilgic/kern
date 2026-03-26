@@ -2,8 +2,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from "http";
 import type { StreamEvent } from "./runtime.js";
 import { log } from "./log.js";
 
-export interface ServerEvent extends StreamEvent {
-  // Extends StreamEvent with cross-channel messages
+export interface ServerEvent extends Omit<StreamEvent, "type"> {
+  type: StreamEvent["type"] | "incoming" | "outgoing" | "heartbeat";
   fromInterface?: string;
   fromUserId?: string;
   fromChannel?: string;

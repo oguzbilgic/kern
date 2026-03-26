@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { render, Box, Text, Static, useInput, useApp, useStdout } from "ink";
 // @ts-ignore
 import Spinner from "ink-spinner";
 import type { ServerEvent } from "./server.js";
-import { findAgent } from "./registry.js";
 
 // --- Types ---
 
@@ -393,6 +392,8 @@ function App({ port, host, agentName, version }: TuiProps) {
   const [currentPort, setCurrentPort] = useState(port);
   const baseUrl = `http://${host}:${currentPort}`;
   const [cols, setCols] = useState(stdout?.columns || 80);
+  const blockIdCounter = useRef(0);
+  const prevBlockCount = useRef(0);
 
   useEffect(() => {
     if (!stdout) return;
@@ -427,21 +428,21 @@ function App({ port, host, agentName, version }: TuiProps) {
     const baseUrl = `http://${host}:${currentPort}`;
     
     function handle(event: ServerEvent) {
-      if ((event as any).type === "incoming" && event.fromInterface !== "tui") {
+      if (event.type === "incoming" && event.fromInterface !== "tui") {
         setMessages((m: ChatMessage[]) => [...m, {
           type: "incoming", text: event.text || "",
           meta: `[${event.fromInterface} ${event.fromUserId || ""}]`,
         }]);
         return;
       }
-      if ((event as any).type === "outgoing") {
+      if (event.type === "outgoing") {
         setMessages((m: ChatMessage[]) => [...m, {
           type: "outgoing", text: event.text || "",
           meta: `[→ ${event.fromInterface} ${event.fromUserId || ""}]`,
         }]);
         return;
       }
-      if ((event as any).type === "heartbeat") {
+      if (event.type === "heartbeat") {
         setMessages((m: ChatMessage[]) => [...m, { type: "heartbeat", text: "" }]);
         return;
       }
@@ -483,6 +484,18 @@ function App({ port, host, agentName, version }: TuiProps) {
           break;
       }
     }
+    function reconnect() {
+      setConnected(false);
+      import("./registry.js").then(async ({ findAgent, isProcessRunning }) => {
+        const agent = await findAgent(agentName);
+        if (agent?.port && agent.port !== currentPort && agent.pid && isProcessRunning(agent.pid)) {
+          setCurrentPort(agent.port);
+        } else {
+          setTimeout(connect, 2000);
+        }
+      }).catch(() => setTimeout(connect, 2000));
+    }
+
     async function connect() {
       try {
         const res = await fetch(`${baseUrl}/events`);
@@ -510,29 +523,9 @@ function App({ port, host, agentName, version }: TuiProps) {
             try { handle(JSON.parse(line.slice(6))); } catch {}
           }
         }
-        if (!aborted) {
-          setConnected(false);
-          import("./registry.js").then(async ({ findAgent, isProcessRunning }) => {
-            const agent = await findAgent(agentName);
-            if (agent?.port && agent.port !== currentPort && agent.pid && isProcessRunning(agent.pid)) {
-              setCurrentPort(agent.port);
-            } else {
-              setTimeout(connect, 2000);
-            }
-          }).catch(() => setTimeout(connect, 2000));
-        }
+        if (!aborted) reconnect();
       } catch {
-        if (!aborted) {
-          setConnected(false);
-          import("./registry.js").then(async ({ findAgent, isProcessRunning }) => {
-            const agent = await findAgent(agentName);
-            if (agent?.port && agent.port !== currentPort && agent.pid && isProcessRunning(agent.pid)) {
-              setCurrentPort(agent.port);
-            } else {
-              setTimeout(connect, 2000);
-            }
-          }).catch(() => setTimeout(connect, 2000));
-        }
+        if (!aborted) reconnect();
       }
     }
     connect();
@@ -571,8 +564,15 @@ function App({ port, host, agentName, version }: TuiProps) {
     <Box flexDirection="column">
       {(() => {
         const blocks = buildBlocks(messages);
+        // Assign stable IDs: only new blocks (beyond previous count) get new IDs
+        const newCount = blocks.length - prevBlockCount.current;
+        if (newCount > 0) {
+          blockIdCounter.current += newCount;
+        }
+        prevBlockCount.current = blocks.length;
+        const startId = blockIdCounter.current - blocks.length;
         return (
-          <Static items={blocks.map((block, i) => ({ id: String(i), block }))}>
+          <Static items={blocks.map((block, i) => ({ id: String(startId + i), block }))}>
             {({ id, block }: { id: string; block: RenderBlock }) => (
               <Box key={id} marginTop={1}>
                 <RenderBlockView block={block} width={cols} />
