@@ -51,19 +51,21 @@ function convertHistory(history: any[]): ChatMessage[] {
 function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
   const maxW = width - 4;
   switch (msg.type) {
-    case "user":
+    case "user": {
+      // Pad text to fill the box width
+      const pad = "  ";
+      const lines = msg.text.split("\n");
+      const maxLen = Math.min(width - 8, Math.max(...lines.map((l: string) => l.length)) + 4);
+      const padded = lines.map((l: string) => pad + l.padEnd(maxLen) + pad).join("\n");
+      const emptyLine = pad + " ".repeat(maxLen) + pad;
       return (
         <Box flexDirection="column" marginY={1}>
-          <Box
-            borderStyle="round"
-            borderColor="gray"
-            paddingX={2}
-            paddingY={1}
-          >
-            <Text wrap="wrap">{msg.text}</Text>
-          </Box>
+          <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
+          <Text backgroundColor="#1a1a1a" color="white" wrap="wrap">{padded}</Text>
+          <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
         </Box>
       );
+    }
     case "assistant":
       return <Box><Text color="blue">◆ </Text><Text wrap="wrap">{msg.text}</Text></Box>;
     case "incoming":
