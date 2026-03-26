@@ -59,10 +59,10 @@ function convertHistory(history: any[]): ChatMessage[] {
           }
         }
         const text = m.content.filter((p: any) => p.type === "text").map((p: any) => p.text).join("");
-        if (text && text !== "NO_REPLY" && text !== "(no text response)") {
+        if (text) {
           raw.push({ type: "assistant", text });
         }
-      } else if (typeof m.content === "string" && m.content !== "NO_REPLY" && m.content !== "(no text response)") {
+      } else if (typeof m.content === "string") {
         raw.push({ type: "assistant", text: m.content });
       }
     }
@@ -162,8 +162,16 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
           </Box>
         </Box>
       );
-    case "assistant":
-      return <Box paddingLeft={3}><Text color="white" wrap="wrap">{msg.text}</Text></Box>;
+    case "assistant": {
+      const isMuted = msg.text.trim() === "NO_REPLY" || msg.text.trim() === "(no text response)";
+      return (
+        <Box paddingLeft={3}>
+          <Text color={isMuted ? undefined : "white"} dimColor={isMuted} italic={isMuted} wrap="wrap">
+            {msg.text}
+          </Text>
+        </Box>
+      );
+    }
     case "error":
       return <Box paddingLeft={3}><Text color="red">{msg.text}</Text></Box>;
     default:
@@ -196,8 +204,16 @@ function RenderBlockView({ block, width }: { block: RenderBlock; width: number }
       return <MessageView msg={block.msg} width={width} />;
     case "toolGroup":
       return <ToolGroupView tools={block.tools} />;
-    case "assistant":
-      return <Box paddingLeft={3}><Text color="white" wrap="wrap">{block.text}</Text></Box>;
+    case "assistant": {
+      const isMuted = block.text.trim() === "NO_REPLY" || block.text.trim() === "(no text response)";
+      return (
+        <Box paddingLeft={3}>
+          <Text color={isMuted ? undefined : "white"} dimColor={isMuted} italic={isMuted} wrap="wrap">
+            {block.text}
+          </Text>
+        </Box>
+      );
+    }
     case "error":
       return <Box paddingLeft={3}><Text color="red">{block.text}</Text></Box>;
   }
@@ -346,7 +362,14 @@ function App({ port, agentName, version }: TuiProps) {
       <Box flexDirection="column">
         {streamingText && (
           <Box marginTop={1} paddingLeft={3}>
-            <Text color="white" wrap="wrap">{streamingText}</Text>
+            {(() => {
+              const isMuted = streamingText.trim() === "NO_REPLY" || streamingText.trim() === "(no text response)";
+              return (
+                <Text color={isMuted ? undefined : "white"} dimColor={isMuted} italic={isMuted} wrap="wrap">
+                  {streamingText}
+                </Text>
+              );
+            })()}
           </Box>
         )}
         {busy && !streamingText && (
