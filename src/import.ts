@@ -155,6 +155,14 @@ function convertSession(db: Database.Database, sessionId: string): { messages: a
   return { messages: cleaned, converted, skipped };
 }
 
+function getFlag(args: string[], name: string): string | undefined {
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === `--${name}` && i + 1 < args.length) return args[i + 1];
+    if (args[i].startsWith(`--${name}=`)) return args[i].slice(name.length + 3);
+  }
+  return undefined;
+}
+
 export async function importOpenCode(args: string[]): Promise<void> {
   const { select } = await import("@inquirer/prompts");
 
@@ -163,7 +171,7 @@ export async function importOpenCode(args: string[]): Promise<void> {
   // --- Pick project ---
   let projectId: string;
   let projectWorktree: string;
-  const projectArg = args.find((a) => a.startsWith("--project="))?.slice(10) || args.find((a) => !a.startsWith("--"));
+  const projectArg = getFlag(args, "project") || args.find((a) => !a.startsWith("--"));
 
   if (projectArg) {
     const projects = getProjects(db);
@@ -197,7 +205,7 @@ export async function importOpenCode(args: string[]): Promise<void> {
   // --- Pick session ---
   let sessionId: string;
   let sessionTitle: string;
-  const sessionArg = args.find((a) => a.startsWith("--session="))?.slice(10);
+  const sessionArg = getFlag(args, "session");
 
   const sessions = getSessions(db, projectId);
   if (sessions.length === 0) {
@@ -237,7 +245,7 @@ export async function importOpenCode(args: string[]): Promise<void> {
   // --- Pick destination agent ---
   let agentPath: string;
   let agentName: string;
-  const agentArg = args.find((a) => a.startsWith("--agent="))?.slice(8);
+  const agentArg = getFlag(args, "agent");
 
   if (agentArg) {
     const agent = await findAgent(agentArg);
