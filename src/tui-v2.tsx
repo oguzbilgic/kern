@@ -12,6 +12,12 @@ interface ChatMessage {
   meta?: string;
 }
 
+type RenderBlock =
+  | { kind: "box"; msg: ChatMessage }
+  | { kind: "assistant"; text: string }
+  | { kind: "toolGroup"; tools: ChatMessage[] }
+  | { kind: "error"; text: string };
+
 interface TuiProps {
   port: number;
   agentName: string;
@@ -61,11 +67,45 @@ function convertHistory(history: any[]): ChatMessage[] {
       }
     }
   }
-  // Insert gaps between blocks
   return raw;
 }
 
-
+function buildBlocks(messages: ChatMessage[], streamingText: string): RenderBlock[] {
+  const blocks: RenderBlock[] = [];
+  let i = 0;
+  while (i < messages.length) {
+    const msg = messages[i];
+    if (msg.type === "user" || msg.type === "incoming" || msg.type === "outgoing" || msg.type === "heartbeat") {
+      blocks.push({ kind: "box", msg });
+      i++;
+      continue;
+    }
+    if (msg.type === "tool") {
+      const tools: ChatMessage[] = [];
+      while (i < messages.length && messages[i].type === "tool") {
+        tools.push(messages[i]);
+        i++;
+      }
+      blocks.push({ kind: "toolGroup", tools });
+      continue;
+    }
+    if (msg.type === "assistant") {
+      blocks.push({ kind: "assistant", text: msg.text });
+      i++;
+      continue;
+    }
+    if (msg.type === "error") {
+      blocks.push({ kind: "error", text: msg.text });
+      i++;
+      continue;
+    }
+    i++;
+  }
+  if (streamingText) {
+    blocks.push({ kind: "assistant", text: streamingText });
+  }
+  return blocks;
+}
 
 // --- Components ---
 
@@ -126,27 +166,43 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
         </Box>
       );
     case "assistant":
-      return (
-        <Box paddingLeft={3}>
-          <Text color="white" wrap="wrap">{msg.text}</Text>
-        </Box>
-      );
-    case "tool": {
-      const spaceIdx = msg.text.indexOf(" ");
-      const toolName = spaceIdx > 0 ? msg.text.slice(0, spaceIdx) : msg.text;
-      const toolDetail = spaceIdx > 0 ? msg.text.slice(spaceIdx) : "";
-      const color = TOOL_COLORS[toolName] || "yellow";
-      return (
-        <Box paddingLeft={3}>
-          <Text color={color} bold={toolName === "kern"}>{toolName}</Text>
-          <Text dimColor>{toolDetail}</Text>
-        </Box>
-      );
-    }
+      return <Box paddingLeft={3}><Text color="white" wrap="wrap">{msg.text}</Text></Box>;
     case "error":
       return <Box paddingLeft={3}><Text color="red">{msg.text}</Text></Box>;
     default:
       return <Text>{msg.text}</Text>;
+  }
+}
+
+function ToolGroupView({ tools }: { tools: ChatMessage[] }) {
+  return (
+    <Box flexDirection="column" paddingLeft={3}>
+      {tools.map((msg, i) => {
+        const spaceIdx = msg.text.indexOf(" ");
+        const toolName = spaceIdx > 0 ? msg.text.slice(0, spaceIdx) : msg.text;
+        const toolDetail = spaceIdx > 0 ? msg.text.slice(spaceIdx) : "";
+        const color = TOOL_COLORS[toolName] || "yellow";
+        return (
+          <Box key={i}>
+            <Text color={color} bold={toolName === "kern"}>{toolName}</Text>
+            <Text dimColor>{toolDetail}</Text>
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
+function RenderBlockView({ block, width }: { block: RenderBlock; width: number }) {
+  switch (block.kind) {
+    case "box":
+      return <MessageView msg={block.msg} width={width} />;
+    case "toolGroup":
+      return <ToolGroupView tools={block.tools} />;
+    case "assistant":
+      return <Box paddingLeft={3}><Text color="white" wrap="wrap">{block.text}</Text></Box>;
+    case "error":
+      return <Box paddingLeft={3}><Text color="red">{block.text}</Text></Box>;
   }
 }
 
@@ -277,24 +333,22 @@ function App({ port, agentName, version }: TuiProps) {
 
   return (
     <Box flexDirection="column">
-      <Static items={messages.map((msg, i) => ({ id: String(i), msg, prevType: i > 0 ? messages[i-1].type : null }))}>
-        {({ id, msg, prevType }: { id: string; msg: ChatMessage; prevType: string | null }) => {
-          const prevIsBox = prevType === "user" || prevType === "incoming" || prevType === "outgoing" || prevType === "heartbeat";
-          const needsMargin = prevType !== null && !prevIsBox && !(msg.type === "tool" && prevType === "tool");
-          return (
-            <Box key={id} marginTop={needsMargin ? 1 : 0}>
-              <MessageView msg={msg} width={cols} />
-            </Box>
-          );
-        }}
-      </Static>
+      {(() => {
+        const blocks = buildBlocks(messages, streamingText);
+        return (
+          <Static items={blocks.map((block, i) => ({ id: String(i), block }))}>
+            {({ id, block }: { id: string; block: RenderBlock }) => (
+              <Box key={id} marginTop={block.kind === "box" ? 0 : 1}>
+                <RenderBlockView block={block} width={cols} />
+              </Box>
+            )}
+          </Static>
+        );
+      })()}
 
       <Box flexDirection="column">
-        {streamingText && (
-          <Box paddingLeft={3}><Text color="white" wrap="wrap">{streamingText}</Text></Box>
-        )}
         {busy && !streamingText && (
-          <Box paddingLeft={3}>
+          <Box marginTop={1} paddingLeft={3}>
             {/* @ts-ignore */}
             <Text color="blue"><Spinner type="dots" /></Text>
             <Text dimColor> thinking...</Text>
