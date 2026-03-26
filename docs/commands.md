@@ -110,6 +110,22 @@ Restore an agent from a backup archive.
 - If agent already exists: warns and asks to confirm overwrite
 - If agent is running: stops it before overwriting
 
+## kern import opencode \<name\>
+
+Import a session from OpenCode into a kern agent.
+
+- Finds OpenCode's SQLite database at `~/.local/share/opencode/opencode.db`
+- Looks up sessions by agent's directory path
+- Converts messages and tool calls to kern's ModelMessage format
+- Validates tool-call/tool-result pairing
+- Writes to `.kern/sessions/` as JSONL
+- Accepts agent name (from registry) or directory path
+
+```bash
+kern import opencode myagent
+kern import opencode /root/myagent
+```
+
 ## kern run \<name|path\>
 
 Run an agent in the foreground (for development/debugging). Starts all interfaces (Telegram, Slack) in-process.

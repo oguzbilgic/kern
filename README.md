@@ -70,6 +70,7 @@ kern list                 # show all agents
 kern remove <name>        # unregister an agent
 kern backup <name>        # backup agent to .tar.gz
 kern restore <file>       # restore agent from backup
+kern import opencode <name>  # import session from OpenCode
 ```
 
 Agents auto-register when you init, start, or run them. `kern list` shows every agent with its running state.

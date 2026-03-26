@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.7.1
+
+### Features
+- **`kern import opencode`** — migrate sessions from OpenCode to kern. Reads OpenCode's SQLite, converts messages/parts to AI SDK ModelMessage format, validates pairing, writes JSONL.
+
+### Fixes
+- **Trim performance** — O(n) with WeakMap cache for per-message token sizes (was O(n²), slow on large imported sessions)
+- **Telegram NO_REPLY** — suppress and delete placeholder message instead of sending
+
 ## v0.7.0
 
 ### Features

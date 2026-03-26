@@ -38,8 +38,8 @@ async function showHelp() {
   w(`    ${cyan("kern list")}                   show all agents`);
   w(`    ${cyan("kern remove")} ${dim("<name>")}          unregister an agent`);
   w(`    ${cyan("kern pair")} ${dim("<agent> <code>")}    approve a pairing code`);
-  w(`    ${cyan("kern import")} ${dim("opencode <name>")}  import session from OpenCode`);
   w(`    ${cyan("kern backup")} ${dim("<name>")}          backup agent to .tar.gz`);
+  w(`    ${cyan("kern import")} ${dim("opencode <name>")}  import session from OpenCode`);
   w(`    ${cyan("kern restore")} ${dim("<file>")}         restore agent from backup`);
   w(`    ${cyan("kern logs")} ${dim("[name]")}            tail agent logs`);
   w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
