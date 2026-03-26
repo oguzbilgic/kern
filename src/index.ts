@@ -161,12 +161,11 @@ async function main() {
 
   if (cmd === "import") {
     const source = args[1]; // "opencode"
-    const agentName = args[2];
     if (source === "opencode") {
       const { importOpenCode } = await import("./import.js");
-      await importOpenCode(agentName);
+      await importOpenCode(args.slice(2));
     } else {
-      console.error("Usage: kern import opencode <agent>");
+      console.error("Usage: kern import opencode [--project <path>] [--session <title|latest>] [--agent <name>]");
       process.exit(1);
     }
     return;

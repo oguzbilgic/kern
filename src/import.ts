@@ -3,7 +3,7 @@ import { join } from "path";
 import { existsSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { homedir } from "os";
-import { findAgent } from "./registry.js";
+import { findAgent, loadRegistry } from "./registry.js";
 import { log } from "./log.js";
 
 interface OpenCodeMessage {
@@ -20,77 +20,40 @@ interface OpenCodePart {
   data: string;
 }
 
-export async function importOpenCode(agentName?: string): Promise<void> {
-  if (!agentName) {
-    console.error("Usage: kern import opencode <agent>");
-    process.exit(1);
-  }
-
-  let agent = await findAgent(agentName);
-  if (!agent) {
-    // Try as a path
-    const { resolve } = await import("path");
-    const dir = resolve(agentName);
-    if (existsSync(dir) && (existsSync(join(dir, ".kern")) || existsSync(join(dir, "AGENTS.md")))) {
-      const { basename } = await import("path");
-      agent = { name: basename(dir), path: dir, addedAt: new Date().toISOString() };
-    } else {
-      console.error(`Agent not found: ${agentName}`);
-      process.exit(1);
-    }
-  }
-
-  // Find OpenCode db
+function getDb(): Database.Database {
   const dbPath = join(homedir(), ".local", "share", "opencode", "opencode.db");
   if (!existsSync(dbPath)) {
     console.error(`OpenCode database not found at ${dbPath}`);
     process.exit(1);
   }
+  return new Database(dbPath, { readonly: true });
+}
 
-  const db = new Database(dbPath, { readonly: true });
+function getProjects(db: Database.Database): { id: string; worktree: string; msgCount: number }[] {
+  const projects = db.prepare(
+    "SELECT p.id, p.worktree FROM project p WHERE p.worktree != '/' ORDER BY p.worktree"
+  ).all() as { id: string; worktree: string }[];
 
-  // Find project by worktree path
-  const project = db.prepare("SELECT id FROM project WHERE worktree = ?").get(agent.path) as { id: string } | undefined;
-  if (!project) {
-    console.error(`No OpenCode project found for ${agent.path}`);
-    db.close();
-    process.exit(1);
-  }
+  return projects.map((p) => {
+    const count = db.prepare(
+      "SELECT COUNT(*) as count FROM message WHERE session_id IN (SELECT id FROM session WHERE project_id = ?)"
+    ).get(p.id) as { count: number };
+    return { ...p, msgCount: count.count };
+  });
+}
 
-  // Get sessions
+function getSessions(db: Database.Database, projectId: string): { id: string; title: string; time_updated: number; msgCount: number }[] {
   const sessions = db.prepare(
     "SELECT id, title, time_created, time_updated FROM session WHERE project_id = ? ORDER BY time_updated DESC"
-  ).all(project.id) as { id: string; title: string; time_created: number; time_updated: number }[];
+  ).all(projectId) as { id: string; title: string; time_created: number; time_updated: number }[];
 
-  if (sessions.length === 0) {
-    console.error("No sessions found.");
-    db.close();
-    process.exit(1);
-  }
+  return sessions.map((s) => {
+    const count = db.prepare("SELECT COUNT(*) as count FROM message WHERE session_id = ?").get(s.id) as { count: number };
+    return { ...s, msgCount: count.count };
+  });
+}
 
-  // Pick most recent or let user choose
-  let sessionId: string;
-  if (sessions.length === 1) {
-    sessionId = sessions[0].id;
-    console.log(`  Session: ${sessions[0].title}`);
-  } else {
-    console.log(`\n  Found ${sessions.length} sessions:\n`);
-    // Show top 5
-    for (let i = 0; i < Math.min(5, sessions.length); i++) {
-      const s = sessions[i];
-      const date = new Date(s.time_updated).toISOString().slice(0, 10);
-      console.log(`  ${i + 1}. ${s.title} (${date})`);
-    }
-    // Pick most recent by default
-    sessionId = sessions[0].id;
-    console.log(`\n  Importing most recent: ${sessions[0].title}`);
-  }
-
-  // Count messages
-  const msgCount = db.prepare("SELECT COUNT(*) as count FROM message WHERE session_id = ?").get(sessionId) as { count: number };
-  console.log(`  Messages: ${msgCount.count}`);
-
-  // Read all messages with their parts
+function convertSession(db: Database.Database, sessionId: string): { messages: any[]; converted: number; skipped: number } {
   const messages = db.prepare(
     "SELECT id, time_created, data FROM message WHERE session_id = ? ORDER BY time_created"
   ).all(sessionId) as OpenCodeMessage[];
@@ -99,8 +62,6 @@ export async function importOpenCode(agentName?: string): Promise<void> {
     "SELECT id, time_created, data FROM part WHERE message_id = ? ORDER BY time_created"
   );
 
-  // Convert to kern ModelMessage format
-  // Group parts per OpenCode message into proper ModelMessage structure
   const kernMessages: any[] = [];
   let converted = 0;
   let skipped = 0;
@@ -110,7 +71,6 @@ export async function importOpenCode(agentName?: string): Promise<void> {
     const parts = getPartsStmt.all(msg.id) as OpenCodePart[];
     const role = msgData.role;
 
-    // Collect text and tool parts for this message
     const textParts: string[] = [];
     const toolCalls: any[] = [];
     const toolResults: any[] = [];
@@ -145,17 +105,13 @@ export async function importOpenCode(agentName?: string): Promise<void> {
       }
     }
 
-    // Build kern messages for this OpenCode message
     if (role === "user") {
-      // User messages: just text
       const text = textParts.join("\n");
       if (text) {
         kernMessages.push({ role: "user", content: text });
       }
     } else if (role === "assistant") {
-      // Assistant: combine text + tool calls into one message
       if (textParts.length > 0 && toolCalls.length > 0) {
-        // Mixed: text + tool calls in one content array
         const content: any[] = [];
         for (const t of textParts) {
           content.push({ type: "text", text: t });
@@ -163,14 +119,11 @@ export async function importOpenCode(agentName?: string): Promise<void> {
         content.push(...toolCalls);
         kernMessages.push({ role: "assistant", content });
       } else if (toolCalls.length > 0) {
-        // Tool calls only
         kernMessages.push({ role: "assistant", content: toolCalls });
       } else if (textParts.length > 0) {
-        // Text only
         kernMessages.push({ role: "assistant", content: textParts.join("\n") });
       }
 
-      // ALL tool results in one tool message (AI SDK requires this)
       if (toolResults.length > 0) {
         kernMessages.push({ role: "tool", content: toolResults });
       }
@@ -183,7 +136,6 @@ export async function importOpenCode(agentName?: string): Promise<void> {
     const m = kernMessages[i];
     const next = kernMessages[i + 1];
 
-    // Skip assistant tool-calls that have no matching tool result
     if (m.role === "assistant" && Array.isArray(m.content)) {
       const hasToolCall = m.content.some((p: any) => p.type === "tool-call");
       if (hasToolCall && (!next || next.role !== "tool")) {
@@ -192,7 +144,6 @@ export async function importOpenCode(agentName?: string): Promise<void> {
       }
     }
 
-    // Skip consecutive user messages (keep last)
     if (m.role === "user" && next?.role === "user") {
       skipped++;
       continue;
@@ -201,16 +152,145 @@ export async function importOpenCode(agentName?: string): Promise<void> {
     cleaned.push(m);
   }
 
-  const kernMessagesFinal = cleaned;
+  return { messages: cleaned, converted, skipped };
+}
 
+export async function importOpenCode(args: string[]): Promise<void> {
+  const { select } = await import("@inquirer/prompts");
+
+  const db = getDb();
+
+  // --- Pick project ---
+  let projectId: string;
+  let projectWorktree: string;
+  const projectArg = args.find((a) => a.startsWith("--project="))?.slice(10) || args.find((a) => !a.startsWith("--"));
+
+  if (projectArg) {
+    const projects = getProjects(db);
+    const match = projects.find((p) => p.worktree === projectArg || p.worktree.endsWith("/" + projectArg));
+    if (!match) {
+      console.error(`OpenCode project not found: ${projectArg}`);
+      db.close();
+      process.exit(1);
+    }
+    projectId = match.id;
+    projectWorktree = match.worktree;
+  } else {
+    const projects = getProjects(db);
+    if (projects.length === 0) {
+      console.error("No OpenCode projects found.");
+      db.close();
+      process.exit(1);
+    }
+    if (projects.length === 1) {
+      projectId = projects[0].id;
+      projectWorktree = projects[0].worktree;
+    } else {
+      const chosen = await select({
+        message: "Select OpenCode project",
+        choices: projects.map((p) => ({
+          name: `${p.worktree} (${p.msgCount} msgs)`,
+          value: p.id,
+        })),
+      });
+      projectId = chosen;
+      projectWorktree = projects.find((p) => p.id === chosen)!.worktree;
+    }
+  }
+  console.log(`  Project: ${projectWorktree}`);
+
+  // --- Pick session ---
+  let sessionId: string;
+  let sessionTitle: string;
+  const sessionArg = args.find((a) => a.startsWith("--session="))?.slice(10);
+
+  const sessions = getSessions(db, projectId);
+  if (sessions.length === 0) {
+    console.error("No sessions found.");
+    db.close();
+    process.exit(1);
+  }
+
+  if (sessionArg === "latest") {
+    sessionId = sessions[0].id;
+    sessionTitle = sessions[0].title;
+  } else if (sessionArg) {
+    const match = sessions.find((s) => s.title === sessionArg || s.id === sessionArg);
+    if (!match) {
+      console.error(`Session not found: ${sessionArg}`);
+      db.close();
+      process.exit(1);
+    }
+    sessionId = match.id;
+    sessionTitle = match.title;
+  } else if (sessions.length === 1) {
+    sessionId = sessions[0].id;
+    sessionTitle = sessions[0].title;
+  } else {
+    const chosen = await select({
+      message: "Select session",
+      choices: sessions.slice(0, 10).map((s) => {
+        const date = new Date(s.time_updated).toISOString().slice(0, 10);
+        return {
+          name: `${s.title} (${date}, ${s.msgCount} msgs)`,
+          value: s.id,
+        };
+      }),
+    });
+    sessionId = chosen;
+    sessionTitle = sessions.find((s) => s.id === chosen)!.title;
+  }
+  console.log(`  Session: ${sessionTitle}`);
+
+  // --- Pick destination agent ---
+  let agentPath: string;
+  let agentName: string;
+  const agentArg = args.find((a) => a.startsWith("--agent="))?.slice(8);
+
+  if (agentArg) {
+    const agent = await findAgent(agentArg);
+    if (!agent) {
+      console.error(`Agent not found: ${agentArg}`);
+      db.close();
+      process.exit(1);
+    }
+    agentPath = agent.path;
+    agentName = agent.name;
+  } else {
+    const agents = await loadRegistry();
+    if (agents.length === 0) {
+      console.error("No agents registered. Run 'kern init <name>' first.");
+      db.close();
+      process.exit(1);
+    }
+    if (agents.length === 1) {
+      agentPath = agents[0].path;
+      agentName = agents[0].name;
+    } else {
+      const chosen = await select({
+        message: "Import into which agent",
+        choices: agents.map((a) => ({
+          name: `${a.name} (${a.path})`,
+          value: a.name,
+        })),
+      });
+      const agent = agents.find((a) => a.name === chosen)!;
+      agentPath = agent.path;
+      agentName = agent.name;
+    }
+  }
+  console.log(`  Agent: ${agentName} (${agentPath})`);
+
+  // --- Convert ---
+  const { messages: kernMessages, converted, skipped } = convertSession(db, sessionId);
   db.close();
 
   console.log(`  Converted: ${converted} parts`);
   console.log(`  Skipped: ${skipped} parts`);
-  console.log(`  Cleaned: ${kernMessages.length} → ${kernMessagesFinal.length} messages`);
+  console.log(`  Messages: ${kernMessages.length}`);
 
-  // Write to kern session JSONL
-  const sessionsDir = join(agent.path, ".kern", "sessions");
+  // --- Write ---
+  const sessionsDir = join(agentPath, ".kern", "sessions");
   await mkdir(sessionsDir, { recursive: true });
 
   const sessionUuid = crypto.randomUUID();
@@ -223,14 +303,14 @@ export async function importOpenCode(agentName?: string): Promise<void> {
     updatedAt: now,
     importedFrom: "opencode",
     originalSessionId: sessionId,
+    sourceProject: projectWorktree,
   });
 
-  const lines = [meta, ...kernMessagesFinal.map((m: any) => JSON.stringify(m))];
+  const lines = [meta, ...kernMessages.map((m: any) => JSON.stringify(m))];
   await writeFile(jsonlPath, lines.join("\n") + "\n");
 
   console.log(`\n  Imported to ${jsonlPath}`);
-  console.log(`  Session ID: ${sessionUuid}`);
-  console.log(`  ${kernMessagesFinal.length} messages`);
+  console.log(`  ${kernMessages.length} messages`);
   console.log("");
 
   process.exit(0);
