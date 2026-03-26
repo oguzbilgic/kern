@@ -18,6 +18,7 @@ export class AgentServer {
   private clients: SSEClient[] = [];
   private onMessage: ((text: string, userId: string, iface: string, channel: string) => Promise<void>) | null = null;
   private statusFn: (() => any) | null = null;
+  private historyFn: ((limit: number, before?: number) => any[]) | null = null;
   private port = 0;
 
   constructor() {
@@ -30,6 +31,10 @@ export class AgentServer {
 
   setStatusFn(fn: () => any) {
     this.statusFn = fn;
+  }
+
+  setHistoryFn(fn: (limit: number, before?: number) => any[]) {
+    this.historyFn = fn;
   }
 
   async start(): Promise<number> {
@@ -137,11 +142,15 @@ export class AgentServer {
       return;
     }
 
-    // History
-    if (url === "/history" && req.method === "GET") {
-      // TODO: return recent messages
+    // History — ?limit=50&before=<index>
+    if (url?.startsWith("/history") && req.method === "GET") {
+      const params = new URL(url, "http://localhost").searchParams;
+      const limit = parseInt(params.get("limit") || "50", 10);
+      const beforeStr = params.get("before");
+      const before = beforeStr ? parseInt(beforeStr, 10) : undefined;
+      const history = this.historyFn ? this.historyFn(limit, before) : [];
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify([]));
+      res.end(JSON.stringify(history));
       return;
     }
 
