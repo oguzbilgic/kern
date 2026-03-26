@@ -35,7 +35,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 30s
 
   # Second agent example (uncomment to use)
   #
@@ -57,7 +57,7 @@ services:
   #     interval: 30s
   #     timeout: 5s
   #     retries: 3
-  #     start_period: 10s
+  #     start_period: 30s
 
 volumes:
   my-agent-data:

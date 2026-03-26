@@ -20,6 +20,47 @@ const MAX_RESTARTS = 10;
 const RESTART_WINDOW_MS = 60_000; // reset restart count after 1 min of stability
 const RESTART_DELAY_MS = 2_000;
 
+// Kill a process by PID, handling platform differences.
+// On Windows, process.kill(pid, "SIGTERM") may not reach detached processes
+// (e.g., those started by `kern start`), so we fall back to taskkill.
+async function killProcess(pid: number, signal: NodeJS.Signals = "SIGTERM"): Promise<void> {
+  try {
+    process.kill(pid, signal);
+  } catch {
+    // On Windows, try taskkill as fallback for detached processes
+    if (process.platform === "win32") {
+      try {
+        const { execSync } = await import("child_process");
+        const flag = signal === "SIGKILL" ? "/F" : "";
+        execSync(`taskkill /pid ${pid} ${flag} /t`, { stdio: "ignore" });
+      } catch {}
+    }
+    return;
+  }
+
+  // Wait up to 5s for process to exit
+  for (let i = 0; i < 10; i++) {
+    await new Promise((r) => setTimeout(r, 500));
+    if (!isProcessRunning(pid)) return;
+  }
+
+  // Force kill if still alive
+  if (isProcessRunning(pid)) {
+    log("supervisor", `pid ${pid} did not exit after ${signal}, force killing`);
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      if (process.platform === "win32") {
+        try {
+          const { execSync } = await import("child_process");
+          execSync(`taskkill /pid ${pid} /F /t`, { stdio: "ignore" });
+        } catch {}
+      }
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+}
+
 export class Supervisor {
   private agents: Map<string, SupervisedAgent> = new Map();
   private shuttingDown = false;
@@ -67,19 +108,7 @@ export class Supervisor {
     for (const entry of entries) {
       if (entry.pid && isProcessRunning(entry.pid)) {
         log("supervisor", `stopping existing ${entry.name} (pid ${entry.pid})`);
-        try {
-          process.kill(entry.pid, "SIGTERM");
-        } catch {}
-        // Wait up to 5s for process to exit
-        for (let i = 0; i < 10; i++) {
-          await new Promise((r) => setTimeout(r, 500));
-          if (!isProcessRunning(entry.pid)) break;
-        }
-        if (isProcessRunning(entry.pid)) {
-          log("supervisor", `${entry.name} (pid ${entry.pid}) did not exit, force killing`);
-          try { process.kill(entry.pid, "SIGKILL"); } catch {}
-          await new Promise((r) => setTimeout(r, 500));
-        }
+        await killProcess(entry.pid);
       }
     }
 
@@ -94,13 +123,19 @@ export class Supervisor {
 
     log("supervisor", "all agents started, monitoring...");
 
-    // Keep the process alive — check health periodically
+    // Keep the process alive — check health periodically and restart if exit handler missed
     const healthCheck = setInterval(() => {
       if (this.shuttingDown) return;
       for (const [name, agent] of this.agents) {
-        if (agent.stopping) continue;
+        if (agent.stopping || agent.restarting) continue;
         if (!agent.process || agent.process.exitCode !== null) {
-          log("supervisor", `${name} is not running, will be restarted by exit handler`);
+          log("supervisor", `${name} is not running, triggering restart from health check`);
+          agent.restarting = true;
+          this.startAgent(name, agent.path).then(() => {
+            agent.restarting = false;
+          }).catch(() => {
+            agent.restarting = false;
+          });
         }
       }
     }, 30_000);
@@ -145,13 +180,16 @@ export class Supervisor {
         stdio: ["ignore", logFd, logFd],
         cwd: path,
       });
-    } finally {
-      // Close fd in parent — child process owns it now
+    } catch (e: any) {
       closeSync(logFd);
+      log("supervisor", `${name}: failed to spawn process: ${e.message}`);
+      return;
     }
+    // Close fd in parent — child process owns it now
+    closeSync(logFd);
 
     if (!child.pid) {
-      log("supervisor", `${name}: failed to spawn process`);
+      log("supervisor", `${name}: spawn returned no pid`);
       return;
     }
 

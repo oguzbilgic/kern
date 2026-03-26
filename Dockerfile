@@ -14,6 +14,8 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends git curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
+ENV NODE_ENV=production
+
 WORKDIR /opt/kern-ai
 COPY --from=builder /opt/kern-ai/dist/ dist/
 COPY --from=builder /opt/kern-ai/package.json .

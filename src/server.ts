@@ -41,6 +41,12 @@ export class AgentServer {
     return new Promise((resolve) => {
       const port = fixedPort || parseInt(process.env.KERN_PORT || "0", 10);
       const host = fixedHost || process.env.KERN_HOST || "127.0.0.1";
+
+      if (host !== "127.0.0.1" && host !== "localhost" && host !== "::1") {
+        log("server", `WARNING: binding to ${host} — server has no authentication. ` +
+          `Only use 0.0.0.0 inside containers or trusted networks.`);
+      }
+
       this.server.listen(port, host, () => {
         this.port = (this.server.address() as any).port;
         log("server", `listening on ${host}:${this.port}`);
