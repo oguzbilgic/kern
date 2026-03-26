@@ -2,13 +2,13 @@
 
 ## next
 
-### Fixes
-- **Message tool misuse** — agents were using the `message` tool to reply to incoming Telegram messages instead of responding directly. Tool description now explicitly prevents this.
-- **Anthropic model IDs** — fixed direct Anthropic API model aliases (`claude-opus-4-6`, `claude-sonnet-4-6`). (Community PR #1)
-
 ### Changes
 - **Dynamic model list** — `kern init` now fetches available models live from provider APIs (OpenRouter, Anthropic, OpenAI). Falls back to curated defaults if offline or API key not yet provided. (Community PR #1)
 - **Better error messages** — captures the real provider error from the `onError` stream hook instead of showing generic "No response from model" when the API fails.
+
+### Fixes
+- **Message tool misuse** — agents were using the `message` tool to reply to incoming Telegram messages instead of responding directly. Tool description now explicitly prevents this.
+- **Anthropic model IDs** — fixed direct Anthropic API model aliases (`claude-opus-4-6`, `claude-sonnet-4-6`). (Community PR #1)
 
 ## v0.9.0
 
