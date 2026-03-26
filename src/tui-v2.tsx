@@ -70,7 +70,7 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
     }
     case "assistant": {
       return (
-        <Box flexDirection="column" marginY={1} paddingX={2}>
+        <Box flexDirection="column" marginTop={1} paddingX={2}>
           <Text color="white" wrap="wrap">{msg.text}</Text>
         </Box>
       );
