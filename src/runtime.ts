@@ -148,6 +148,13 @@ export class Runtime {
         log("runtime", `context trimmed: ${trimmed} old messages excluded`);
       }
 
+      log("runtime", `context: ${contextMessages.length} messages, ~${estimateTokens(contextMessages)} tokens`);
+      if (contextMessages.length > 0) {
+        const first = contextMessages[0];
+        const last = contextMessages[contextMessages.length - 1];
+        log("runtime", `first msg: role=${first.role}, last msg: role=${last.role}`);
+      }
+
       const pendingInjections = this.pendingInjections;
 
       const result = streamText({
@@ -156,7 +163,9 @@ export class Runtime {
         messages: contextMessages,
         tools,
         stopWhen: stepCountIs(this.config.maxSteps),
-        onError: () => {},
+        onError: ({ error }) => {
+          log("runtime", `streamText error: ${error}`);
+        },
         prepareStep: ({ messages, stepNumber }) => {
           if (stepNumber === 0 || !pendingInjections) return {};
 

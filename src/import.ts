@@ -127,7 +127,7 @@ export async function importOpenCode(agentName?: string): Promise<void> {
             type: "tool-call",
             toolCallId: partData.callID || `call_${converted}`,
             toolName: partData.tool,
-            args: partData.state.input,
+            input: partData.state.input,
           });
           converted++;
         }
@@ -136,7 +136,7 @@ export async function importOpenCode(agentName?: string): Promise<void> {
             type: "tool-result",
             toolCallId: partData.callID || `call_${converted}`,
             toolName: partData.tool,
-            result: partData.state.output,
+            output: { type: "text", value: String(partData.state.output) },
           });
           converted++;
         }
