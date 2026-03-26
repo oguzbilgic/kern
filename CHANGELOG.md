@@ -3,11 +3,21 @@
 ## v0.7.0
 
 ### Features
-- **Heartbeat** — periodic `[heartbeat]` message every N minutes (configurable). Agent reviews notes, updates knowledge, messages operator if needed. TUI-only visibility.
-- **Message queue** — all messages serialized through a queue. Same-channel messages injected mid-turn via `prepareStep`. Cross-channel messages wait in FIFO. Heartbeats deferred.
-- **Same-channel injection** — if you send a follow-up while the agent is working, it sees your message at the next tool step wrapped in `<system-reminder>`. No waiting for the full turn to finish.
+- **Heartbeat** — periodic `[heartbeat]` message every N minutes (configurable `heartbeatInterval`, default 120). Agent reviews notes, updates knowledge, messages operator if needed. TUI-only visibility (`♡` marker).
+- **Message queue** — all messages serialized through a queue with 5-minute timeout. Same-channel messages injected mid-turn via `prepareStep`. Cross-channel messages wait in FIFO. Heartbeats deferred.
+- **Same-channel injection** — send a follow-up while the agent is working, it sees your message at the next tool step wrapped in `<system-reminder>`. No waiting for the full turn to finish.
 - **Kernel auto-update** — AGENTS.md ships with kern, versioned `<!-- kernel: v1.0 -->`. Updated automatically on `kern start` if a newer version is bundled.
-- **Templates folder** — AGENTS.md and KERN.md moved to `templates/` in the package.
+- **Timestamps** — all messages tagged with `time:` in metadata. Agent can reason about time ("remind me in 30 minutes").
+- **`kern logs`** — tail agent logs with `kern logs [name]`. Auto-selects agent.
+- **Structured logging** — colored, timestamped logs across all components: kern, queue, runtime, telegram, slack, server. Startup/shutdown bookends.
+
+### Changes
+- Templates (AGENTS.md, KERN.md) moved to `templates/` in the package
+- Startup header replaced with structured log lines
+- All interfaces (Telegram, Slack, TUI, HTTP, heartbeat) route through message queue
+
+### Fixes
+- Queue `finally` block — processing flag always resets, even on hang or timeout. Queue never permanently stuck.
 
 ## v0.6.3
 
