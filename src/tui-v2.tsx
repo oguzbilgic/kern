@@ -52,17 +52,16 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
   const maxW = width - 4;
   switch (msg.type) {
     case "user": {
+      const innerWidth = width - 3; // 1 border + 2 padding
       const pad = "  ";
-      const lines = msg.text.split("\n");
-      const maxLen = Math.min(width - 8, Math.max(...lines.map((l: string) => l.length)) + 4);
-      const padded = lines.map((l: string) => pad + l.padEnd(maxLen) + pad).join("\n");
-      const emptyLine = pad + " ".repeat(maxLen) + pad;
+      const padded = pad + msg.text;
+      const emptyLine = " ".repeat(innerWidth);
       return (
         <Box flexDirection="column" marginY={1}>
-          <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="green">
-            <Box flexDirection="column">
+          <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="green" width={width}>
+            <Box flexDirection="column" width={innerWidth}>
               <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
-              <Text backgroundColor="#1a1a1a" color="white" wrap="wrap">{padded}</Text>
+              <Text backgroundColor="#1a1a1a" color="white" wrap="wrap">{padded.padEnd(innerWidth)}</Text>
               <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
             </Box>
           </Box>
@@ -256,10 +255,14 @@ function App({ port, agentName, version }: TuiProps) {
           </Box>
         )}
 
-        <Box marginTop={1}>
-          <Text color="green" bold>{">"} </Text>
-          <Text>{input}</Text>
-          {!busy && <Text dimColor>▎</Text>}
+        <Box flexDirection="column" marginTop={1}>
+          <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="green" width={cols}>
+            <Box flexDirection="column" width={cols - 3}>
+              <Text backgroundColor="#1a1a1a" color="white">{" ".repeat(cols - 3)}</Text>
+              <Text backgroundColor="#1a1a1a" color="white">{"  "}{input}{!busy ? "▎" : ""}{" ".repeat(Math.max(0, cols - 3 - input.length - 3 - (!busy ? 1 : 0)))}</Text>
+              <Text backgroundColor="#1a1a1a" color="white">{" ".repeat(cols - 3)}</Text>
+            </Box>
+          </Box>
         </Box>
       </Box>
     </Box>
