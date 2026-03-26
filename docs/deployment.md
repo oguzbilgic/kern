@@ -54,14 +54,16 @@ docker build -t kern-ai .
 
 ### 3. Build your agent image
 
-Use the agent Dockerfile to bake your agent's state into an image. See [examples/Dockerfile.agent](examples/Dockerfile.agent).
+Use the agent Dockerfile to bake your agent's state into an image. Copy it into your agents directory first:
 
 ```bash
 cd ~/agents
+cp /path/to/kern-ai/docs/examples/Dockerfile.agent .
 docker build -f Dockerfile.agent -t my-agent \
-  --build-arg KERN_IMAGE=kern-ai \
   --build-arg AGENT_DIR=./my-agent .
 ```
+
+See [examples/Dockerfile.agent](examples/Dockerfile.agent) for details.
 
 This copies your agent's files (identity, memory, knowledge, config) into the image as seed data. Secrets (`.kern/.env`) are excluded -- they're passed at runtime.
 

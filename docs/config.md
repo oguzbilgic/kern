@@ -75,4 +75,4 @@ Cumulative API token usage. Persists across restarts.
 
 ## .kern/logs/
 
-Log files from daemon mode (`kern start`). `kern.log` contains stdout/stderr.
+Log files from background mode (`kern start`) and daemon mode (`kern daemon`). `kern.log` contains stdout/stderr.
