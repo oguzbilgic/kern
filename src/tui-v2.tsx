@@ -262,7 +262,7 @@ function MarkdownText({ text, isMuted }: { text: string; isMuted?: boolean }) {
   }
 
   const renderInline = (str: string) => {
-    const inlineParts = str.split(/(\**[\s\S]+?\**|\*[^*]+\*|`[^`]+`)/g);
+    const inlineParts = str.split(/(\*\*[\s\S]+?\*\*|\*[^*]+\*|`[^`]+`)/g);
     return inlineParts.map((p, i) => {
       if (!p) return null;
       if (p.startsWith("**") && p.endsWith("**")) {
@@ -283,7 +283,7 @@ function MarkdownText({ text, isMuted }: { text: string; isMuted?: boolean }) {
       {blocks.map((b, i) => {
         if (b.type === "code") {
           return (
-            <Box key={i} marginY={1} borderStyle="bold" borderLeft borderRight={false} borderTop={false} borderBottom={false} borderColor="#555">
+            <Box key={i} borderStyle="bold" borderLeft borderRight={false} borderTop={false} borderBottom={false} borderColor="#555">
               <Box flexDirection="column" paddingLeft={1}>
                 {b.content.split("\n").map((l, j) => (
                   <Text key={j} color="#ccc">{l}</Text>
@@ -301,7 +301,7 @@ function MarkdownText({ text, isMuted }: { text: string; isMuted?: boolean }) {
         }
         if (b.type === "quote") {
           return (
-            <Box key={i} marginY={1} borderStyle="bold" borderLeft borderRight={false} borderTop={false} borderBottom={false} borderColor="#888">
+            <Box key={i} borderStyle="bold" borderLeft borderRight={false} borderTop={false} borderBottom={false} borderColor="#888">
               <Box flexDirection="column" paddingLeft={1}>
                 <Text wrap="wrap" color="#ccc" italic>{renderInline(b.content)}</Text>
               </Box>
