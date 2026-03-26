@@ -69,12 +69,11 @@ This copies your agent's files (identity, memory, knowledge, config) into the im
 
 See [examples/docker-compose.yaml](examples/docker-compose.yaml) for the full template.
 
-Create a `.env` file with your secrets:
+Secrets are read directly from the agent's `.kern/.env` file (created by the init wizard). No need to copy or duplicate secret files.
 
-```
-ANTHROPIC_API_KEY=sk-ant-...
-SLACK_BOT_TOKEN=xoxb-...
-SLACK_APP_TOKEN=xapp-...
+```yaml
+env_file:
+  - ./my-agent/.kern/.env
 ```
 
 ### 5. Run
@@ -137,7 +136,7 @@ services:
       - KERN_PORT=8080
       - KERN_HOST=0.0.0.0
     env_file:
-      - .env.sentinel
+      - ./sentinel/.kern/.env
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -156,7 +155,7 @@ services:
       - KERN_PORT=8080
       - KERN_HOST=0.0.0.0
     env_file:
-      - .env.oms-dev
+      - ./oms-dev/.kern/.env
     ports:
       - "8081:8080"
     restart: unless-stopped
@@ -224,13 +223,30 @@ Same applies to `host` / `KERN_HOST`. Use `0.0.0.0` in containers so the port is
 
 ## Secrets
 
-API keys and tokens should never be baked into images. Pass them at runtime via:
+API keys and tokens should never be baked into images. The agent Dockerfile explicitly strips `.kern/.env` from the seed data.
 
-- **env_file** -- a `.env` file referenced in compose (shown in examples above)
-- **environment** -- set individually in compose
-- **Docker secrets** -- for production / swarm deployments
+At runtime, compose reads secrets directly from each agent's `.kern/.env` -- the same file the init wizard created. No copies needed, secrets stay in one place:
 
-The agent Dockerfile explicitly strips `.kern/.env` from the seed data.
+```yaml
+env_file:
+  - ./my-agent/.kern/.env
+```
+
+For multi-agent setups, each agent points to its own `.kern/.env`:
+
+```yaml
+services:
+  sentinel:
+    env_file:
+      - ./sentinel/.kern/.env
+  oms-dev:
+    env_file:
+      - ./oms-dev/.kern/.env
+```
+
+Other options for production:
+- **environment** -- set individually in compose or CI
+- **Docker secrets** -- for swarm deployments
 
 ## Health Checks
 

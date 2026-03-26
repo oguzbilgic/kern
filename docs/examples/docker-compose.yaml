@@ -9,13 +9,11 @@
 #        docker build -f Dockerfile.agent -t my-agent \
 #          --build-arg AGENT_DIR=./my-agent .
 #
-#   3. Create a .env file with your secrets:
-#        ANTHROPIC_API_KEY=sk-ant-...
-#        SLACK_BOT_TOKEN=xoxb-...
-#        SLACK_APP_TOKEN=xapp-...
-#
-#   4. Run:
+#   3. Run:
 #        docker compose up -d
+#
+# Secrets are read from each agent's .kern/.env file (created by kern init).
+# No need to copy or duplicate secret files.
 
 services:
   # Single agent example
@@ -28,7 +26,7 @@ services:
       - KERN_PORT=8080
       - KERN_HOST=0.0.0.0
     env_file:
-      - .env
+      - ./my-agent/.kern/.env
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -50,7 +48,7 @@ services:
   #     - KERN_PORT=8080
   #     - KERN_HOST=0.0.0.0
   #   env_file:
-  #     - .env.another
+  #     - ./another-agent/.kern/.env
   #   ports:
   #     - "8081:8080"
   #   restart: unless-stopped
