@@ -40,6 +40,7 @@ async function showHelp() {
   w(`    ${cyan("kern pair")} ${dim("<agent> <code>")}    approve a pairing code`);
   w(`    ${cyan("kern backup")} ${dim("<name>")}          backup agent to .tar.gz`);
   w(`    ${cyan("kern restore")} ${dim("<file>")}         restore agent from backup`);
+  w(`    ${cyan("kern logs")} ${dim("[name]")}            tail agent logs`);
   w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
   w("");
 }
@@ -141,6 +142,20 @@ async function main() {
     await removeAgent(name);
     console.log(`  Removed ${name}`);
     process.exit(0);
+  }
+
+  if (cmd === "logs") {
+    const agentDir = await resolveAgentDir(args[1]);
+    const logFile = join(agentDir, ".kern", "logs", "kern.log");
+    const { existsSync } = await import("fs");
+    if (!existsSync(logFile)) {
+      console.error("No logs yet. Start the agent first.");
+      process.exit(1);
+    }
+    const { spawn } = await import("child_process");
+    const tail = spawn("tail", ["-f", logFile], { stdio: "inherit" });
+    process.on("SIGINT", () => { tail.kill(); process.exit(0); });
+    return;
   }
 
   if (cmd === "pair") {
