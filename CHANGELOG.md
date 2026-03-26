@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.1
+## v0.8.0
 
 ### Features
 - **`kern import opencode`** — migrate sessions from OpenCode to kern. Reads OpenCode's SQLite, converts messages/parts to AI SDK ModelMessage format, validates pairing, writes JSONL.
