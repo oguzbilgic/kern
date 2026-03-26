@@ -75,12 +75,55 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
         </Box>
       );
     }
-    case "incoming":
-      return <Box><Text color="yellow">◇ </Text><Text dimColor>{msg.meta} </Text><Text wrap="wrap">{msg.text}</Text></Box>;
-    case "outgoing":
-      return <Box><Text color="green">→ </Text><Text dimColor>{msg.meta} </Text><Text wrap="wrap">{msg.text}</Text></Box>;
-    case "heartbeat":
-      return <Box><Text dimColor>♡ heartbeat</Text></Box>;
+    case "incoming": {
+      const iw = width - 3;
+      const label = msg.meta || "[incoming]";
+      const emptyLine = " ".repeat(iw);
+      return (
+        <Box flexDirection="column" marginY={1}>
+          <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="yellow" width={width}>
+            <Box flexDirection="column" width={iw}>
+              <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
+              <Text backgroundColor="#1a1a1a" dimColor>{"  "}{label}</Text>
+              <Text backgroundColor="#1a1a1a" color="white" wrap="wrap">{"  "}{(msg.text || "").padEnd(iw - 2)}</Text>
+              <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
+            </Box>
+          </Box>
+        </Box>
+      );
+    }
+    case "outgoing": {
+      const iw = width - 3;
+      const label = msg.meta || "[outgoing]";
+      const emptyLine = " ".repeat(iw);
+      return (
+        <Box flexDirection="column" marginY={1}>
+          <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="green" width={width}>
+            <Box flexDirection="column" width={iw}>
+              <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
+              <Text backgroundColor="#1a1a1a" dimColor>{"  "}{label}</Text>
+              <Text backgroundColor="#1a1a1a" color="white" wrap="wrap">{"  "}{(msg.text || "").padEnd(iw - 2)}</Text>
+              <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
+            </Box>
+          </Box>
+        </Box>
+      );
+    }
+    case "heartbeat": {
+      const iw = width - 3;
+      const emptyLine = " ".repeat(iw);
+      return (
+        <Box flexDirection="column" marginY={1}>
+          <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="magenta" width={width}>
+            <Box flexDirection="column" width={iw}>
+              <Text backgroundColor="#1a1a1a" dimColor>{emptyLine}</Text>
+              <Text backgroundColor="#1a1a1a" dimColor>{"  "}♡ heartbeat</Text>
+              <Text backgroundColor="#1a1a1a" dimColor>{emptyLine}</Text>
+            </Box>
+          </Box>
+        </Box>
+      );
+    }
     case "tool":
       return <Box><Text color="yellow">{msg.text}</Text></Box>;
     case "error":
