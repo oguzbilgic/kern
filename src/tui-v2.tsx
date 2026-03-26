@@ -84,8 +84,8 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
           <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="yellow" width={width}>
             <Box flexDirection="column" width={iw}>
               <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
-              <Text backgroundColor="#1a1a1a" dimColor>{"  "}{label}</Text>
-              <Text backgroundColor="#1a1a1a" color="white" wrap="wrap">{"  "}{(msg.text || "").padEnd(iw - 2)}</Text>
+              <Text backgroundColor="#1a1a1a" dimColor>{("  " + label).padEnd(iw)}</Text>
+              <Text backgroundColor="#1a1a1a" color="white" wrap="wrap">{("  " + (msg.text || "")).padEnd(iw)}</Text>
               <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
             </Box>
           </Box>
@@ -101,8 +101,8 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
           <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="green" width={width}>
             <Box flexDirection="column" width={iw}>
               <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
-              <Text backgroundColor="#1a1a1a" dimColor>{"  "}{label}</Text>
-              <Text backgroundColor="#1a1a1a" color="white" wrap="wrap">{"  "}{(msg.text || "").padEnd(iw - 2)}</Text>
+              <Text backgroundColor="#1a1a1a" dimColor>{("  " + label).padEnd(iw)}</Text>
+              <Text backgroundColor="#1a1a1a" color="white" wrap="wrap">{("  " + (msg.text || "")).padEnd(iw)}</Text>
               <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
             </Box>
           </Box>
@@ -117,7 +117,7 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
           <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="magenta" width={width}>
             <Box flexDirection="column" width={iw}>
               <Text backgroundColor="#1a1a1a" dimColor>{emptyLine}</Text>
-              <Text backgroundColor="#1a1a1a" dimColor>{"  "}♡ heartbeat</Text>
+              <Text backgroundColor="#1a1a1a" dimColor>{("  ♡ heartbeat").padEnd(iw)}</Text>
               <Text backgroundColor="#1a1a1a" dimColor>{emptyLine}</Text>
             </Box>
           </Box>
