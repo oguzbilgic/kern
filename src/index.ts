@@ -41,9 +41,10 @@ async function showHelp() {
   w(`    ${cyan("kern backup")} ${dim("<name>")}          backup agent to .tar.gz`);
   w(`    ${cyan("kern import")} ${dim("opencode <name>")}  import session from OpenCode`);
   w(`    ${cyan("kern restore")} ${dim("<file>")}         restore agent from backup`);
-  w(`    ${cyan("kern logs")} ${dim("[name]")}            tail agent logs`);
-  w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
-  w("");
+    w(`    ${cyan("kern logs")} ${dim("[name]")}            tail agent logs`);
+    w(`    ${cyan("kern daemon")} ${dim("[name|path]")}     run as foreground supervisor`);
+    w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
+    w("");
 }
 
 async function resolveAgentDir(nameOrPath?: string): Promise<string> {
@@ -253,6 +254,13 @@ async function main() {
     }
 
     await connectTui(agent.port, agentName);
+    return;
+  }
+
+  if (cmd === "daemon") {
+    const { Supervisor } = await import("./supervisor.js");
+    const supervisor = new Supervisor();
+    await supervisor.start(args[1]);
     return;
   }
 

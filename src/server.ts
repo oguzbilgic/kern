@@ -37,11 +37,13 @@ export class AgentServer {
     this.historyFn = fn;
   }
 
-  async start(): Promise<number> {
+  async start(fixedPort?: number): Promise<number> {
     return new Promise((resolve) => {
-      this.server.listen(0, "127.0.0.1", () => {
+      const port = fixedPort || parseInt(process.env.KERN_PORT || "0", 10);
+      const host = process.env.KERN_HOST || "127.0.0.1";
+      this.server.listen(port, host, () => {
         this.port = (this.server.address() as any).port;
-        log("server", `listening on :${this.port}`);
+        log("server", `listening on ${host}:${this.port}`);
         resolve(this.port);
       });
     });
@@ -132,6 +134,13 @@ export class AgentServer {
         res.writeHead(400);
         res.end(JSON.stringify({ error: "invalid JSON" }));
       }
+      return;
+    }
+
+    // Health check — lightweight endpoint for supervisor/Docker
+    if (url === "/health" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, uptime: process.uptime() }));
       return;
     }
 

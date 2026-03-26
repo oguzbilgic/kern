@@ -126,6 +126,16 @@ kern import opencode myagent
 kern import opencode /root/myagent
 ```
 
+## kern daemon [name|path]
+
+Run as a foreground supervisor process. Starts agents as child processes, monitors them, restarts on crash, shuts down cleanly on SIGTERM/SIGINT.
+
+- No argument: supervises all registered agents
+- With name/path: supervises that single agent
+- Auto-restarts crashed agents (up to 10 times per minute, then gives up)
+- Designed for Docker (`CMD ["kern", "daemon"]`) and systemd
+- See [daemon.md](daemon.md) for full documentation
+
 ## kern run \<name|path\>
 
 Run an agent in the foreground (for development/debugging). Starts all interfaces (Telegram, Slack) in-process.
