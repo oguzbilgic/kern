@@ -117,7 +117,8 @@ export class SlackInterface implements Interface {
         );
 
         // NO_REPLY suppression
-        if (response && response.trim() !== "NO_REPLY") {
+        const clean = response?.trim() || "";
+        if (clean && clean !== "NO_REPLY" && clean !== "(no text response)") {
           await say(mdToSlack(response));
         }
       } catch (error: any) {
