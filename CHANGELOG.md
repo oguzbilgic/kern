@@ -16,9 +16,6 @@
 - Startup header replaced with structured log lines
 - All interfaces (Telegram, Slack, TUI, HTTP, heartbeat) route through message queue
 
-### Fixes
-- Queue `finally` block — processing flag always resets, even on hang or timeout. Queue never permanently stuck.
-
 ## v0.6.3
 
 ### Fixes
