@@ -210,7 +210,7 @@ async function main() {
   }
 
   if (cmd === "tui") {
-    const { connectTui } = await import("./tui.js");
+    const { connectTuiV2: connectTui } = await import("./tui-v2.js");
     const { findAgent, loadRegistry } = await import("./registry.js");
     const { startAgent } = await import("./daemon.js");
 
