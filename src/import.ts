@@ -100,6 +100,7 @@ export async function importOpenCode(agentName?: string): Promise<void> {
   );
 
   // Convert to kern ModelMessage format
+  // Group parts per OpenCode message into proper ModelMessage structure
   const kernMessages: any[] = [];
   let converted = 0;
   let skipped = 0;
@@ -109,46 +110,69 @@ export async function importOpenCode(agentName?: string): Promise<void> {
     const parts = getPartsStmt.all(msg.id) as OpenCodePart[];
     const role = msgData.role;
 
+    // Collect text and tool parts for this message
+    const textParts: string[] = [];
+    const toolCalls: any[] = [];
+    const toolResults: any[] = [];
+
     for (const part of parts) {
       const partData = JSON.parse(part.data);
 
       if (partData.type === "text" && partData.text) {
-        kernMessages.push({
-          role: role === "user" ? "user" : "assistant",
-          content: partData.text,
-        });
+        textParts.push(partData.text);
         converted++;
       } else if (partData.type === "tool" && partData.state) {
-        // Tool call → assistant message with tool-call part
         if (partData.state.input) {
-          kernMessages.push({
-            role: "assistant",
-            content: [{
-              type: "tool-call",
-              toolCallId: partData.callID || `call_${converted}`,
-              toolName: partData.tool,
-              args: partData.state.input,
-            }],
+          toolCalls.push({
+            type: "tool-call",
+            toolCallId: partData.callID || `call_${converted}`,
+            toolName: partData.tool,
+            args: partData.state.input,
           });
           converted++;
         }
-
-        // Tool result → tool message
         if (partData.state.status === "completed" && partData.state.output !== undefined) {
-          kernMessages.push({
-            role: "tool",
-            content: [{
-              type: "tool-result",
-              toolCallId: partData.callID || `call_${converted}`,
-              toolName: partData.tool,
-              result: partData.state.output,
-            }],
+          toolResults.push({
+            type: "tool-result",
+            toolCallId: partData.callID || `call_${converted}`,
+            toolName: partData.tool,
+            result: partData.state.output,
           });
           converted++;
         }
       } else {
-        // Skip step-start, step-finish, reasoning, etc.
         skipped++;
+      }
+    }
+
+    // Build kern messages for this OpenCode message
+    if (role === "user") {
+      // User messages: just text
+      const text = textParts.join("\n");
+      if (text) {
+        kernMessages.push({ role: "user", content: text });
+      }
+    } else if (role === "assistant") {
+      // Assistant: combine text + tool calls into one message
+      if (textParts.length > 0 && toolCalls.length > 0) {
+        // Mixed: text + tool calls in one content array
+        const content: any[] = [];
+        for (const t of textParts) {
+          content.push({ type: "text", text: t });
+        }
+        content.push(...toolCalls);
+        kernMessages.push({ role: "assistant", content });
+      } else if (toolCalls.length > 0) {
+        // Tool calls only
+        kernMessages.push({ role: "assistant", content: toolCalls });
+      } else if (textParts.length > 0) {
+        // Text only
+        kernMessages.push({ role: "assistant", content: textParts.join("\n") });
+      }
+
+      // Tool results as separate tool messages (required by AI SDK)
+      for (const tr of toolResults) {
+        kernMessages.push({ role: "tool", content: [tr] });
       }
     }
   }
