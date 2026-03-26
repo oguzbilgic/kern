@@ -14,6 +14,7 @@ export interface KernConfig {
   heartbeatInterval: number;
   telegram?: {
     allowedUsers?: number[];
+    showTools?: boolean;
   };
 }
 

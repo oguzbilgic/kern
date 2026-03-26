@@ -1,3 +1,5 @@
+import type { StreamEvent } from "./runtime.js";
+
 export interface QueuedMessage {
   text: string;
   userId: string;
@@ -5,6 +7,7 @@ export interface QueuedMessage {
   channel: string;
   resolve: (response: string) => void;
   reject: (error: Error) => void;
+  onEvent?: (event: StreamEvent) => void;
   isHeartbeat?: boolean;
 }
 
@@ -26,9 +29,9 @@ export class MessageQueue {
     return this.activeChannel;
   }
 
-  enqueue(msg: Omit<QueuedMessage, "resolve" | "reject">): Promise<string> {
+  enqueue(msg: Omit<QueuedMessage, "resolve" | "reject">, onEvent?: (event: StreamEvent) => void): Promise<string> {
     return new Promise<string>((resolve, reject) => {
-      const queued: QueuedMessage = { ...msg, resolve, reject };
+      const queued: QueuedMessage = { ...msg, resolve, reject, onEvent };
 
       // If we're processing and this is same channel (not heartbeat), store as pending injection
       if (this.processing && !msg.isHeartbeat && this.activeChannel && msg.channel === this.activeChannel) {

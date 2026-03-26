@@ -74,12 +74,13 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
     return runtime.handleMessage(context, (event: StreamEvent) => {
       server.broadcast(event);
+      msg.onEvent?.(event);
     });
   });
 
   // Helper to enqueue from any interface
   const enqueueMessage = (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void) => {
-    return queue.enqueue({ text, userId, interface: iface, channel });
+    return queue.enqueue({ text, userId, interface: iface, channel }, onEvent);
   };
 
   server.setMessageHandler(async (text, userId, iface, channel) => {
@@ -96,7 +97,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     telegramBot = new TelegramInterface(telegramToken, pairing);
     await telegramBot.start({
       onMessage: async (msg, onEvent) => {
-        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "");
+        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "", onEvent);
       },
     });
   }
