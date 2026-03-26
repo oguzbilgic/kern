@@ -135,9 +135,15 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
       const spaceIdx = msg.text.indexOf(" ");
       const toolName = spaceIdx > 0 ? msg.text.slice(0, spaceIdx) : msg.text;
       const toolDetail = spaceIdx > 0 ? msg.text.slice(spaceIdx) : "";
+      const toolColors: Record<string, string> = {
+        bash: "red", read: "cyan", write: "green", edit: "yellow",
+        glob: "magenta", grep: "blue", webfetch: "cyan", kern: "white",
+        message: "green",
+      };
+      const color = toolColors[toolName] || "yellow";
       return (
-        <Box paddingLeft={3} marginTop={0}>
-          <Text color="yellow">{toolName}</Text>
+        <Box paddingLeft={3}>
+          <Text color={color} bold={toolName === "kern"}>{toolName}</Text>
           <Text dimColor>{toolDetail}</Text>
         </Box>
       );
