@@ -70,7 +70,7 @@ function convertHistory(history: any[]): ChatMessage[] {
   return raw;
 }
 
-function buildBlocks(messages: ChatMessage[], streamingText: string): RenderBlock[] {
+function buildBlocks(messages: ChatMessage[]): RenderBlock[] {
   const blocks: RenderBlock[] = [];
   let i = 0;
   while (i < messages.length) {
@@ -100,9 +100,6 @@ function buildBlocks(messages: ChatMessage[], streamingText: string): RenderBloc
       continue;
     }
     i++;
-  }
-  if (streamingText) {
-    blocks.push({ kind: "assistant", text: streamingText });
   }
   return blocks;
 }
@@ -334,7 +331,7 @@ function App({ port, agentName, version }: TuiProps) {
   return (
     <Box flexDirection="column">
       {(() => {
-        const blocks = buildBlocks(messages, streamingText);
+        const blocks = buildBlocks(messages);
         return (
           <Static items={blocks.map((block, i) => ({ id: String(i), block }))}>
             {({ id, block }: { id: string; block: RenderBlock }) => (
@@ -347,6 +344,11 @@ function App({ port, agentName, version }: TuiProps) {
       })()}
 
       <Box flexDirection="column">
+        {streamingText && (
+          <Box marginTop={1} paddingLeft={3}>
+            <Text color="white" wrap="wrap">{streamingText}</Text>
+          </Box>
+        )}
         {busy && !streamingText && (
           <Box marginTop={1} paddingLeft={3}>
             {/* @ts-ignore */}
