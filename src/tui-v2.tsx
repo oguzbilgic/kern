@@ -35,13 +35,20 @@ function convertHistory(history: any[]): ChatMessage[] {
     if (m.role === "user" && typeof m.content === "string") {
       converted.push(parseUserMessage(m.content));
     } else if (m.role === "assistant") {
-      const text = typeof m.content === "string"
-        ? m.content
-        : Array.isArray(m.content)
-          ? m.content.filter((p: any) => p.type === "text").map((p: any) => p.text).join("")
-          : "";
-      if (text && text !== "NO_REPLY" && text !== "(no text response)") {
-        converted.push({ type: "assistant", text });
+      if (Array.isArray(m.content)) {
+        for (const p of m.content) {
+          if (p.type === "tool-call") {
+            const input = p.input || {};
+            const detail = input.path || input.command || input.pattern || input.url || input.action || input.userId || "";
+            converted.push({ type: "tool", text: `${p.toolName} ${detail}` });
+          }
+        }
+        const text = m.content.filter((p: any) => p.type === "text").map((p: any) => p.text).join("");
+        if (text && text !== "NO_REPLY" && text !== "(no text response)") {
+          converted.push({ type: "assistant", text });
+        }
+      } else if (typeof m.content === "string" && m.content !== "NO_REPLY" && m.content !== "(no text response)") {
+        converted.push({ type: "assistant", text: m.content });
       }
     }
   }
@@ -80,7 +87,7 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
       const label = msg.meta || "[incoming]";
       const emptyLine = " ".repeat(iw);
       return (
-        <Box flexDirection="column" marginY={1}>
+        <Box flexDirection="column" marginTop={1}>
           <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="yellow" width={width}>
             <Box flexDirection="column" width={iw}>
               <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
@@ -97,7 +104,7 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
       const label = msg.meta || "[outgoing]";
       const emptyLine = " ".repeat(iw);
       return (
-        <Box flexDirection="column" marginY={1}>
+        <Box flexDirection="column" marginTop={1}>
           <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="green" width={width}>
             <Box flexDirection="column" width={iw}>
               <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
@@ -113,7 +120,7 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
       const iw = width - 3;
       const emptyLine = " ".repeat(iw);
       return (
-        <Box flexDirection="column" marginY={1}>
+        <Box flexDirection="column" marginTop={1}>
           <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="magenta" width={width}>
             <Box flexDirection="column" width={iw}>
               <Text backgroundColor="#1a1a1a" dimColor>{emptyLine}</Text>
