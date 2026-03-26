@@ -24,6 +24,8 @@ The main config file. Committed to git.
 | `maxSteps` | `30` | Max tool-use steps per message |
 | `maxContextTokens` | `40000` | Estimated token budget for context window. Messages beyond this are trimmed from the front (oldest first). Full history stays in JSONL. |
 | `heartbeatInterval` | `60` | Minutes between heartbeat prompts. Agent reviews notes, updates knowledge. 0 to disable. |
+| `port` | `0` (random) | Fixed port for the agent's HTTP server. Useful for Docker or when running multiple agents. Overrides `KERN_PORT` env var. |
+| `host` | `127.0.0.1` | Bind address for the HTTP server. Set to `0.0.0.0` in containers. Overrides `KERN_HOST` env var. |
 
 ### Tool scopes
 
@@ -34,7 +36,7 @@ The main config file. Committed to git.
 ### Providers
 
 - **openrouter** — routes to cheapest provider. Model IDs like `anthropic/claude-opus-4.6`. Uses OpenAI-compatible chat completions API.
-- **anthropic** — direct Anthropic API. Model IDs like `claude-opus-4-6-20260301`.
+- **anthropic** — direct Anthropic API. Model IDs like `claude-opus-4-6`.
 - **openai** — OpenAI or Azure. Model IDs like `gpt-4o`.
 
 ## .kern/.env
@@ -49,6 +51,15 @@ SLACK_APP_TOKEN=xapp-...
 ```
 
 Only set the keys for providers/interfaces you use.
+
+### Environment variables
+
+These env vars can also be set in `.kern/.env` or passed via Docker `environment`:
+
+| Variable | Description |
+|----------|-------------|
+| `KERN_PORT` | Fallback port if not set in config.json. Default: `0` (random). |
+| `KERN_HOST` | Fallback bind address if not set in config.json. Default: `127.0.0.1`. |
 
 ## .kern/sessions/
 

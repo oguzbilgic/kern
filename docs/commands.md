@@ -58,6 +58,33 @@ Show all registered agents with status.
 
 Aliases: `kern ls`, `kern status`
 
+## kern remote
+
+Manage named remote agent connections. Stored in `~/.kern/remotes.json`.
+
+### kern remote add \<name\> \<host:port\>
+
+Register a remote agent by name.
+
+```bash
+kern remote add agent-pay localhost:8080
+kern remote add sentinel 192.168.1.50:8080
+```
+
+### kern remote rm \<name\>
+
+Remove a remote agent.
+
+```bash
+kern remote rm sentinel
+```
+
+### kern remote list
+
+Show all registered remotes.
+
+Alias: `kern remote ls`
+
 ## kern tui [name]
 
 Interactive terminal chat. Connects to running daemon via HTTP/SSE.
@@ -68,6 +95,17 @@ Interactive terminal chat. Connects to running daemon via HTTP/SSE.
 - Cross-channel messages visible in real time
 - Heartbeat activity visible
 - Ctrl-C only exits TUI, daemon stays alive
+- Checks remotes first — if name matches a remote, connects directly to that host:port
+
+### Flags
+
+- `--port <port>` — connect directly to a port, skip registry and remote lookup
+
+```bash
+kern tui agent-pay              # local agent or remote by name
+kern tui --port 8080            # direct port connection
+kern tui sentinel --port 8080   # named + direct port
+```
 
 ## kern logs [name]
 
