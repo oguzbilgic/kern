@@ -117,7 +117,7 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
           <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="magenta" width={width}>
             <Box flexDirection="column" width={iw}>
               <Text backgroundColor="#1a1a1a" dimColor>{emptyLine}</Text>
-              <Text backgroundColor="#1a1a1a" dimColor>{("  ♡ heartbeat").padEnd(iw)}</Text>
+              <Text backgroundColor="#1a1a1a" color="magenta">{("  ♡ heartbeat").padEnd(iw)}</Text>
               <Text backgroundColor="#1a1a1a" dimColor>{emptyLine}</Text>
             </Box>
           </Box>
