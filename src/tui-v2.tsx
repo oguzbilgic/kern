@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { render, Box, Text, useInput, useApp, useStdout } from "ink";
-// @ts-ignore — ink-spinner type mismatch with React 19
+// @ts-ignore
 import Spinner from "ink-spinner";
 import type { ServerEvent } from "./server.js";
 
@@ -16,95 +16,16 @@ interface TuiProps {
   version: string;
 }
 
-function StatusBar({ agentName, version, port }: { agentName: string; version: string; port: number }) {
-  return (
-    <Box borderStyle="single" borderBottom={false} borderLeft={false} borderRight={false} paddingX={1}>
-      <Text bold>kern</Text>
-      <Text dimColor> v{version}</Text>
-      <Text dimColor> · </Text>
-      <Text color="cyan">{agentName}</Text>
-      <Text dimColor> · </Text>
-      <Text dimColor>:{port}</Text>
-      <Box flexGrow={1} />
-      <Text dimColor>ctrl+c to exit</Text>
-    </Box>
-  );
-}
-
-function MessageView({ msg }: { msg: ChatMessage }) {
-  switch (msg.type) {
-    case "user":
-      return (
-        <Box>
-          <Text color="green" bold>{">"} </Text>
-          <Text>{msg.text}</Text>
-        </Box>
-      );
-    case "assistant":
-      return (
-        <Box>
-          <Text color="blue">◆ </Text>
-          <Text>{msg.text}</Text>
-        </Box>
-      );
-    case "incoming":
-      return (
-        <Box>
-          <Text color="yellow">◇ </Text>
-          <Text dimColor>{msg.meta} </Text>
-          <Text>{msg.text}</Text>
-        </Box>
-      );
-    case "outgoing":
-      return (
-        <Box>
-          <Text color="green">→ </Text>
-          <Text dimColor>{msg.meta} </Text>
-          <Text>{msg.text}</Text>
-        </Box>
-      );
-    case "heartbeat":
-      return (
-        <Box>
-          <Text dimColor>♡ heartbeat</Text>
-        </Box>
-      );
-    case "tool":
-      return (
-        <Box>
-          <Text color="yellow">{msg.text}</Text>
-        </Box>
-      );
-    case "error":
-      return (
-        <Box>
-          <Text color="red">{msg.text}</Text>
-        </Box>
-      );
-    default:
-      return <Text>{msg.text}</Text>;
-  }
-}
-
-function parseUserMessage(content: string): { type: ChatMessage["type"]; text: string; meta?: string } {
-  // Parse [via interface, channel, user: id, time: ...]\ntext
+function parseUserMessage(content: string): ChatMessage {
   const match = content.match(/^\[via ([^,]+),?\s*([^,]*),?\s*user:\s*([^,\]]*),?\s*(?:time:\s*([^\]]*))?\]\n?([\s\S]*)$/);
   if (match) {
     const [, iface, channel, userId, , text] = match;
     const cleanText = text.trim();
-    if (iface.trim() === "tui") {
-      return { type: "user", text: cleanText || "(empty)" };
-    }
-    if (iface.trim() === "system" && channel?.trim() === "heartbeat") {
-      return { type: "heartbeat", text: "" };
-    }
-    const meta = `[${iface.trim()} ${userId.trim()}]`;
-    return { type: "incoming", text: cleanText || "(empty)", meta };
+    if (iface.trim() === "tui") return { type: "user", text: cleanText || "(empty)" };
+    if (iface.trim() === "system" && channel?.trim() === "heartbeat") return { type: "heartbeat", text: "" };
+    return { type: "incoming", text: cleanText || "(empty)", meta: `[${iface.trim()} ${userId.trim()}]` };
   }
-  // No metadata — plain user message
-  if (content === "[heartbeat]") {
-    return { type: "heartbeat", text: "" };
-  }
+  if (content === "[heartbeat]") return { type: "heartbeat", text: "" };
   return { type: "user", text: content };
 }
 
@@ -123,9 +44,30 @@ function convertHistory(history: any[]): ChatMessage[] {
         converted.push({ type: "assistant", text });
       }
     }
-    // Skip tool messages in history view
   }
   return converted;
+}
+
+function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
+  const maxW = width - 4;
+  switch (msg.type) {
+    case "user":
+      return <Box><Text color="green" bold>{">"} </Text><Text wrap="wrap">{msg.text}</Text></Box>;
+    case "assistant":
+      return <Box><Text color="blue">◆ </Text><Text wrap="wrap">{msg.text}</Text></Box>;
+    case "incoming":
+      return <Box><Text color="yellow">◇ </Text><Text dimColor>{msg.meta} </Text><Text wrap="wrap">{msg.text}</Text></Box>;
+    case "outgoing":
+      return <Box><Text color="green">→ </Text><Text dimColor>{msg.meta} </Text><Text wrap="wrap">{msg.text}</Text></Box>;
+    case "heartbeat":
+      return <Box><Text dimColor>♡ heartbeat</Text></Box>;
+    case "tool":
+      return <Box><Text color="yellow">{msg.text}</Text></Box>;
+    case "error":
+      return <Box><Text color="red">{msg.text}</Text></Box>;
+    default:
+      return <Text>{msg.text}</Text>;
+  }
 }
 
 function App({ port, agentName, version }: TuiProps) {
@@ -135,49 +77,47 @@ function App({ port, agentName, version }: TuiProps) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [streamingText, setStreamingText] = useState("");
-  const [scrollOffset, setScrollOffset] = useState(0);
-  const baseUrl = `http://127.0.0.1:${port}`;
-
-  const rows = stdout?.rows || 24;
-  const chatHeight = rows - 4;
   const [oldestIndex, setOldestIndex] = useState<number | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  const cols = stdout?.columns || 80;
 
   // Load initial history
   useEffect(() => {
-    async function loadHistory() {
+    (async () => {
       try {
-        const res = await fetch(`${baseUrl}/history?limit=50`);
+        const res = await fetch(`${baseUrl}/history?limit=30`);
         const history = await res.json();
         if (history.length > 0) {
-          const converted = convertHistory(history);
-          setMessages(converted);
-          if (history[0]?.index !== undefined) {
-            setOldestIndex(history[0].index);
-          }
+          setMessages(convertHistory(history));
+          if (history[0]?.index !== undefined) setOldestIndex(history[0].index);
         }
       } catch {}
-    }
-    loadHistory();
+    })();
   }, []);
 
+  // SSE connection
   useEffect(() => {
     let aborted = false;
 
     function handleEvent(event: ServerEvent) {
       if ((event as any).type === "incoming" && event.fromInterface !== "tui") {
-        const meta = `[${event.fromInterface} ${event.fromUserId || ""}]`;
-        setMessages((m: ChatMessage[]) => [...m, { type: "incoming" as const, text: event.text || "", meta }]);
-        setScrollOffset(0);
+        setMessages((m: ChatMessage[]) => [...m, {
+          type: "incoming" as const,
+          text: event.text || "",
+          meta: `[${event.fromInterface} ${event.fromUserId || ""}]`,
+        }]);
         return;
       }
-
       if ((event as any).type === "outgoing") {
-        const meta = `[→ ${event.fromInterface} ${event.fromUserId || ""}]`;
-        setMessages((m: ChatMessage[]) => [...m, { type: "outgoing" as const, text: event.text || "", meta }]);
+        setMessages((m: ChatMessage[]) => [...m, {
+          type: "outgoing" as const,
+          text: event.text || "",
+          meta: `[→ ${event.fromInterface} ${event.fromUserId || ""}]`,
+        }]);
         return;
       }
-
       if ((event as any).type === "heartbeat") {
         setMessages((m: ChatMessage[]) => [...m, { type: "heartbeat" as const, text: "" }]);
         return;
@@ -196,13 +136,10 @@ function App({ port, agentName, version }: TuiProps) {
         }
         case "finish":
           setStreamingText((s: string) => {
-            if (s) {
-              setMessages((m: ChatMessage[]) => [...m, { type: "assistant" as const, text: s }]);
-            }
+            if (s) setMessages((m: ChatMessage[]) => [...m, { type: "assistant" as const, text: s }]);
             return "";
           });
           setBusy(false);
-          setScrollOffset(0);
           break;
         case "error":
           setMessages((m: ChatMessage[]) => [...m, { type: "error" as const, text: event.error || "Unknown error" }]);
@@ -218,27 +155,19 @@ function App({ port, agentName, version }: TuiProps) {
         const reader = res.body!.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
-
         while (!aborted) {
           const { done, value } = await reader.read();
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
-
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
-
           for (const line of lines) {
             if (!line.startsWith("data: ")) continue;
-            try {
-              const event: ServerEvent = JSON.parse(line.slice(6));
-              handleEvent(event);
-            } catch {}
+            try { handleEvent(JSON.parse(line.slice(6))); } catch {}
           }
         }
       } catch {
-        if (!aborted) {
-          setTimeout(connect, 2000);
-        }
+        if (!aborted) setTimeout(connect, 2000);
       }
     }
 
@@ -247,47 +176,12 @@ function App({ port, agentName, version }: TuiProps) {
   }, []);
 
   useInput((ch: string, key: any) => {
-    if (key.escape) {
-      exit();
-      return;
-    }
-
-    if (key.upArrow) {
-      setScrollOffset((n: number) => {
-        const newOffset = Math.min(n + 1, Math.max(0, messages.length - chatHeight));
-        // Load more history when scrolling near the top
-        if (newOffset >= messages.length - chatHeight - 5 && oldestIndex && oldestIndex > 0 && !loadingHistory) {
-          setLoadingHistory(true);
-          fetch(`${baseUrl}/history?limit=50&before=${oldestIndex}`)
-            .then((r) => r.json())
-            .then((history: any[]) => {
-              if (history.length > 0) {
-                const converted = convertHistory(history);
-                setMessages((m: ChatMessage[]) => [...converted, ...m]);
-                if (history[0]?.index !== undefined) {
-                  setOldestIndex(history[0].index);
-                }
-              }
-              setLoadingHistory(false);
-            })
-            .catch(() => setLoadingHistory(false));
-        }
-        return newOffset;
-      });
-      return;
-    }
-    if (key.downArrow) {
-      setScrollOffset((n: number) => Math.max(0, n - 1));
-      return;
-    }
-
+    if (key.escape) { exit(); return; }
     if (key.return && input.trim() && !busy) {
       const text = input.trim();
       setInput("");
       setMessages((m: ChatMessage[]) => [...m, { type: "user" as const, text }]);
-      setScrollOffset(0);
       setBusy(true);
-
       fetch(`${baseUrl}/message`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -298,44 +192,47 @@ function App({ port, agentName, version }: TuiProps) {
       });
       return;
     }
-
-    if (key.backspace || key.delete) {
-      setInput((s: string) => s.slice(0, -1));
-      return;
-    }
-
-    if (ch && !key.ctrl && !key.meta) {
-      setInput((s: string) => s + ch);
-    }
+    if (key.backspace || key.delete) { setInput((s: string) => s.slice(0, -1)); return; }
+    if (ch && !key.ctrl && !key.meta) { setInput((s: string) => s + ch); }
   });
 
-  const allItems: ChatMessage[] = [...messages];
-  if (streamingText) {
-    allItems.push({ type: "assistant", text: streamingText });
-  }
-
-  const start = Math.max(0, allItems.length - chatHeight - scrollOffset);
-  const visible = allItems.slice(start, start + chatHeight);
-
   return (
-    <Box flexDirection="column" height={rows}>
-      <StatusBar agentName={agentName} version={version} port={port} />
-
-      <Box flexDirection="column" flexGrow={1} paddingX={1}>
-        {visible.map((msg, i) => (
-          <MessageView key={start + i} msg={msg} />
-        ))}
-        {busy && !streamingText && (
-          <Box>
-            <Text color="blue">◆ </Text>
-            {/* @ts-ignore */}
-            <Text color="blue"><Spinner type="dots" /></Text>
-            <Text dimColor> thinking...</Text>
-          </Box>
-        )}
+    <Box flexDirection="column">
+      {/* Status bar */}
+      <Box>
+        <Text bold color="white" backgroundColor="gray">
+          {" "}kern{" "}
+        </Text>
+        <Text backgroundColor="gray" dimColor>
+          {" "}v{version} · {agentName} · :{port}{" "}
+        </Text>
+        <Text backgroundColor="gray">
+          {" ".repeat(Math.max(0, cols - 20 - version.length - agentName.length - String(port).length))}
+        </Text>
       </Box>
 
-      <Box borderStyle="single" borderTop={true} borderBottom={false} borderLeft={false} borderRight={false} paddingX={1}>
+      {/* Messages */}
+      {messages.slice(-20).map((msg, i) => (
+        <MessageView key={i} msg={msg} width={cols} />
+      ))}
+
+      {/* Streaming */}
+      {streamingText && (
+        <Box><Text color="blue">◆ </Text><Text wrap="wrap">{streamingText}</Text></Box>
+      )}
+
+      {/* Spinner */}
+      {busy && !streamingText && (
+        <Box>
+          <Text color="blue">◆ </Text>
+          {/* @ts-ignore */}
+          <Text color="blue"><Spinner type="dots" /></Text>
+          <Text dimColor> thinking...</Text>
+        </Box>
+      )}
+
+      {/* Input */}
+      <Box marginTop={1}>
         <Text color="green" bold>{">"} </Text>
         <Text>{input}</Text>
         {!busy && <Text dimColor>▎</Text>}
@@ -361,18 +258,10 @@ export async function connectTuiV2(port: number, agentName: string): Promise<voi
     version = pkg.version;
   } catch {}
 
-  // Enter alternate screen
-  process.stdout.write("\x1b[?1049h");
-  process.stdout.write("\x1b[?25l"); // hide cursor
-
   const { waitUntilExit } = render(
     <App port={port} agentName={agentName} version={version} />,
     { exitOnCtrlC: true }
   );
 
   await waitUntilExit();
-
-  // Restore terminal
-  process.stdout.write("\x1b[?25h"); // show cursor
-  process.stdout.write("\x1b[?1049l");
 }
