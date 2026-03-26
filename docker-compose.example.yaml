@@ -1,0 +1,51 @@
+# Example Docker Compose for kern agents
+#
+# Usage:
+#   1. Copy this file: cp docker-compose.example.yaml docker-compose.yaml
+#   2. Update paths and env_file to point to your agent directories
+#   3. Build: docker build -t kern-ai .
+#   4. Run: docker compose up
+
+services:
+  # Single agent example
+  my-agent:
+    image: kern-ai
+    container_name: kern-my-agent
+    volumes:
+      - ./my-agent:/agent
+    environment:
+      - KERN_PORT=8080
+      - KERN_HOST=0.0.0.0
+    env_file:
+      - ./my-agent/.kern/.env
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Second agent example (uncomment to use)
+  #
+  # another-agent:
+  #   image: kern-ai
+  #   container_name: kern-another-agent
+  #   volumes:
+  #     - ./another-agent:/agent
+  #   environment:
+  #     - KERN_PORT=8080
+  #     - KERN_HOST=0.0.0.0
+  #   env_file:
+  #     - ./another-agent/.kern/.env
+  #   ports:
+  #     - "8081:8080"
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+  #     interval: 30s
+  #     timeout: 5s
+  #     retries: 3
+  #     start_period: 10s
