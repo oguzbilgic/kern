@@ -38,12 +38,14 @@
     "@inquirer/prompts": "^8.3.2",
     "@slack/bolt": "^4.6.0",
     "ai": "^6.0.0",
+    "better-sqlite3": "^12.8.0",
     "dotenv": "^16.4.0",
     "glob": "^11.0.0",
     "grammy": "^1.35.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"

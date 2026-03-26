@@ -38,6 +38,7 @@ async function showHelp() {
   w(`    ${cyan("kern list")}                   show all agents`);
   w(`    ${cyan("kern remove")} ${dim("<name>")}          unregister an agent`);
   w(`    ${cyan("kern pair")} ${dim("<agent> <code>")}    approve a pairing code`);
+  w(`    ${cyan("kern import")} ${dim("opencode <name>")}  import session from OpenCode`);
   w(`    ${cyan("kern backup")} ${dim("<name>")}          backup agent to .tar.gz`);
   w(`    ${cyan("kern restore")} ${dim("<file>")}         restore agent from backup`);
   w(`    ${cyan("kern logs")} ${dim("[name]")}            tail agent logs`);
@@ -155,6 +156,19 @@ async function main() {
     const { spawn } = await import("child_process");
     const tail = spawn("tail", ["-f", logFile], { stdio: "inherit" });
     process.on("SIGINT", () => { tail.kill(); process.exit(0); });
+    return;
+  }
+
+  if (cmd === "import") {
+    const source = args[1]; // "opencode"
+    const agentName = args[2];
+    if (source === "opencode") {
+      const { importOpenCode } = await import("./import.js");
+      await importOpenCode(agentName);
+    } else {
+      console.error("Usage: kern import opencode <agent>");
+      process.exit(1);
+    }
     return;
   }
 
