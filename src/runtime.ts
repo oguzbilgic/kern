@@ -247,17 +247,15 @@ export class Runtime {
       // If a restart was requested during this turn, execute it now that session is saved
       if (this.pendingRestart) {
         log("runtime", "executing pending restart...");
-        import("child_process").then(({ spawn }) => {
-          import("path").then(({ basename, join }) => {
-            const kernBin = join(import.meta.dirname, "..", "index.js");
-            const name = basename(this.agentDir);
-            const child = spawn("node", ["--no-deprecation", kernBin, "restart", name], {
-              detached: true,
-              stdio: "ignore",
-            });
-            child.unref();
-          });
+        const { spawn } = await import("child_process");
+        const { basename, join: joinPath } = await import("path");
+        const kernBin = joinPath(import.meta.dirname, "..", "index.js");
+        const name = basename(this.agentDir);
+        const child = spawn("node", ["--no-deprecation", kernBin, "restart", name], {
+          detached: true,
+          stdio: "ignore",
         });
+        child.unref();
       }
 
       return fullText || "(no text response)";
