@@ -138,8 +138,17 @@ export class TelegramInterface implements Interface {
         clearInterval(typingInterval);
         if (pendingNewMessage) await pendingNewMessage;
         // Final edit — overwrite tools with text on the last message
-        const lastText = currentText || response;
-        await this.editMessage(ctx, activeMessageId, lastText);
+        const lastText = (currentText || response || "").trim();
+        if (lastText === "NO_REPLY" || lastText === "(no text response)") {
+          // Suppress — delete the placeholder message
+          try { await ctx.api.deleteMessage(ctx.chat.id, activeMessageId); } catch {}
+          // Delete any earlier placeholder too
+          if (activeMessageId !== reply.message_id) {
+            try { await ctx.api.deleteMessage(ctx.chat.id, reply.message_id); } catch {}
+          }
+        } else {
+          await this.editMessage(ctx, activeMessageId, lastText);
+        }
       } catch (error: any) {
         clearInterval(typingInterval);
         await this.editMessage(ctx, reply.message_id, `Error: ${error.message}`);
