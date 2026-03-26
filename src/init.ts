@@ -5,24 +5,16 @@ import { input, select, password } from "@inquirer/prompts";
 import { registerAgent, findAgent, isProcessRunning, setPid } from "./registry.js";
 import { startAgent } from "./daemon.js";
 
-const MODELS: Record<string, { name: string; value: string }[]> = {
+// Fallback models used when live fetch fails (e.g. no network, bad key)
+const FALLBACK_MODELS: Record<string, { name: string; value: string }[]> = {
   openrouter: [
     { name: "Claude Opus 4.6", value: "anthropic/claude-opus-4.6" },
     { name: "Claude Sonnet 4.6", value: "anthropic/claude-sonnet-4.6" },
-    { name: "MiMo-V2-Pro", value: "xiaomi/mimo-v2-pro" },
-    { name: "MiniMax M2.5", value: "minimax/minimax-m2.5" },
-    { name: "DeepSeek V3.2", value: "deepseek/deepseek-chat-v3.2" },
-    { name: "GLM 5 Turbo", value: "z-ai/glm-5-turbo" },
-    { name: "Gemini 3 Flash Preview", value: "google/gemini-3-flash-preview" },
-    { name: "Hunter Alpha", value: "openrouter/hunter-alpha" },
-    { name: "GPT-5.4", value: "openai/gpt-5.4" },
-    { name: "Gemini 3.1 Pro", value: "google/gemini-3.1-pro" },
     { name: "Gemini 2.5 Flash", value: "google/gemini-2.5-flash" },
-    { name: "Step 3.5 Flash (free)", value: "stepfun/step-3.5-flash" },
   ],
   anthropic: [
-    { name: "Claude Opus 4.6", value: "claude-opus-4-6-20260301" },
-    { name: "Claude Sonnet 4.6", value: "claude-sonnet-4-6-20260301" },
+    { name: "Claude Opus 4.6", value: "claude-opus-4-6" },
+    { name: "Claude Sonnet 4.6", value: "claude-sonnet-4-6" },
   ],
   openai: [
     { name: "GPT-4o", value: "gpt-4o" },
@@ -30,6 +22,89 @@ const MODELS: Record<string, { name: string; value: string }[]> = {
     { name: "o3", value: "o3" },
   ],
 };
+
+// Models to exclude from OpenRouter (embeddings, moderation, old versions, etc.)
+const OPENROUTER_EXCLUDE = /embed|moderat|whisper|tts|dall-e|vision-preview/i;
+
+async function fetchModels(
+  provider: string,
+  apiKey: string,
+): Promise<{ name: string; value: string }[] | null> {
+  try {
+    let url: string;
+    const headers: Record<string, string> = {};
+
+    switch (provider) {
+      case "anthropic":
+        url = "https://api.anthropic.com/v1/models";
+        headers["x-api-key"] = apiKey;
+        headers["anthropic-version"] = "2023-06-01";
+        break;
+      case "openrouter":
+        url = "https://openrouter.ai/api/v1/models";
+        // OpenRouter doesn't require auth for model listing
+        break;
+      case "openai":
+        url = "https://api.openai.com/v1/models";
+        headers["Authorization"] = `Bearer ${apiKey}`;
+        break;
+      default:
+        return null;
+    }
+
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+
+    const json: any = await res.json();
+    const models: any[] = json.data || [];
+
+    if (provider === "anthropic") {
+      // Anthropic returns { id, display_name, created_at }
+      // Sort by created_at descending (newest first)
+      return models
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .map((m) => ({ name: m.display_name || m.id, value: m.id }));
+    }
+
+    if (provider === "openrouter") {
+      // OpenRouter returns thousands of models — filter to well-known providers
+      // and sort by context length (proxy for capability)
+      const preferred = ["anthropic/", "openai/", "google/", "deepseek/", "meta-llama/"];
+      return models
+        .filter((m) => preferred.some((p) => m.id.startsWith(p)) && !OPENROUTER_EXCLUDE.test(m.id))
+        .sort((a, b) => (b.context_length || 0) - (a.context_length || 0))
+        .slice(0, 20)
+        .map((m) => ({ name: m.name || m.id, value: m.id }));
+    }
+
+    if (provider === "openai") {
+      // OpenAI returns all models including fine-tunes, embeddings, etc.
+      // Filter to chat-capable models
+      const chatModels = models
+        .filter((m) => /^(gpt-|o[0-9]|chatgpt)/.test(m.id) && !/instruct|audio|realtime|search/i.test(m.id))
+        .sort((a, b) => (b.created || 0) - (a.created || 0))
+        .slice(0, 15);
+      return chatModels.map((m) => ({ name: m.id, value: m.id }));
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function getModelChoices(
+  provider: string,
+  apiKey: string,
+): Promise<{ name: string; value: string }[]> {
+  if (apiKey) {
+    print("  Fetching models...");
+    const live = await fetchModels(provider, apiKey);
+    if (live && live.length > 0) return live;
+    print("  Could not fetch models, using defaults");
+  }
+  return FALLBACK_MODELS[provider] || FALLBACK_MODELS.openrouter;
+}
 
 const PROVIDERS = [
   { name: "OpenRouter", value: "openrouter", keyLabel: "OpenRouter API key" },
@@ -90,8 +165,9 @@ async function runConfig(name: string, dir: string): Promise<void> {
     mask: "*",
   });
 
-  // Model
-  const modelChoices = MODELS[provider] || MODELS.openrouter;
+  // Model — fetch live from provider, fall back to defaults
+  const keyForFetch = !apiKey ? currentKey : apiKey;
+  const modelChoices = await getModelChoices(provider, keyForFetch || "");
   const currentModel = currentConfig.model || modelChoices[0].value;
   const model = await select({
     message: "Model",
@@ -202,8 +278,12 @@ export async function runInit(targetArg?: string, flags?: Record<string, string>
     }
 
     const provider = flags.provider || "openrouter";
-    const model = flags.model || (MODELS[provider]?.[0]?.value || "anthropic/claude-opus-4.6");
     const apiKey = flags["api-key"];
+    let model = flags.model;
+    if (!model) {
+      const choices = await getModelChoices(provider, apiKey);
+      model = choices[0]?.value || "anthropic/claude-opus-4.6";
+    }
     const envVar = API_KEY_ENV[provider] || "OPENROUTER_API_KEY";
     const telegramToken = flags["telegram-token"] || "";
     const slackBotToken = flags["slack-bot-token"] || "";
@@ -246,8 +326,8 @@ export async function runInit(targetArg?: string, flags?: Record<string, string>
     mask: "*",
   });
 
-  // Model
-  const modelChoices = MODELS[provider] || MODELS.openrouter;
+  // Model — fetch live from provider, fall back to defaults
+  const modelChoices = await getModelChoices(provider, apiKey);
   const model = await select({
     message: "Model",
     choices: modelChoices,
