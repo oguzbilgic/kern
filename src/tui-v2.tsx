@@ -52,10 +52,19 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
   const maxW = width - 4;
   switch (msg.type) {
     case "user": {
+      const pad = "  ";
+      const lines = msg.text.split("\n");
+      const maxLen = Math.min(width - 8, Math.max(...lines.map((l: string) => l.length)) + 4);
+      const padded = lines.map((l: string) => pad + l.padEnd(maxLen) + pad).join("\n");
+      const emptyLine = pad + " ".repeat(maxLen) + pad;
       return (
         <Box flexDirection="column" marginY={1}>
-          <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="#555" paddingLeft={2} paddingY={1}>
-            <Text wrap="wrap" color="white">{msg.text}</Text>
+          <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="green">
+            <Box flexDirection="column">
+              <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
+              <Text backgroundColor="#1a1a1a" color="white" wrap="wrap">{padded}</Text>
+              <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
+            </Box>
           </Box>
         </Box>
       );
