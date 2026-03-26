@@ -64,7 +64,7 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
       const padded = pad + msg.text;
       const emptyLine = " ".repeat(innerWidth);
       return (
-        <Box flexDirection="column" marginTop={1}>
+         <Box flexDirection="column">
           <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="green" width={width}>
             <Box flexDirection="column" width={innerWidth}>
               <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
@@ -77,7 +77,7 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
     }
     case "assistant": {
       return (
-        <Box flexDirection="column" marginTop={1} paddingLeft={3}>
+        <Box flexDirection="column" paddingLeft={3}>
           <Text color="white" wrap="wrap">{msg.text}</Text>
         </Box>
       );
@@ -87,7 +87,7 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
       const label = msg.meta || "[incoming]";
       const emptyLine = " ".repeat(iw);
       return (
-        <Box flexDirection="column" marginTop={1}>
+        <Box flexDirection="column" >
           <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="yellow" width={width}>
             <Box flexDirection="column" width={iw}>
               <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
@@ -104,7 +104,7 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
       const label = msg.meta || "[outgoing]";
       const emptyLine = " ".repeat(iw);
       return (
-        <Box flexDirection="column" marginTop={1}>
+        <Box flexDirection="column" >
           <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="green" width={width}>
             <Box flexDirection="column" width={iw}>
               <Text backgroundColor="#1a1a1a" color="white">{emptyLine}</Text>
@@ -120,7 +120,7 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
       const iw = width - 3;
       const emptyLine = " ".repeat(iw);
       return (
-        <Box flexDirection="column" marginTop={1}>
+        <Box flexDirection="column" >
           <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="magenta" width={width}>
             <Box flexDirection="column" width={iw}>
               <Text backgroundColor="#1a1a1a" dimColor>{emptyLine}</Text>
@@ -293,12 +293,20 @@ function App({ port, agentName, version }: TuiProps) {
 
       {/* Completed messages — rendered once, scroll up via terminal */}
       <Static items={messages.map((msg, i) => ({ id: String(i), msg, prevType: i > 0 ? messages[i-1].type : null }))}>
-        {({ id, msg, prevType }) => (
-          <Box key={id} flexDirection="column">
-            {msg.type === "tool" && prevType !== "tool" && <Text>{" "}</Text>}
-            <MessageView msg={msg} width={cols} />
-          </Box>
-        )}
+        {({ id, msg, prevType }) => {
+          const isBox = msg.type === "user" || msg.type === "incoming" || msg.type === "outgoing" || msg.type === "heartbeat";
+          const needsGap = (
+            (isBox && prevType !== null) ||
+            (msg.type === "tool" && prevType !== null && prevType !== "tool") ||
+            (msg.type === "assistant" && prevType === "tool")
+          );
+          return (
+            <Box key={id} flexDirection="column">
+              {needsGap && <Text>{" "}</Text>}
+              <MessageView msg={msg} width={cols} />
+            </Box>
+          );
+        }}
       </Static>
 
       {/* Active area — streaming, spinner, input */}
@@ -316,7 +324,7 @@ function App({ port, agentName, version }: TuiProps) {
           </Box>
         )}
 
-        <Box flexDirection="column" marginTop={1}>
+        <Box flexDirection="column" >
           <Box borderStyle="bold" borderLeft={true} borderRight={false} borderTop={false} borderBottom={false} borderColor="green" width={cols}>
             <Box flexDirection="column" width={cols - 3}>
               <Text backgroundColor="#1a1a1a" color="white">{" ".repeat(cols - 3)}</Text>
