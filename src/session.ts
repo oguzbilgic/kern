@@ -45,12 +45,30 @@ export class SessionManager {
     const meta = JSON.parse(lines[0]);
     const messages: ModelMessage[] = lines.slice(1).map((l) => JSON.parse(l));
 
+    // Detect incomplete turn — if session ends with assistant tool-call
+    // without a matching tool result, the previous process died mid-turn.
+    // Append a synthetic message so the model doesn't re-execute.
+    if (messages.length > 0) {
+      const last = messages[messages.length - 1];
+      if (last.role === "assistant" && Array.isArray(last.content)) {
+        const hasToolCall = (last.content as any[]).some((p) => p.type === "tool-call");
+        const nextIsTool = false; // it's the last message, no tool result follows
+        if (hasToolCall) {
+          messages.push({
+            role: "user",
+            content: "[system] Previous turn was interrupted. Tool results were lost. Continue normally.",
+          } as ModelMessage);
+        }
+      }
+    }
+
     this.session = {
       id: meta.id,
       messages,
       createdAt: meta.createdAt,
       updatedAt: meta.updatedAt,
     };
+
     return this.session;
   }
 
