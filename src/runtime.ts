@@ -108,6 +108,13 @@ export class Runtime {
     });
   }
 
+  // Pending messages to inject via prepareStep
+  private pendingInjections: (() => { role: string; content: string }[]) | null = null;
+
+  setPendingInjections(fn: () => { role: string; content: string }[]) {
+    this.pendingInjections = fn;
+  }
+
   async handleMessage(
     userMessage: string,
     onEvent: StreamHandler,
@@ -135,9 +142,10 @@ export class Runtime {
       const contextMessages = trimToTokenBudget(allMessages, this.config.maxContextTokens);
       if (contextMessages.length < allMessages.length) {
         const trimmed = allMessages.length - contextMessages.length;
-        // Log silently — messages still in JSONL, just not sent to API
         process.stderr.write(`[kern] context trimmed: ${trimmed} old messages excluded\n`);
       }
+
+      const pendingInjections = this.pendingInjections;
 
       const result = streamText({
         model,
@@ -146,6 +154,27 @@ export class Runtime {
         tools,
         stopWhen: stepCountIs(this.config.maxSteps),
         onError: () => {},
+        prepareStep: ({ messages, stepNumber }) => {
+          if (stepNumber === 0 || !pendingInjections) return {};
+
+          const injections = pendingInjections();
+          if (injections.length === 0) return {};
+
+          // Inject pending same-channel messages wrapped in <system-reminder>
+          const injectedMessages = injections.map((msg) => ({
+            role: "user" as const,
+            content: `<system-reminder>\nThe user sent a new message while you were working:\n${msg.content}\n\nPlease address this message and continue with your tasks.\n</system-reminder>`,
+          }));
+
+          // Append to session so they persist
+          for (const msg of injections) {
+            this.session.append([{ role: "user", content: msg.content }]);
+          }
+
+          return {
+            messages: [...messages, ...injectedMessages],
+          };
+        },
       });
 
       for await (const part of result.fullStream) {

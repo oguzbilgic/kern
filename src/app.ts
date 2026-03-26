@@ -11,6 +11,7 @@ import { registerAgent, setPort } from "./registry.js";
 import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
+import { MessageQueue } from "./queue.js";
 
 export async function startApp(agentDir: string, forceCli = false): Promise<void> {
   // Update kernel if newer version available
@@ -34,24 +35,45 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   // Start HTTP server
   const server = new AgentServer();
 
-  // Handler for messages from any channel
-  const handleMessage = async (text: string, userId: string, iface: string, channel: string) => {
-    const context = `[via ${iface}${channel ? `, ${channel}` : ""}, user: ${userId}]\n${text}`;
+  // Message queue — serializes messages, same-channel injection
+  const queue = new MessageQueue();
 
-    server.broadcast({
-      type: "incoming" as any,
-      text,
-      fromInterface: iface,
-      fromUserId: userId,
-      fromChannel: channel,
+  queue.setHandler(async (msg, getPendingMessages) => {
+    const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}]\n${msg.text}`;
+
+    // Broadcast incoming to TUI
+    if (!msg.isHeartbeat) {
+      server.broadcast({
+        type: "incoming" as any,
+        text: msg.text,
+        fromInterface: msg.interface,
+        fromUserId: msg.userId,
+        fromChannel: msg.channel,
+      });
+    }
+
+    // Set up prepareStep injection for same-channel messages
+    runtime.setPendingInjections(() => {
+      const pending = getPendingMessages();
+      return pending.map((p) => ({
+        role: "user",
+        content: `[via ${p.interface}${p.channel ? `, ${p.channel}` : ""}, user: ${p.userId}]\n${p.text}`,
+      }));
     });
 
-    await runtime.handleMessage(context, (event: StreamEvent) => {
+    return runtime.handleMessage(context, (event: StreamEvent) => {
       server.broadcast(event);
     });
+  });
+
+  // Helper to enqueue from any interface
+  const enqueueMessage = (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void) => {
+    return queue.enqueue({ text, userId, interface: iface, channel });
   };
 
-  server.setMessageHandler(handleMessage);
+  server.setMessageHandler(async (text, userId, iface, channel) => {
+    await enqueueMessage(text, userId, iface, channel);
+  });
 
   const port = await server.start();
   await setPort(agentName, port);
@@ -63,20 +85,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     telegramBot = new TelegramInterface(telegramToken, pairing);
     await telegramBot.start({
       onMessage: async (msg, onEvent) => {
-        const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}]\n${msg.text}`;
-
-        server.broadcast({
-          type: "incoming" as any,
-          text: msg.text,
-          fromInterface: msg.interface,
-          fromUserId: msg.userId,
-          fromChannel: msg.channel,
-        });
-
-        return runtime.handleMessage(context, (event: StreamEvent) => {
-          onEvent(event);
-          server.broadcast(event);
-        });
+        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "");
       },
     });
   }
@@ -89,20 +98,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     slackBot = new SlackInterface(slackBotToken, slackAppToken, pairing);
     await slackBot.start({
       onMessage: async (msg, onEvent) => {
-        const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}]\n${msg.text}`;
-
-        server.broadcast({
-          type: "incoming" as any,
-          text: msg.text,
-          fromInterface: msg.interface,
-          fromUserId: msg.userId,
-          fromChannel: msg.channel,
-        });
-
-        return runtime.handleMessage(context, (event: StreamEvent) => {
-          onEvent(event);
-          server.broadcast(event);
-        });
+        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "");
       },
     });
   }
@@ -155,44 +151,35 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   w(`  ${dim("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")}`);
   w("");
 
-  // If forceCli, start CLI interface connected to same runtime
+  // If forceCli, start CLI interface connected to same runtime (also goes through queue)
   if (forceCli) {
     const cli = new CliInterface();
     await cli.start({
       onMessage: async (msg, onEvent) => {
-        const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}]\n${msg.text}`;
-        return runtime.handleMessage(context, (event: StreamEvent) => {
-          onEvent(event);
-          server.broadcast(event);
-        });
+        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "");
       },
       history: runtime.getMessages(),
     });
   }
 
-  // Heartbeat
+  // Heartbeat — goes through queue as low priority
   if (config.heartbeatInterval > 0) {
     const intervalMs = config.heartbeatInterval * 60 * 1000;
     setInterval(async () => {
       try {
-        // Broadcast heartbeat start to TUI
         server.broadcast({
           type: "heartbeat" as any,
           text: "[heartbeat]",
         });
 
-        const response = await runtime.handleMessage(
-          "[heartbeat]",
-          (event: StreamEvent) => {
-            // Only broadcast to SSE (TUI) — not Telegram/Slack
-            server.broadcast(event);
-          },
-        );
-
-        // If agent wants to be silent, that's fine
-        // The message tool still works for proactive outreach
+        await queue.enqueue({
+          text: "[heartbeat]",
+          userId: "system",
+          interface: "system",
+          channel: "heartbeat",
+          isHeartbeat: true,
+        });
       } catch (e: any) {
-        // Heartbeat failures are non-critical
         process.stderr.write(`[kern] heartbeat error: ${e.message}\n`);
       }
     }, intervalMs);
