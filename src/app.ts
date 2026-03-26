@@ -183,10 +183,12 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   // Graceful shutdown
   process.on("SIGTERM", () => {
+    log("kern", `stopped ${agentName}`);
     server.stop();
     process.exit(0);
   });
   process.on("SIGINT", () => {
+    log("kern", `stopped ${agentName}`);
     server.stop();
     process.exit(0);
   });
