@@ -48,8 +48,6 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   // Message queue — serializes messages, same-channel injection
   const queue = new MessageQueue();
 
-  const startedAt = Date.now();
-
   queue.setHandler(async (msg, getPendingMessages) => {
     const cmd = msg.text.trim();
 
@@ -63,21 +61,10 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       return "Restarting in 2 seconds...";
     }
 
-    // Intercept /status — instant runtime status, no LLM
+    // Intercept /status — calls the same kern tool status action, no LLM
     if (cmd === "/status") {
-      const uptime = Math.floor((Date.now() - startedAt) / 1000);
-      const h = Math.floor(uptime / 3600);
-      const m = Math.floor((uptime % 3600) / 60);
-      const s = uptime % 60;
-      const uptimeStr = h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
-      const msgs = runtime.getMessages();
-      const tui = server.hasConnectedClients() ? "connected" : "disconnected";
-      const lines = [
-        `**${agentName}** · ${config.provider}/${config.model}`,
-        `uptime: ${uptimeStr} · tui: ${tui}`,
-        `session: ${msgs.length} messages`,
-      ];
-      return lines.join("\n");
+      const { getStatus } = await import("./tools/kern.js");
+      return getStatus();
     }
 
     const time = new Date().toISOString();
