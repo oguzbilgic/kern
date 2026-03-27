@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.10.0
 
 ### Features
 - **Slash commands** — runtime-level commands that bypass the LLM entirely.
