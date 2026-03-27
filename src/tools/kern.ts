@@ -86,7 +86,7 @@ export function getStatus(): string {
     ? `session: ~${stats.estimatedTokens} tokens (${stats.totalMessages} messages)`
     : `messages: ${_messageCount}`;
   const contextLine = stats
-    ? `context: ~${stats.windowTokens} tokens (sent to API after trim)`
+    ? `context: ~${stats.windowTokens} tokens`
     : "";
 
   return [
