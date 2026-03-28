@@ -236,6 +236,20 @@ export class AgentServer {
       return;
     }
 
+    // Web UI — serve single-page HTML
+    if (url === "/" && req.method === "GET") {
+      const webUiPath = join(import.meta.dirname, "..", "templates", "web", "index.html");
+      if (existsSync(webUiPath)) {
+        const html = await readFile(webUiPath, "utf-8");
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(html);
+      } else {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end("<html><body><p>Web UI not found. Check kern installation.</p></body></html>");
+      }
+      return;
+    }
+
     res.writeHead(404);
     res.end(JSON.stringify({ error: "not found" }));
   }
