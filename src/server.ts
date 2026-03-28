@@ -138,6 +138,8 @@ export class AgentServer {
 
     // Auth check — all other endpoints require token if KERN_AUTH_TOKEN is set
     if (!this.checkAuth(req)) {
+      const remote = req.socket.remoteAddress || "unknown";
+      log("server", `401 unauthorized: ${req.method} ${url} from ${remote}`);
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "unauthorized" }));
       return;
