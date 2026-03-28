@@ -260,6 +260,111 @@
   .messages::-webkit-scrollbar { width: 6px; }
   .messages::-webkit-scrollbar-track { background: transparent; }
   .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* --- Agent Switcher --- */
+  .menu-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    line-height: 1;
+  }
+  .menu-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+  .switcher-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 100;
+  }
+  .switcher-overlay.open { display: block; }
+
+  .switcher-panel {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: min(320px, 85vw);
+    background: var(--bg-surface);
+    border-left: 1px solid var(--border);
+    z-index: 101;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.2s ease;
+  }
+  .switcher-overlay.open .switcher-panel { transform: translateX(0); }
+
+  .switcher-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .switcher-close {
+    background: none; border: none; color: var(--text-dim);
+    font-size: 20px; cursor: pointer; padding: 4px;
+  }
+
+  .switcher-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+  .switcher-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 4px;
+  }
+  .switcher-item:hover { background: rgba(255,255,255,0.05); }
+  .switcher-item.active { background: var(--accent-dim); }
+  .switcher-item-name { font-weight: 500; font-size: 14px; }
+  .switcher-item-url { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .switcher-item-remove {
+    background: none; border: none; color: var(--text-muted);
+    font-size: 16px; cursor: pointer; padding: 2px 6px;
+  }
+  .switcher-item-remove:hover { color: var(--red); }
+
+  .switcher-add {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+  }
+  .switcher-add input {
+    width: 100%;
+    background: var(--bg-input);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: var(--font-sans);
+    margin-bottom: 6px;
+    outline: none;
+    box-sizing: border-box;
+  }
+  .switcher-add input:focus { border-color: var(--accent-dim); }
+  .switcher-add input::placeholder { color: var(--text-muted); }
+  .switcher-add button {
+    width: 100%;
+    background: var(--accent-dim);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .switcher-add button:hover { background: var(--accent); }
 </style>
 </head>
 <body>
@@ -269,7 +374,26 @@
     <span class="status-dot connecting" id="status-dot"></span>
     <span class="header-title" id="agent-name">kern</span>
   </div>
-  <span class="header-meta" id="header-meta"></span>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span class="header-meta" id="header-meta"></span>
+    <button class="menu-btn" id="menu-btn" title="Switch agent">&#9776;</button>
+  </div>
+</div>
+
+<div class="switcher-overlay" id="switcher-overlay">
+  <div class="switcher-panel" id="switcher-panel">
+    <div class="switcher-header">
+      <span>Agents</span>
+      <button class="switcher-close" id="switcher-close">&times;</button>
+    </div>
+    <div class="switcher-list" id="switcher-list"></div>
+    <div class="switcher-add">
+      <input id="add-name" type="text" placeholder="Name (e.g. kern-dev)" />
+      <input id="add-url" type="text" placeholder="URL (e.g. http://192.168.1.189:8084)" />
+      <input id="add-token" type="password" placeholder="Token (optional)" />
+      <button id="add-agent-btn">Add Agent</button>
+    </div>
+  </div>
 </div>
 
 <div class="messages" id="messages"></div>
@@ -440,19 +564,139 @@ const statusDot = $('status-dot');
 const agentNameEl = $('agent-name');
 const headerMetaEl = $('header-meta');
 
+// ==========================================================================
+// Agent Switcher
+// ==========================================================================
+
+function getSavedAgents() {
+  try { return JSON.parse(localStorage.getItem('kern_agents') || '[]'); } catch { return []; }
+}
+function saveAgents(agents) {
+  localStorage.setItem('kern_agents', JSON.stringify(agents));
+}
+function getActiveAgent() {
+  return localStorage.getItem('kern_active_agent') || null;
+}
+function setActiveAgent(name) {
+  localStorage.setItem('kern_active_agent', name);
+}
+
 // Determine base URL and auth token
 const params = new URLSearchParams(location.search);
-const BASE_URL = params.get('url') || location.origin;
 
-// Token priority: URL param > localStorage
-// If token is in URL, store it and clean the URL
-let AUTH_TOKEN = params.get('token') || localStorage.getItem('kern_auth_token') || null;
+// If URL has explicit params, use those and save as an agent
+let BASE_URL = params.get('url') || location.origin;
+let AUTH_TOKEN = params.get('token') || null;
+
 if (params.get('token')) {
-  localStorage.setItem('kern_auth_token', params.get('token'));
-  // Remove token from URL bar without reloading
+  const urlName = params.get('name') || new URL(BASE_URL).port || 'default';
+  const agents = getSavedAgents();
+  const existing = agents.findIndex(a => a.url === BASE_URL);
+  if (existing >= 0) {
+    agents[existing].token = params.get('token');
+    agents[existing].name = urlName;
+  } else {
+    agents.push({ name: urlName, url: BASE_URL, token: params.get('token') });
+  }
+  saveAgents(agents);
+  setActiveAgent(urlName);
+  // Clean URL
   const cleanUrl = new URL(location.href);
   cleanUrl.searchParams.delete('token');
+  cleanUrl.searchParams.delete('name');
   history.replaceState(null, '', cleanUrl.toString());
+} else {
+  // Try to load active agent from saved list
+  const agents = getSavedAgents();
+  const activeName = getActiveAgent();
+  const active = agents.find(a => a.name === activeName) || agents[0];
+  if (active) {
+    BASE_URL = active.url;
+    AUTH_TOKEN = active.token;
+  } else {
+    AUTH_TOKEN = localStorage.getItem('kern_auth_token') || null;
+  }
+}
+
+// Render switcher panel
+function renderSwitcher() {
+  const list = $('switcher-list');
+  const agents = getSavedAgents();
+  const activeName = getActiveAgent();
+  list.innerHTML = '';
+  if (agents.length === 0) {
+    list.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:13px;">No saved agents. Add one below.</div>';
+    return;
+  }
+  for (const agent of agents) {
+    const item = document.createElement('div');
+    item.className = 'switcher-item' + (agent.name === activeName ? ' active' : '');
+    item.innerHTML = `
+      <div>
+        <div class="switcher-item-name">${agent.name}</div>
+        <div class="switcher-item-url">${agent.url}</div>
+      </div>
+      <button class="switcher-item-remove" title="Remove">&times;</button>
+    `;
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('.switcher-item-remove')) return;
+      switchToAgent(agent);
+    });
+    item.querySelector('.switcher-item-remove').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const updated = getSavedAgents().filter(a => a.name !== agent.name);
+      saveAgents(updated);
+      renderSwitcher();
+    });
+    list.appendChild(item);
+  }
+}
+
+function switchToAgent(agent) {
+  setActiveAgent(agent.name);
+  BASE_URL = agent.url;
+  AUTH_TOKEN = agent.token;
+  authFailed = false;
+  if (connection) { connection.close(); connection = null; }
+  messagesEl.innerHTML = '';
+  inputEl.disabled = false;
+  sendBtn.disabled = false;
+  inputEl.value = '';
+  $('switcher-overlay').classList.remove('open');
+  init();
+}
+
+function setupSwitcher() {
+  $('menu-btn').addEventListener('click', () => {
+    renderSwitcher();
+    $('switcher-overlay').classList.add('open');
+  });
+  $('switcher-close').addEventListener('click', () => {
+    $('switcher-overlay').classList.remove('open');
+  });
+  $('switcher-overlay').addEventListener('click', (e) => {
+    if (e.target === $('switcher-overlay')) {
+      $('switcher-overlay').classList.remove('open');
+    }
+  });
+  $('add-agent-btn').addEventListener('click', () => {
+    const name = $('add-name').value.trim();
+    const url = $('add-url').value.trim().replace(/\/$/, '');
+    const token = $('add-token').value.trim() || null;
+    if (!name || !url) return;
+    const agents = getSavedAgents();
+    const existing = agents.findIndex(a => a.name === name);
+    if (existing >= 0) {
+      agents[existing] = { name, url, token };
+    } else {
+      agents.push({ name, url, token });
+    }
+    saveAgents(agents);
+    $('add-name').value = '';
+    $('add-url').value = '';
+    $('add-token').value = '';
+    renderSwitcher();
+  });
 }
 
 let busy = false;
@@ -672,8 +916,20 @@ async function init() {
       return;
     }
     const status = await res.json();
-    agentNameEl.textContent = status.agentName || 'kern';
+    const resolvedName = status.agentName || 'kern';
+    agentNameEl.textContent = resolvedName;
     headerMetaEl.textContent = status.model || '';
+    // Auto-save this agent to the switcher list
+    const agents = getSavedAgents();
+    const existing = agents.findIndex(a => a.url === BASE_URL);
+    if (existing >= 0) {
+      agents[existing].name = resolvedName;
+      if (AUTH_TOKEN) agents[existing].token = AUTH_TOKEN;
+    } else {
+      agents.push({ name: resolvedName, url: BASE_URL, token: AUTH_TOKEN });
+    }
+    saveAgents(agents);
+    setActiveAgent(resolvedName);
   } catch {
     agentNameEl.textContent = 'kern';
   }
@@ -719,6 +975,7 @@ async function init() {
   });
 }
 
+setupSwitcher();
 init();
 
 // Register service worker for PWA
