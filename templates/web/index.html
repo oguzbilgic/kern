@@ -84,12 +84,10 @@
   .messages {
     flex: 1;
     overflow-y: auto;
-    overflow-x: hidden;
     padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 4px;
-    min-height: 0; /* prevent flex item from overflowing */
   }
 
   .message {
@@ -443,7 +441,7 @@ const AgentClient = {
       }
     };
     return {
-      close() { es.close(); connected = false; onDisconnect?.(); }
+      close() { es.close(); onDisconnect?.(); }
     };
   },
 
@@ -475,7 +473,6 @@ const AgentClient = {
         userId: opts.userId || 'tui',
         interface: opts.interface || 'web',
         channel: opts.channel || 'web',
-        clientId: opts.clientId,
       }),
     });
     return res.json();
@@ -552,9 +549,6 @@ function renderMarkdown(text) {
   html = html.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, (match) =>
     match.replace(/<br>/g, '\n'));
 
-  // Strip leading/trailing <br> to avoid blank space at top/bottom of bubbles
-  html = html.replace(/^(<br>)+/, '').replace(/(<br>)+$/, '');
-
   return html;
 }
 
@@ -589,14 +583,12 @@ function setActiveAgent(name) {
 
 // Determine base URL and auth token
 const params = new URLSearchParams(location.search);
-const CLIENT_ID = Math.random().toString(36).slice(2, 10);
 
 // If URL has explicit params, use those and save as an agent
 let BASE_URL = params.get('url') || location.origin;
 let AUTH_TOKEN = params.get('token') || null;
 
 if (params.get('token')) {
-  // Save current agent from URL params
   const urlName = params.get('name') || new URL(BASE_URL).port || 'default';
   const agents = getSavedAgents();
   const existing = agents.findIndex(a => a.url === BASE_URL);
@@ -622,7 +614,6 @@ if (params.get('token')) {
     BASE_URL = active.url;
     AUTH_TOKEN = active.token;
   } else {
-    // Fall back to localStorage token for backwards compat
     AUTH_TOKEN = localStorage.getItem('kern_auth_token') || null;
   }
 }
@@ -647,12 +638,10 @@ function renderSwitcher() {
       </div>
       <button class="switcher-item-remove" title="Remove">&times;</button>
     `;
-    // Switch to this agent
     item.addEventListener('click', (e) => {
       if (e.target.closest('.switcher-item-remove')) return;
       switchToAgent(agent);
     });
-    // Remove
     item.querySelector('.switcher-item-remove').addEventListener('click', (e) => {
       e.stopPropagation();
       const updated = getSavedAgents().filter(a => a.name !== agent.name);
@@ -668,22 +657,44 @@ function switchToAgent(agent) {
   BASE_URL = agent.url;
   AUTH_TOKEN = agent.token;
   authFailed = false;
-  // Close existing connection
   if (connection) { connection.close(); connection = null; }
-  // Clear messages
   messagesEl.innerHTML = '';
   inputEl.disabled = false;
   sendBtn.disabled = false;
   inputEl.value = '';
-  // Close switcher
   $('switcher-overlay').classList.remove('open');
-  // Reconnect
+  // Notify native app to restart SSE for the new agent
+  if (window.KernNative && window.KernNative.switchAgent) {
+    window.KernNative.switchAgent(agent.url, agent.token || '');
+  }
   init();
 }
 
-// Switcher UI events
+// Auto-discover agents from hub's /api/agents endpoint
+async function discoverAgents() {
+  try {
+    const res = await fetch(`${location.origin}/api/agents`);
+    if (!res.ok) return;
+    const hubAgents = await res.json();
+    if (!Array.isArray(hubAgents) || hubAgents.length === 0) return;
+    const saved = getSavedAgents();
+    for (const ha of hubAgents) {
+      const hubUrl = `${location.origin}/agent/${ha.name}`;
+      if (!saved.find(a => a.name === ha.name)) {
+        saved.push({ name: ha.name, url: hubUrl, token: null });
+      } else {
+        // Update URL to hub proxy path
+        const idx = saved.findIndex(a => a.name === ha.name);
+        saved[idx].url = hubUrl;
+      }
+    }
+    saveAgents(saved);
+  } catch {}
+}
+
 function setupSwitcher() {
-  $('menu-btn').addEventListener('click', () => {
+  $('menu-btn').addEventListener('click', async () => {
+    await discoverAgents();
     renderSwitcher();
     $('switcher-overlay').classList.add('open');
   });
@@ -828,11 +839,10 @@ function handleEvent(event) {
       break;
 
     case 'incoming':
-      // Show messages from other clients (skip our own — we already rendered it)
-      if (event.fromClientId !== CLIENT_ID) {
-        const isWeb = event.fromInterface === 'web' || event.fromInterface === 'tui';
-        const label = isWeb ? null : `[${event.fromInterface} ${event.fromUserId || ''}]`;
-        addMessage(isWeb ? 'user' : 'incoming', event.text || '', label);
+      if (event.fromInterface !== 'web') {
+        addMessage('incoming',
+          event.text || '',
+          `[${event.fromInterface} ${event.fromUserId || ''}]`);
       }
       break;
 
@@ -861,7 +871,7 @@ async function send() {
   setBusy(true);
 
   try {
-    await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text, { clientId: CLIENT_ID });
+    await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text);
   } catch (err) {
     addMessage('error', `Failed to send: ${err.message}`);
     setBusy(false);
@@ -992,22 +1002,48 @@ async function init() {
   });
 }
 
-init();
+setupSwitcher();
+
+// If we have a saved active agent, connect. Otherwise check if we're on a hub
+// and show the switcher to let user pick.
+(async () => {
+  const agents = getSavedAgents();
+  const activeName = getActiveAgent();
+  const hasActiveAgent = agents.find(a => a.name === activeName);
+
+  if (!hasActiveAgent && !params.get('token')) {
+    // Try hub discovery — if /api/agents exists, we're on a hub
+    try {
+      const res = await fetch(`${location.origin}/api/agents`);
+      if (res.ok) {
+        const hubAgents = await res.json();
+        if (Array.isArray(hubAgents) && hubAgents.length > 0) {
+          // Save discovered agents and show switcher
+          const saved = getSavedAgents();
+          for (const ha of hubAgents) {
+            const hubUrl = `${location.origin}/agent/${ha.name}`;
+            if (!saved.find(a => a.name === ha.name)) {
+              saved.push({ name: ha.name, url: hubUrl, token: null });
+            }
+          }
+          saveAgents(saved);
+          setConnected('disconnected');
+          agentNameEl.textContent = 'kern hub';
+          renderSwitcher();
+          $('switcher-overlay').classList.add('open');
+          return;
+        }
+      }
+    } catch {}
+  }
+
+  init();
+})();
 
 // Register service worker for PWA
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
-
-setupSwitcher();
-
-// Expose key variables for native app bridge (const/let aren't on window)
-window.AgentClient = AgentClient;
-window._kern = { get connection() { return connection; }, set connection(v) { connection = v; },
-  get streamingText() { return streamingText; }, set streamingText(v) { streamingText = v; },
-  get streamingEl() { return streamingEl; }, set streamingEl(v) { streamingEl = v; },
-  get busy() { return busy; }, set busy(v) { busy = v; },
-  get authFailed() { return authFailed; }, set authFailed(v) { authFailed = v; } };
 </script>
 </body>
 </html>

@@ -407,7 +407,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        val bridge = NativeBridge(webView, speech) { runOnUiThread { disconnect() } }
+        val bridge = NativeBridge(webView, speech,
+            onDisconnect = { runOnUiThread { disconnect() } },
+            onSwitchAgent = { url, token -> runOnUiThread { switchAgentSse(url, token) } }
+        )
         webView.addJavascriptInterface(bridge, "KernNative")
     }
 
@@ -425,6 +428,13 @@ class MainActivity : AppCompatActivity() {
         webView.loadUrl("about:blank")
         ConnectionConfig.clear(this)
         showSetup()
+    }
+
+    private fun switchAgentSse(url: String, token: String?) {
+        sseClient.close()
+        serverUrl = url.trimEnd('/')
+        serverToken = token
+        startNativeSse()
     }
 
     private fun startNativeSse() {

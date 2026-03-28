@@ -10,6 +10,7 @@ class NativeBridge(
     private val webView: WebView,
     private val speech: SpeechService,
     private val onDisconnect: () -> Unit,
+    private val onSwitchAgent: (url: String, token: String?) -> Unit = { _, _ -> },
 ) {
     @JavascriptInterface
     fun isAvailable(): Boolean = true
@@ -46,6 +47,11 @@ class NativeBridge(
     @JavascriptInterface
     fun disconnect() {
         webView.post { onDisconnect() }
+    }
+
+    @JavascriptInterface
+    fun switchAgent(url: String, token: String?) {
+        webView.post { onSwitchAgent(url, token) }
     }
 
     private fun callJs(script: String) {
