@@ -42,9 +42,11 @@ export class AgentServer {
 
   async start(): Promise<number> {
     return new Promise((resolve) => {
-      this.server.listen(0, "127.0.0.1", () => {
+      const port = parseInt(process.env.KERN_PORT || "0", 10);
+      const host = process.env.KERN_HOST || "127.0.0.1";
+      this.server.listen(port, host, () => {
         this.port = (this.server.address() as any).port;
-        log("server", `listening on :${this.port}`);
+        log("server", `listening on ${host}:${this.port}`);
         resolve(this.port);
       });
     });
