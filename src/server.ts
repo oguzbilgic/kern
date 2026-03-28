@@ -89,7 +89,13 @@ export class AgentServer {
     const token = process.env.KERN_AUTH_TOKEN;
     if (!token) return true; // no token configured = open access
 
-    // Check Authorization header
+    // Localhost connections (TUI, local tools) are always allowed
+    const remote = req.socket.remoteAddress;
+    if (remote === "127.0.0.1" || remote === "::1" || remote === "::ffff:127.0.0.1") {
+      return true;
+    }
+
+    // Remote connections require token
     const authHeader = req.headers.authorization;
     if (authHeader === `Bearer ${token}`) return true;
 
