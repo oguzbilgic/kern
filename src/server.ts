@@ -105,7 +105,8 @@ export class AgentServer {
       return;
     }
 
-    const url = req.url || "/";
+    const rawUrl = req.url || "/";
+    const url = rawUrl.split("?")[0]; // strip query string for route matching
 
     // Health check — always public (for Docker healthchecks, load balancers)
     if (url === "/health" && req.method === "GET") {
@@ -115,7 +116,7 @@ export class AgentServer {
     }
 
     // Web UI — serve without auth (page handles auth via token param)
-    if (url.split("?")[0] === "/" && req.method === "GET") {
+    if (url === "/" && req.method === "GET") {
       const webUiPath = join(import.meta.dirname, "..", "templates", "web", "index.html");
       if (existsSync(webUiPath)) {
         const html = await readFile(webUiPath, "utf-8");
@@ -193,8 +194,8 @@ export class AgentServer {
     }
 
     // History — ?limit=50&before=<index>
-    if (url?.startsWith("/history") && req.method === "GET") {
-      const params = new URL(url, "http://localhost").searchParams;
+    if (url === "/history" && req.method === "GET") {
+      const params = new URL(rawUrl, "http://localhost").searchParams;
       const limit = parseInt(params.get("limit") || "50", 10);
       const beforeStr = params.get("before");
       const before = beforeStr ? parseInt(beforeStr, 10) : undefined;
