@@ -413,7 +413,17 @@ const headerMetaEl = $('header-meta');
 // Determine base URL and auth token
 const params = new URLSearchParams(location.search);
 const BASE_URL = params.get('url') || location.origin;
-const AUTH_TOKEN = params.get('token') || null;
+
+// Token priority: URL param > localStorage
+// If token is in URL, store it and clean the URL
+let AUTH_TOKEN = params.get('token') || localStorage.getItem('kern_auth_token') || null;
+if (params.get('token')) {
+  localStorage.setItem('kern_auth_token', params.get('token'));
+  // Remove token from URL bar without reloading
+  const cleanUrl = new URL(location.href);
+  cleanUrl.searchParams.delete('token');
+  history.replaceState(null, '', cleanUrl.toString());
+}
 
 let busy = false;
 let streamingText = '';
@@ -595,9 +605,35 @@ async function init() {
     const res = await fetch(`${BASE_URL}/status`, { headers: AgentClient._headers(AUTH_TOKEN) });
     if (res.status === 401) {
       authFailed = true;
+      localStorage.removeItem('kern_auth_token');
       setConnected('disconnected');
       agentNameEl.textContent = 'kern';
-      addMessage('error', 'Unauthorized. Add ?token=YOUR_TOKEN to the URL.');
+      // Show token input prompt
+      messagesEl.innerHTML = '';
+      const prompt = document.createElement('div');
+      prompt.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;';
+      prompt.innerHTML = `
+        <div style="color:var(--text-dim);font-size:14px;">Enter auth token</div>
+        <input id="token-input" type="password" placeholder="KERN_AUTH_TOKEN"
+          style="background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;width:280px;outline:none;font-family:var(--font-sans);" />
+        <button id="token-submit"
+          style="background:var(--accent-dim);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;">Connect</button>
+      `;
+      messagesEl.appendChild(prompt);
+      const tokenInput = $('token-input');
+      const tokenSubmit = $('token-submit');
+      tokenInput.focus();
+      function submitToken() {
+        const val = tokenInput.value.trim();
+        if (!val) return;
+        localStorage.setItem('kern_auth_token', val);
+        AUTH_TOKEN = val;
+        authFailed = false;
+        messagesEl.innerHTML = '';
+        init();
+      }
+      tokenSubmit.addEventListener('click', submitToken);
+      tokenInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitToken(); });
       inputEl.disabled = true;
       sendBtn.disabled = true;
       return;
