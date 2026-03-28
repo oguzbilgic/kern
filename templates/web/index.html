@@ -373,6 +373,23 @@ const AgentClient = {
 // Markdown (minimal)
 // ==========================================================================
 
+// Parse user messages from history — strips [via ...] metadata prefix
+function parseHistoryUserMessage(content) {
+  const match = content.match(/^\[via ([^,]+),?\s*([^,]*),?\s*user:\s*([^,\]]*),?\s*(?:time:\s*([^\]]*))?\]\n?([\s\S]*)$/);
+  if (match) {
+    const [, iface, channel, userId, , text] = match;
+    const cleanText = (text || '').trim() || '(empty)';
+    // TUI and web messages are the operator
+    if (iface.trim() === 'tui' || iface.trim() === 'web') return { type: 'user', text: cleanText };
+    // Heartbeat
+    if (iface.trim() === 'system') return null; // skip heartbeats in history
+    // Other interfaces (telegram, slack)
+    return { type: 'incoming', text: cleanText, meta: `[${iface.trim()} ${userId.trim()}]` };
+  }
+  if (content === '[heartbeat]' || content.startsWith('[heartbeat')) return null;
+  return { type: 'user', text: content };
+}
+
 function renderMarkdown(text) {
   if (!text) return '';
   let html = text
@@ -653,12 +670,23 @@ async function init() {
   try {
     const history = await AgentClient.getHistory(BASE_URL, AUTH_TOKEN, 100);
     for (const msg of history) {
-      if (msg.role === 'user') {
-        // Strip context metadata prefix if present
-        const text = msg.content?.replace(/^\[via [^\]]+\]\n/, '') || '';
-        addMessage('user', text);
+      if (msg.role === 'user' && typeof msg.content === 'string') {
+        const parsed = parseHistoryUserMessage(msg.content);
+        if (parsed) addMessage(parsed.type, parsed.text, parsed.meta);
       } else if (msg.role === 'assistant') {
-        if (msg.content) addMessage('assistant', msg.content);
+        if (Array.isArray(msg.content)) {
+          for (const part of msg.content) {
+            if (part.type === 'text' && part.text) {
+              addMessage('assistant', part.text);
+            } else if (part.type === 'tool-call') {
+              const input = part.input || {};
+              const detail = input.path || input.command || input.pattern || input.url || input.action || '';
+              addMessage('tool', `${part.toolName} ${detail}`);
+            }
+          }
+        } else if (typeof msg.content === 'string') {
+          addMessage('assistant', msg.content);
+        }
       }
     }
   } catch {}
