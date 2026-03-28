@@ -630,6 +630,8 @@ async function init() {
         AUTH_TOKEN = val;
         authFailed = false;
         messagesEl.innerHTML = '';
+        inputEl.disabled = false;
+        sendBtn.disabled = false;
         init();
       }
       tokenSubmit.addEventListener('click', submitToken);
