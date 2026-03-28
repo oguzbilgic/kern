@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Simple "K" monogram on transparent background -->
+    <path
+        android:fillColor="#58a6ff"
+        android:pathData="M38,30 L48,30 L48,49 L62,30 L74,30 L57,52 L75,78 L63,78 L48,56 L48,78 L38,78 Z" />
+</vector>
