@@ -1,4 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
+import { readFile } from "fs/promises";
+import { join } from "path";
+import { existsSync } from "fs";
 import type { StreamEvent } from "./runtime.js";
 import { log } from "./log.js";
 
@@ -155,6 +158,20 @@ export class AgentServer {
       const history = this.historyFn ? this.historyFn(limit, before) : [];
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(history));
+      return;
+    }
+
+    // Web UI — serve single-page HTML
+    if (url === "/" && req.method === "GET") {
+      const webUiPath = join(import.meta.dirname, "..", "templates", "web", "index.html");
+      if (existsSync(webUiPath)) {
+        const html = await readFile(webUiPath, "utf-8");
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(html);
+      } else {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end("<html><body><p>Web UI not found. Check kern installation.</p></body></html>");
+      }
       return;
     }
 

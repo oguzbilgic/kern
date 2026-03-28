@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>kern</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-surface: #161b22;
+    --bg-input: #0d1117;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #7d8590;
+    --text-muted: #484f58;
+    --accent: #58a6ff;
+    --accent-dim: #1f6feb;
+    --green: #3fb950;
+    --red: #f85149;
+    --orange: #d29922;
+    --tool-bg: #1c2028;
+    --user-bg: #0d419d;
+    --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    background: var(--bg);
+    color: var(--text);
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* --- Header --- */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-surface);
+    flex-shrink: 0;
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-title {
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .header-meta {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .status-dot.connected { background: var(--green); }
+  .status-dot.disconnected { background: var(--red); }
+  .status-dot.connecting { background: var(--orange); }
+
+  /* --- Messages --- */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .message {
+    max-width: 85%;
+    padding: 8px 12px;
+    border-radius: 8px;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .message a { color: var(--accent); }
+  .message code {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: rgba(110,118,129,0.15);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .message pre {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    overflow-x: auto;
+    margin: 6px 0;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .message pre code {
+    background: none;
+    padding: 0;
+  }
+
+  .message.user {
+    align-self: flex-end;
+    background: var(--user-bg);
+    color: #fff;
+    border-radius: 8px 8px 2px 8px;
+  }
+  .message.assistant {
+    align-self: flex-start;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px 8px 8px 2px;
+  }
+  .message.tool {
+    align-self: flex-start;
+    background: var(--tool-bg);
+    border-left: 3px solid var(--accent-dim);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 4px 10px;
+    max-width: 90%;
+  }
+  .message.error {
+    align-self: flex-start;
+    background: rgba(248,81,73,0.1);
+    border: 1px solid var(--red);
+    color: var(--red);
+  }
+  .message.incoming, .message.outgoing {
+    align-self: flex-start;
+    background: transparent;
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 2px 12px;
+  }
+  .message.system {
+    align-self: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 2px 8px;
+  }
+
+  .streaming-cursor::after {
+    content: '▊';
+    animation: blink 0.8s infinite;
+    color: var(--accent);
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .thinking {
+    align-self: flex-start;
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+  .thinking .dots::after {
+    content: '';
+    animation: dots 1.5s infinite;
+  }
+  @keyframes dots {
+    0% { content: '.'; }
+    33% { content: '..'; }
+    66% { content: '...'; }
+  }
+
+  /* --- Input --- */
+  .input-area {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-surface);
+    flex-shrink: 0;
+  }
+  .input-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+  .input-row textarea {
+    flex: 1;
+    background: var(--bg-input);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    resize: none;
+    outline: none;
+    max-height: 150px;
+    min-height: 42px;
+  }
+  .input-row textarea:focus {
+    border-color: var(--accent-dim);
+  }
+  .input-row textarea::placeholder {
+    color: var(--text-muted);
+  }
+  .input-row button {
+    background: var(--accent-dim);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+    height: 42px;
+  }
+  .input-row button:hover { background: var(--accent); }
+  .input-row button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* --- Scrollbar --- */
+  .messages::-webkit-scrollbar { width: 6px; }
+  .messages::-webkit-scrollbar-track { background: transparent; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <span class="status-dot connecting" id="status-dot"></span>
+    <span class="header-title" id="agent-name">kern</span>
+  </div>
+  <span class="header-meta" id="header-meta"></span>
+</div>
+
+<div class="messages" id="messages"></div>
+
+<div class="input-area">
+  <div class="input-row">
+    <textarea id="input" placeholder="Send a message..." rows="1" autofocus></textarea>
+    <button id="send" disabled>Send</button>
+  </div>
+</div>
+
+<script>
+// ==========================================================================
+// Agent Client Protocol
+// ==========================================================================
+// Pure data layer — no DOM, no rendering. Portable to any client.
+
+const AgentClient = {
+  /**
+   * Connect to agent SSE event stream.
+   * @param {string} baseUrl - Agent HTTP base URL
+   * @param {function} onEvent - Called with each ServerEvent
+   * @param {function} onConnect - Called when stream connects
+   * @param {function} onDisconnect - Called when stream disconnects
+   * @returns {{ close: function }} - Call close() to disconnect
+   */
+  connect(baseUrl, { onEvent, onConnect, onDisconnect }) {
+    const es = new EventSource(`${baseUrl}/events`);
+    es.onopen = () => onConnect?.();
+    es.onmessage = (e) => {
+      try { onEvent(JSON.parse(e.data)); } catch {}
+    };
+    es.onerror = () => {
+      if (es.readyState === EventSource.CLOSED) onDisconnect?.();
+    };
+    return {
+      close() { es.close(); onDisconnect?.(); }
+    };
+  },
+
+  /**
+   * Send a message to the agent.
+   * @param {string} baseUrl
+   * @param {string} text
+   * @param {object} [opts] - userId, interface, channel
+   * @returns {Promise<{ok: boolean}>}
+   */
+  async sendMessage(baseUrl, text, opts = {}) {
+    const res = await fetch(`${baseUrl}/message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text,
+        userId: opts.userId || 'web',
+        interface: opts.interface || 'web',
+        channel: opts.channel || 'web',
+      }),
+    });
+    return res.json();
+  },
+
+  /**
+   * Get agent status.
+   * @param {string} baseUrl
+   * @returns {Promise<object>}
+   */
+  async getStatus(baseUrl) {
+    const res = await fetch(`${baseUrl}/status`);
+    return res.json();
+  },
+
+  /**
+   * Get message history.
+   * @param {string} baseUrl
+   * @param {number} [limit=50]
+   * @param {number} [before] - Index to paginate from
+   * @returns {Promise<Array>}
+   */
+  async getHistory(baseUrl, limit = 50, before) {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (before !== undefined) params.set('before', String(before));
+    const res = await fetch(`${baseUrl}/history?${params}`);
+    return res.json();
+  },
+};
+
+// ==========================================================================
+// Markdown (minimal)
+// ==========================================================================
+
+function renderMarkdown(text) {
+  if (!text) return '';
+  let html = text
+    // Escape HTML
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    // Code blocks (``` ... ```)
+    .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
+      `<pre><code>${code.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')}</code></pre>`)
+    // Inline code
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    // Bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    // Italic
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // Links
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    // Line breaks (preserve newlines outside of pre blocks)
+    .replace(/\n/g, '<br>');
+
+  // Clean up <br> inside <pre> blocks (they already preserve whitespace)
+  html = html.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, (match) =>
+    match.replace(/<br>/g, '\n'));
+
+  return html;
+}
+
+// ==========================================================================
+// UI
+// ==========================================================================
+
+const $ = (id) => document.getElementById(id);
+const messagesEl = $('messages');
+const inputEl = $('input');
+const sendBtn = $('send');
+const statusDot = $('status-dot');
+const agentNameEl = $('agent-name');
+const headerMetaEl = $('header-meta');
+
+// Determine base URL — same origin (served by agent), or override via ?url=
+const params = new URLSearchParams(location.search);
+const BASE_URL = params.get('url') || location.origin;
+
+let busy = false;
+let streamingText = '';
+let streamingEl = null;
+let connection = null;
+
+// --- Render helpers ---
+
+function scrollToBottom() {
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function addMessage(type, content, meta) {
+  const el = document.createElement('div');
+  el.className = `message ${type}`;
+  if (type === 'tool') {
+    el.textContent = content;
+  } else if (type === 'incoming' || type === 'outgoing' || type === 'system') {
+    el.textContent = meta ? `${meta} ${content}` : content;
+  } else {
+    el.innerHTML = renderMarkdown(content);
+  }
+  messagesEl.appendChild(el);
+  scrollToBottom();
+  return el;
+}
+
+function flushStreaming() {
+  if (streamingEl && streamingText) {
+    streamingEl.classList.remove('streaming-cursor');
+    streamingEl.innerHTML = renderMarkdown(streamingText);
+  }
+  streamingText = '';
+  streamingEl = null;
+}
+
+function setBusy(b) {
+  busy = b;
+  sendBtn.disabled = b || !inputEl.value.trim();
+  const thinking = $('thinking');
+  if (b && !streamingText && !thinking) {
+    const el = document.createElement('div');
+    el.className = 'thinking';
+    el.id = 'thinking';
+    el.innerHTML = 'thinking<span class="dots"></span>';
+    messagesEl.appendChild(el);
+    scrollToBottom();
+  } else if (!b && thinking) {
+    thinking.remove();
+  }
+}
+
+function setConnected(state) {
+  statusDot.className = `status-dot ${state}`;
+}
+
+// --- Event handling ---
+
+function handleEvent(event) {
+  // Remove thinking indicator on first content
+  const thinking = $('thinking');
+
+  switch (event.type) {
+    case 'text-delta':
+      if (thinking) thinking.remove();
+      if (!streamingEl) {
+        streamingEl = addMessage('assistant', '');
+        streamingEl.classList.add('streaming-cursor');
+      }
+      streamingText += event.text || '';
+      streamingEl.innerHTML = renderMarkdown(streamingText);
+      scrollToBottom();
+      setBusy(true);
+      break;
+
+    case 'tool-call': {
+      flushStreaming();
+      if (thinking) thinking.remove();
+      const detail = event.toolDetail ? ` ${event.toolDetail}` : '';
+      addMessage('tool', `${event.toolName}${detail}`);
+      setBusy(true);
+      break;
+    }
+
+    case 'tool-result':
+      break;
+
+    case 'finish':
+      flushStreaming();
+      if (thinking) thinking.remove();
+      setBusy(false);
+      break;
+
+    case 'error':
+      flushStreaming();
+      if (thinking) thinking.remove();
+      addMessage('error', event.error || 'Unknown error');
+      setBusy(false);
+      break;
+
+    case 'incoming':
+      if (event.fromInterface !== 'web') {
+        addMessage('incoming',
+          event.text || '',
+          `[${event.fromInterface} ${event.fromUserId || ''}]`);
+      }
+      break;
+
+    case 'outgoing':
+      addMessage('outgoing',
+        event.text || '',
+        `[→ ${event.fromInterface} ${event.fromUserId || ''}]`);
+      break;
+
+    case 'heartbeat':
+      break;
+  }
+}
+
+// --- Send ---
+
+async function send() {
+  const text = inputEl.value.trim();
+  if (!text || busy) return;
+
+  inputEl.value = '';
+  inputEl.style.height = 'auto';
+  sendBtn.disabled = true;
+
+  addMessage('user', text);
+  setBusy(true);
+
+  try {
+    await AgentClient.sendMessage(BASE_URL, text);
+  } catch (err) {
+    addMessage('error', `Failed to send: ${err.message}`);
+    setBusy(false);
+  }
+}
+
+// --- Input ---
+
+inputEl.addEventListener('input', () => {
+  // Auto-resize
+  inputEl.style.height = 'auto';
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 150) + 'px';
+  sendBtn.disabled = busy || !inputEl.value.trim();
+});
+
+inputEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+});
+
+sendBtn.addEventListener('click', send);
+
+// --- Connect ---
+
+async function init() {
+  setConnected('connecting');
+
+  // Load status
+  try {
+    const status = await AgentClient.getStatus(BASE_URL);
+    agentNameEl.textContent = status.agentName || 'kern';
+    headerMetaEl.textContent = status.model || '';
+  } catch {
+    agentNameEl.textContent = 'kern';
+  }
+
+  // Load history
+  try {
+    const history = await AgentClient.getHistory(BASE_URL, 100);
+    for (const msg of history) {
+      if (msg.role === 'user') {
+        // Strip context metadata prefix if present
+        const text = msg.content?.replace(/^\[via [^\]]+\]\n/, '') || '';
+        addMessage('user', text);
+      } else if (msg.role === 'assistant') {
+        if (msg.content) addMessage('assistant', msg.content);
+      }
+    }
+  } catch {}
+
+  // Connect SSE
+  connection = AgentClient.connect(BASE_URL, {
+    onEvent: handleEvent,
+    onConnect() {
+      setConnected('connected');
+      addMessage('system', 'connected');
+    },
+    onDisconnect() {
+      setConnected('disconnected');
+      addMessage('system', 'disconnected — reconnecting...');
+      // Reconnect after delay
+      setTimeout(init, 2000);
+    },
+  });
+}
+
+init();
+</script>
+</body>
+</html>
