@@ -273,6 +273,11 @@ async function main() {
     return;
   }
 
+  if (cmd === "hub") {
+    await import("./hub.js");
+    return;
+  }
+
   console.error(`Unknown command: ${cmd}`);
   await showHelp();
   process.exit(1);

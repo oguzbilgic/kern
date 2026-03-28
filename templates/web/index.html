@@ -666,8 +666,31 @@ function switchToAgent(agent) {
   init();
 }
 
+// Auto-discover agents from hub's /api/agents endpoint
+async function discoverAgents() {
+  try {
+    const res = await fetch(`${location.origin}/api/agents`);
+    if (!res.ok) return;
+    const hubAgents = await res.json();
+    if (!Array.isArray(hubAgents) || hubAgents.length === 0) return;
+    const saved = getSavedAgents();
+    for (const ha of hubAgents) {
+      const hubUrl = `${location.origin}/agent/${ha.name}`;
+      if (!saved.find(a => a.name === ha.name)) {
+        saved.push({ name: ha.name, url: hubUrl, token: null });
+      } else {
+        // Update URL to hub proxy path
+        const idx = saved.findIndex(a => a.name === ha.name);
+        saved[idx].url = hubUrl;
+      }
+    }
+    saveAgents(saved);
+  } catch {}
+}
+
 function setupSwitcher() {
-  $('menu-btn').addEventListener('click', () => {
+  $('menu-btn').addEventListener('click', async () => {
+    await discoverAgents();
     renderSwitcher();
     $('switcher-overlay').classList.add('open');
   });
