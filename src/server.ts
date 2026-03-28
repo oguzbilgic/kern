@@ -44,6 +44,11 @@ export class AgentServer {
     return new Promise((resolve) => {
       const port = parseInt(process.env.KERN_PORT || "0", 10);
       const host = process.env.KERN_HOST || "127.0.0.1";
+
+      if (host !== "127.0.0.1" && host !== "localhost" && host !== "::1" && !process.env.KERN_AUTH_TOKEN) {
+        log("server", `WARNING: binding to ${host} without KERN_AUTH_TOKEN — agent is accessible without authentication`);
+      }
+
       this.server.listen(port, host, () => {
         this.port = (this.server.address() as any).port;
         log("server", `listening on ${host}:${this.port}`);
