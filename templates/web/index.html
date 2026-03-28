@@ -142,7 +142,21 @@
     border: 1px solid var(--red);
     color: var(--red);
   }
-  .message.incoming, .message.outgoing {
+  .message.incoming {
+    align-self: flex-end;
+    background: var(--user-bg);
+    color: #fff;
+    border-radius: 8px 8px 2px 8px;
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+  .message.incoming .label {
+    font-size: 11px;
+    opacity: 0.6;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .message.outgoing {
     align-self: flex-start;
     background: transparent;
     font-size: 12px;
@@ -391,7 +405,17 @@ function addMessage(type, content, meta) {
   el.className = `message ${type}`;
   if (type === 'tool') {
     el.textContent = content;
-  } else if (type === 'incoming' || type === 'outgoing' || type === 'system') {
+  } else if (type === 'incoming') {
+    if (meta) {
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = meta;
+      el.appendChild(label);
+    }
+    const text = document.createElement('span');
+    text.innerHTML = renderMarkdown(content);
+    el.appendChild(text);
+  } else if (type === 'outgoing' || type === 'system') {
     el.textContent = meta ? `${meta} ${content}` : content;
   } else {
     el.innerHTML = renderMarkdown(content);
@@ -476,14 +500,9 @@ function handleEvent(event) {
 
     case 'incoming':
       if (event.fromInterface !== 'web') {
-        // Messages from the same operator (via TUI) show as user messages
-        if (event.fromUserId === 'tui') {
-          addMessage('user', event.text || '');
-        } else {
-          addMessage('incoming',
-            event.text || '',
-            `[${event.fromInterface} ${event.fromUserId || ''}]`);
-        }
+        addMessage('incoming',
+          event.text || '',
+          `[${event.fromInterface} ${event.fromUserId || ''}]`);
       }
       break;
 
