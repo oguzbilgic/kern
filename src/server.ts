@@ -89,7 +89,7 @@ export class AgentServer {
     const token = process.env.KERN_AUTH_TOKEN;
     if (!token) return true; // no token configured = open access
 
-    // Check Authorization: Bearer header
+    // Check Authorization header
     const authHeader = req.headers.authorization;
     if (authHeader === `Bearer ${token}`) return true;
 
@@ -165,6 +165,34 @@ export class AgentServer {
       return;
     }
 
+    // Health check — always public (for Docker healthchecks, load balancers)
+    if (url === "/health" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, uptime: process.uptime() }));
+      return;
+    }
+
+    // Web UI — serve without auth (page handles auth via token param)
+    if (url.split("?")[0] === "/" && req.method === "GET") {
+      const webUiPath = join(import.meta.dirname, "..", "templates", "web", "index.html");
+      if (existsSync(webUiPath)) {
+        const html = await readFile(webUiPath, "utf-8");
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(html);
+      } else {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end("<html><body><p>Web UI not found. Check kern installation.</p></body></html>");
+      }
+      return;
+    }
+
+    // Auth check — all other endpoints require token if KERN_AUTH_TOKEN is set
+    if (!this.checkAuth(req)) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "unauthorized" }));
+      return;
+    }
+
     // SSE endpoint — stream all events
     if (url === "/events" && req.method === "GET") {
       res.writeHead(200, {
@@ -233,20 +261,6 @@ export class AgentServer {
       const history = this.historyFn ? this.historyFn(limit, before) : [];
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(history));
-      return;
-    }
-
-    // Web UI — serve single-page HTML
-    if (url === "/" && req.method === "GET") {
-      const webUiPath = join(import.meta.dirname, "..", "templates", "web", "index.html");
-      if (existsSync(webUiPath)) {
-        const html = await readFile(webUiPath, "utf-8");
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(html);
-      } else {
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end("<html><body><p>Web UI not found. Check kern installation.</p></body></html>");
-      }
       return;
     }
 

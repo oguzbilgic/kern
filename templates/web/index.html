@@ -278,13 +278,16 @@ const AgentClient = {
   /**
    * Connect to agent SSE event stream.
    * @param {string} baseUrl - Agent HTTP base URL
+   * @param {string} [token] - Auth token
    * @param {function} onEvent - Called with each ServerEvent
    * @param {function} onConnect - Called when stream connects
    * @param {function} onDisconnect - Called when stream disconnects
    * @returns {{ close: function }} - Call close() to disconnect
    */
-  connect(baseUrl, { onEvent, onConnect, onDisconnect }) {
-    const es = new EventSource(`${baseUrl}/events`);
+  connect(baseUrl, token, { onEvent, onConnect, onDisconnect }) {
+    // EventSource can't set headers — pass token as query param
+    const url = token ? `${baseUrl}/events?token=${encodeURIComponent(token)}` : `${baseUrl}/events`;
+    const es = new EventSource(url);
     es.onopen = () => onConnect?.();
     es.onmessage = (e) => {
       try { onEvent(JSON.parse(e.data)); } catch {}
@@ -298,16 +301,28 @@ const AgentClient = {
   },
 
   /**
+   * Build headers for authenticated requests.
+   * @param {string} [token]
+   * @returns {object}
+   */
+  _headers(token) {
+    const h = { 'Content-Type': 'application/json' };
+    if (token) h['Authorization'] = `Bearer ${token}`;
+    return h;
+  },
+
+  /**
    * Send a message to the agent.
    * @param {string} baseUrl
+   * @param {string} [token]
    * @param {string} text
    * @param {object} [opts] - userId, interface, channel
    * @returns {Promise<{ok: boolean}>}
    */
-  async sendMessage(baseUrl, text, opts = {}) {
+  async sendMessage(baseUrl, token, text, opts = {}) {
     const res = await fetch(`${baseUrl}/message`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: this._headers(token),
       body: JSON.stringify({
         text,
         userId: opts.userId || 'tui',
@@ -321,24 +336,26 @@ const AgentClient = {
   /**
    * Get agent status.
    * @param {string} baseUrl
+   * @param {string} [token]
    * @returns {Promise<object>}
    */
-  async getStatus(baseUrl) {
-    const res = await fetch(`${baseUrl}/status`);
+  async getStatus(baseUrl, token) {
+    const res = await fetch(`${baseUrl}/status`, { headers: this._headers(token) });
     return res.json();
   },
 
   /**
    * Get message history.
    * @param {string} baseUrl
+   * @param {string} [token]
    * @param {number} [limit=50]
    * @param {number} [before] - Index to paginate from
    * @returns {Promise<Array>}
    */
-  async getHistory(baseUrl, limit = 50, before) {
+  async getHistory(baseUrl, token, limit = 50, before) {
     const params = new URLSearchParams({ limit: String(limit) });
     if (before !== undefined) params.set('before', String(before));
-    const res = await fetch(`${baseUrl}/history?${params}`);
+    const res = await fetch(`${baseUrl}/history?${params}`, { headers: this._headers(token) });
     return res.json();
   },
 };
@@ -385,9 +402,10 @@ const statusDot = $('status-dot');
 const agentNameEl = $('agent-name');
 const headerMetaEl = $('header-meta');
 
-// Determine base URL — same origin (served by agent), or override via ?url=
+// Determine base URL and auth token
 const params = new URLSearchParams(location.search);
 const BASE_URL = params.get('url') || location.origin;
+const AUTH_TOKEN = params.get('token') || null;
 
 let busy = false;
 let streamingText = '';
@@ -531,7 +549,7 @@ async function send() {
   setBusy(true);
 
   try {
-    await AgentClient.sendMessage(BASE_URL, text);
+    await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text);
   } catch (err) {
     addMessage('error', `Failed to send: ${err.message}`);
     setBusy(false);
@@ -561,9 +579,17 @@ sendBtn.addEventListener('click', send);
 async function init() {
   setConnected('connecting');
 
-  // Load status
+  // Load status — also serves as auth check
   try {
-    const status = await AgentClient.getStatus(BASE_URL);
+    const res = await fetch(`${BASE_URL}/status`, { headers: AgentClient._headers(AUTH_TOKEN) });
+    if (res.status === 401) {
+      setConnected('disconnected');
+      agentNameEl.textContent = 'kern';
+      addMessage('error', 'Unauthorized. Add ?token=YOUR_TOKEN to the URL.');
+      inputEl.disabled = true;
+      return;
+    }
+    const status = await res.json();
     agentNameEl.textContent = status.agentName || 'kern';
     headerMetaEl.textContent = status.model || '';
   } catch {
@@ -572,7 +598,7 @@ async function init() {
 
   // Load history
   try {
-    const history = await AgentClient.getHistory(BASE_URL, 100);
+    const history = await AgentClient.getHistory(BASE_URL, AUTH_TOKEN, 100);
     for (const msg of history) {
       if (msg.role === 'user') {
         // Strip context metadata prefix if present
@@ -585,7 +611,7 @@ async function init() {
   } catch {}
 
   // Connect SSE
-  connection = AgentClient.connect(BASE_URL, {
+  connection = AgentClient.connect(BASE_URL, AUTH_TOKEN, {
     onEvent: handleEvent,
     onConnect() {
       setConnected('connected');
