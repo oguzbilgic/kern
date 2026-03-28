@@ -476,9 +476,14 @@ function handleEvent(event) {
 
     case 'incoming':
       if (event.fromInterface !== 'web') {
-        addMessage('incoming',
-          event.text || '',
-          `[${event.fromInterface} ${event.fromUserId || ''}]`);
+        // Messages from the same operator (via TUI) show as user messages
+        if (event.fromUserId === 'tui') {
+          addMessage('user', event.text || '');
+        } else {
+          addMessage('incoming',
+            event.text || '',
+            `[${event.fromInterface} ${event.fromUserId || ''}]`);
+        }
       }
       break;
 
