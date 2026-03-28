@@ -136,6 +136,26 @@ export class AgentServer {
       return;
     }
 
+    // PWA static files — served without auth
+    const pwaFiles: Record<string, { file: string; contentType: string }> = {
+      "/manifest.json": { file: "manifest.json", contentType: "application/manifest+json" },
+      "/sw.js": { file: "sw.js", contentType: "application/javascript" },
+      "/icon.svg": { file: "icon.svg", contentType: "image/svg+xml" },
+    };
+    if (req.method === "GET" && pwaFiles[url]) {
+      const { file, contentType } = pwaFiles[url];
+      const filePath = join(import.meta.dirname, "..", "templates", "web", file);
+      if (existsSync(filePath)) {
+        const content = await readFile(filePath, "utf-8");
+        res.writeHead(200, { "Content-Type": contentType });
+        res.end(content);
+      } else {
+        res.writeHead(404);
+        res.end();
+      }
+      return;
+    }
+
     // Auth check — all other endpoints require token if KERN_AUTH_TOKEN is set
     if (!this.checkAuth(req)) {
       const remote = req.socket.remoteAddress || "unknown";
