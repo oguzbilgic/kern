@@ -217,8 +217,9 @@
     line-height: 1.5;
     resize: none;
     outline: none;
-    max-height: 150px;
+    max-height: 40vh;
     min-height: 42px;
+    overflow-y: hidden;
   }
   .input-row textarea:focus {
     border-color: var(--accent-dim);
@@ -580,9 +581,10 @@ async function send() {
 // --- Input ---
 
 inputEl.addEventListener('input', () => {
-  // Auto-resize
+  // Auto-resize — grow freely up to max-height, then show scrollbar
   inputEl.style.height = 'auto';
-  inputEl.style.height = Math.min(inputEl.scrollHeight, 150) + 'px';
+  inputEl.style.height = inputEl.scrollHeight + 'px';
+  inputEl.style.overflowY = inputEl.scrollHeight > inputEl.offsetHeight ? 'auto' : 'hidden';
   sendBtn.disabled = busy || !inputEl.value.trim();
 });
 
