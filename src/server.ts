@@ -136,56 +136,6 @@ export class AgentServer {
       return;
     }
 
-    // PWA static files — served without auth
-    const pwaFiles: Record<string, { file: string; contentType: string }> = {
-      "/manifest.json": { file: "manifest.json", contentType: "application/manifest+json" },
-      "/sw.js": { file: "sw.js", contentType: "application/javascript" },
-      "/icon.svg": { file: "icon.svg", contentType: "image/svg+xml" },
-    };
-    if (req.method === "GET" && pwaFiles[url]) {
-      const { file, contentType } = pwaFiles[url];
-      const filePath = join(import.meta.dirname, "..", "templates", "web", file);
-      if (existsSync(filePath)) {
-        const content = await readFile(filePath, "utf-8");
-        res.writeHead(200, { "Content-Type": contentType });
-        res.end(content);
-      } else {
-        res.writeHead(404);
-        res.end();
-      }
-      return;
-    }
-
-    // Auth check — all other endpoints require token if KERN_AUTH_TOKEN is set
-    if (!this.checkAuth(req)) {
-      const remote = req.socket.remoteAddress || "unknown";
-      log("server", `401 unauthorized: ${req.method} ${url} from ${remote}`);
-      res.writeHead(401, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "unauthorized" }));
-      return;
-    }
-
-    // Health check — always public (for Docker healthchecks, load balancers)
-    if (url === "/health" && req.method === "GET") {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, uptime: process.uptime() }));
-      return;
-    }
-
-    // Web UI — serve without auth (page handles auth via token param)
-    if (url.split("?")[0] === "/" && req.method === "GET") {
-      const webUiPath = join(import.meta.dirname, "..", "templates", "web", "index.html");
-      if (existsSync(webUiPath)) {
-        const html = await readFile(webUiPath, "utf-8");
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(html);
-      } else {
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end("<html><body><p>Web UI not found. Check kern installation.</p></body></html>");
-      }
-      return;
-    }
-
     // Auth check — all other endpoints require token if KERN_AUTH_TOKEN is set
     if (!this.checkAuth(req)) {
       res.writeHead(401, { "Content-Type": "application/json" });
