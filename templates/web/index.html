@@ -999,7 +999,42 @@ async function init() {
 }
 
 setupSwitcher();
-init();
+
+// If we have a saved active agent, connect. Otherwise check if we're on a hub
+// and show the switcher to let user pick.
+(async () => {
+  const agents = getSavedAgents();
+  const activeName = getActiveAgent();
+  const hasActiveAgent = agents.find(a => a.name === activeName);
+
+  if (!hasActiveAgent && !params.get('token')) {
+    // Try hub discovery — if /api/agents exists, we're on a hub
+    try {
+      const res = await fetch(`${location.origin}/api/agents`);
+      if (res.ok) {
+        const hubAgents = await res.json();
+        if (Array.isArray(hubAgents) && hubAgents.length > 0) {
+          // Save discovered agents and show switcher
+          const saved = getSavedAgents();
+          for (const ha of hubAgents) {
+            const hubUrl = `${location.origin}/agent/${ha.name}`;
+            if (!saved.find(a => a.name === ha.name)) {
+              saved.push({ name: ha.name, url: hubUrl, token: null });
+            }
+          }
+          saveAgents(saved);
+          setConnected('disconnected');
+          agentNameEl.textContent = 'kern hub';
+          renderSwitcher();
+          $('switcher-overlay').classList.add('open');
+          return;
+        }
+      }
+    } catch {}
+  }
+
+  init();
+})();
 
 // Register service worker for PWA
 if ('serviceWorker' in navigator) {
