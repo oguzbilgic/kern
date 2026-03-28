@@ -174,6 +174,23 @@ Run as a foreground supervisor process. Starts agents as child processes, monito
 - Designed for Docker (`CMD ["kern", "daemon"]`) and systemd
 - See [daemon.md](daemon.md) for full documentation
 
+## Slash commands
+
+Type these in any channel (TUI, Telegram, Slack). Handled by the runtime at the queue level — never sent to the LLM. Instant, zero tokens.
+
+### /status
+
+Show agent runtime status: model, uptime, session size, API usage, TUI connection.
+
+### /restart
+
+Restart the agent daemon.
+
+- 2-second delay to let Telegram acknowledge the message before the process dies
+- Registered as a Telegram bot command (shows in the `/` menu)
+- Safe — no restart loops, no session corruption
+- The agent cannot restart itself — it must ask the operator to type `/restart`
+
 ## kern run \<name|path\>
 
 Run an agent in the foreground (for development/debugging). Starts all interfaces (Telegram, Slack) in-process.

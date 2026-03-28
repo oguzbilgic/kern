@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.10.0
+
+### Features
+- **Slash commands** — runtime-level commands that bypass the LLM entirely.
+  - `/restart` — restarts the agent daemon. 2-second delay to let Telegram acknowledge before process dies. Registered as a Telegram bot command.
+  - `/status` — instant runtime status (model, uptime, session size, API usage, TUI connection). Shares implementation with the `kern` tool's status action.
+- **Heartbeat TUI awareness** — heartbeat message now includes TUI connection status (`[heartbeat, tui: connected/disconnected]`). Agent knows whether the operator is watching and can use the message tool to reach them if not.
+- **Session recovery** — on session load, detects incomplete turns (assistant tool-call without matching result) and injects a synthetic continuation message to prevent restart loops.
+- **Interactive import** — `kern import opencode` now shows pickers for project, session, and destination agent. Supports `--project`, `--session`, `--agent` flags for automation. Always confirms selection (no silent auto-select).
+
+### Changes
+- Restart moved from kern tool to `/restart` slash command — agent cannot restart itself, must ask operator.
+- Import flags use space-separated format (`--project /path`) matching standard CLI conventions.
+- KERN.md updated: config changes require restart, agent told to ask operator for `/restart`.
+
 ## v0.9.1
 
 ### Changes

@@ -75,6 +75,15 @@ kern import opencode <name>  # import session from OpenCode
 
 Agents auto-register when you init, start, or run them. `kern list` shows every agent with its running state.
 
+### Slash commands
+
+Type these in any channel (TUI, Telegram, Slack). Handled by the runtime — no LLM call, instant response.
+
+```
+/status     # agent status, model, uptime, session size
+/restart    # restart the agent daemon
+```
+
 ## User pairing
 
 The first person to message the bot becomes the operator — auto-paired, no code needed. Every user after pairs with a code:

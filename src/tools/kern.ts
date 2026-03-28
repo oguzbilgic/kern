@@ -69,6 +69,38 @@ export async function addTokenUsage(promptTokens: number, completionTokens: numb
   } catch {}
 }
 
+export function getStatus(): string {
+  const uptime = Math.floor((Date.now() - _startedAt) / 1000);
+  const hours = Math.floor(uptime / 3600);
+  const mins = Math.floor((uptime % 3600) / 60);
+  const secs = uptime % 60;
+  const uptimeStr =
+    hours > 0
+      ? `${hours}h ${mins}m ${secs}s`
+      : mins > 0
+        ? `${mins}m ${secs}s`
+        : `${secs}s`;
+
+  const stats = _getSessionStats ? _getSessionStats() : null;
+  const sessionLine = stats
+    ? `session: ~${stats.estimatedTokens} tokens (${stats.totalMessages} messages)`
+    : `messages: ${_messageCount}`;
+  const contextLine = stats
+    ? `context: ~${stats.windowTokens} tokens`
+    : "";
+
+  return [
+    `kern: ${_version}`,
+    `agent: ${_agentDir}`,
+    `model: ${_config.provider}/${_config.model}`,
+    `toolScope: ${_config.toolScope}`,
+    sessionLine,
+    contextLine,
+    `api usage: ${_totalPromptTokens + _totalCompletionTokens} tokens (in: ${_totalPromptTokens}, out: ${_totalCompletionTokens})`,
+    `uptime: ${uptimeStr}`,
+  ].filter(Boolean).join("\n");
+}
+
 export const kernTool = tool({
   description:
     "Manage your own kern runtime. Check status, view config, or pair users.",
@@ -85,37 +117,8 @@ export const kernTool = tool({
   }),
   execute: async ({ action, code }) => {
     switch (action) {
-      case "status": {
-        const uptime = Math.floor((Date.now() - _startedAt) / 1000);
-        const hours = Math.floor(uptime / 3600);
-        const mins = Math.floor((uptime % 3600) / 60);
-        const secs = uptime % 60;
-        const uptimeStr =
-          hours > 0
-            ? `${hours}h ${mins}m ${secs}s`
-            : mins > 0
-              ? `${mins}m ${secs}s`
-              : `${secs}s`;
-
-        const stats = _getSessionStats ? _getSessionStats() : null;
-        const sessionLine = stats
-          ? `session: ~${stats.estimatedTokens} tokens (${stats.totalMessages} messages)`
-          : `messages: ${_messageCount}`;
-        const contextLine = stats
-          ? `context: ~${stats.windowTokens} tokens (sent to API after trim)`
-          : "";
-
-        return [
-          `kern: ${_version}`,
-          `agent: ${_agentDir}`,
-          `model: ${_config.provider}/${_config.model}`,
-          `toolScope: ${_config.toolScope}`,
-          sessionLine,
-          contextLine,
-          `api usage: ${_totalPromptTokens + _totalCompletionTokens} tokens (in: ${_totalPromptTokens}, out: ${_totalCompletionTokens})`,
-          `uptime: ${uptimeStr}`,
-        ].filter(Boolean).join("\n");
-      }
+      case "status":
+        return getStatus();
 
       case "config": {
         try {

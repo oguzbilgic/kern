@@ -49,6 +49,24 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   const queue = new MessageQueue();
 
   queue.setHandler(async (msg, getPendingMessages) => {
+    const cmd = msg.text.trim();
+
+    // Intercept /restart — handle at runtime level, never send to LLM
+    if (cmd === "/restart") {
+      log("kern", `restart requested by ${msg.userId} via ${msg.interface}`);
+      setTimeout(async () => {
+        const { spawn } = await import("child_process");
+        spawn("kern", ["restart", agentName], { detached: true, stdio: "ignore" }).unref();
+      }, 2000);
+      return "Restarting in 2 seconds...";
+    }
+
+    // Intercept /status — calls the same kern tool status action, no LLM
+    if (cmd === "/status") {
+      const { getStatus } = await import("./tools/kern.js");
+      return getStatus();
+    }
+
     const time = new Date().toISOString();
     const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}, time: ${time}]\n${msg.text}`;
 
@@ -182,13 +200,16 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     const intervalMs = config.heartbeatInterval * 60 * 1000;
     setInterval(async () => {
       try {
+        const tuiStatus = server.hasConnectedClients() ? "connected" : "disconnected";
+        const heartbeatText = `[heartbeat, tui: ${tuiStatus}]`;
+
         server.broadcast({
           type: "heartbeat",
-          text: "[heartbeat]",
+          text: heartbeatText,
         });
 
         await queue.enqueue({
-          text: "[heartbeat]",
+          text: heartbeatText,
           userId: "system",
           interface: "system",
           channel: "heartbeat",

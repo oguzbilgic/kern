@@ -238,6 +238,7 @@ export class Runtime {
       }
 
       onEvent({ type: "finish", text: fullText });
+
       return fullText || "(no text response)";
     } catch (error: any) {
       // Extract a useful error message from nested errors
