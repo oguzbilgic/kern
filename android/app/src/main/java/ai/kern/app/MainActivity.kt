@@ -24,7 +24,7 @@ import com.google.android.material.textfield.TextInputEditText
 class MainActivity : AppCompatActivity() {
 
     companion object {
-        const val BUILD = 16
+        const val BUILD = 21
     }
 
     private lateinit var webView: WebView
@@ -190,44 +190,154 @@ class MainActivity : AppCompatActivity() {
             }).observe(an, { childList: true, characterData: true, subtree: true });
         }
 
-        // Add mic button
+        // --- Mic button: tap = dictate, long press = voice mode ---
         var inputRow = document.querySelector('.input-row');
         var inputEl = document.getElementById('input');
         if (inputRow && inputEl && window.KernNative) {
             var micBtn = document.createElement('button');
             micBtn.id = 'kern-mic-btn';
             micBtn.textContent = '\uD83C\uDF99';
-            micBtn.title = 'Voice input';
-            micBtn.style.cssText = 'background:transparent;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:18px;cursor:pointer;margin-right:4px;color:var(--text);';
+            micBtn.title = 'Tap: dictate | Hold: voice mode';
+            micBtn.style.cssText = 'background:transparent;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:18px;cursor:pointer;margin-right:4px;color:var(--text);flex-shrink:0;-webkit-user-select:none;';
             inputRow.insertBefore(micBtn, inputEl);
 
             var listening = false;
-            micBtn.addEventListener('click', function() {
-                if (listening) {
+            var voiceMode = false;
+            var longPressTimer = null;
+            var wasLongPress = false;
+
+            function setMicUI(active) {
+                listening = active;
+                if (voiceMode) {
+                    micBtn.style.borderColor = 'var(--green)';
+                    micBtn.style.background = active ? 'rgba(63,185,80,0.2)' : 'rgba(63,185,80,0.1)';
+                    micBtn.textContent = active ? '\uD83C\uDF99' : '\uD83D\uDD0A';
+                } else {
+                    micBtn.style.borderColor = active ? 'var(--red)' : 'var(--border)';
+                    micBtn.style.background = active ? 'rgba(248,81,73,0.1)' : 'transparent';
+                    micBtn.textContent = '\uD83C\uDF99';
+                }
+            }
+
+            function setVoiceMode(active) {
+                voiceMode = active;
+                window._kernTtsEnabled = active;
+                var ttsBtn = document.getElementById('kern-tts-btn');
+                if (ttsBtn) {
+                    ttsBtn.textContent = active ? '\uD83D\uDD0A' : '\uD83D\uDD07';
+                    ttsBtn.style.borderColor = active ? 'var(--green)' : 'var(--border)';
+                }
+                if (active) {
+                    console.log('[kern-native] voice mode ON');
+                    startVoiceListening();
+                } else {
+                    console.log('[kern-native] voice mode OFF');
                     KernNative.stopListening();
-                    micBtn.style.borderColor = 'var(--border)';
-                    micBtn.style.background = 'transparent';
-                    listening = false;
+                    KernNative.stopSpeaking();
+                    setMicUI(false);
+                }
+            }
+
+            function startVoiceListening() {
+                if (!voiceMode) return;
+                setMicUI(true);
+                KernNative.startListening();
+            }
+
+            // Voice commands (intercepted before sending to agent)
+            var voiceCommands = {
+                'stop voice mode': function() { setVoiceMode(false); },
+                'stop listening': function() { setVoiceMode(false); },
+                'voice off': function() { setVoiceMode(false); },
+                'stop': function() { KernNative.stopSpeaking(); setVoiceMode(false); },
+                'mute': function() { window._kernTtsEnabled = false; var tb = document.getElementById('kern-tts-btn'); if (tb) { tb.textContent = '\uD83D\uDD07'; tb.style.borderColor = 'var(--border)'; } },
+                'unmute': function() { window._kernTtsEnabled = true; var tb = document.getElementById('kern-tts-btn'); if (tb) { tb.textContent = '\uD83D\uDD0A'; tb.style.borderColor = 'var(--green)'; } },
+            };
+
+            function checkVoiceCommand(text) {
+                var lower = (text || '').toLowerCase().replace(/[.,!?;:]/g, '').trim();
+                for (var cmd in voiceCommands) {
+                    if (lower === cmd || lower.indexOf(cmd) !== -1) {
+                        console.log('[kern-native] voice command: ' + cmd);
+                        voiceCommands[cmd]();
+                        inputEl.value = '';
+                        inputEl.dispatchEvent(new Event('input'));
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            // Long press detection
+            micBtn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                wasLongPress = false;
+                longPressTimer = setTimeout(function() {
+                    wasLongPress = true;
+                    setVoiceMode(!voiceMode);
+                }, 600);
+            });
+            micBtn.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                clearTimeout(longPressTimer);
+                if (wasLongPress) return;
+                // Tap while TTS playing: interrupt and listen
+                if (KernNative.isSpeaking()) {
+                    KernNative.stopSpeaking();
+                    if (voiceMode) startVoiceListening();
+                    return;
+                }
+                // Tap in voice mode: exit
+                if (voiceMode) {
+                    setVoiceMode(false);
+                } else if (listening) {
+                    KernNative.stopListening();
+                    setMicUI(false);
                 } else {
                     KernNative.startListening();
-                    micBtn.style.borderColor = 'var(--red)';
-                    micBtn.style.background = 'rgba(248,81,73,0.1)';
-                    listening = true;
+                    setMicUI(true);
                 }
             });
+            micBtn.addEventListener('touchcancel', function() { clearTimeout(longPressTimer); });
 
-            window.onKernSpeechResult = function(text) {
+            // Partial STT: live preview in input
+            window.onKernSpeechPartial = function(text) {
                 inputEl.value = text;
                 inputEl.dispatchEvent(new Event('input'));
             };
+
+            // Final STT result
+            window.onKernSpeechResult = function(text) {
+                setMicUI(false);
+                if (voiceMode) {
+                    if (checkVoiceCommand(text)) return;
+                    if (text && text.trim()) {
+                        inputEl.value = text.trim();
+                        inputEl.dispatchEvent(new Event('input'));
+                        if (window.send) window.send();
+                    } else {
+                        startVoiceListening();
+                    }
+                } else {
+                    inputEl.value = text;
+                    inputEl.dispatchEvent(new Event('input'));
+                }
+            };
+
             window.onKernSpeechError = function(msg) {
-                micBtn.style.borderColor = 'var(--border)';
-                micBtn.style.background = 'transparent';
-                listening = false;
+                setMicUI(false);
+                if (voiceMode && msg !== 'Microphone permission required') {
+                    startVoiceListening();
+                }
+            };
+
+            // TTS done: restart listening in voice mode
+            window.onKernTtsDone = function() {
+                if (voiceMode) startVoiceListening();
             };
         }
 
-        // Add TTS toggle (after the model name in header)
+        // TTS toggle in header
         var header = document.querySelector('.header');
         if (header && window.KernNative) {
             var ttsBtn = document.createElement('button');
@@ -244,17 +354,6 @@ class MainActivity : AppCompatActivity() {
                 ttsBtn.style.borderColor = window._kernTtsEnabled ? 'var(--green)' : 'var(--border)';
                 if (!window._kernTtsEnabled) KernNative.stopSpeaking();
             });
-
-            var _origAM = window.addMessage;
-            if (_origAM) {
-                window.addMessage = function(type, text, meta) {
-                    var el = _origAM(type, text, meta);
-                    if (type === 'assistant' && window._kernTtsEnabled && text) {
-                        KernNative.speak(text);
-                    }
-                    return el;
-                };
-            }
         }
 
         console.log('[kern-native] injection complete, build $BUILD');

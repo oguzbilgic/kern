@@ -9,6 +9,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 
 /**
@@ -23,23 +24,38 @@ class SpeechService(private val context: Context) {
 
     private var tts: TextToSpeech? = null
     private var ttsReady = false
+    private var onTtsDone: (() -> Unit)? = null
 
     fun initTts() {
         tts = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 tts?.language = Locale.getDefault()
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {}
+                    override fun onDone(utteranceId: String?) {
+                        mainHandler.post { onTtsDone?.invoke() }
+                    }
+                    @Deprecated("Deprecated in Java")
+                    override fun onError(utteranceId: String?) {
+                        mainHandler.post { onTtsDone?.invoke() }
+                    }
+                })
                 ttsReady = true
             }
         }
     }
 
-    fun speak(text: String) {
+    fun speak(text: String, onDone: (() -> Unit)? = null) {
         if (ttsReady) {
+            onTtsDone = onDone
             tts?.speak(text, TextToSpeech.QUEUE_ADD, null, "kern_tts_${System.currentTimeMillis()}")
+        } else {
+            onDone?.invoke()
         }
     }
 
     fun stopSpeaking() {
+        onTtsDone = null
         tts?.stop()
     }
 
@@ -49,7 +65,7 @@ class SpeechService(private val context: Context) {
 
     private var recognizer: SpeechRecognizer? = null
 
-    fun startListening(onResult: (String) -> Unit, onError: (String) -> Unit) {
+    fun startListening(onResult: (String) -> Unit, onPartial: ((String) -> Unit)? = null, onError: (String) -> Unit) {
         mainHandler.post {
             if (!SpeechRecognizer.isRecognitionAvailable(context)) {
                 onError("Speech recognition not available on this device")
@@ -70,7 +86,7 @@ class SpeechService(private val context: Context) {
                         val matches = partial
                             ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         val text = matches?.firstOrNull() ?: return
-                        if (text.isNotBlank()) onResult(text)
+                        if (text.isNotBlank()) (onPartial ?: onResult)(text)
                     }
 
                     override fun onError(error: Int) {
@@ -99,6 +115,10 @@ class SpeechService(private val context: Context) {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                // Longer silence timeouts so it doesn't cut off mid-sentence
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 3000L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 2000L)
             }
             recognizer?.startListening(intent)
         }
