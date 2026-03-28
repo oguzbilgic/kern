@@ -78,11 +78,26 @@ export class AgentServer {
     return this.port;
   }
 
+  private checkAuth(req: IncomingMessage): boolean {
+    const token = process.env.KERN_AUTH_TOKEN;
+    if (!token) return true; // no token configured = open access
+
+    // Check Authorization header
+    const authHeader = req.headers.authorization;
+    if (authHeader === `Bearer ${token}`) return true;
+
+    // Check ?token= query param (for EventSource and browser URLs)
+    const url = new URL(req.url || "/", "http://localhost");
+    if (url.searchParams.get("token") === token) return true;
+
+    return false;
+  }
+
   private async handleRequest(req: IncomingMessage, res: ServerResponse) {
-    // CORS for potential web UI
+    // CORS for web UI
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
     if (req.method === "OPTIONS") {
       res.writeHead(200);
@@ -91,6 +106,34 @@ export class AgentServer {
     }
 
     const url = req.url || "/";
+
+    // Health check — always public (for Docker healthchecks, load balancers)
+    if (url === "/health" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, uptime: process.uptime() }));
+      return;
+    }
+
+    // Web UI — serve without auth (page handles auth via token param)
+    if (url.split("?")[0] === "/" && req.method === "GET") {
+      const webUiPath = join(import.meta.dirname, "..", "templates", "web", "index.html");
+      if (existsSync(webUiPath)) {
+        const html = await readFile(webUiPath, "utf-8");
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(html);
+      } else {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end("<html><body><p>Web UI not found. Check kern installation.</p></body></html>");
+      }
+      return;
+    }
+
+    // Auth check — all other endpoints require token if KERN_AUTH_TOKEN is set
+    if (!this.checkAuth(req)) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "unauthorized" }));
+      return;
+    }
 
     // SSE endpoint — stream all events
     if (url === "/events" && req.method === "GET") {
@@ -158,20 +201,6 @@ export class AgentServer {
       const history = this.historyFn ? this.historyFn(limit, before) : [];
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(history));
-      return;
-    }
-
-    // Web UI — serve single-page HTML
-    if (url === "/" && req.method === "GET") {
-      const webUiPath = join(import.meta.dirname, "..", "templates", "web", "index.html");
-      if (existsSync(webUiPath)) {
-        const html = await readFile(webUiPath, "utf-8");
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(html);
-      } else {
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end("<html><body><p>Web UI not found. Check kern installation.</p></body></html>");
-      }
       return;
     }
 
