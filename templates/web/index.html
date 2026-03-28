@@ -3,6 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0d1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon.svg">
 <title>kern</title>
 <style>
   :root {
@@ -44,6 +50,9 @@
     align-items: center;
     justify-content: space-between;
     padding: 8px 16px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
     border-bottom: 1px solid var(--border);
     background: var(--bg-surface);
     flex-shrink: 0;
@@ -196,6 +205,9 @@
   /* --- Input --- */
   .input-area {
     padding: 12px 16px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
     border-top: 1px solid var(--border);
     background: var(--bg-surface);
     flex-shrink: 0;
@@ -213,12 +225,12 @@
     border-radius: 8px;
     padding: 10px 12px;
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: 16px;
     line-height: 1.5;
     resize: none;
     outline: none;
     max-height: 40vh;
-    min-height: 42px;
+    min-height: 44px;
     overflow-y: hidden;
   }
   .input-row textarea:focus {
@@ -233,10 +245,10 @@
     border: none;
     border-radius: 8px;
     padding: 10px 16px;
-    font-size: 14px;
+    font-size: 16px;
     cursor: pointer;
     white-space: nowrap;
-    height: 42px;
+    min-height: 44px;
   }
   .input-row button:hover { background: var(--accent); }
   .input-row button:disabled {
@@ -708,6 +720,11 @@ async function init() {
 }
 
 init();
+
+// Register service worker for PWA
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
 </script>
 </body>
 </html>
