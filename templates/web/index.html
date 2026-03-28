@@ -296,7 +296,7 @@ const AgentClient = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text,
-        userId: opts.userId || 'operator',
+        userId: opts.userId || 'tui',
         interface: opts.interface || 'web',
         channel: opts.channel || 'web',
       }),
