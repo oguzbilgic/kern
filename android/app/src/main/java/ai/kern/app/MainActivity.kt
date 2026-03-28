@@ -5,9 +5,14 @@ import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.util.Base64
+import android.util.Log
 import android.view.View
+import android.view.WindowManager
+import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
@@ -18,12 +23,20 @@ import com.google.android.material.textfield.TextInputEditText
 
 class MainActivity : AppCompatActivity() {
 
+    companion object {
+        const val BUILD = 16
+    }
+
     private lateinit var webView: WebView
     private lateinit var setupScreen: View
     private lateinit var speech: SpeechService
+    private val sseClient = NativeSseClient()
+    private var serverUrl: String? = null
+    private var serverToken: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_main)
 
         webView = findViewById(R.id.webView)
@@ -33,20 +46,14 @@ class MainActivity : AppCompatActivity() {
 
         setupWebView()
 
-        // Handle deep link: kern://connect?url=...&token=...
         intent?.data?.let { uri -> handleDeepLink(uri) } ?: showSetupOrReconnect()
-
-        // Setup screen connect button
         findViewById<Button>(R.id.connectBtn).setOnClickListener { onConnectClicked() }
     }
 
     private fun showSetupOrReconnect() {
         val savedUrl = ConnectionConfig.getUrl(this)
-        if (savedUrl != null) {
-            connect(savedUrl, ConnectionConfig.getToken(this))
-        } else {
-            showSetup()
-        }
+        if (savedUrl != null) connect(savedUrl, ConnectionConfig.getToken(this))
+        else showSetup()
     }
 
     private fun handleDeepLink(uri: Uri) {
@@ -62,16 +69,14 @@ class MainActivity : AppCompatActivity() {
         val url = urlInput.text?.toString()?.trim() ?: return
         if (url.isEmpty()) return
         val token = tokenInput.text?.toString()?.trim()?.ifEmpty { null }
-
         ConnectionConfig.save(this, url, token)
         connect(url, token)
     }
 
     private fun showSetup() {
+        sseClient.close()
         webView.visibility = View.GONE
         setupScreen.visibility = View.VISIBLE
-
-        // Pre-fill saved values
         ConnectionConfig.getUrl(this)?.let {
             findViewById<TextInputEditText>(R.id.serverUrlInput).setText(it)
         }
@@ -80,61 +85,115 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
-    private fun setupWebView() {
-        webView.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            mediaPlaybackRequiresUserGesture = false
-        }
-
-        webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                // Keep navigation inside the WebView for same-origin
-                return false
-            }
-
-            override fun onPageFinished(view: WebView, url: String) {
-                super.onPageFinished(view, url)
-                injectNativeBridgeUi()
-            }
-        }
-
-        webView.webChromeClient = WebChromeClient()
-
-        // Attach the native bridge
-        val bridge = NativeBridge(webView, speech) { runOnUiThread { disconnect() } }
-        webView.addJavascriptInterface(bridge, "KernNative")
-    }
-
-    private fun connect(url: String, token: String?) {
-        ensureMicPermission()
-        setupScreen.visibility = View.GONE
-        webView.visibility = View.VISIBLE
-        webView.loadUrl(ConnectionConfig.buildWebUrl(url, token))
-    }
-
-    private fun disconnect() {
-        webView.loadUrl("about:blank")
-        ConnectionConfig.clear(this)
-        showSetup()
-    }
-
     /**
-     * Inject a mic button and TTS toggle into the web UI's input row.
-     * Only runs if KernNative bridge is detected.
+     * JS to inject BEFORE the page's own <script>.
+     * Runs at parse time — no timers, no races.
      */
-    private fun injectNativeBridgeUi() {
-        val js = """
-        (function() {
-            if (!window.KernNative || document.getElementById('kern-mic-btn')) return;
+    private fun bridgeScript(): String = """
+// --- kern native bridge (build $BUILD) ---
+(function() {
+    // 1. Kill EventSource so the page can never create one
+    var _OrigES = window.EventSource;
+    window.EventSource = function(url) {
+        console.log('[kern-native] EventSource blocked: ' + url);
+        this.close = function(){};
+        this.readyState = 2;
+    };
+    window.EventSource.CONNECTING = 0;
+    window.EventSource.OPEN = 1;
+    window.EventSource.CLOSED = 2;
 
-            var inputRow = document.querySelector('.input-row');
-            if (!inputRow) return;
-            var sendBtn = inputRow.querySelector('button');
-            var inputEl = document.getElementById('input');
+    // 2. Flag for native app detection
+    window._kernNativeBuild = $BUILD;
 
-            // --- Mic button ---
+    // 3. Wait for page to set up, then patch
+    window.addEventListener('DOMContentLoaded', function() {
+        // Override AgentClient.connect (page defines it in <script>)
+        // Use a polling check since DOMContentLoaded fires before inline scripts
+    });
+
+    // Patch after page script runs (using a microtask at end of script parsing)
+    var _patchInterval = setInterval(function() {
+        if (!window.AgentClient) return;
+        clearInterval(_patchInterval);
+
+        // Close existing SSE connection
+        if (window._kern && window._kern.connection) {
+            window._kern.connection.close();
+            window._kern.connection = { close: function(){} };
+        }
+
+        // Override connect to no-op
+        window.AgentClient.connect = function(baseUrl, token, opts) {
+            console.log('[kern-native] SSE connect intercepted');
+            window._kernSseOpts = opts;
+            return { close: function(){} };
+        };
+
+        // Override init to prevent reconnect loops
+        var _origInit = window.init;
+        window.init = function() {
+            console.log('[kern-native] init() intercepted');
+            // Run init once for history loading, then replace with no-op
+            if (!window._kernInitRan) {
+                window._kernInitRan = true;
+                _origInit && _origInit();
+            }
+        };
+
+        // Patch renderMarkdown to strip leading/trailing <br>
+        var _origRM = window.renderMarkdown;
+        if (_origRM) {
+            window.renderMarkdown = function(text) {
+                return _origRM(text).replace(/^(<br>)+/, '').replace(/(<br>)+$/, '');
+            };
+        }
+
+        // Patch handleEvent for trimming leading newlines + TTS on finish
+        var _origHE = window.handleEvent;
+        if (_origHE) {
+            window.handleEvent = function(ev) {
+                if (ev.type === 'text-delta' && ev.text && window._kern && !window._kern.streamingText) {
+                    ev.text = ev.text.replace(/^\n+/, '');
+                    if (!ev.text) return;
+                }
+                // Capture streaming text before finish clears it
+                var textToSpeak = (ev.type === 'finish' && window._kern) ? window._kern.streamingText : '';
+                var result = _origHE(ev);
+                // Speak the full response after finish
+                if (ev.type === 'finish' && window._kernTtsEnabled && textToSpeak) {
+                    console.log('[kern-native] TTS speaking: ' + textToSpeak.length + ' chars');
+                    KernNative.speak(textToSpeak);
+                }
+                return result;
+            };
+        }
+
+        // Native SSE callbacks
+        window._kernNativeSseReady = function() {
+            console.log('[kern-native] SSE connected');
+            if (window.setConnected) window.setConnected('connected');
+        };
+        window._kernNativeSseDisconnected = function() {
+            console.log('[kern-native] SSE disconnected');
+            if (window.setConnected) window.setConnected('disconnected');
+        };
+
+        // Show build number next to agent name once init sets it
+        var an = document.getElementById('agent-name');
+        if (an) {
+            new MutationObserver(function(_, obs) {
+                if (an.textContent && an.textContent !== 'kern' && an.textContent.indexOf('b$BUILD') === -1) {
+                    an.textContent = an.textContent + ' [b$BUILD]';
+                    obs.disconnect();
+                }
+            }).observe(an, { childList: true, characterData: true, subtree: true });
+        }
+
+        // Add mic button
+        var inputRow = document.querySelector('.input-row');
+        var inputEl = document.getElementById('input');
+        if (inputRow && inputEl && window.KernNative) {
             var micBtn = document.createElement('button');
             micBtn.id = 'kern-mic-btn';
             micBtn.textContent = '\uD83C\uDF99';
@@ -166,19 +225,17 @@ class MainActivity : AppCompatActivity() {
                 micBtn.style.background = 'transparent';
                 listening = false;
             };
+        }
 
-            // --- TTS toggle ---
+        // Add TTS toggle (after the model name in header)
+        var header = document.querySelector('.header');
+        if (header && window.KernNative) {
             var ttsBtn = document.createElement('button');
             ttsBtn.id = 'kern-tts-btn';
             ttsBtn.textContent = '\uD83D\uDD07';
             ttsBtn.title = 'Read responses aloud';
-            ttsBtn.style.cssText = 'background:transparent;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:18px;cursor:pointer;color:var(--text);position:absolute;right:8px;top:8px;';
-
-            var header = document.querySelector('.header');
-            if (header) {
-                header.style.position = 'relative';
-                header.appendChild(ttsBtn);
-            }
+            ttsBtn.style.cssText = 'background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:16px;cursor:pointer;color:var(--text);margin-left:8px;flex-shrink:0;';
+            header.appendChild(ttsBtn);
 
             window._kernTtsEnabled = false;
             ttsBtn.addEventListener('click', function() {
@@ -188,19 +245,119 @@ class MainActivity : AppCompatActivity() {
                 if (!window._kernTtsEnabled) KernNative.stopSpeaking();
             });
 
-            // Hook into message rendering to auto-speak assistant responses
-            var origAddMessage = window.addMessage;
-            if (origAddMessage) {
+            var _origAM = window.addMessage;
+            if (_origAM) {
                 window.addMessage = function(type, text, meta) {
-                    origAddMessage(type, text, meta);
+                    var el = _origAM(type, text, meta);
                     if (type === 'assistant' && window._kernTtsEnabled && text) {
                         KernNative.speak(text);
                     }
+                    return el;
                 };
             }
-        })();
-        """.trimIndent()
-        webView.evaluateJavascript(js, null)
+        }
+
+        console.log('[kern-native] injection complete, build $BUILD');
+    }, 50);
+
+    // Fix: thinking indicator going behind input area on mobile
+    var css = document.createElement('style');
+    css.textContent = '.input-area { position: relative; z-index: 10; background: var(--bg-surface); }';
+    document.head.appendChild(css);
+})();
+"""
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun setupWebView() {
+        webView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            mediaPlaybackRequiresUserGesture = false
+            cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
+        }
+
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                return false
+            }
+
+            override fun onPageFinished(view: WebView, url: String) {
+                super.onPageFinished(view, url)
+                Log.d("KernWebView", "onPageFinished: $url")
+                if (url == "about:blank") return
+                // Test: minimal injection to prove it works
+                view.evaluateJavascript("console.log('[kern-native] page finished, injecting build $BUILD');", null)
+                // Inject bridge script and start native SSE
+                view.evaluateJavascript(bridgeScript(), null)
+                startNativeSse()
+            }
+
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
+                Log.e("KernWebView", "Error loading ${request.url}: ${error.description} (${error.errorCode})")
+            }
+
+            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
+                Log.e("KernWebView", "HTTP error ${response.statusCode} for ${request.url}")
+            }
+        }
+
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(msg: ConsoleMessage): Boolean {
+                Log.d("KernWebView", "${msg.messageLevel()}: ${msg.message()} [${msg.sourceId()}:${msg.lineNumber()}]")
+                return true
+            }
+        }
+
+        val bridge = NativeBridge(webView, speech) { runOnUiThread { disconnect() } }
+        webView.addJavascriptInterface(bridge, "KernNative")
+    }
+
+    private fun connect(url: String, token: String?) {
+        ensureMicPermission()
+        serverUrl = url.trimEnd('/')
+        serverToken = token
+        setupScreen.visibility = View.GONE
+        webView.visibility = View.VISIBLE
+        webView.loadUrl(ConnectionConfig.buildWebUrl(url, token))
+    }
+
+    private fun disconnect() {
+        sseClient.close()
+        webView.loadUrl("about:blank")
+        ConnectionConfig.clear(this)
+        showSetup()
+    }
+
+    private fun startNativeSse() {
+        val base = serverUrl ?: return
+        val token = serverToken
+        val eventsUrl = if (!token.isNullOrBlank()) {
+            "$base/events?token=${Uri.encode(token)}"
+        } else {
+            "$base/events"
+        }
+
+        sseClient.connect(eventsUrl, token) { data ->
+            runOnUiThread {
+                val b64 = Base64.encodeToString(data.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+                webView.evaluateJavascript(
+                    "(function(){ try { " +
+                    "var b=atob('$b64');" +
+                    "var bytes=new Uint8Array(b.length);" +
+                    "for(var i=0;i<b.length;i++) bytes[i]=b.charCodeAt(i);" +
+                    "var json=new TextDecoder().decode(bytes);" +
+                    "var ev=JSON.parse(json);" +
+                    "if (ev.type === '__sse_connected') { " +
+                    "  if (window._kernNativeSseReady) window._kernNativeSseReady(); " +
+                    "} else if (ev.type === '__sse_disconnected') { " +
+                    "  if (window._kernNativeSseDisconnected) window._kernNativeSseDisconnected(); " +
+                    "} else { " +
+                    "  if (window.handleEvent) window.handleEvent(ev); " +
+                    "} } catch(e) { console.log('SSE inject error: ' + e); } })();",
+                    null
+                )
+            }
+        }
     }
 
     private fun ensureMicPermission() {
@@ -222,6 +379,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        sseClient.close()
         speech.destroy()
         webView.destroy()
         super.onDestroy()

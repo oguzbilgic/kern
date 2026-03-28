@@ -78,6 +78,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
         fromInterface: msg.interface,
         fromUserId: msg.userId,
         fromChannel: msg.channel,
+        fromClientId: msg.clientId,
       });
     }
 
@@ -97,8 +98,8 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   });
 
   // Helper to enqueue from any interface
-  const enqueueMessage = (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void) => {
-    return queue.enqueue({ text, userId, interface: iface, channel }, onEvent);
+  const enqueueMessage = (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void, clientId?: string) => {
+    return queue.enqueue({ text, userId, interface: iface, channel, clientId }, onEvent);
   };
 
   server.setStatusFn(() => ({
@@ -108,8 +109,8 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     agentName,
   }));
 
-  server.setMessageHandler(async (text, userId, iface, channel) => {
-    await enqueueMessage(text, userId, iface, channel);
+  server.setMessageHandler(async (text, userId, iface, channel, clientId?) => {
+    await enqueueMessage(text, userId, iface, channel, undefined, clientId);
   });
 
   // History: return messages from session, paginated

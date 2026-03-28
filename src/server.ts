@@ -10,6 +10,7 @@ export interface ServerEvent extends StreamEvent {
   fromInterface?: string;
   fromUserId?: string;
   fromChannel?: string;
+  fromClientId?: string;
 }
 
 type SSEClient = {
@@ -19,7 +20,7 @@ type SSEClient = {
 export class AgentServer {
   private server: ReturnType<typeof createServer>;
   private clients: SSEClient[] = [];
-  private onMessage: ((text: string, userId: string, iface: string, channel: string) => Promise<void>) | null = null;
+  private onMessage: ((text: string, userId: string, iface: string, channel: string, clientId?: string) => Promise<void>) | null = null;
   private statusFn: (() => any) | null = null;
   private historyFn: ((limit: number, before?: number) => any[]) | null = null;
   private port = 0;
@@ -28,7 +29,7 @@ export class AgentServer {
     this.server = createServer((req, res) => this.handleRequest(req, res));
   }
 
-  setMessageHandler(handler: (text: string, userId: string, iface: string, channel: string) => Promise<void>) {
+  setMessageHandler(handler: (text: string, userId: string, iface: string, channel: string, clientId?: string) => Promise<void>) {
     this.onMessage = handler;
   }
 
@@ -171,6 +172,7 @@ export class AgentServer {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
       });
       res.write(":\n\n"); // SSE comment to establish connection
 
@@ -197,7 +199,7 @@ export class AgentServer {
     if (url === "/message" && req.method === "POST") {
       const body = await readBody(req);
       try {
-        const { text, userId, interface: iface, channel } = JSON.parse(body);
+        const { text, userId, interface: iface, channel, clientId } = JSON.parse(body);
         if (!text) {
           res.writeHead(400);
           res.end(JSON.stringify({ error: "text required" }));
@@ -208,7 +210,7 @@ export class AgentServer {
 
         // Handle async — don't await, response already sent
         if (this.onMessage) {
-          this.onMessage(text, userId || "tui", iface || "tui", channel || "tui").catch(() => {});
+          this.onMessage(text, userId || "tui", iface || "tui", channel || "tui", clientId).catch(() => {});
         }
       } catch {
         res.writeHead(400);
