@@ -15,6 +15,34 @@ import { setMessageSender } from "./tools/message.js";
 import { MessageQueue } from "./queue.js";
 import { log } from "./log.js";
 
+async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
+  switch (cmd) {
+    case "/restart": {
+      log("kern", `restart requested by ${userId} via ${iface}`);
+      setTimeout(async () => {
+        const { spawn } = await import("child_process");
+        spawn("kern", ["restart", agentName], { detached: true, stdio: "ignore" }).unref();
+      }, 2000);
+      return "Restarting in 2 seconds...";
+    }
+
+    case "/status": {
+      const { getStatus } = await import("./tools/kern.js");
+      return getStatus();
+    }
+
+    case "/help":
+      return [
+        "/status   — show agent status, uptime, token usage",
+        "/restart  — restart the agent process",
+        "/help     — show this help",
+      ].join("\n");
+
+    default:
+      return null; // unknown command — fall through to LLM
+  }
+}
+
 export async function startApp(agentDir: string, forceCli = false): Promise<void> {
   // Update kernel if newer version available
   await updateKernel(agentDir);
@@ -62,20 +90,18 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   queue.setHandler(async (msg, getPendingMessages) => {
     const cmd = msg.text.trim();
 
-    // Intercept /restart — handle at runtime level, never send to LLM
-    if (cmd === "/restart") {
-      log("kern", `restart requested by ${msg.userId} via ${msg.interface}`);
-      setTimeout(async () => {
-        const { spawn } = await import("child_process");
-        spawn("kern", ["restart", agentName], { detached: true, stdio: "ignore" }).unref();
-      }, 2000);
-      return "Restarting in 2 seconds...";
-    }
-
-    // Intercept /status — calls the same kern tool status action, no LLM
-    if (cmd === "/status") {
-      const { getStatus } = await import("./tools/kern.js");
-      return getStatus();
+    // Slash commands — intercepted, never sent to LLM
+    if (cmd.startsWith("/")) {
+      const result = await handleSlashCommand(cmd, msg.userId, msg.interface, agentName);
+      if (result !== null) {
+        server.broadcast({
+          type: "command-result" as any,
+          text: result,
+          command: cmd,
+        });
+        return result;
+      }
+      // Unknown slash command — fall through to LLM
     }
 
     const time = new Date().toISOString();

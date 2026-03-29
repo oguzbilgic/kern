@@ -446,6 +446,10 @@ function App({ port, agentName, version, authToken }: TuiProps) {
         setMessages((m: ChatMessage[]) => [...m, { type: "heartbeat", text: "" }]);
         return;
       }
+      if ((event as any).type === "command-result") {
+        setMessages((m: ChatMessage[]) => [...m, { type: "assistant", text: event.text || "" }]);
+        return;
+      }
       switch (event.type) {
         case "text-delta":
           setStreamingText((s: string) => s + (event.text || ""));
