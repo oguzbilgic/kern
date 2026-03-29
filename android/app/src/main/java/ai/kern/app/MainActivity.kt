@@ -24,7 +24,7 @@ import com.google.android.material.textfield.TextInputEditText
 class MainActivity : AppCompatActivity() {
 
     companion object {
-        const val BUILD = 23
+        const val BUILD = 24
     }
 
     private lateinit var webView: WebView
@@ -123,21 +123,35 @@ class MainActivity : AppCompatActivity() {
             window._kern.connection = { close: function(){} };
         }
 
+        // Track the current agent URL to detect switches vs reconnect attempts
+        var _currentAgentUrl = null;
+
         // Override connect — tell native app to start SSE for this agent
         window.AgentClient.connect = function(baseUrl, token, opts) {
             console.log('[kern-native] SSE connect intercepted, url=' + baseUrl);
             window._kernSseOpts = opts;
-            // Tell native to start SSE for this specific agent URL + token
-            if (window.KernNative && window.KernNative.switchAgent) {
-                KernNative.switchAgent(baseUrl, token || '');
+            // Only start native SSE if this is a new/different agent
+            if (baseUrl !== _currentAgentUrl) {
+                _currentAgentUrl = baseUrl;
+                if (window.KernNative && window.KernNative.switchAgent) {
+                    KernNative.switchAgent(baseUrl, token || '');
+                }
             }
             return { close: function(){} };
         };
 
-        // Override init — allow re-runs for agent switching
+        // Override init — run once per agent, guard against reconnect loops
         var _origInit = window.init;
+        var _initForAgent = null;
         window.init = function() {
-            console.log('[kern-native] init() called');
+            // Allow init for first run or when agent changes (BASE_URL changed)
+            var currentBase = window.BASE_URL || '';
+            if (_initForAgent === currentBase) {
+                console.log('[kern-native] init() skipped (already ran for ' + currentBase + ')');
+                return;
+            }
+            _initForAgent = currentBase;
+            console.log('[kern-native] init() running for ' + currentBase);
             _origInit && _origInit();
         };
 
