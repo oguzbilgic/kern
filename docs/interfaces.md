@@ -18,11 +18,12 @@ kern tui [name]
 - Live connection indicator (`●`/`○`) that automatically reconnects
 - Ctrl-C only kills TUI, daemon stays alive
 
-Markers:
-- `>` green — your input
-- `◆` blue — agent response
-- `◇` yellow — incoming from other channels
-- `→` green — agent sent a message to a channel
+Message styling (colored left borders):
+- **green** — your input and outgoing messages to other channels
+- **yellow** — incoming from other channels (Telegram, Slack, Web)
+- **magenta** — heartbeat
+- Assistant responses are plain text, indented
+- Tool calls are color-coded by tool name (bash=red, read=cyan, write=green, edit=yellow, glob=magenta, grep=blue)
 
 ## Web UI
 
