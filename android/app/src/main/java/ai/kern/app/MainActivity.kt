@@ -24,7 +24,7 @@ import com.google.android.material.textfield.TextInputEditText
 class MainActivity : AppCompatActivity() {
 
     companion object {
-        const val BUILD = 24
+        const val BUILD = 25
     }
 
     private lateinit var webView: WebView
@@ -116,6 +116,8 @@ class MainActivity : AppCompatActivity() {
     var _patchInterval = setInterval(function() {
         if (!window.AgentClient) return;
         clearInterval(_patchInterval);
+        if (window._kernPatched) return;
+        window._kernPatched = true;
 
         // Close existing SSE connection
         if (window._kern && window._kern.connection) {
