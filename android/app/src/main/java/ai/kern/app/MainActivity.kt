@@ -24,7 +24,7 @@ import com.google.android.material.textfield.TextInputEditText
 class MainActivity : AppCompatActivity() {
 
     companion object {
-        const val BUILD = 21
+        const val BUILD = 22
     }
 
     private lateinit var webView: WebView
@@ -188,6 +188,19 @@ class MainActivity : AppCompatActivity() {
                     obs.disconnect();
                 }
             }).observe(an, { childList: true, characterData: true, subtree: true });
+
+            // Long press agent name: disconnect and return to setup
+            var _anTimer = null;
+            an.style.cssText += '-webkit-user-select:none;user-select:none;cursor:pointer;-webkit-touch-callout:none;';
+            an.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                _anTimer = setTimeout(function() {
+                    _anTimer = null;
+                    KernNative.disconnect();
+                }, 1000);
+            });
+            an.addEventListener('touchend', function(e) { e.preventDefault(); clearTimeout(_anTimer); });
+            an.addEventListener('touchcancel', function() { clearTimeout(_anTimer); });
         }
 
         // --- Mic button: tap = dictate, long press = voice mode ---

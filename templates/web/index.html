@@ -84,10 +84,12 @@
   .messages {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 4px;
+    min-height: 0; /* prevent flex item from overflowing */
   }
 
   .message {
@@ -473,6 +475,7 @@ const AgentClient = {
         userId: opts.userId || 'tui',
         interface: opts.interface || 'web',
         channel: opts.channel || 'web',
+        clientId: opts.clientId,
       }),
     });
     return res.json();
@@ -549,6 +552,9 @@ function renderMarkdown(text) {
   html = html.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, (match) =>
     match.replace(/<br>/g, '\n'));
 
+  // Strip leading/trailing <br> to avoid blank space at top/bottom of bubbles
+  html = html.replace(/^(<br>)+/, '').replace(/(<br>)+$/, '');
+
   return html;
 }
 
@@ -587,6 +593,7 @@ const params = new URLSearchParams(location.search);
 // If URL has explicit params, use those and save as an agent
 let BASE_URL = params.get('url') || location.origin;
 let AUTH_TOKEN = params.get('token') || null;
+const CLIENT_ID = Math.random().toString(36).slice(2, 10);
 
 if (params.get('token')) {
   const urlName = params.get('name') || new URL(BASE_URL).port || 'default';
@@ -839,10 +846,11 @@ function handleEvent(event) {
       break;
 
     case 'incoming':
-      if (event.fromInterface !== 'web') {
-        addMessage('incoming',
-          event.text || '',
-          `[${event.fromInterface} ${event.fromUserId || ''}]`);
+      // Show messages from other clients (skip our own — we already rendered it)
+      if (event.fromClientId !== CLIENT_ID) {
+        const isWeb = event.fromInterface === 'web' || event.fromInterface === 'tui';
+        const label = isWeb ? null : `[${event.fromInterface} ${event.fromUserId || ''}]`;
+        addMessage(isWeb ? 'user' : 'incoming', event.text || '', label);
       }
       break;
 
@@ -871,7 +879,7 @@ async function send() {
   setBusy(true);
 
   try {
-    await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text);
+    await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text, { clientId: CLIENT_ID });
   } catch (err) {
     addMessage('error', `Failed to send: ${err.message}`);
     setBusy(false);
@@ -1044,6 +1052,14 @@ setupSwitcher();
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
+
+// Expose key variables for native app bridge (const/let aren't on window)
+window.AgentClient = AgentClient;
+window._kern = { get connection() { return connection; }, set connection(v) { connection = v; },
+  get streamingText() { return streamingText; }, set streamingText(v) { streamingText = v; },
+  get streamingEl() { return streamingEl; }, set streamingEl(v) { streamingEl = v; },
+  get busy() { return busy; }, set busy(v) { busy = v; },
+  get authFailed() { return authFailed; }, set authFailed(v) { authFailed = v; } };
 </script>
 </body>
 </html>
