@@ -42,7 +42,8 @@ async function showHelp() {
   w(`    ${cyan("kern import")} ${dim("opencode <name>")}  import session from OpenCode`);
   w(`    ${cyan("kern restore")} ${dim("<file>")}         restore agent from backup`);
   w(`    ${cyan("kern logs")} ${dim("[name]")}            tail agent logs`);
-  w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
+    w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
+    w(`    ${cyan("kern web")} ${dim("<start|stop|status>")}  web UI server`);
   w("");
 }
 
@@ -251,17 +252,8 @@ async function main() {
       process.exit(1);
     }
 
-    // Read auth token from agent's .kern/.env if present
-    let authToken: string | undefined;
-    try {
-      const { config: loadDotenv } = await import("dotenv");
-      const envPath = join(agent.path, ".kern", ".env");
-      const { existsSync } = await import("fs");
-      if (existsSync(envPath)) {
-        const parsed = loadDotenv({ path: envPath, override: false });
-        authToken = parsed.parsed?.KERN_AUTH_TOKEN || process.env.KERN_AUTH_TOKEN;
-      }
-    } catch {}
+    // Read auth token from agents.json registry
+    const authToken = agent.token || undefined;
 
     await connectTui(agent.port, agentName, authToken);
     return;
@@ -273,8 +265,19 @@ async function main() {
     return;
   }
 
-  if (cmd === "hub") {
-    await import("./hub.js");
+  if (cmd === "web") {
+    const subcmd = args[1]; // start, stop, status
+    const { webStart, webStop, webStatus } = await import("./web-daemon.js");
+    if (subcmd === "start") {
+      await webStart();
+    } else if (subcmd === "stop") {
+      await webStop();
+    } else if (subcmd === "status") {
+      await webStatus();
+    } else {
+      console.error("Usage: kern web <start|stop|status>");
+      process.exit(1);
+    }
     return;
   }
 

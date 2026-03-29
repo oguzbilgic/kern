@@ -26,6 +26,18 @@
     --orange: #d29922;
     --tool-bg: #1c2028;
     --user-bg: #0d419d;
+    --magenta: #bc8cff;
+    --yellow: #d29922;
+    --cyan: #56d4dd;
+    --tool-bash: #f85149;
+    --tool-read: #56d4dd;
+    --tool-write: #3fb950;
+    --tool-edit: #d29922;
+    --tool-glob: #bc8cff;
+    --tool-grep: #58a6ff;
+    --tool-webfetch: #56d4dd;
+    --tool-kern: #e6edf3;
+    --tool-message: #3fb950;
     --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
     --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   }
@@ -125,26 +137,37 @@
 
   .message.user {
     align-self: flex-end;
-    background: var(--user-bg);
-    color: #fff;
-    border-radius: 8px 8px 2px 8px;
+    background: var(--bg-surface);
+    color: #d4d4d4;
+    border-right: 3px solid var(--accent);
+    border-radius: 8px 0 0 8px;
   }
   .message.assistant {
     align-self: flex-start;
     background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: 8px 8px 8px 2px;
+    color: #d4d4d4;
+  }
+  .message.assistant.muted {
+    color: var(--text-muted);
+    font-style: italic;
+    border-color: transparent;
+    background: transparent;
   }
   .message.tool {
     align-self: flex-start;
     background: var(--tool-bg);
-    border-left: 3px solid var(--accent-dim);
+    border-left: 3px solid var(--text-muted);
+    border-radius: 0;
     font-family: var(--font-mono);
     font-size: 12px;
     color: var(--text-dim);
     padding: 4px 10px;
     max-width: 90%;
   }
+  .message.tool .tool-name { font-weight: 600; }
+  .message.tool .tool-detail { color: var(--text-muted); }
   .message.error {
     align-self: flex-start;
     background: rgba(248,81,73,0.1);
@@ -153,24 +176,44 @@
   }
   .message.incoming {
     align-self: flex-end;
-    background: var(--user-bg);
-    color: #fff;
-    border-radius: 8px 8px 2px 8px;
+    background: var(--bg-surface);
+    border-right: 3px solid var(--yellow);
+    border-radius: 8px 0 0 8px;
+    color: var(--text-dim);
     font-size: 14px;
     padding: 8px 12px;
   }
   .message.incoming .label {
     font-size: 11px;
-    opacity: 0.6;
+    color: var(--yellow);
     display: block;
     margin-bottom: 2px;
+    text-align: right;
   }
   .message.outgoing {
     align-self: flex-start;
-    background: transparent;
-    font-size: 12px;
+    background: var(--bg-surface);
+    border-left: 3px solid var(--green);
+    border-radius: 0 8px 8px 0;
+    font-size: 13px;
+    color: var(--text-dim);
+    padding: 6px 12px;
+  }
+  .message.outgoing .label {
+    font-size: 11px;
+    color: var(--green);
+    display: block;
+    margin-bottom: 2px;
+  }
+  .message.heartbeat {
+    align-self: flex-end;
+    background: var(--bg-surface);
+    border-right: 3px solid var(--magenta);
+    border-radius: 8px 0 0 8px;
     color: var(--text-muted);
-    padding: 2px 12px;
+    font-size: 12px;
+    padding: 4px 10px;
+    text-align: right;
   }
   .message.system {
     align-self: center;
@@ -327,6 +370,7 @@
   }
   .switcher-item:hover { background: rgba(255,255,255,0.05); }
   .switcher-item.active { background: var(--accent-dim); }
+  .switcher-item-left { display: flex; align-items: center; gap: 10px; }
   .switcher-item-name { font-weight: 500; font-size: 14px; }
   .switcher-item-url { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
   .switcher-item-remove {
@@ -568,11 +612,12 @@ const headerMetaEl = $('header-meta');
 // Agent Switcher
 // ==========================================================================
 
-function getSavedAgents() {
-  try { return JSON.parse(localStorage.getItem('kern_agents') || '[]'); } catch { return []; }
+// Manual agents — stored in localStorage (remote agents added by user)
+function getManualAgents() {
+  try { return JSON.parse(localStorage.getItem('kern_manual_agents') || '[]'); } catch { return []; }
 }
-function saveAgents(agents) {
-  localStorage.setItem('kern_agents', JSON.stringify(agents));
+function saveManualAgents(agents) {
+  localStorage.setItem('kern_manual_agents', JSON.stringify(agents));
 }
 function getActiveAgent() {
   return localStorage.getItem('kern_active_agent') || null;
@@ -581,73 +626,64 @@ function setActiveAgent(name) {
   localStorage.setItem('kern_active_agent', name);
 }
 
-// Determine base URL and auth token
-const params = new URLSearchParams(location.search);
+// Discovered agents — fetched from /api/agents, never persisted
+let discoveredAgents = [];
 
-// If URL has explicit params, use those and save as an agent
-let BASE_URL = params.get('url') || location.origin;
-let AUTH_TOKEN = params.get('token') || null;
-
-if (params.get('token')) {
-  const urlName = params.get('name') || new URL(BASE_URL).port || 'default';
-  const agents = getSavedAgents();
-  const existing = agents.findIndex(a => a.url === BASE_URL);
-  if (existing >= 0) {
-    agents[existing].token = params.get('token');
-    agents[existing].name = urlName;
-  } else {
-    agents.push({ name: urlName, url: BASE_URL, token: params.get('token') });
+// All agents = discovered + manual
+function getAllAgents() {
+  const manual = getManualAgents();
+  const all = [...discoveredAgents];
+  for (const m of manual) {
+    if (!all.find(a => a.name === m.name)) {
+      all.push({ ...m, source: 'manual' });
+    }
   }
-  saveAgents(agents);
-  setActiveAgent(urlName);
-  // Clean URL
-  const cleanUrl = new URL(location.href);
-  cleanUrl.searchParams.delete('token');
-  cleanUrl.searchParams.delete('name');
-  history.replaceState(null, '', cleanUrl.toString());
-} else {
-  // Try to load active agent from saved list
-  const agents = getSavedAgents();
-  const activeName = getActiveAgent();
-  const active = agents.find(a => a.name === activeName) || agents[0];
-  if (active) {
-    BASE_URL = active.url;
-    AUTH_TOKEN = active.token;
-  } else {
-    AUTH_TOKEN = localStorage.getItem('kern_auth_token') || null;
-  }
+  return all;
 }
+
+let BASE_URL = null;
+let AUTH_TOKEN = null;
 
 // Render switcher panel
 function renderSwitcher() {
   const list = $('switcher-list');
-  const agents = getSavedAgents();
+  const agents = getAllAgents();
   const activeName = getActiveAgent();
   list.innerHTML = '';
   if (agents.length === 0) {
-    list.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:13px;">No saved agents. Add one below.</div>';
+    list.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:13px;">No agents found. Start an agent or add one below.</div>';
     return;
   }
   for (const agent of agents) {
+    const isManual = agent.source === 'manual';
     const item = document.createElement('div');
     item.className = 'switcher-item' + (agent.name === activeName ? ' active' : '');
+    const dotClass = agent.running ? 'connected' : 'disconnected';
+    const urlLabel = agent.url || 'stopped';
     item.innerHTML = `
-      <div>
-        <div class="switcher-item-name">${agent.name}</div>
-        <div class="switcher-item-url">${agent.url}</div>
+      <div class="switcher-item-left">
+        <span class="status-dot ${dotClass}"></span>
+        <div>
+          <div class="switcher-item-name">${agent.name}</div>
+          <div class="switcher-item-url">${urlLabel}</div>
+        </div>
       </div>
-      <button class="switcher-item-remove" title="Remove">&times;</button>
+      ${isManual ? '<button class="switcher-item-remove" title="Remove">&times;</button>' : ''}
     `;
-    item.addEventListener('click', (e) => {
-      if (e.target.closest('.switcher-item-remove')) return;
-      switchToAgent(agent);
-    });
-    item.querySelector('.switcher-item-remove').addEventListener('click', (e) => {
-      e.stopPropagation();
-      const updated = getSavedAgents().filter(a => a.name !== agent.name);
-      saveAgents(updated);
-      renderSwitcher();
-    });
+    if (agent.running && agent.url) {
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('.switcher-item-remove')) return;
+        switchToAgent(agent);
+      });
+    }
+    if (isManual) {
+      item.querySelector('.switcher-item-remove').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const updated = getManualAgents().filter(a => a.name !== agent.name);
+        saveManualAgents(updated);
+        renderSwitcher();
+      });
+    }
     list.appendChild(item);
   }
 }
@@ -666,25 +702,21 @@ function switchToAgent(agent) {
   init();
 }
 
-// Auto-discover agents from hub's /api/agents endpoint
+// Auto-discover agents from kern web /api/agents endpoint
 async function discoverAgents() {
   try {
     const res = await fetch(`${location.origin}/api/agents`);
     if (!res.ok) return;
-    const hubAgents = await res.json();
-    if (!Array.isArray(hubAgents) || hubAgents.length === 0) return;
-    const saved = getSavedAgents();
-    for (const ha of hubAgents) {
-      const hubUrl = `${location.origin}/agent/${ha.name}`;
-      if (!saved.find(a => a.name === ha.name)) {
-        saved.push({ name: ha.name, url: hubUrl, token: null });
-      } else {
-        // Update URL to hub proxy path
-        const idx = saved.findIndex(a => a.name === ha.name);
-        saved[idx].url = hubUrl;
-      }
-    }
-    saveAgents(saved);
+    const agents = await res.json();
+    if (!Array.isArray(agents)) return;
+    const hostname = location.hostname;
+    discoveredAgents = agents.map(a => ({
+      name: a.name,
+      url: a.running && a.port ? `${location.protocol}//${hostname}:${a.port}` : null,
+      token: a.token || null,
+      running: a.running,
+      source: 'discovered',
+    }));
   } catch {}
 }
 
@@ -707,14 +739,14 @@ function setupSwitcher() {
     const url = $('add-url').value.trim().replace(/\/$/, '');
     const token = $('add-token').value.trim() || null;
     if (!name || !url) return;
-    const agents = getSavedAgents();
+    const agents = getManualAgents();
     const existing = agents.findIndex(a => a.name === name);
     if (existing >= 0) {
-      agents[existing] = { name, url, token };
+      agents[existing] = { name, url, token, running: true, source: 'manual' };
     } else {
-      agents.push({ name, url, token });
+      agents.push({ name, url, token, running: true, source: 'manual' });
     }
-    saveAgents(agents);
+    saveManualAgents(agents);
     $('add-name').value = '';
     $('add-url').value = '';
     $('add-token').value = '';
@@ -736,11 +768,22 @@ function scrollToBottom() {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
+const TOOL_COLORS = {
+  bash: 'var(--tool-bash)', read: 'var(--tool-read)', write: 'var(--tool-write)',
+  edit: 'var(--tool-edit)', glob: 'var(--tool-glob)', grep: 'var(--tool-grep)',
+  webfetch: 'var(--tool-webfetch)', kern: 'var(--tool-kern)', message: 'var(--tool-message)',
+};
+
 function addMessage(type, content, meta) {
   const el = document.createElement('div');
   el.className = `message ${type}`;
   if (type === 'tool') {
-    el.textContent = content;
+    const spaceIdx = content.indexOf(' ');
+    const toolName = spaceIdx > 0 ? content.slice(0, spaceIdx) : content;
+    const toolDetail = spaceIdx > 0 ? content.slice(spaceIdx) : '';
+    const color = TOOL_COLORS[toolName] || 'var(--text-dim)';
+    el.style.borderLeftColor = color;
+    el.innerHTML = `<span class="tool-name" style="color:${color}">${toolName}</span><span class="tool-detail">${toolDetail}</span>`;
   } else if (type === 'incoming') {
     if (meta) {
       const label = document.createElement('span');
@@ -751,9 +794,23 @@ function addMessage(type, content, meta) {
     const text = document.createElement('span');
     text.innerHTML = renderMarkdown(content);
     el.appendChild(text);
-  } else if (type === 'outgoing' || type === 'system') {
-    el.textContent = meta ? `${meta} ${content}` : content;
+  } else if (type === 'outgoing') {
+    if (meta) {
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = meta;
+      el.appendChild(label);
+    }
+    const text = document.createElement('span');
+    text.innerHTML = renderMarkdown(content);
+    el.appendChild(text);
+  } else if (type === 'heartbeat') {
+    el.textContent = content || '\u2661 heartbeat';
+  } else if (type === 'system') {
+    el.textContent = content;
   } else {
+    const isMuted = type === 'assistant' && (content.trim() === 'NO_REPLY' || content.trim() === '(no text response)');
+    if (isMuted) el.classList.add('muted');
     el.innerHTML = renderMarkdown(content);
   }
   messagesEl.appendChild(el);
@@ -764,6 +821,8 @@ function addMessage(type, content, meta) {
 function flushStreaming() {
   if (streamingEl && streamingText) {
     streamingEl.classList.remove('streaming-cursor');
+    const isMuted = streamingText.trim() === 'NO_REPLY' || streamingText.trim() === '(no text response)';
+    if (isMuted) streamingEl.classList.add('muted');
     streamingEl.innerHTML = renderMarkdown(streamingText);
   }
   streamingText = '';
@@ -849,6 +908,7 @@ function handleEvent(event) {
       break;
 
     case 'heartbeat':
+      addMessage('heartbeat', '\u2661 heartbeat');
       break;
   }
 }
@@ -942,16 +1002,6 @@ async function init() {
     const resolvedName = status.agentName || 'kern';
     agentNameEl.textContent = resolvedName;
     headerMetaEl.textContent = status.model || '';
-    // Auto-save this agent to the switcher list
-    const agents = getSavedAgents();
-    const existing = agents.findIndex(a => a.url === BASE_URL);
-    if (existing >= 0) {
-      agents[existing].name = resolvedName;
-      if (AUTH_TOKEN) agents[existing].token = AUTH_TOKEN;
-    } else {
-      agents.push({ name: resolvedName, url: BASE_URL, token: AUTH_TOKEN });
-    }
-    saveAgents(agents);
     setActiveAgent(resolvedName);
   } catch {
     agentNameEl.textContent = 'kern';
@@ -1000,40 +1050,35 @@ async function init() {
 
 setupSwitcher();
 
-// If we have a saved active agent, connect. Otherwise check if we're on a hub
-// and show the switcher to let user pick.
+// On load: discover agents, auto-connect or show switcher
 (async () => {
-  const agents = getSavedAgents();
+  await discoverAgents();
+
+  const agents = getAllAgents();
   const activeName = getActiveAgent();
-  const hasActiveAgent = agents.find(a => a.name === activeName);
+  const activeAgent = agents.find(a => a.name === activeName && a.running && a.url);
+  const runningAgents = agents.filter(a => a.running && a.url);
 
-  if (!hasActiveAgent && !params.get('token')) {
-    // Try hub discovery — if /api/agents exists, we're on a hub
-    try {
-      const res = await fetch(`${location.origin}/api/agents`);
-      if (res.ok) {
-        const hubAgents = await res.json();
-        if (Array.isArray(hubAgents) && hubAgents.length > 0) {
-          // Save discovered agents and show switcher
-          const saved = getSavedAgents();
-          for (const ha of hubAgents) {
-            const hubUrl = `${location.origin}/agent/${ha.name}`;
-            if (!saved.find(a => a.name === ha.name)) {
-              saved.push({ name: ha.name, url: hubUrl, token: null });
-            }
-          }
-          saveAgents(saved);
-          setConnected('disconnected');
-          agentNameEl.textContent = 'kern hub';
-          renderSwitcher();
-          $('switcher-overlay').classList.add('open');
-          return;
-        }
-      }
-    } catch {}
+  if (activeAgent) {
+    // Resume previous agent
+    BASE_URL = activeAgent.url;
+    AUTH_TOKEN = activeAgent.token;
+    init();
+  } else if (runningAgents.length === 1) {
+    // Only one running agent — auto-connect
+    switchToAgent(runningAgents[0]);
+  } else if (runningAgents.length > 1) {
+    // Multiple running agents — show switcher
+    setConnected('disconnected');
+    agentNameEl.textContent = 'kern';
+    renderSwitcher();
+    $('switcher-overlay').classList.add('open');
+  } else {
+    // No running agents
+    setConnected('disconnected');
+    agentNameEl.textContent = 'kern';
+    addMessage('system', 'No running agents found. Start an agent with `kern start` or add one manually.');
   }
-
-  init();
 })();
 
 // Register service worker for PWA
