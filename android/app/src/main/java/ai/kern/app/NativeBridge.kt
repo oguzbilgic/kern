@@ -51,7 +51,11 @@ class NativeBridge(
 
     @JavascriptInterface
     fun switchAgent(url: String, token: String?) {
-        webView.post { onSwitchAgent(url, token) }
+        webView.post {
+            // Reset init guard so history/status loads for the new agent
+            webView.evaluateJavascript("window._kernInitRan = false;", null)
+            onSwitchAgent(url, token)
+        }
     }
 
     private fun callJs(script: String) {

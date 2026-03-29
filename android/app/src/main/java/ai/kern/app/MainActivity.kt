@@ -24,7 +24,7 @@ import com.google.android.material.textfield.TextInputEditText
 class MainActivity : AppCompatActivity() {
 
     companion object {
-        const val BUILD = 22
+        const val BUILD = 23
     }
 
     private lateinit var webView: WebView
@@ -123,22 +123,22 @@ class MainActivity : AppCompatActivity() {
             window._kern.connection = { close: function(){} };
         }
 
-        // Override connect to no-op
+        // Override connect — tell native app to start SSE for this agent
         window.AgentClient.connect = function(baseUrl, token, opts) {
-            console.log('[kern-native] SSE connect intercepted');
+            console.log('[kern-native] SSE connect intercepted, url=' + baseUrl);
             window._kernSseOpts = opts;
+            // Tell native to start SSE for this specific agent URL + token
+            if (window.KernNative && window.KernNative.switchAgent) {
+                KernNative.switchAgent(baseUrl, token || '');
+            }
             return { close: function(){} };
         };
 
-        // Override init to prevent reconnect loops
+        // Override init — allow re-runs for agent switching
         var _origInit = window.init;
         window.init = function() {
-            console.log('[kern-native] init() intercepted');
-            // Run init once for history loading, then replace with no-op
-            if (!window._kernInitRan) {
-                window._kernInitRan = true;
-                _origInit && _origInit();
-            }
+            console.log('[kern-native] init() called');
+            _origInit && _origInit();
         };
 
         // Patch renderMarkdown to strip leading/trailing <br>
@@ -397,11 +397,11 @@ class MainActivity : AppCompatActivity() {
                 super.onPageFinished(view, url)
                 Log.d("KernWebView", "onPageFinished: $url")
                 if (url == "about:blank") return
-                // Test: minimal injection to prove it works
+                // Inject bridge script — SSE will start when web UI calls AgentClient.connect()
+                // which the bridge intercepts and routes to KernNative.switchAgent()
                 view.evaluateJavascript("console.log('[kern-native] page finished, injecting build $BUILD');", null)
-                // Inject bridge script and start native SSE
                 view.evaluateJavascript(bridgeScript(), null)
-                startNativeSse()
+                // Don't start SSE here — let the web UI pick an agent first (esp. on hub)
             }
 
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
