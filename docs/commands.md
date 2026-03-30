@@ -125,20 +125,21 @@ kern web status   # check if running
 - Separate process from agents — agents serve API only
 - PID tracked in `~/.kern/web.pid`, logs in `~/.kern/web.log`
 
-## kern import opencode \<name\>
+## kern import opencode
 
 Import a session from OpenCode into a kern agent.
 
 - Finds OpenCode's SQLite database at `~/.local/share/opencode/opencode.db`
-- Looks up sessions by agent's directory path
+- Interactive: prompts to select project, session, and target agent
 - Converts messages and tool calls to kern's ModelMessage format
 - Validates tool-call/tool-result pairing
 - Writes to `.kern/sessions/` as JSONL
-- Accepts agent name (from registry) or directory path
 
 ```bash
-kern import opencode myagent
-kern import opencode /root/myagent
+kern import opencode                          # interactive
+kern import opencode /root/myproject          # specify project path
+kern import opencode --agent atlas            # specify target agent
+kern import opencode --project /root/myproject --session <id> --agent atlas
 ```
 
 ## Slash commands

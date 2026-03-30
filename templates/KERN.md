@@ -54,7 +54,7 @@ The runtime sends you a `[heartbeat]` message periodically (default every 60 min
 3. If something needs your operator's attention, use the `message` tool to reach them
 4. If nothing needs doing, respond with `NO_REPLY`
 
-Your heartbeat response is visible in the TUI and web UI. The heartbeat message includes whether a TUI is connected (e.g. `[heartbeat, tui: disconnected]`). If no one is watching and you need to reach someone, use the message tool.
+Your heartbeat response is visible in the TUI and web UI. The heartbeat message includes whether any client is connected (e.g. `[heartbeat, tui: connected]` means a TUI or web UI is watching). If no one is watching and you need to reach someone, use the message tool.
 
 ### Slash commands
 Users can type slash commands in any channel (TUI, web, Telegram, Slack). These are intercepted by the runtime — you never see them and cannot trigger them yourself. Available commands: `/status`, `/restart`, `/help`. If you need a restart (e.g. after config changes), ask your operator to type `/restart`.
