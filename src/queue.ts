@@ -29,6 +29,14 @@ export class MessageQueue {
     return this.activeChannel;
   }
 
+  getStatus(): { processing: boolean; pending: number; activeChannel: string | null } {
+    return {
+      processing: this.processing,
+      pending: this.queue.length,
+      activeChannel: this.activeChannel,
+    };
+  }
+
   enqueue(msg: Omit<QueuedMessage, "resolve" | "reject">, onEvent?: (event: StreamEvent) => void): Promise<string> {
     return new Promise<string>((resolve, reject) => {
       const queued: QueuedMessage = { ...msg, resolve, reject, onEvent };

@@ -13,7 +13,7 @@ import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
 import { MessageQueue } from "./queue.js";
-import { getStatusData as getStatusDataFn } from "./tools/kern.js";
+import { getStatusData as getStatusDataFn, setQueueStatusFn } from "./tools/kern.js";
 import { log } from "./log.js";
 
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
@@ -99,6 +99,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   // Message queue — serializes messages, same-channel injection
   const queue = new MessageQueue();
+  setQueueStatusFn(() => queue.getStatus());
 
   queue.setHandler(async (msg, getPendingMessages) => {
 
