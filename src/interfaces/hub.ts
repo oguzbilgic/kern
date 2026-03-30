@@ -2,7 +2,7 @@ import WebSocket from "ws";
 import { sign, ensureKeypair } from "../keys.js";
 import { log } from "../log.js";
 import type { StartOptions } from "./types.js";
-import { HubContacts } from "../hub-contacts.js";
+import type { PairingManager } from "../pairing.js";
 
 const HUB_ALIASES: Record<string, string> = {
   default: "ws://hub.kern-ai.com:4000",
@@ -24,18 +24,17 @@ export class HubInterface {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private connected = false;
   private myId: string | null = null;
-  contacts: HubContacts;
+  private pairing: PairingManager;
 
-  constructor(agentDir: string, agentName: string, hubUrl: string) {
+  constructor(agentDir: string, agentName: string, hubUrl: string, pairing: PairingManager) {
     this.agentDir = agentDir;
     this.agentName = agentName;
     this.hubUrl = resolveHubUrl(hubUrl);
-    this.contacts = new HubContacts(agentDir);
+    this.pairing = pairing;
   }
 
   async start(onMessage: StartOptions["onMessage"]): Promise<void> {
     this.onMessage = onMessage;
-    await this.contacts.load();
     this.connect();
   }
 
@@ -65,19 +64,19 @@ export class HubInterface {
     return true;
   }
 
-  // Operator approves a hub pairing code, provides a name for the agent
-  async pairWithCode(code: string, name: string): Promise<string | null> {
-    const result = await this.contacts.pair(code, name);
+  // Operator approves a hub pairing code
+  async pairWithCode(code: string): Promise<{ userId: string } | null> {
+    const result = await this.pairing.pair(code);
     if (!result) return null;
     // Send confirmation back so the other agent auto-pairs us
     if (this.ws && this.connected && this.myId) {
       this.ws.send(JSON.stringify({
         type: "message",
-        to: result.id,
+        to: result.userId,
         text: `[pair-confirmed] id: ${this.myId}, name: ${this.agentName}`,
       }));
     }
-    return result.id;
+    return result;
   }
 
   private connect() {
@@ -130,7 +129,7 @@ export class HubInterface {
           const confirmMatch = text.match(/^\[pair-confirmed\] id: ([^,]+), name: (.+)$/);
           if (confirmMatch) {
             const [, confirmId, confirmName] = confirmMatch;
-            this.contacts.addContact(confirmId, confirmName);
+            this.pairing.autoPairFirst(confirmId, "hub", confirmId);
             log("hub", `pairing confirmed: ${confirmName} (${confirmId})`);
             break;
           }
@@ -138,7 +137,6 @@ export class HubInterface {
           // Handle pairing-required response (we tried to message an unpaired agent)
           const pairingMatch = text.match(/^\[pairing-required\] code: (.+)$/);
           if (pairingMatch) {
-            // Show to operator via the normal message flow
             if (this.onMessage) {
               this.onMessage(
                 {
@@ -155,8 +153,7 @@ export class HubInterface {
           }
 
           // Check if sender is paired
-          if (this.contacts.isPaired(fromId)) {
-            // Paired — deliver to LLM
+          if (this.pairing.isPaired(fromId)) {
             if (this.onMessage) {
               this.onMessage(
                 {
@@ -172,7 +169,7 @@ export class HubInterface {
           } else {
             // Not paired — generate code, send back
             log("hub", `unpaired message from ${fromId}, generating pairing code`);
-            this.contacts.createCodeForSender(fromId).then(code => {
+            this.pairing.getOrCreateCode(fromId, "hub", "hub").then(code => {
               this.sendMessage(fromId, `[pairing-required] code: ${code}`);
               log("hub", `sent pairing code ${code} to ${fromId}`);
             });

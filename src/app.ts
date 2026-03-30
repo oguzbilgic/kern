@@ -18,14 +18,15 @@ import { getStatusData as getStatusDataFn, setQueueStatusFn, setHubStatusFn } fr
 import { log } from "./log.js";
 
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string, hubInterface?: HubInterface | null): Promise<string | null> {
-  // /pair <code> <name> — hub pairing
-  const pairMatch = cmd.match(/^\/pair\s+(\S+)\s+(.+)$/);
-  if (pairMatch && hubInterface) {
-    const [, code, name] = pairMatch;
-    const result = await hubInterface.pairWithCode(code, name.trim());
-    if (result) {
-      return `Paired with ${name.trim()} (${result})`;
+  // /pair <code> — approve a pairing code (hub or any interface)
+  const pairMatch = cmd.match(/^\/pair\s+(\S+)/);
+  if (pairMatch) {
+    const code = pairMatch[1];
+    if (hubInterface) {
+      const result = await hubInterface.pairWithCode(code);
+      if (result) return `Paired with ${result.userId}`;
     }
+    // TODO: could also try pairing.pair(code) for non-hub pairing
     return `Invalid pairing code: ${code}`;
   }
 
@@ -50,7 +51,7 @@ async function handleSlashCommand(cmd: string, userId: string, iface: string, ag
         "/restart             — restart the agent process",
       ];
       if (hubInterface) {
-        lines.push("/pair <code> <name>  — pair with a hub agent");
+        lines.push("/pair <code>         — approve a hub pairing code");
       }
       lines.push("/help                — show this help");
       return lines.join("\n");
@@ -222,7 +223,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   // Start hub if configured
   if (!forceCli && config.hub) {
-    const hubInterface = new HubInterface(agentDir, agentName, config.hub);
+    const hubInterface = new HubInterface(agentDir, agentName, config.hub, pairing);
     _hubInterface = hubInterface;
     await hubInterface.start(async (msg, onEvent) => {
       try {
