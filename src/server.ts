@@ -7,10 +7,12 @@ export interface ServerEvent extends StreamEvent {
   fromInterface?: string;
   fromUserId?: string;
   fromChannel?: string;
+  fromClientId?: string;
   command?: string;
 }
 
 type SSEClient = {
+  id: string;
   res: ServerResponse;
 };
 
@@ -60,10 +62,11 @@ export class AgentServer {
     this.server.close();
   }
 
-  // Broadcast event to all SSE clients
-  broadcast(event: ServerEvent) {
+  // Broadcast event to all SSE clients (optionally skip one connection)
+  broadcast(event: ServerEvent, excludeConnectionId?: string) {
     const data = JSON.stringify(event);
     for (const client of this.clients) {
+      if (excludeConnectionId && client.id === excludeConnectionId) continue;
       try {
         client.res.write(`data: ${data}\n\n`);
       } catch {
@@ -74,6 +77,10 @@ export class AgentServer {
 
   getPort(): number {
     return this.port;
+  }
+
+  private isHeartbeat(text: string): boolean {
+    return text === "[heartbeat]" || text.startsWith("[heartbeat");
   }
 
   private checkAuth(req: IncomingMessage): boolean {
@@ -129,17 +136,19 @@ export class AgentServer {
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
       });
-      res.write(":\n\n"); // SSE comment to establish connection
+      // Assign a connection ID and send it as the first event
+      const connectionId = Math.random().toString(36).slice(2, 10);
+      res.write(`data: ${JSON.stringify({ type: "connection", connectionId })}\n\n`);
 
       // Keepalive ping every 15s to prevent body timeout
       const keepalive = setInterval(() => {
         try { res.write(":\n\n"); } catch {}
       }, 15000);
 
-      const client: SSEClient = { res };
+      const client: SSEClient = { id: connectionId, res };
       this.clients.push(client);
       const remote = req.socket.remoteAddress || "unknown";
-      log("server", `SSE client connected from ${remote} (${this.clients.length} total)`);
+      log("server", `SSE client connected from ${remote} (id=${connectionId}, ${this.clients.length} total)`);
 
       req.on("close", () => {
         clearInterval(keepalive);
@@ -153,7 +162,7 @@ export class AgentServer {
     if (url === "/message" && req.method === "POST") {
       const body = await readBody(req);
       try {
-        const { text, userId, interface: iface, channel } = JSON.parse(body);
+        const { text, userId, interface: iface, channel, connectionId } = JSON.parse(body);
         if (!text) {
           res.writeHead(400);
           res.end(JSON.stringify({ error: "text required" }));
@@ -161,6 +170,17 @@ export class AgentServer {
         }
         res.writeHead(200);
         res.end(JSON.stringify({ ok: true }));
+
+        // Broadcast incoming to all OTHER clients (exclude sender)
+        if (!this.isHeartbeat(text)) {
+          this.broadcast({
+            type: "incoming" as any,
+            text,
+            fromInterface: iface || "web",
+            fromUserId: userId || "tui",
+            fromChannel: channel || "web",
+          }, connectionId || undefined);
+        }
 
         // Handle async — don't await, response already sent
         if (this.onMessage) {

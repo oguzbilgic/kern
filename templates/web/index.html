@@ -873,8 +873,16 @@ const AgentClient = {
     const es = new EventSource(url);
     let connected = false;
     es.onopen = () => { connected = true; onConnect?.(); };
+    let connectionId = null;
     es.onmessage = (e) => {
-      try { onEvent(JSON.parse(e.data)); } catch {}
+      try {
+        const ev = JSON.parse(e.data);
+        if (ev.type === 'connection' && ev.connectionId) {
+          connectionId = ev.connectionId;
+          return; // don't pass connection event to handler
+        }
+        onEvent(ev);
+      } catch {}
     };
     es.onerror = () => {
       es.close();
@@ -887,7 +895,8 @@ const AgentClient = {
       }
     };
     return {
-      close() { es.close(); onDisconnect?.(); }
+      close() { es.close(); onDisconnect?.(); },
+      get connectionId() { return connectionId; }
     };
   },
 
@@ -919,6 +928,7 @@ const AgentClient = {
         userId: opts.userId || 'tui',
         interface: opts.interface || 'web',
         channel: opts.channel || 'web',
+        connectionId: opts.connectionId,
       }),
     });
     return res.json();
@@ -1572,14 +1582,14 @@ function handleEvent(event) {
       setBusy(false);
       break;
 
-    case 'incoming':
-      if (event.fromInterface !== 'web') {
-        addMessage('incoming',
-          event.text || '',
-          `[${event.fromInterface} ${event.fromUserId || ''}]`,
-          null, new Date(), 'incoming');
-      }
+    case 'incoming': {
+      const isWeb = event.fromInterface === 'web' || event.fromInterface === 'tui';
+      addMessage(isWeb ? 'user' : 'incoming',
+        event.text || '',
+        isWeb ? null : `[${event.fromInterface} ${event.fromUserId || ''}]`,
+        null, new Date(), isWeb ? 'user' : 'incoming');
       break;
+    }
 
     case 'outgoing':
       addMessage('outgoing',
@@ -1615,7 +1625,7 @@ async function send() {
   showThinking();
 
   try {
-    await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text);
+    await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text, { connectionId: connection?.connectionId });
   } catch (err) {
     addMessage('error', `Failed to send: ${err.message}`);
     setBusy(false);
