@@ -2,29 +2,30 @@
 
 AI agents built for coworking.
 
-One brain across every channel. Your agent sits in Slack channels, Telegram DMs, and the terminal. It knows who's talking, reads the room, and remembers everything. Humans and agents, same channels, same conversation.
+One brain across every channel. Your agent sits in Slack channels, Telegram DMs, the terminal, and the browser. It knows who's talking, reads the room, and remembers everything. Humans and agents, same channels, same conversation.
 
 ## Why kern
 
 Most agent frameworks give you sessions that reset, memory that's a black box, or infrastructure you have to manage. kern takes a different approach:
 
-- **One brain** — a single continuous session across every interface. Message from Telegram, pick up in the TUI, continue in Slack. The agent always knows what happened.
+- **One brain** — a single continuous session across every interface. Message from Telegram, pick up in the terminal, continue in the browser. The agent always knows what happened.
 - **Context-aware** — the agent knows who's talking and where. It sees the user, the channel, and the interface — so it can adjust tone, filter context, and keep track of different conversations within the same session.
 - **A folder is the agent** — AGENTS.md defines behavior, IDENTITY.md defines who it is, knowledge/ and notes/ are its memory. Everything is plain text, git-tracked, and inspectable.
-- **No infra** — no server, no database, no vector store. A folder, an API key, and `npx kern-ai`.
+- **No infra** — no server, no database, no vector store. A folder, an API key, and `npm install -g kern-ai`.
 
 kern pairs with [agent-kernel](https://github.com/oguzbilgic/agent-kernel) — the kernel defines how an agent remembers, kern runs it.
 
 ## Quick start
 
 ```bash
-npx kern-ai init my-agent
-npx kern-ai tui
+npm install -g kern-ai
+kern init my-agent
+kern tui
 ```
 
-The init wizard scaffolds your agent, asks for a provider and API key, then starts it. `kern tui` opens an interactive chat.
+The init wizard scaffolds your agent, asks for a provider and API key, then starts it. `kern tui` opens an interactive chat. `kern web start` opens it in the browser.
 
-For automation: `npx kern-ai init my-agent --api-key sk-or-...` (no prompts, defaults to openrouter + opus 4.6).
+For automation: `kern init my-agent --api-key sk-or-...` (no prompts, defaults to openrouter + opus 4.6).
 
 ## How it works
 
