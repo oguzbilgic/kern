@@ -272,6 +272,11 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       return sent;
     }
     if (iface === "hub" && _hubInterface) {
+      // Auto-pair on send — if agent is sending, it trusts the recipient
+      if (!pairing.isPaired(userId)) {
+        await pairing.autoPairFirst(userId, "hub", userId);
+        log("hub", `auto-paired ${userId} (outgoing message)`);
+      }
       const sent = await _hubInterface.sendMessage(userId, text);
       if (sent) {
         server.broadcast({
