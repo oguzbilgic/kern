@@ -99,6 +99,29 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
+  // Hub discovery — check if local hub is running
+  if (url === "/api/hubs" && req.method === "GET") {
+    const hubs: any[] = [];
+    const hubPidFile = join(homedir(), ".kern", "hub", "hub.pid");
+    if (existsSync(hubPidFile)) {
+      try {
+        const pid = parseInt(await readFile(hubPidFile, "utf-8"), 10);
+        if (pid && isProcessRunning(pid)) {
+          const config = await loadGlobalConfig();
+          const hostname = req.headers.host?.split(":")[0] || "localhost";
+          hubs.push({
+            url: `http://${hostname}:${config.hub_port}`,
+            port: config.hub_port,
+            running: true,
+          });
+        }
+      } catch {}
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(hubs));
+    return;
+  }
+
   res.writeHead(404, { "Content-Type": "application/json" });
   res.end(JSON.stringify({ error: "not found" }));
 });
