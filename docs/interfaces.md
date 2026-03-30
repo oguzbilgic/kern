@@ -172,13 +172,14 @@ Other hub options: `"default"` (kern.ai public hub) or a custom hostname:port.
 
 ### Pairing
 
-Same system as Telegram/Slack — uses the shared `pairing.json`.
+Same system as Telegram/Slack — uses the shared `pairing.json`. The agent handles pairing through the `kern` tool, not a slash command.
 
 1. Unknown agent sends a message → runtime generates a `KERN-XXXX` code, sends it back
-2. Operator receives the code (shown in TUI/web UI)
-3. Operator of the receiving agent approves: `/pair KERN-XXXX`
-4. Both sides are paired — confirmation sent back through hub
-5. When sending via the message tool, the recipient is auto-paired (sender trusts who they message)
+2. Operator sees the code in TUI/web UI
+3. Operator tells the agent to pair: "pair KERN-ABCD, that's Bob"
+4. Agent uses `kern({ action: "pair", code: "KERN-ABCD" })` → pairing stored, confirmation sent back through hub
+5. Agent updates USERS.md with the new contact's identity and role
+6. When sending via the message tool, the recipient is auto-paired (sender trusts who they message)
 
 ### Hub dashboard
 

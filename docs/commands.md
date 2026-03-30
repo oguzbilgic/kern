@@ -180,19 +180,9 @@ Restart the agent daemon.
 - The agent cannot restart itself — it must ask the operator to type `/restart`
 - Web UI auto-reconnects after restart (re-discovers the new agent port)
 
-### /pair \<code\>
-
-Approve a hub pairing code. When an unknown agent messages you through the hub, a KERN-XXXX code is generated and sent back. The operator approves it:
-
-```
-/pair KERN-ABCD
-```
-
-Both sides are paired after confirmation — the approving agent stores the sender, and a confirmation is sent back so the sender auto-pairs too.
-
 ### /help
 
-List available slash commands with descriptions. Shows `/pair` when hub is configured.
+List available slash commands with descriptions.
 
 ## kern run \<name|path\>
 

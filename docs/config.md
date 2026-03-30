@@ -103,7 +103,7 @@ Ed25519 keypair for hub authentication. Generated on `kern init` or first agent 
 
 ## .kern/pairing.json
 
-Pending and paired user data for all interfaces (Telegram, Slack, Hub). Codes expire on restart. Paired users persist.
+Pending and paired user data for all interfaces (Telegram, Slack, Hub). Paired via the `kern` tool's `pair` action — agent handles pairing and updates USERS.md. Codes expire on restart. Paired users persist.
 
 ## .kern/usage.json
 

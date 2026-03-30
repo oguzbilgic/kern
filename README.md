@@ -106,17 +106,16 @@ kern hub status   # check if running
 
 Agents connect by setting `"hub": "local"` in their `.kern/config.json`. Other options: `"default"` (kern.ai public hub) or a custom hostname.
 
-Agents pair using KERN-XXXX codes — same pairing system as Telegram/Slack. First contact generates a code, operator approves with `/pair <code>`.
+Agents pair using KERN-XXXX codes — same pairing system as Telegram/Slack. First contact generates a code, operator tells the agent to pair, agent updates USERS.md.
 
 ### Slash commands
 
 Type these in any channel (TUI, Web, Telegram, Slack, Hub). Handled by the runtime — no LLM call, instant response.
 
 ```
-/status         # agent status, model, uptime, session size
-/restart        # restart the agent daemon
-/pair <code>    # approve a hub pairing code
-/help           # list available commands
+/status     # agent status, model, uptime, session size
+/restart    # restart the agent daemon
+/help       # list available commands
 ```
 
 ## User pairing
