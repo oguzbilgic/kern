@@ -208,14 +208,19 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   if (!forceCli && config.hub) {
     hubInterface = new HubInterface(agentDir, agentName, config.hub);
     await hubInterface.start(async (msg, onEvent) => {
-      const response = await enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "");
-      // Auto-reply back to sender — agents handle loop prevention via NO_REPLY
-      const trimmed = (response || "").trim();
-      const suppress = !trimmed || trimmed.includes("NO_REPLY") || trimmed === "(no text response)";
-      if (!suppress) {
-        await hubInterface!.sendMessage(msg.userId, response);
+      try {
+        const response = await enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "");
+        // Auto-reply back to sender — agents handle loop prevention via NO_REPLY
+        const trimmed = (response || "").trim();
+        const suppress = !trimmed || trimmed.includes("NO_REPLY") || trimmed === "(no text response)";
+        if (!suppress) {
+          await hubInterface!.sendMessage(msg.userId, response);
+        }
+        return response;
+      } catch (e: any) {
+        log("hub", `error processing message: ${e.message}`);
+        return "";
       }
-      return response;
     });
   }
 
