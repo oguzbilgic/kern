@@ -64,19 +64,15 @@ export class HubInterface {
     return true;
   }
 
-  // Operator approves a hub pairing code
-  async pairWithCode(code: string): Promise<{ userId: string } | null> {
-    const result = await this.pairing.pair(code);
-    if (!result) return null;
-    // Send confirmation back so the other agent auto-pairs us
-    if (this.ws && this.connected && this.myId) {
-      this.ws.send(JSON.stringify({
-        type: "message",
-        to: result.userId,
-        text: `[pair-confirmed] id: ${this.myId}, name: ${this.agentName}`,
-      }));
-    }
-    return result;
+  // Send pairing confirmation to another agent
+  async sendPairConfirmation(toId: string): Promise<boolean> {
+    if (!this.ws || !this.connected || !this.myId) return false;
+    this.ws.send(JSON.stringify({
+      type: "message",
+      to: toId,
+      text: `[pair-confirmed] id: ${this.myId}, name: ${this.agentName}`,
+    }));
+    return true;
   }
 
   private connect() {

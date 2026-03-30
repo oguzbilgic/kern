@@ -14,22 +14,10 @@ import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
 import { MessageQueue } from "./queue.js";
-import { getStatusData as getStatusDataFn, setQueueStatusFn, setHubStatusFn } from "./tools/kern.js";
+import { getStatusData as getStatusDataFn, setQueueStatusFn, setHubStatusFn, setHubPairConfirmFn } from "./tools/kern.js";
 import { log } from "./log.js";
 
-async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string, hubInterface?: HubInterface | null): Promise<string | null> {
-  // /pair <code> — approve a pairing code (hub or any interface)
-  const pairMatch = cmd.match(/^\/pair\s+(\S+)/);
-  if (pairMatch) {
-    const code = pairMatch[1];
-    if (hubInterface) {
-      const result = await hubInterface.pairWithCode(code);
-      if (result) return `Paired with ${result.userId}`;
-    }
-    // TODO: could also try pairing.pair(code) for non-hub pairing
-    return `Invalid pairing code: ${code}`;
-  }
-
+async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
   switch (cmd) {
     case "/restart": {
       log("kern", `restart requested by ${userId} via ${iface}`);
@@ -45,17 +33,12 @@ async function handleSlashCommand(cmd: string, userId: string, iface: string, ag
       return formatStatus(getStatusDataFn());
     }
 
-    case "/help": {
-      const lines = [
-        "/status              — agent status, uptime, token usage",
-        "/restart             — restart the agent process",
-      ];
-      if (hubInterface) {
-        lines.push("/pair <code>         — approve a hub pairing code");
-      }
-      lines.push("/help                — show this help");
-      return lines.join("\n");
-    }
+    case "/help":
+      return [
+        "/status   — agent status, uptime, token usage",
+        "/restart  — restart the agent process",
+        "/help     — show this help",
+      ].join("\n");
 
     default:
       return null;
@@ -161,7 +144,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     // Slash commands bypass the queue — instant response even if queue is busy
     const cmd = text.trim();
     if (cmd.startsWith("/")) {
-      const result = await handleSlashCommand(cmd, userId, iface, agentName, _hubInterface);
+      const result = await handleSlashCommand(cmd, userId, iface, agentName);
       if (result !== null) {
         server.broadcast({
           type: "command-result" as any,
@@ -241,6 +224,9 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       }
     });
     setHubStatusFn(() => ({ url: hubInterface!.getUrl(), connected: hubInterface!.isConnected() }));
+    setHubPairConfirmFn(async (userId: string) => {
+      return hubInterface!.sendPairConfirmation(userId);
+    });
   }
 
   // Wire message tool — agent can send messages to users

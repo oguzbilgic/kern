@@ -18,6 +18,11 @@ let _reloadFn: (() => Promise<void>) | null = null;
 let _pairingManager: any = null;
 let _getQueueStatus: (() => { processing: boolean; pending: number; activeChannel: string | null }) | null = null;
 let _getHubStatus: (() => { url: string; connected: boolean } | null) | null = null;
+let _hubPairConfirmFn: ((userId: string) => Promise<boolean>) | null = null;
+
+export function setHubPairConfirmFn(fn: (userId: string) => Promise<boolean>) {
+  _hubPairConfirmFn = fn;
+}
 
 export function setQueueStatusFn(fn: () => { processing: boolean; pending: number; activeChannel: string | null }) {
   _getQueueStatus = fn;
@@ -211,6 +216,10 @@ export const kernTool = tool({
         if (!code) return "Provide a pairing code. Usage: kern({ action: 'pair', code: 'KERN-XXXX' })";
         const result = await _pairingManager.pair(code);
         if (!result) return `Invalid or expired pairing code: ${code}`;
+        // Send hub confirmation so the other agent auto-pairs us
+        if (result.interface === "hub" && _hubPairConfirmFn) {
+          await _hubPairConfirmFn(result.userId);
+        }
         return `Paired! User ${result.userId} from ${result.interface} is now approved.\n\nYou should now update USERS.md with their identity, role, and any access notes your operator provided.`;
       }
 
