@@ -1383,17 +1383,22 @@ function flushStreaming() {
 function setBusy(b) {
   busy = b;
   sendBtn.disabled = b || !inputEl.value.trim();
-  const thinking = $('thinking');
-  if (b && !streamingText && !thinking) {
-    const el = document.createElement('div');
-    el.className = 'thinking';
-    el.id = 'thinking';
-    el.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
-    messagesEl.appendChild(el);
-    scrollToBottom();
-  } else if (!b && thinking) {
-    thinking.remove();
-  }
+  if (!b) hideThinking();
+}
+
+function showThinking() {
+  if ($('thinking')) return;
+  const el = document.createElement('div');
+  el.className = 'thinking';
+  el.id = 'thinking';
+  el.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+  messagesEl.appendChild(el);
+  scrollToBottom();
+}
+
+function hideThinking() {
+  const el = $('thinking');
+  if (el) el.remove();
 }
 
 function setConnected(state) {
@@ -1403,12 +1408,9 @@ function setConnected(state) {
 // --- Event handling ---
 
 function handleEvent(event) {
-  // Remove thinking indicator on first content
-  const thinking = $('thinking');
-
   switch (event.type) {
     case 'text-delta':
-      if (thinking) thinking.remove();
+      hideThinking();
       if (!streamingEl) {
         streamingEl = addMessage('assistant', '');
         streamingEl.classList.add('streaming-cursor');
@@ -1421,7 +1423,7 @@ function handleEvent(event) {
 
     case 'tool-call': {
       flushStreaming();
-      if (thinking) thinking.remove();
+      hideThinking();
       const detail = event.toolDetail ? ` ${event.toolDetail}` : '';
       addMessage('tool', `${event.toolName}${detail}`, null, event.toolInput);
       setBusy(true);
@@ -1439,25 +1441,26 @@ function handleEvent(event) {
             ? event.toolResult.slice(0, 5000) + '\n... (truncated)'
             : event.toolResult;
           if (outputEl.innerHTML) {
-            // Has existing content (e.g. edit diff) — append result below
             outputEl.innerHTML += '\n\n' + escapeHtml(text);
           } else {
             outputEl.textContent = text;
           }
         }
       }
+      // Agent is thinking about what to do next — show dots
+      showThinking();
       break;
     }
 
     case 'finish':
       flushStreaming();
-      if (thinking) thinking.remove();
+      hideThinking();
       setBusy(false);
       break;
 
     case 'error':
       flushStreaming();
-      if (thinking) thinking.remove();
+      hideThinking();
       addMessage('error', event.error || 'Unknown error');
       setBusy(false);
       break;
@@ -1481,7 +1484,7 @@ function handleEvent(event) {
       break;
 
     case 'command-result':
-      if (thinking) thinking.remove();
+      hideThinking();
       addMessage('command-result', event.text || '');
       setBusy(false);
       break;
@@ -1500,6 +1503,7 @@ async function send() {
 
   addMessage('user', text);
   setBusy(true);
+  showThinking();
 
   try {
     await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text);
