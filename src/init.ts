@@ -507,4 +507,9 @@ node_modules/
   print("  ✓ Starting...");
   print("");
   await startAgent(name);
+  print("");
+  print("  Next steps:");
+  print(`    \x1b[36mkern tui\x1b[0m            terminal chat`);
+  print(`    \x1b[36mkern web start\x1b[0m      browser chat`);
+  print("");
 }
