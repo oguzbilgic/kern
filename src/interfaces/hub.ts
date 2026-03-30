@@ -2,6 +2,7 @@ import WebSocket from "ws";
 import { sign, ensureKeypair } from "../keys.js";
 import { log } from "../log.js";
 import type { StartOptions } from "./types.js";
+import { HubContacts } from "../hub-contacts.js";
 
 const HUB_ALIASES: Record<string, string> = {
   default: "ws://hub.kern-ai.com:4000",
@@ -22,15 +23,19 @@ export class HubInterface {
   private hubUrl: string;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private connected = false;
+  private myId: string | null = null;
+  contacts: HubContacts;
 
   constructor(agentDir: string, agentName: string, hubUrl: string) {
     this.agentDir = agentDir;
     this.agentName = agentName;
     this.hubUrl = resolveHubUrl(hubUrl);
+    this.contacts = new HubContacts(agentDir);
   }
 
   async start(onMessage: StartOptions["onMessage"]): Promise<void> {
     this.onMessage = onMessage;
+    await this.contacts.load();
     this.connect();
   }
 
@@ -50,10 +55,29 @@ export class HubInterface {
     return this.hubUrl;
   }
 
+  getMyId(): string | null {
+    return this.myId;
+  }
+
   async sendMessage(userId: string, text: string): Promise<boolean> {
     if (!this.ws || !this.connected) return false;
     this.ws.send(JSON.stringify({ type: "message", to: userId, text }));
     return true;
+  }
+
+  // Operator approves a hub pairing code, provides a name for the agent
+  async pairWithCode(code: string, name: string): Promise<string | null> {
+    const result = await this.contacts.pair(code, name);
+    if (!result) return null;
+    // Send confirmation back so the other agent auto-pairs us
+    if (this.ws && this.connected && this.myId) {
+      this.ws.send(JSON.stringify({
+        type: "message",
+        to: result.id,
+        text: `[pair-confirmed] id: ${this.myId}, name: ${this.agentName}`,
+      }));
+    }
+    return result.id;
   }
 
   private connect() {
@@ -92,24 +116,71 @@ export class HubInterface {
         }
 
         case "registered":
-          log("hub", `registered as '${msg.name}'`);
+          log("hub", `registered as '${msg.name}' (${msg.id})`);
+          this.myId = msg.id;
           this.connected = true;
           break;
 
-        case "message":
-          if (this.onMessage) {
-            this.onMessage(
-              {
-                text: msg.text,
-                userId: msg.from,
-                chatId: msg.from,
-                interface: "hub",
-                channel: "hub",
-              },
-              () => {},
-            );
+        case "message": {
+          const fromId = msg.from;
+
+          const text = msg.text || "";
+
+          // Handle pairing confirmation from the other side
+          const confirmMatch = text.match(/^\[pair-confirmed\] id: ([^,]+), name: (.+)$/);
+          if (confirmMatch) {
+            const [, confirmId, confirmName] = confirmMatch;
+            this.contacts.addContact(confirmId, confirmName);
+            log("hub", `pairing confirmed: ${confirmName} (${confirmId})`);
+            break;
+          }
+
+          // Handle pairing-required response (we tried to message an unpaired agent)
+          const pairingMatch = text.match(/^\[pairing-required\] code: (.+)$/);
+          if (pairingMatch) {
+            // Show to operator via the normal message flow
+            if (this.onMessage) {
+              this.onMessage(
+                {
+                  text: `Agent ${fromId} requires pairing. Code: ${pairingMatch[1]}. Tell their operator to approve it.`,
+                  userId: fromId,
+                  chatId: fromId,
+                  interface: "hub",
+                  channel: "hub",
+                },
+                () => {},
+              );
+            }
+            break;
+          }
+
+          // Check if sender is paired
+          if (this.contacts.isPaired(fromId)) {
+            // Paired — deliver to LLM
+            if (this.onMessage) {
+              this.onMessage(
+                {
+                  text,
+                  userId: fromId,
+                  chatId: fromId,
+                  interface: "hub",
+                  channel: "hub",
+                },
+                () => {},
+              );
+            }
+          } else {
+            // Not paired — generate code, send back
+            log("hub", `unpaired message from ${fromId}, generating pairing code`);
+            this.contacts.createCodeForSender(fromId).then(code => {
+              this.sendMessage(fromId, `[pairing-required] code: ${code}`);
+              log("hub", `sent pairing code ${code} to ${fromId}`);
+            });
           }
           break;
+        }
+
+
 
         case "delivered":
           break;

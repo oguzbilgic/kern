@@ -17,7 +17,18 @@ import { MessageQueue } from "./queue.js";
 import { getStatusData as getStatusDataFn, setQueueStatusFn, setHubStatusFn } from "./tools/kern.js";
 import { log } from "./log.js";
 
-async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
+async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string, hubInterface?: HubInterface | null): Promise<string | null> {
+  // /pair <code> <name> — hub pairing
+  const pairMatch = cmd.match(/^\/pair\s+(\S+)\s+(.+)$/);
+  if (pairMatch && hubInterface) {
+    const [, code, name] = pairMatch;
+    const result = await hubInterface.pairWithCode(code, name.trim());
+    if (result) {
+      return `Paired with ${name.trim()} (${result})`;
+    }
+    return `Invalid pairing code: ${code}`;
+  }
+
   switch (cmd) {
     case "/restart": {
       log("kern", `restart requested by ${userId} via ${iface}`);
@@ -33,15 +44,20 @@ async function handleSlashCommand(cmd: string, userId: string, iface: string, ag
       return formatStatus(getStatusDataFn());
     }
 
-    case "/help":
-      return [
-        "/status   — show agent status, uptime, token usage",
-        "/restart  — restart the agent process",
-        "/help     — show this help",
-      ].join("\n");
+    case "/help": {
+      const lines = [
+        "/status              — agent status, uptime, token usage",
+        "/restart             — restart the agent process",
+      ];
+      if (hubInterface) {
+        lines.push("/pair <code> <name>  — pair with a hub agent");
+      }
+      lines.push("/help                — show this help");
+      return lines.join("\n");
+    }
 
     default:
-      return null; // unknown command — fall through to LLM
+      return null;
   }
 }
 
@@ -137,12 +153,14 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     });
   });
 
+  let _hubInterface: HubInterface | null = null;
+
   // Helper to enqueue from any interface
   const enqueueMessage = async (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void) => {
     // Slash commands bypass the queue — instant response even if queue is busy
     const cmd = text.trim();
     if (cmd.startsWith("/")) {
-      const result = await handleSlashCommand(cmd, userId, iface, agentName);
+      const result = await handleSlashCommand(cmd, userId, iface, agentName, _hubInterface);
       if (result !== null) {
         server.broadcast({
           type: "command-result" as any,
@@ -203,9 +221,9 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   }
 
   // Start hub if configured
-  let hubInterface: HubInterface | null = null;
   if (!forceCli && config.hub) {
-    hubInterface = new HubInterface(agentDir, agentName, config.hub);
+    const hubInterface = new HubInterface(agentDir, agentName, config.hub);
+    _hubInterface = hubInterface;
     await hubInterface.start(async (msg, onEvent) => {
       try {
         const response = await enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "");
@@ -252,8 +270,8 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       }
       return sent;
     }
-    if (iface === "hub" && hubInterface) {
-      const sent = await hubInterface.sendMessage(userId, text);
+    if (iface === "hub" && _hubInterface) {
+      const sent = await _hubInterface.sendMessage(userId, text);
       if (sent) {
         server.broadcast({
           type: "outgoing" as any,
