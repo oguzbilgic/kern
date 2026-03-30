@@ -1986,6 +1986,28 @@ applyFilters();
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
+
+// Expose internals for native Android bridge (WebView can't access const/let)
+window.AgentClient = AgentClient;
+window.handleEvent = handleEvent;
+window.setConnected = setConnected;
+window.renderMarkdown = renderMarkdown;
+window.send = send;
+window.init = init;
+Object.defineProperty(window, '_kern', { get() {
+  return {
+    get connection() { return connection; },
+    set connection(v) { connection = v; },
+    get streamingText() { return streamingText; },
+    get streamingEl() { return streamingEl; },
+    get busy() { return busy; },
+    get authFailed() { return authFailed; },
+  };
+}});
+Object.defineProperty(window, 'BASE_URL', {
+  get() { return BASE_URL; },
+  set(v) { BASE_URL = v; },
+});
 </script>
 </body>
 </html>

@@ -2,9 +2,10 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:background="#0d1117">
 
-    <!-- Setup screen: server URL + token -->
+    <!-- Setup screen: web server URL -->
     <LinearLayout
         android:id="@+id/setupScreen"
         android:layout_width="match_parent"
@@ -26,7 +27,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Connect to your agent"
+            android:text="Connect to kern web server"
             android:textSize="14sp"
             android:textColor="#7d8590"
             android:layout_marginBottom="32dp" />
@@ -34,7 +35,7 @@
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="24dp"
             android:hint="Server URL"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
@@ -43,24 +44,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textUri"
-                android:text="http://192.168.1.100:3000"
-                android:textColor="#e6edf3" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
-            android:hint="Auth Token (optional)"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-            app:endIconMode="password_toggle"
-            xmlns:app="http://schemas.android.com/apk/res-auto">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/tokenInput"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textPassword"
                 android:textColor="#e6edf3" />
         </com.google.android.material.textfield.TextInputLayout>
 
