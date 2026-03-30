@@ -1157,10 +1157,10 @@ function saveManualAgents(agents) {
   localStorage.setItem('kern_manual_agents', JSON.stringify(agents));
 }
 function getActiveAgent() {
-  return localStorage.getItem('kern_active_agent') || null;
+  return sessionStorage.getItem('kern_active_agent') || null;
 }
 function setActiveAgent(name) {
-  localStorage.setItem('kern_active_agent', name);
+  sessionStorage.setItem('kern_active_agent', name);
 }
 
 // Discovered agents — fetched from /api/agents, never persisted
