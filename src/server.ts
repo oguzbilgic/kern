@@ -18,7 +18,7 @@ export class AgentServer {
   private server: ReturnType<typeof createServer>;
   private clients: SSEClient[] = [];
   private onMessage: ((text: string, userId: string, iface: string, channel: string) => Promise<void>) | null = null;
-  private statusFn: (() => any) | null = null;
+  private statusFn: (() => any | Promise<any>) | null = null;
   private historyFn: ((limit: number, before?: number) => any[]) | null = null;
   private port = 0;
 

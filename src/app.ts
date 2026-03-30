@@ -13,6 +13,7 @@ import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
 import { MessageQueue } from "./queue.js";
+import { getStatusData as getStatusDataFn } from "./tools/kern.js";
 import { log } from "./log.js";
 
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
@@ -27,8 +28,8 @@ async function handleSlashCommand(cmd: string, userId: string, iface: string, ag
     }
 
     case "/status": {
-      const { getStatus } = await import("./tools/kern.js");
-      return getStatus();
+      const { formatStatus } = await import("./tools/kern.js");
+      return formatStatus(getStatusDataFn());
     }
 
     case "/help":
@@ -138,12 +139,9 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     return queue.enqueue({ text, userId, interface: iface, channel }, onEvent);
   };
 
-  server.setStatusFn(() => ({
-    model: config.model,
-    provider: config.provider,
-    toolScope: config.toolScope,
-    agentName,
-  }));
+  server.setStatusFn(() => {
+    return { ...getStatusDataFn(), agentName };
+  });
 
   server.setMessageHandler(async (text, userId, iface, channel) => {
     await enqueueMessage(text, userId, iface, channel);

@@ -85,51 +85,67 @@
     padding: 6px;
   }
 
-  /* Add agent form — hidden by default, toggled by + button */
-  .sidebar-add {
-    padding: 10px 12px;
-    border-top: 1px solid var(--border);
+  /* Add agent modal */
+  .modal-overlay {
     display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
   }
-  .sidebar-add.open { display: block; }
-  .sidebar-add input {
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    width: min(360px, 90vw);
+  }
+  .modal-title {
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 14px;
+  }
+  .modal input {
     width: 100%;
-    background: var(--bg-input);
+    background: var(--bg);
     color: var(--text);
     border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 6px 8px;
-    font-size: 11px;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
     font-family: var(--font-sans);
-    margin-bottom: 4px;
+    margin-bottom: 8px;
     outline: none;
     box-sizing: border-box;
   }
-  .sidebar-add input:focus { border-color: var(--accent-dim); }
-  .sidebar-add input::placeholder { color: var(--text-muted); }
-  .sidebar-add-actions {
+  .modal input:focus { border-color: var(--text-muted); }
+  .modal input::placeholder { color: var(--text-muted); }
+  .modal-actions {
     display: flex;
-    gap: 4px;
+    gap: 8px;
+    margin-top: 6px;
+    justify-content: flex-end;
   }
-  .sidebar-add-actions button {
-    flex: 1;
+  .modal-actions button {
     border: none;
-    border-radius: 6px;
-    padding: 5px;
-    font-size: 11px;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
     cursor: pointer;
   }
-  .sidebar-add-actions .btn-add {
-    background: var(--accent-dim);
-    color: #fff;
+  .modal-actions .btn-add {
+    background: #333;
+    color: var(--text);
   }
-  .sidebar-add-actions .btn-add:hover { background: var(--accent); }
-  .sidebar-add-actions .btn-cancel {
+  .modal-actions .btn-add:hover { background: #444; }
+  .modal-actions .btn-cancel {
     background: transparent;
-    color: var(--text-muted);
-    border: 1px solid var(--border);
+    color: var(--text-dim);
   }
-  .sidebar-add-actions .btn-cancel:hover { color: var(--text); }
+  .modal-actions .btn-cancel:hover { color: var(--text); }
 
   .switcher-add-inline {
     display: flex;
@@ -197,7 +213,8 @@
     padding: 0 16px;
     padding-left: max(16px, env(safe-area-inset-left));
     padding-right: max(16px, env(safe-area-inset-right));
-    min-height: 41px;
+    height: 42px;
+    min-height: 42px;
     border-bottom: 1px solid var(--border);
     background: var(--bg);
     flex-shrink: 0;
@@ -210,10 +227,55 @@
   .header-title {
     font-weight: 600;
     font-size: 15px;
+    cursor: pointer;
   }
+  .header-title:hover { color: var(--text-dim); }
   .header-meta {
     font-size: 12px;
     color: var(--text-dim);
+  }
+
+  /* --- Agent info panel --- */
+  .info-panel {
+    display: none;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    line-height: 1.8;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+  .info-panel.open { display: block; }
+  .info-panel .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .info-panel .info-label { color: var(--text-muted); }
+  .info-panel .info-value { color: var(--text); }
+  .info-panel .info-section {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  .info-panel .info-copy {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    padding: 2px 8px;
+    cursor: pointer;
+    margin-left: 8px;
+  }
+  .info-panel .info-copy:hover { color: var(--text); border-color: var(--text-muted); }
+  .info-panel .info-url {
+    font-size: 11px;
+    color: var(--text-dim);
+    word-break: break-all;
   }
   .status-dot {
     width: 8px;
@@ -596,11 +658,16 @@
     <span>kern<span style="color:#58a6ff">.</span></span>
   </div>
   <div class="sidebar-list" id="switcher-list"></div>
-  <div class="sidebar-add" id="sidebar-add">
+
+</div>
+
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-title">Add agent</div>
     <input id="add-name" type="text" placeholder="Name" />
     <input id="add-url" type="text" placeholder="URL (http://host:port)" />
     <input id="add-token" type="password" placeholder="Token" />
-    <div class="sidebar-add-actions">
+    <div class="modal-actions">
       <button class="btn-cancel" id="add-cancel-btn">Cancel</button>
       <button class="btn-add" id="add-agent-btn">Add</button>
     </div>
@@ -617,6 +684,7 @@
     <span class="header-meta" id="header-meta"></span>
   </div>
 
+  <div class="info-panel" id="info-panel"></div>
   <div class="messages" id="messages"></div>
 
   <div class="input-area">
@@ -786,6 +854,49 @@ const sendBtn = $('send');
 const statusDot = $('status-dot');
 const agentNameEl = $('agent-name');
 const headerMetaEl = $('header-meta');
+const infoPanel = $('info-panel');
+
+// Toggle agent info panel
+agentNameEl.addEventListener('click', async () => {
+  if (infoPanel.classList.contains('open')) {
+    infoPanel.classList.remove('open');
+    return;
+  }
+  if (!BASE_URL) return;
+  try {
+    const res = await fetch(`${BASE_URL}/status`, { headers: AgentClient._headers(AUTH_TOKEN) });
+    if (!res.ok) return;
+    const status = await res.json();
+
+    const connUrl = BASE_URL || '';
+    const connString = AUTH_TOKEN ? `${connUrl}?token=${AUTH_TOKEN}` : connUrl;
+
+    infoPanel.innerHTML = `
+      <div class="info-row"><span class="info-label">model</span><span class="info-value">${status.provider || ''}/${status.model || ''}</span></div>
+      <div class="info-row"><span class="info-label">tools</span><span class="info-value">${status.toolScope || ''}</span></div>
+      <div class="info-row"><span class="info-label">uptime</span><span class="info-value">${status.uptime || ''}</span></div>
+      <div class="info-row"><span class="info-label">session</span><span class="info-value">${status.session || ''}</span></div>
+      ${status.context ? `<div class="info-row"><span class="info-label">context</span><span class="info-value">${status.context}</span></div>` : ''}
+      <div class="info-row"><span class="info-label">api usage</span><span class="info-value">${status.apiUsage || ''}</span></div>
+      <div class="info-section">
+        <div class="info-row">
+          <span class="info-label">connection</span>
+          <button class="info-copy" id="copy-conn">copy</button>
+        </div>
+        <div class="info-url">${connString}</div>
+      </div>
+    `;
+    infoPanel.classList.add('open');
+
+    $('copy-conn').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(connString);
+        $('copy-conn').textContent = 'copied';
+        setTimeout(() => { $('copy-conn').textContent = 'copy'; }, 1500);
+      } catch {}
+    });
+  } catch {}
+});
 
 // ==========================================================================
 // Agent Switcher
@@ -881,7 +992,7 @@ function renderSwitcher() {
   addItem.id = 'show-add-btn';
   addItem.innerHTML = '<span>+</span> Add agent';
   addItem.addEventListener('click', () => {
-    $('sidebar-add').classList.add('open');
+    $('add-modal').classList.add('open');
     $('add-name').focus();
   });
   list.appendChild(addItem);
@@ -982,14 +1093,22 @@ function setupSwitcher() {
     $('add-name').value = '';
     $('add-url').value = '';
     $('add-token').value = '';
-    $('sidebar-add').classList.remove('open');
+    $('add-modal').classList.remove('open');
     renderSwitcher();
   });
   $('add-cancel-btn').addEventListener('click', () => {
-    $('sidebar-add').classList.remove('open');
+    $('add-modal').classList.remove('open');
     $('add-name').value = '';
     $('add-url').value = '';
     $('add-token').value = '';
+  });
+  $('add-modal').addEventListener('click', (e) => {
+    if (e.target === $('add-modal')) {
+      $('add-modal').classList.remove('open');
+      $('add-name').value = '';
+      $('add-url').value = '';
+      $('add-token').value = '';
+    }
   });
 }
 
