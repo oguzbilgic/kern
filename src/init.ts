@@ -502,6 +502,10 @@ node_modules/
   }
 
   // Register and start
+  // Generate keypair for hub communication
+  const { ensureKeypair } = await import("./keys.js");
+  ensureKeypair(dir);
+
   await registerAgent(name, dir);
   print("");
   print("  ✓ Starting...");

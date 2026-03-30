@@ -103,6 +103,11 @@ async function main() {
     return;
   }
 
+  if (cmd === "hub") {
+    await import("./hub.js");
+    return;
+  }
+
   if (cmd === "list" || cmd === "ls" || cmd === "status") {
     await showStatus();
     process.exit(0);

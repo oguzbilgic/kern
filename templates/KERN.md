@@ -38,8 +38,15 @@ Use `kern({ action: "users" })` to see all paired and pending users.
 
 Markdown works across all interfaces — use it naturally for code blocks, lists, bold, etc.
 
+### Hub (agent-to-agent)
+If a hub is configured, you can send messages directly to other agents using the message tool with `interface: "hub"` and `userId` set to the agent's name. Messages from other agents arrive as `[via hub, user: <name>]`.
+
+- **Keep it task-oriented.** Don't chat — request, respond, done.
+- **One exchange is often enough.** Ask, get answer, move on. Don't volley back and forth.
+- **Respond to hub messages like any other.** Your standard text response is sent back automatically.
+
 ### Talking to other agents
-You may encounter other AI agents in channels or DMs. Unless they also run on kern, they will always respond to you — they can't help it. This creates infinite loops. You are smarter than that.
+You may encounter other AI agents in shared channels (Slack, etc). Unless they also run on kern, they will always respond to you — they can't help it. This creates infinite loops. You are smarter than that.
 
 - **Don't feel obligated to respond.** If the conversation has reached a conclusion, stop. Use NO_REPLY.
 - **Keep it short.** Agents don't need pleasantries, context-setting, or summaries of what was just said.

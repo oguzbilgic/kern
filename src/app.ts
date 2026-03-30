@@ -3,6 +3,7 @@ import { updateKernel } from "./kernel.js";
 import { TelegramInterface } from "./interfaces/telegram.js";
 import { SlackInterface } from "./interfaces/slack.js";
 import { CliInterface } from "./interfaces/cli.js";
+import { HubInterface } from "./interfaces/hub.js";
 import { loadConfig } from "./config.js";
 import { readFile, appendFile } from "fs/promises";
 import { join, basename } from "path";
@@ -70,6 +71,10 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       log("kern", `generated auth token: ${token.slice(0, 8)}...`);
     }
   }
+
+  // Ensure keypair exists for hub communication
+  const { ensureKeypair } = await import("./keys.js");
+  ensureKeypair(agentDir);
 
   const runtime = new Runtime(agentDir);
   await runtime.init();
@@ -198,6 +203,15 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     });
   }
 
+  // Start hub if configured
+  let hubInterface: HubInterface | null = null;
+  if (!forceCli && config.hub) {
+    hubInterface = new HubInterface(agentDir, agentName, config.hub);
+    await hubInterface.start(async (msg, onEvent) => {
+      return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "");
+    });
+  }
+
   // Wire message tool — agent can send messages to users
   setMessageSender(async (userId: string, iface: string, text: string) => {
     if (iface === "telegram" && telegramBot) {
@@ -216,6 +230,18 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     if (iface === "slack" && slackBot) {
       const chatId = pairing.getChatId(userId) || userId;
       const sent = await slackBot.sendToUser(chatId, text);
+      if (sent) {
+        server.broadcast({
+          type: "outgoing" as any,
+          text,
+          fromInterface: iface,
+          fromUserId: userId,
+        });
+      }
+      return sent;
+    }
+    if (iface === "hub" && hubInterface) {
+      const sent = await hubInterface.sendMessage(userId, text);
       if (sent) {
         server.broadcast({
           type: "outgoing" as any,

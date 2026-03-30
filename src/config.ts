@@ -13,6 +13,7 @@ export interface KernConfig {
   maxContextTokens: number;
   heartbeatInterval: number;
   host: string;
+  hub?: string;
   telegram?: {
     allowedUsers?: number[];
     showTools?: boolean;
