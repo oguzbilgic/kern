@@ -537,18 +537,24 @@
 
   .thinking {
     align-self: flex-start;
-    color: var(--text-dim);
-    font-size: 13px;
-    padding: 8px 12px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
-  .thinking .dots::after {
-    content: '';
-    animation: dots 1.5s infinite;
+  .thinking .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    animation: bounce 1.4s ease-in-out infinite;
   }
-  @keyframes dots {
-    0% { content: '.'; }
-    33% { content: '..'; }
-    66% { content: '...'; }
+  .thinking .dot:nth-child(1) { animation-delay: 0s; }
+  .thinking .dot:nth-child(2) { animation-delay: 0.2s; }
+  .thinking .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-6px); opacity: 1; }
   }
 
   /* --- Input --- */
@@ -1382,7 +1388,7 @@ function setBusy(b) {
     const el = document.createElement('div');
     el.className = 'thinking';
     el.id = 'thinking';
-    el.innerHTML = 'thinking<span class="dots"></span>';
+    el.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
     messagesEl.appendChild(el);
     scrollToBottom();
   } else if (!b && thinking) {
