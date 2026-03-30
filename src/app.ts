@@ -101,21 +101,6 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   const queue = new MessageQueue();
 
   queue.setHandler(async (msg, getPendingMessages) => {
-    const cmd = msg.text.trim();
-
-    // Slash commands — intercepted, never sent to LLM
-    if (cmd.startsWith("/")) {
-      const result = await handleSlashCommand(cmd, msg.userId, msg.interface, agentName);
-      if (result !== null) {
-        server.broadcast({
-          type: "command-result" as any,
-          text: result,
-          command: cmd,
-        });
-        return result;
-      }
-      // Unknown slash command — fall through to LLM
-    }
 
     const time = new Date().toISOString();
     const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}, time: ${time}]\n${msg.text}`;
@@ -147,7 +132,20 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   });
 
   // Helper to enqueue from any interface
-  const enqueueMessage = (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void) => {
+  const enqueueMessage = async (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void) => {
+    // Slash commands bypass the queue — instant response even if queue is busy
+    const cmd = text.trim();
+    if (cmd.startsWith("/")) {
+      const result = await handleSlashCommand(cmd, userId, iface, agentName);
+      if (result !== null) {
+        server.broadcast({
+          type: "command-result" as any,
+          text: result,
+          command: cmd,
+        });
+        return result;
+      }
+    }
     return queue.enqueue({ text, userId, interface: iface, channel }, onEvent);
   };
 
