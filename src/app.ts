@@ -126,7 +126,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   queue.setHandler(async (msg, getPendingMessages) => {
 
     const time = new Date().toISOString();
-    const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}, time: ${time}]\n${msg.text}`;
+    const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}, time: ${time}] ${msg.text}`;
 
     // Broadcast incoming to TUI
     if (!msg.isHeartbeat) {
@@ -144,7 +144,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       const pending = getPendingMessages();
       return pending.map((p) => ({
         role: "user",
-        content: `[via ${p.interface}${p.channel ? `, ${p.channel}` : ""}, user: ${p.userId}, time: ${new Date().toISOString()}]\n${p.text}`,
+        content: `[via ${p.interface}${p.channel ? `, ${p.channel}` : ""}, user: ${p.userId}, time: ${new Date().toISOString()}] ${p.text}`,
       }));
     });
 
