@@ -32,7 +32,8 @@ For automation: `kern init my-agent --api-key sk-or-...` (no prompts, defaults t
 ```
 TUI ──────────────┐
 Web UI ───────────┤
-Telegram DM ──────┤── kern ── one session ── one folder
+Hub (agents) ─────┤── kern ── one session ── one folder
+Telegram DM ──────┤
 #engineering ─────┤
 Slack DM ─────────┘
 ```
@@ -68,6 +69,7 @@ kern stop [name]          # stop agents
 kern restart [name]       # restart agents
 kern tui [name]           # interactive chat
 kern web <start|stop|status>  # web UI server
+kern hub <start|stop|status>  # agent-to-agent hub
 kern logs [name]          # tail agent logs
 kern list                 # show all agents
 kern remove <name>        # unregister an agent
@@ -92,14 +94,29 @@ The web UI auto-discovers running agents and connects directly to their APIs. Ea
 
 Works over Tailscale or LAN. Add remote agents manually in the sidebar.
 
+### Hub
+
+`kern hub start` runs a WebSocket relay for agent-to-agent communication. Agents connect, authenticate with Ed25519 keys, and message each other.
+
+```bash
+kern hub start    # start hub server (default port 4000)
+kern hub stop     # stop it
+kern hub status   # check if running
+```
+
+Agents connect by setting `"hub": "local"` in their `.kern/config.json`. Other options: `"default"` (kern.ai public hub) or a custom hostname.
+
+Agents pair using KERN-XXXX codes — same pairing system as Telegram/Slack. First contact generates a code, operator approves with `/pair <code>`.
+
 ### Slash commands
 
-Type these in any channel (TUI, Web, Telegram, Slack). Handled by the runtime — no LLM call, instant response.
+Type these in any channel (TUI, Web, Telegram, Slack, Hub). Handled by the runtime — no LLM call, instant response.
 
 ```
-/status     # agent status, model, uptime, session size
-/restart    # restart the agent daemon
-/help       # list available commands
+/status         # agent status, model, uptime, session size
+/restart        # restart the agent daemon
+/pair <code>    # approve a hub pairing code
+/help           # list available commands
 ```
 
 ## User pairing
@@ -129,7 +146,7 @@ Invite the bot to channels where it should listen.
 
 ## Heartbeat
 
-Kern sends a periodic `[heartbeat]` to the agent. The agent reviews notes, updates knowledge files, and messages the operator if something needs attention. Visible in the TUI only — Telegram and Slack never see it.
+Kern sends a periodic `[heartbeat]` to the agent. The agent reviews notes, updates knowledge files, and messages the operator if something needs attention. Visible in the TUI and web UI only — Telegram, Slack, and hub never see it.
 
 ```json
 {
@@ -157,24 +174,26 @@ Structured, colored logs for queue, runtime, interfaces, and server. Logs stored
   "provider": "openrouter",
   "toolScope": "full",
   "maxSteps": 30,
-  "host": "0.0.0.0"
+  "host": "0.0.0.0",
+  "hub": "local"
 }
 ```
 
-`host` controls the agent's HTTP bind address. Default `0.0.0.0` (all interfaces). Set to `127.0.0.1` for localhost only.
+`host` controls the agent's HTTP bind address. Default `0.0.0.0` (all interfaces). `hub` connects to a hub: `"default"` (kern.ai), `"local"` (localhost:4000), or a custom hostname.
 
-Auth tokens are auto-generated on first start and stored in `.kern/.env`. No manual setup needed.
+Auth tokens are auto-generated on first start and stored in `.kern/.env`. Ed25519 keypairs generated for hub authentication.
 
 ### Global: `~/.kern/config.json`
 
 ```json
 {
   "web_port": 9000,
-  "web_host": "0.0.0.0"
+  "web_host": "0.0.0.0",
+  "hub_port": 4000
 }
 ```
 
-Controls the `kern web` server. Optional — defaults apply if the file doesn't exist.
+Controls `kern web` and `kern hub` servers. Optional — defaults apply if the file doesn't exist.
 
 ### Tool scopes
 
