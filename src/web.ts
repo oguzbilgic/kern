@@ -1,17 +1,18 @@
 #!/usr/bin/env node
 
 /**
- * kern web — serves the web UI and provides agent discovery.
+ * kern web — serves the web UI, agent discovery, and proxy.
  *
  * Routes:
  *   GET  /              → web UI (index.html)
- *   GET  /api/agents    → list of registered agents with ports + tokens
+ *   GET  /api/agents    → list of registered agents (name, running, proxy path)
  *   GET  /manifest.json → PWA manifest
  *   GET  /sw.js         → service worker
  *   GET  /icon.svg      → app icon
+ *   *    /agent/:name/* → proxy to agent's localhost port (auth forwarded as-is)
  */
 
-import { createServer, type IncomingMessage, type ServerResponse } from "http";
+import { createServer, request as httpRequest, type IncomingMessage, type ServerResponse } from "http";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
@@ -34,6 +35,59 @@ async function loadAgents(): Promise<AgentEntry[]> {
 function log(msg: string) {
   const ts = new Date().toISOString();
   process.stderr.write(`${ts} [web] ${msg}\n`);
+}
+
+// Find agent by name and return its port
+async function resolveAgent(name: string): Promise<number | null> {
+  const agents = await loadAgents();
+  const agent = agents.find((a) => a.name === name);
+  if (!agent || !agent.port || !agent.pid || !isProcessRunning(agent.pid)) return null;
+  return agent.port;
+}
+
+// Proxy an HTTP request to an agent — fully transparent, forwards auth as-is
+function proxyRequest(agentPort: number, path: string, req: IncomingMessage, res: ServerResponse) {
+  const headers: Record<string, string> = {};
+  if (req.headers["authorization"]) headers["Authorization"] = req.headers["authorization"];
+  if (req.headers["content-type"]) headers["Content-Type"] = req.headers["content-type"];
+  // Forward query params (needed for ?token= on SSE EventSource)
+  const rawUrl = req.url || "";
+  const queryIdx = rawUrl.indexOf("?");
+  if (queryIdx !== -1) path += rawUrl.slice(queryIdx);
+
+  const proxyReq = httpRequest({
+    hostname: "127.0.0.1",
+    port: agentPort,
+    path,
+    method: req.method,
+    headers,
+  }, (proxyRes) => {
+    const ct = proxyRes.headers["content-type"] || "";
+    const proxyHeaders: Record<string, string> = {
+      "Content-Type": ct,
+      "Access-Control-Allow-Origin": "*",
+    };
+    if (ct.includes("text/event-stream")) {
+      proxyHeaders["Cache-Control"] = "no-cache";
+      proxyHeaders["Connection"] = "keep-alive";
+      proxyHeaders["X-Accel-Buffering"] = "no";
+    }
+    res.writeHead(proxyRes.statusCode || 200, proxyHeaders);
+    proxyRes.pipe(res);
+
+    // Clean up upstream connection when client disconnects
+    res.on("close", () => proxyReq.destroy());
+  });
+
+  proxyReq.on("error", (e) => {
+    log(`proxy error: ${e.message}`);
+    if (!res.headersSent) {
+      res.writeHead(502, { "Content-Type": "application/json" });
+    }
+    res.end(JSON.stringify({ error: "agent unavailable" }));
+  });
+
+  req.pipe(proxyReq);
 }
 
 const staticFiles: Record<string, { file: string; contentType: string }> = {
@@ -85,7 +139,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
-  // Agent list API — returns agents with connection info
+  // Agent list API
   if (url === "/api/agents" && req.method === "GET") {
     const agents = await loadAgents();
     const result = agents.map((a) => ({
@@ -93,9 +147,24 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       port: a.port || null,
       token: a.token || null,
       running: !!(a.pid && isProcessRunning(a.pid)),
+      proxy: a.port ? `/agent/${encodeURIComponent(a.name)}` : null,
     }));
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(result));
+    return;
+  }
+
+  // Agent proxy: /agent/:name/* → localhost:port/*
+  const proxyMatch = url.match(/^\/agent\/([^/]+)(\/.*)?$/);
+  if (proxyMatch && req.method) {
+    const agentName = decodeURIComponent(proxyMatch[1]);
+    const agentPort = await resolveAgent(agentName);
+    if (!agentPort) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "agent not found or not running" }));
+      return;
+    }
+    proxyRequest(agentPort, proxyMatch[2] || "/", req, res);
     return;
   }
 

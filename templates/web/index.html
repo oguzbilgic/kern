@@ -1162,6 +1162,13 @@ function getActiveAgent() {
 function setActiveAgent(name) {
   sessionStorage.setItem('kern_active_agent', name);
 }
+function getSavedToken(agentName) {
+  return localStorage.getItem('kern_token_' + agentName) || null;
+}
+function saveToken(agentName, token) {
+  if (token) localStorage.setItem('kern_token_' + agentName, token);
+  else localStorage.removeItem('kern_token_' + agentName);
+}
 
 // Discovered agents — fetched from /api/agents, never persisted
 let discoveredAgents = [];
@@ -1248,7 +1255,7 @@ function renderSwitcher() {
 function switchToAgent(agent) {
   setActiveAgent(agent.name);
   BASE_URL = agent.url;
-  AUTH_TOKEN = agent.token;
+  AUTH_TOKEN = agent.token || getSavedToken(agent.name);
   authFailed = false;
   intentionalClose = true;
   if (connection) { connection.close(); connection = null; }
@@ -1305,9 +1312,14 @@ async function discoverAgents() {
     const agents = await res.json();
     if (!Array.isArray(agents)) return;
     const hostname = location.hostname;
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
     discoveredAgents = agents.map(a => ({
       name: a.name,
-      url: a.running && a.port ? `${location.protocol}//${hostname}:${a.port}` : null,
+      url: a.running && a.port
+        ? (isLocal
+            ? `${location.protocol}//${hostname}:${a.port}`
+            : (a.proxy ? `${location.origin}${a.proxy}` : null))
+        : null,
       token: a.token || null,
       running: a.running,
       source: 'discovered',
@@ -1741,7 +1753,8 @@ async function init() {
     const res = await fetch(`${BASE_URL}/status`, { headers: AgentClient._headers(AUTH_TOKEN) });
     if (res.status === 401) {
       authFailed = true;
-      localStorage.removeItem('kern_auth_token');
+      const failedAgent = getActiveAgent();
+      if (failedAgent) saveToken(failedAgent, null);
       setConnected('disconnected');
       agentNameEl.textContent = 'kern';
       // Show token input prompt
@@ -1762,7 +1775,8 @@ async function init() {
       function submitToken() {
         const val = tokenInput.value.trim();
         if (!val) return;
-        localStorage.setItem('kern_auth_token', val);
+        const agentName = getActiveAgent();
+        if (agentName) saveToken(agentName, val);
         AUTH_TOKEN = val;
         authFailed = false;
         messagesEl.innerHTML = '';
@@ -1949,7 +1963,7 @@ applyFilters();
   if (activeAgent) {
     // Resume previous agent
     BASE_URL = activeAgent.url;
-    AUTH_TOKEN = activeAgent.token;
+    AUTH_TOKEN = activeAgent.token || getSavedToken(activeAgent.name);
     init();
   } else if (runningAgents.length === 1) {
     // Only one running agent — auto-connect
