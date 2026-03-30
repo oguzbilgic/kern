@@ -208,7 +208,12 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   if (!forceCli && config.hub) {
     hubInterface = new HubInterface(agentDir, agentName, config.hub);
     await hubInterface.start(async (msg, onEvent) => {
-      return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "");
+      const response = await enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "");
+      // Auto-reply back to sender (same as Telegram/Slack DMs)
+      if (response && response !== "NO_REPLY" && response !== "(no text response)") {
+        await hubInterface!.sendMessage(msg.userId, response);
+      }
+      return response;
     });
   }
 
