@@ -354,6 +354,13 @@
     border-radius: 8px 8px 8px 2px;
     color: #d4d4d4;
   }
+  .timestamp {
+    font-size: 10px;
+    color: var(--text-muted);
+    padding: 2px 4px;
+  }
+  .ts-right { align-self: flex-end; }
+  .ts-left { align-self: flex-start; }
   .message.assistant.muted {
     color: var(--text-muted);
     font-style: italic;
@@ -762,8 +769,8 @@
   <div class="header">
     <div class="header-left">
       <button class="menu-btn" id="menu-btn" title="Agents">&#9776;</button>
-      <span class="status-dot connecting" id="status-dot"></span>
       <span class="header-title" id="agent-name">kern</span>
+      <span class="status-dot connecting" id="status-dot"></span>
     </div>
     <button class="info-btn" id="info-btn" title="Agent info">&#8942;</button>
   </div>
@@ -888,14 +895,15 @@ const AgentClient = {
 function parseHistoryUserMessage(content) {
   const match = content.match(/^\[via ([^,]+),?\s*([^,]*),?\s*user:\s*([^,\]]*),?\s*(?:time:\s*([^\]]*))?\]\n?([\s\S]*)$/);
   if (match) {
-    const [, iface, channel, userId, , text] = match;
+    const [, iface, channel, userId, time, text] = match;
     const cleanText = (text || '').trim() || '(empty)';
+    const timestamp = time ? time.trim() : null;
     // TUI and web messages are the operator
-    if (iface.trim() === 'tui' || iface.trim() === 'web') return { type: 'user', text: cleanText };
+    if (iface.trim() === 'tui' || iface.trim() === 'web') return { type: 'user', text: cleanText, timestamp };
     // Heartbeat
-    if (iface.trim() === 'system') return null; // skip heartbeats in history
+    if (iface.trim() === 'system') return null;
     // Other interfaces (telegram, slack)
-    return { type: 'incoming', text: cleanText, meta: `[${iface.trim()} ${userId.trim()}]` };
+    return { type: 'incoming', text: cleanText, meta: `[${iface.trim()} ${userId.trim()}]`, timestamp };
   }
   if (content === '[heartbeat]' || content.startsWith('[heartbeat')) return null;
   return { type: 'user', text: content };
@@ -1315,7 +1323,17 @@ function formatEditDiff(input) {
   return oldLines.join('\n') + '\n' + newLines.join('\n');
 }
 
-function addMessage(type, content, meta, toolInput) {
+function formatTime(date) {
+  if (!date) return null;
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d)) return null;
+  const now = new Date();
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (d.toDateString() === now.toDateString()) return time;
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + time;
+}
+
+function addMessage(type, content, meta, toolInput, timestamp) {
   const el = document.createElement('div');
   el.className = `message ${type}`;
   if (type === 'tool') {
@@ -1365,6 +1383,15 @@ function addMessage(type, content, meta, toolInput) {
     el.innerHTML = renderMarkdown(content);
   }
   messagesEl.appendChild(el);
+  if (timestamp && (type === 'user' || type === 'incoming' || type === 'outgoing')) {
+    const ts = formatTime(timestamp);
+    if (ts) {
+      const tsEl = document.createElement('div');
+      tsEl.className = `timestamp ${type === 'user' || type === 'incoming' ? 'ts-right' : 'ts-left'}`;
+      tsEl.textContent = ts;
+      messagesEl.appendChild(tsEl);
+    }
+  }
   scrollToBottom();
   return el;
 }
@@ -1469,14 +1496,16 @@ function handleEvent(event) {
       if (event.fromInterface !== 'web') {
         addMessage('incoming',
           event.text || '',
-          `[${event.fromInterface} ${event.fromUserId || ''}]`);
+          `[${event.fromInterface} ${event.fromUserId || ''}]`,
+          null, new Date());
       }
       break;
 
     case 'outgoing':
       addMessage('outgoing',
         event.text || '',
-        `[→ ${event.fromInterface} ${event.fromUserId || ''}]`);
+        `[→ ${event.fromInterface} ${event.fromUserId || ''}]`,
+        null, new Date());
       break;
 
     case 'heartbeat':
@@ -1501,7 +1530,7 @@ async function send() {
   inputEl.style.height = 'auto';
   sendBtn.disabled = true;
 
-  addMessage('user', text);
+  addMessage('user', text, null, null, new Date());
   setBusy(true);
   showThinking();
 
@@ -1695,7 +1724,7 @@ async function init() {
     for (const msg of history) {
       if (msg.role === 'user' && typeof msg.content === 'string') {
         const parsed = parseHistoryUserMessage(msg.content);
-        if (parsed) addMessage(parsed.type, parsed.text, parsed.meta);
+        if (parsed) addMessage(parsed.type, parsed.text, parsed.meta, null, parsed.timestamp);
       } else if (msg.role === 'assistant') {
         if (Array.isArray(msg.content)) {
           for (const part of msg.content) {
