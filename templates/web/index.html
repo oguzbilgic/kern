@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<meta name="theme-color" content="#0d1117">
+<meta name="theme-color" content="#1a1a1a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.json">
@@ -12,19 +12,20 @@
 <title>kern</title>
 <style>
   :root {
-    --bg: #0d1117;
-    --bg-surface: #161b22;
-    --bg-input: #0d1117;
-    --border: #30363d;
-    --text: #e6edf3;
-    --text-dim: #7d8590;
-    --text-muted: #484f58;
+    --bg: #1a1a1a;
+    --bg-surface: #252525;
+    --bg-sidebar: #141414;
+    --bg-input: #1a1a1a;
+    --border: #2a2a2a;
+    --text: #EDEDED;
+    --text-dim: #A0A0A0;
+    --text-muted: #707070;
     --accent: #58a6ff;
     --accent-dim: #1f6feb;
-    --green: #3fb950;
-    --red: #f85149;
-    --orange: #d29922;
-    --tool-bg: #1c2028;
+    --green: #12c905;
+    --red: #fc533a;
+    --orange: #fcd53a;
+    --tool-bg: #1e1e1e;
     --user-bg: #0d419d;
     --magenta: #bc8cff;
     --yellow: #d29922;
@@ -60,7 +61,7 @@
   .sidebar {
     width: 200px;
     flex-shrink: 0;
-    background: var(--bg-surface);
+    background: var(--bg-sidebar);
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
@@ -198,7 +199,7 @@
     padding-right: max(16px, env(safe-area-inset-right));
     min-height: 41px;
     border-bottom: 1px solid var(--border);
-    background: var(--bg-surface);
+    background: var(--bg);
     flex-shrink: 0;
   }
   .header-left {
@@ -417,7 +418,7 @@
     padding-left: max(16px, env(safe-area-inset-left));
     padding-right: max(16px, env(safe-area-inset-right));
     border-top: 1px solid var(--border);
-    background: var(--bg-surface);
+    background: var(--bg);
     flex-shrink: 0;
   }
   .input-row {
@@ -443,23 +444,26 @@
     overflow-y: hidden;
   }
   .input-row textarea:focus {
-    border-color: var(--accent-dim);
+    border-color: var(--text-muted);
   }
   .input-row textarea::placeholder {
     color: var(--text-muted);
   }
   .input-row button {
-    background: var(--accent-dim);
-    color: #fff;
-    border: none;
+    background: var(--bg-surface);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 10px 16px;
-    font-size: 16px;
+    padding: 0 12px;
+    font-size: 18px;
     cursor: pointer;
-    white-space: nowrap;
     min-height: 44px;
+    flex-shrink: 0;
+    line-height: 1;
   }
-  .input-row button:hover { background: var(--accent); }
+  .input-row button:not(:disabled) { background: #333; color: var(--text); }
+  .input-row button:not(:disabled):hover { background: #3d3d3d; color: #fff; }
+  .input-row button:not(:disabled):active { background: #444; color: #fff; }
   /* --- Command autocomplete --- */
   .cmd-popup {
     display: none;
@@ -553,7 +557,7 @@
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    border: 2px solid var(--bg-surface);
+    border: 2px solid var(--bg-sidebar);
   }
   .switcher-item-avatar .online-dot.running { background: var(--green); }
   .switcher-item-avatar .online-dot.stopped { background: var(--text-muted); }
@@ -589,7 +593,7 @@
 
 <div class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <span>Agents</span>
+    <span>kern<span style="color:#58a6ff">.</span></span>
   </div>
   <div class="sidebar-list" id="switcher-list"></div>
   <div class="sidebar-add" id="sidebar-add">
@@ -619,7 +623,7 @@
     <div class="input-row">
       <div class="cmd-popup" id="cmd-popup"></div>
       <textarea id="input" placeholder="Send a message..." rows="1" autofocus></textarea>
-      <button id="send" disabled>Send</button>
+      <button id="send" disabled>↑</button>
     </div>
   </div>
 </div>
@@ -888,6 +892,7 @@ function switchToAgent(agent) {
   BASE_URL = agent.url;
   AUTH_TOKEN = agent.token;
   authFailed = false;
+  intentionalClose = true;
   if (connection) { connection.close(); connection = null; }
   messagesEl.innerHTML = '';
   inputEl.disabled = false;
@@ -904,10 +909,13 @@ function toggleSidebar() {
   const isMobile = window.innerWidth <= 768;
   if (isMobile) {
     const isOpen = sidebar.classList.contains('open');
+    sidebar.classList.remove('collapsed');
     sidebar.classList.toggle('open', !isOpen);
     $('sidebar-backdrop').classList.toggle('open', !isOpen);
   } else {
-    sidebar.classList.toggle('collapsed');
+    sidebar.classList.remove('open');
+    const collapsed = sidebar.classList.toggle('collapsed');
+    localStorage.setItem('kern_sidebar_collapsed', collapsed ? '1' : '');
   }
 }
 function openSidebar() {
@@ -917,9 +925,18 @@ function openSidebar() {
   $('sidebar-backdrop').classList.add('open');
 }
 function closeSidebar() {
-  $('sidebar').classList.remove('open');
-  $('sidebar').classList.add('collapsed');
+  const sidebar = $('sidebar');
+  sidebar.classList.remove('open');
   $('sidebar-backdrop').classList.remove('open');
+  if (window.innerWidth > 768) {
+    sidebar.classList.add('collapsed');
+    localStorage.setItem('kern_sidebar_collapsed', '1');
+  }
+}
+
+// Restore sidebar state on load
+if (localStorage.getItem('kern_sidebar_collapsed') === '1' && window.innerWidth > 768) {
+  $('sidebar').classList.add('collapsed');
 }
 
 // Auto-discover agents from kern web /api/agents endpoint
@@ -983,6 +1000,7 @@ let connection = null;
 let authFailed = false;
 let initialized = false;
 let reconnecting = false;
+let intentionalClose = false;
 
 // --- Render helpers ---
 
@@ -1127,11 +1145,15 @@ function handleEvent(event) {
         const lastTool = toolMsgs[toolMsgs.length - 1];
         const outputEl = lastTool.querySelector('.tool-output');
         if (outputEl && event.toolResult) {
-          // Truncate long output for display
           const text = event.toolResult.length > 5000
             ? event.toolResult.slice(0, 5000) + '\n... (truncated)'
             : event.toolResult;
-          outputEl.textContent = text;
+          if (outputEl.innerHTML) {
+            // Has existing content (e.g. edit diff) — append result below
+            outputEl.innerHTML += '\n\n' + escapeHtml(text);
+          } else {
+            outputEl.textContent = text;
+          }
         }
       }
       break;
@@ -1296,7 +1318,15 @@ sendBtn.addEventListener('click', send);
 
 // --- Connect ---
 
+let reconnectTimer = null;
+
 async function init() {
+  // Cancel any pending reconnect
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  // Close existing connection
+  intentionalClose = true;
+  if (connection) { connection.close(); connection = null; }
+  intentionalClose = false;
   setConnected('connecting');
 
   // Load status — also serves as auth check
@@ -1410,7 +1440,7 @@ async function init() {
       addMessage('system', 'connected');
     },
     async onDisconnect() {
-      if (authFailed) return; // don't reconnect on auth failure
+      if (authFailed || intentionalClose) return;
       setConnected('disconnected');
       addMessage('system', 'disconnected — reconnecting...');
       // Re-discover agents to pick up new port after restart
@@ -1422,7 +1452,7 @@ async function init() {
         BASE_URL = updated.url;
         AUTH_TOKEN = updated.token;
       }
-      setTimeout(init, 2000);
+      reconnectTimer = setTimeout(init, 2000);
     },
   });
 }
