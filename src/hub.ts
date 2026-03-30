@@ -10,8 +10,14 @@
 import { WebSocketServer, type WebSocket } from "ws";
 import { randomBytes } from "crypto";
 import { verify } from "./keys.js";
+import { loadGlobalConfig } from "./global-config.js";
 
-const PORT = parseInt(process.argv[2] || "4000", 10);
+const config = await loadGlobalConfig();
+const PORT = parseInt(process.argv[2] || String(config.hub_port), 10);
+
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
 
 interface Agent {
   name: string;
@@ -19,9 +25,30 @@ interface Agent {
   socket: WebSocket;
 }
 
+interface RegisteredAgent {
+  name: string;
+  publicKey: string;
+}
+
+const HUB_DIR = join(homedir(), ".kern", "hub");
+const REGISTRY_FILE = join(HUB_DIR, "agents.json");
+
+// Load persistent registry
+function loadRegistry(): RegisteredAgent[] {
+  if (!existsSync(REGISTRY_FILE)) return [];
+  try { return JSON.parse(readFileSync(REGISTRY_FILE, "utf-8")); } catch { return []; }
+}
+
+function saveRegistry(agents: RegisteredAgent[]) {
+  mkdirSync(HUB_DIR, { recursive: true });
+  writeFileSync(REGISTRY_FILE, JSON.stringify(agents, null, 2));
+}
+
+let registry = loadRegistry();
+
 // Pending challenges: socket → nonce
 const challenges = new Map<WebSocket, string>();
-// Authenticated agents: name → Agent
+// Connected agents: name → Agent (online only)
 const agents = new Map<string, Agent>();
 
 function log(msg: string) {
@@ -71,22 +98,30 @@ wss.on("connection", (ws) => {
 
       challenges.delete(ws);
 
-      // If name already taken by different key, reject
-      const existing = agents.get(name);
-      if (existing && existing.publicKey !== publicKey) {
-        ws.send(JSON.stringify({ type: "error", error: "name taken" }));
+      // Check persistent registry — if name exists with different key, reject
+      const knownAgent = registry.find(a => a.name === name);
+      if (knownAgent && knownAgent.publicKey !== publicKey) {
+        ws.send(JSON.stringify({ type: "error", error: "name taken by different key" }));
         ws.close();
         return;
       }
 
+      // Register if new
+      if (!knownAgent) {
+        registry.push({ name, publicKey });
+        saveRegistry(registry);
+        log(`${name} registered (new agent)`);
+      }
+
       // If same agent reconnecting, close old socket
-      if (existing) {
-        try { existing.socket.close(); } catch {}
+      const online = agents.get(name);
+      if (online) {
+        try { online.socket.close(); } catch {}
       }
 
       agents.set(name, { name, publicKey, socket: ws });
       ws.send(JSON.stringify({ type: "registered", name }));
-      log(`${name} registered (${agents.size} agents online)`);
+      log(`${name} connected (${agents.size} agents online)`);
       return;
     }
 

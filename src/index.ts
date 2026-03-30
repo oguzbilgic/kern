@@ -104,7 +104,16 @@ async function main() {
   }
 
   if (cmd === "hub") {
-    await import("./hub.js");
+    const subcmd = args[1];
+    if (subcmd === "start" || subcmd === "stop" || subcmd === "status") {
+      const { hubStart, hubStop, hubStatus } = await import("./hub-daemon.js");
+      if (subcmd === "start") await hubStart();
+      else if (subcmd === "stop") await hubStop();
+      else await hubStatus();
+    } else {
+      // No subcommand — run in foreground
+      await import("./hub.js");
+    }
     return;
   }
 
