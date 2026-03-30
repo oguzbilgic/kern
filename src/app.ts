@@ -14,7 +14,7 @@ import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
 import { MessageQueue } from "./queue.js";
-import { getStatusData as getStatusDataFn } from "./tools/kern.js";
+import { getStatusData as getStatusDataFn, setQueueStatusFn } from "./tools/kern.js";
 import { log } from "./log.js";
 
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
@@ -104,23 +104,9 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   // Message queue — serializes messages, same-channel injection
   const queue = new MessageQueue();
+  setQueueStatusFn(() => queue.getStatus());
 
   queue.setHandler(async (msg, getPendingMessages) => {
-    const cmd = msg.text.trim();
-
-    // Slash commands — intercepted, never sent to LLM
-    if (cmd.startsWith("/")) {
-      const result = await handleSlashCommand(cmd, msg.userId, msg.interface, agentName);
-      if (result !== null) {
-        server.broadcast({
-          type: "command-result" as any,
-          text: result,
-          command: cmd,
-        });
-        return result;
-      }
-      // Unknown slash command — fall through to LLM
-    }
 
     const time = new Date().toISOString();
     const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}, time: ${time}]\n${msg.text}`;
@@ -152,7 +138,20 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   });
 
   // Helper to enqueue from any interface
-  const enqueueMessage = (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void) => {
+  const enqueueMessage = async (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void) => {
+    // Slash commands bypass the queue — instant response even if queue is busy
+    const cmd = text.trim();
+    if (cmd.startsWith("/")) {
+      const result = await handleSlashCommand(cmd, userId, iface, agentName);
+      if (result !== null) {
+        server.broadcast({
+          type: "command-result" as any,
+          text: result,
+          command: cmd,
+        });
+        return result;
+      }
+    }
     return queue.enqueue({ text, userId, interface: iface, channel }, onEvent);
   };
 

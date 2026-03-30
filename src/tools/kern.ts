@@ -16,6 +16,11 @@ let _usageFile = "";
 let _getSessionStats: (() => { totalMessages: number; estimatedTokens: number; windowTokens: number }) | null = null;
 let _reloadFn: (() => Promise<void>) | null = null;
 let _pairingManager: any = null;
+let _getQueueStatus: (() => { processing: boolean; pending: number; activeChannel: string | null }) | null = null;
+
+export function setQueueStatusFn(fn: () => { processing: boolean; pending: number; activeChannel: string | null }) {
+  _getQueueStatus = fn;
+}
 
 export async function initKernTool(opts: {
   agentDir: string;
@@ -81,6 +86,7 @@ export interface StatusData {
   apiUsage: string;
   promptTokens: number;
   completionTokens: number;
+  queue: string;
 }
 
 export function getStatusData(): StatusData {
@@ -105,6 +111,11 @@ export function getStatusData(): StatusData {
   const totalTokens = _totalPromptTokens + _totalCompletionTokens;
   const apiUsage = `${totalTokens} tokens (in: ${_totalPromptTokens}, out: ${_totalCompletionTokens})`;
 
+  const qs = _getQueueStatus ? _getQueueStatus() : null;
+  const queueStr = qs
+    ? qs.processing ? `busy (${qs.pending} pending)` : `idle (${qs.pending} pending)`
+    : "unknown";
+
   return {
     version: _version,
     agent: _agentDir,
@@ -117,6 +128,7 @@ export function getStatusData(): StatusData {
     apiUsage,
     promptTokens: _totalPromptTokens,
     completionTokens: _totalCompletionTokens,
+    queue: queueStr,
   };
 }
 
@@ -129,6 +141,7 @@ export function formatStatus(data: StatusData): string {
     `session: ${data.session}`,
     data.context ? `context: ${data.context}` : "",
     `api usage: ${data.apiUsage}`,
+    `queue: ${data.queue}`,
     `uptime: ${data.uptime}`,
   ].filter(Boolean).join("\n");
 }
