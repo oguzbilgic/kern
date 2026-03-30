@@ -56,11 +56,81 @@ function log(msg: string) {
   process.stderr.write(`${ts} [hub] ${msg}\n`);
 }
 
-const wss = new WebSocketServer({ port: PORT });
+import { createServer, type IncomingMessage, type ServerResponse } from "http";
 
-wss.on("listening", () => {
+let messageCount = 0;
+const startedAt = Date.now();
+
+const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
+  const url = (req.url || "/").split("?")[0];
+
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  if (url === "/api/agents" && req.method === "GET") {
+    const result = registry.map(a => ({
+      name: a.name,
+      online: agents.has(a.name),
+      publicKey: a.publicKey.replace(/-----BEGIN PUBLIC KEY-----\n|\n-----END PUBLIC KEY-----\n/g, "").trim(),
+    }));
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(result));
+    return;
+  }
+
+  if (url === "/api/stats" && req.method === "GET") {
+    const uptime = Math.floor((Date.now() - startedAt) / 1000);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      agents: { registered: registry.length, online: agents.size },
+      messages: messageCount,
+      uptime,
+    }));
+    return;
+  }
+
+  if (url === "/" && req.method === "GET") {
+    const uptime = Math.floor((Date.now() - startedAt) / 1000);
+    const h = Math.floor(uptime / 3600);
+    const m = Math.floor((uptime % 3600) / 60);
+    const uptimeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+
+    const agentRows = registry.map(a => {
+      const online = agents.has(a.name);
+      const dot = online ? '<span style="color:#58a6ff">●</span>' : '<span style="color:#555">●</span>';
+      const status = online ? 'online' : 'offline';
+      return `<tr><td>${dot} ${a.name}</td><td>${status}</td></tr>`;
+    }).join("");
+
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>kern hub</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; background: #1a1a1a; color: #e0e0e0; max-width: 600px; margin: 40px auto; padding: 0 20px; }
+  h1 { font-size: 20px; font-weight: 600; }
+  h1 span { color: #58a6ff; }
+  .stats { color: #888; font-size: 13px; margin-bottom: 20px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td { padding: 8px 12px; border-bottom: 1px solid #2a2a2a; }
+  tr:last-child td { border-bottom: none; }
+</style></head><body>
+<h1>kern<span>.</span> hub</h1>
+<div class="stats">${registry.length} agents registered · ${agents.size} online · ${messageCount} messages · up ${uptimeStr}</div>
+<table>${agentRows || '<tr><td style="color:#555">No agents registered</td></tr>'}</table>
+</body></html>`);
+    return;
+  }
+
+  res.writeHead(404);
+  res.end("not found");
+});
+
+httpServer.listen(PORT, () => {
   log(`listening on :${PORT}`);
 });
+
+const wss = new WebSocketServer({ server: httpServer });
+
+
 
 wss.on("connection", (ws) => {
   // Send challenge
@@ -152,6 +222,7 @@ wss.on("connection", (ws) => {
         timestamp: new Date().toISOString(),
       }));
 
+      messageCount++;
       log(`${sender.name} → ${to}: ${text.slice(0, 80)}`);
       ws.send(JSON.stringify({ type: "delivered", to }));
       return;
