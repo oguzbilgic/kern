@@ -939,7 +939,7 @@ const AgentClient = {
       headers: this._headers(token),
       body: JSON.stringify({
         text,
-        userId: opts.userId || 'web',
+        userId: opts.userId || 'tui',
         interface: opts.interface || 'web',
         channel: opts.channel || 'web',
         connectionId: opts.connectionId,
