@@ -104,7 +104,7 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
       const online = agents.has(a.name);
       const dot = online ? '<span style="color:#58a6ff">●</span>' : '<span style="color:#555">●</span>';
       const status = online ? 'online' : 'offline';
-      return `<tr><td>${dot} ${a.name}</td><td>${status}</td></tr>`;
+      return `<tr><td>${dot} ${a.name}</td><td style="color:#888;font-family:monospace;font-size:12px">${a.id}</td><td>${status}</td></tr>`;
     }).join("");
 
     res.writeHead(200, { "Content-Type": "text/html" });
@@ -219,13 +219,10 @@ wss.on("connection", (ws) => {
         return;
       }
 
-      // Route by name or ID
-      let target = agents.get(to);
-      if (!target) {
-        // Try by ID
-        for (const a of agents.values()) {
-          if (a.id === to) { target = a; break; }
-        }
+      // Route by ID
+      let target: Agent | undefined;
+      for (const a of agents.values()) {
+        if (a.id === to) { target = a; break; }
       }
       if (!target) {
         ws.send(JSON.stringify({ type: "error", error: `agent '${to}' not found` }));
