@@ -227,13 +227,23 @@
   .header-title {
     font-weight: 600;
     font-size: 15px;
-    cursor: pointer;
   }
-  .header-title:hover { color: var(--text-dim); }
   .header-meta {
     font-size: 12px;
     color: var(--text-dim);
   }
+  .info-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    line-height: 1;
+    letter-spacing: 1px;
+  }
+  .info-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
 
   /* --- Agent info panel --- */
   .info-panel {
@@ -283,7 +293,7 @@
     border-radius: 50%;
     display: inline-block;
   }
-  .status-dot.connected { background: var(--green); }
+  .status-dot.connected { background: var(--accent); }
   .status-dot.disconnected { background: var(--red); }
   .status-dot.connecting { background: var(--orange); }
 
@@ -449,6 +459,74 @@
     color: var(--text-muted);
     padding: 2px 8px;
   }
+
+  /* --- Markdown --- */
+  .message h1, .message h2, .message h3, .message h4, .message h5, .message h6 {
+    margin: 8px 0 4px 0;
+    line-height: 1.3;
+    color: var(--text);
+  }
+  .message h1 { font-size: 18px; }
+  .message h2 { font-size: 16px; }
+  .message h3 { font-size: 14px; }
+  .message h4, .message h5, .message h6 { font-size: 13px; }
+  .message ul, .message ol {
+    margin: 4px 0;
+    padding-left: 20px;
+  }
+  .message li { margin: 2px 0; }
+  .message blockquote {
+    border-left: 3px solid var(--border);
+    margin: 4px 0;
+    padding: 2px 10px;
+    color: var(--text-dim);
+  }
+  .message hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 8px 0;
+  }
+  .message table {
+    border-collapse: collapse;
+    margin: 6px 0;
+    font-size: 12px;
+  }
+  .message th, .message td {
+    border: 1px solid var(--border);
+    padding: 4px 8px;
+    text-align: left;
+  }
+  .message th {
+    background: var(--bg);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .message pre {
+    background: var(--bg);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 6px 0;
+    overflow-x: auto;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .message code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: var(--bg);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  .message pre code {
+    background: none;
+    padding: 0;
+  }
+  .message a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .message a:hover { text-decoration: underline; }
+  .message strong { color: var(--text); }
 
   .streaming-cursor::after {
     content: '▊';
@@ -621,7 +699,7 @@
     border-radius: 50%;
     border: 2px solid var(--bg-sidebar);
   }
-  .switcher-item-avatar .online-dot.running { background: var(--green); }
+  .switcher-item-avatar .online-dot.running { background: var(--accent); }
   .switcher-item-avatar .online-dot.stopped { background: var(--text-muted); }
   .switcher-item-info {
     flex: 1;
@@ -681,7 +759,7 @@
       <span class="status-dot connecting" id="status-dot"></span>
       <span class="header-title" id="agent-name">kern</span>
     </div>
-    <span class="header-meta" id="header-meta"></span>
+    <button class="info-btn" id="info-btn" title="Agent info">&#8942;</button>
   </div>
 
   <div class="info-panel" id="info-panel"></div>
@@ -819,28 +897,110 @@ function parseHistoryUserMessage(content) {
 
 function renderMarkdown(text) {
   if (!text) return '';
-  let html = text
-    // Escape HTML
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    // Code blocks (``` ... ```)
-    .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
-      `<pre><code>${code.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')}</code></pre>`)
-    // Inline code
+
+  // Escape HTML
+  let src = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Extract code blocks first to protect them
+  const codeBlocks = [];
+  src = src.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    const idx = codeBlocks.length;
+    const unescaped = code.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+    codeBlocks.push(`<pre><code>${unescaped}</code></pre>`);
+    return `\x00CODEBLOCK${idx}\x00`;
+  });
+
+  // Process block elements line by line
+  const lines = src.split('\n');
+  const out = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Code block placeholder
+    const cbMatch = line.match(/^\x00CODEBLOCK(\d+)\x00$/);
+    if (cbMatch) { out.push(codeBlocks[parseInt(cbMatch[1])]); i++; continue; }
+
+    // Headers
+    const hMatch = line.match(/^(#{1,6})\s+(.+)$/);
+    if (hMatch) { const lvl = hMatch[1].length; out.push(`<h${lvl}>${inline(hMatch[2])}</h${lvl}>`); i++; continue; }
+
+    // Horizontal rule
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(line.trim())) { out.push('<hr>'); i++; continue; }
+
+    // Blockquote (collect consecutive > lines)
+    if (/^&gt;\s?/.test(line)) {
+      const bqLines = [];
+      while (i < lines.length && /^&gt;\s?/.test(lines[i])) {
+        bqLines.push(lines[i].replace(/^&gt;\s?/, ''));
+        i++;
+      }
+      out.push(`<blockquote>${renderMarkdown(bqLines.join('\n'))}</blockquote>`);
+      continue;
+    }
+
+    // Unordered list (collect consecutive - or * lines)
+    if (/^[\-\*]\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^[\-\*]\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^[\-\*]\s+/, ''));
+        i++;
+      }
+      out.push('<ul>' + items.map(li => `<li>${inline(li)}</li>`).join('') + '</ul>');
+      continue;
+    }
+
+    // Ordered list (collect consecutive 1. 2. lines)
+    if (/^\d+\.\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^\d+\.\s+/, ''));
+        i++;
+      }
+      out.push('<ol>' + items.map(li => `<li>${inline(li)}</li>`).join('') + '</ol>');
+      continue;
+    }
+
+    // Table (| ... | rows)
+    if (/^\|.+\|$/.test(line.trim())) {
+      const rows = [];
+      while (i < lines.length && /^\|.+\|$/.test(lines[i].trim())) {
+        rows.push(lines[i]);
+        i++;
+      }
+      if (rows.length >= 2) {
+        const header = rows[0].split('|').filter(c => c.trim()).map(c => `<th>${inline(c.trim())}</th>`).join('');
+        // Skip separator row (row 1)
+        const body = rows.slice(2).map(r => {
+          const cells = r.split('|').filter(c => c.trim()).map(c => `<td>${inline(c.trim())}</td>`).join('');
+          return `<tr>${cells}</tr>`;
+        }).join('');
+        out.push(`<table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>`);
+      } else {
+        out.push(inline(line));
+      }
+      continue;
+    }
+
+    // Empty line
+    if (line.trim() === '') { out.push(''); i++; continue; }
+
+    // Plain paragraph
+    out.push(inline(line));
+    i++;
+  }
+
+  // Join with <br> for single newlines, collapse empty lines
+  return out.join('<br>').replace(/(<br>){3,}/g, '<br><br>').replace(/<br>(<\/?(?:pre|ul|ol|li|blockquote|h[1-6]|hr|table|thead|tbody|tr|th|td))/g, '$1').replace(/(<\/(?:pre|ul|ol|li|blockquote|h[1-6]|hr|table|thead|tbody|tr|th|td)>)<br>/g, '$1');
+}
+
+function inline(text) {
+  return text
     .replace(/`([^`]+)`/g, '<code>$1</code>')
-    // Bold
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    // Italic
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Links
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-    // Line breaks (preserve newlines outside of pre blocks)
-    .replace(/\n/g, '<br>');
-
-  // Clean up <br> inside <pre> blocks (they already preserve whitespace)
-  html = html.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, (match) =>
-    match.replace(/<br>/g, '\n'));
-
-  return html;
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
 }
 
 // ==========================================================================
@@ -853,11 +1013,10 @@ const inputEl = $('input');
 const sendBtn = $('send');
 const statusDot = $('status-dot');
 const agentNameEl = $('agent-name');
-const headerMetaEl = $('header-meta');
 const infoPanel = $('info-panel');
 
 // Toggle agent info panel
-agentNameEl.addEventListener('click', async () => {
+$('info-btn').addEventListener('click', async () => {
   if (infoPanel.classList.contains('open')) {
     infoPanel.classList.remove('open');
     return;
@@ -872,6 +1031,7 @@ agentNameEl.addEventListener('click', async () => {
     const connString = AUTH_TOKEN ? `${connUrl}?token=${AUTH_TOKEN}` : connUrl;
 
     infoPanel.innerHTML = `
+      <div class="info-row"><span class="info-label">kern</span><span class="info-value">v${status.version || '?'}</span></div>
       <div class="info-row"><span class="info-label">model</span><span class="info-value">${status.provider || ''}/${status.model || ''}</span></div>
       <div class="info-row"><span class="info-label">tools</span><span class="info-value">${status.toolScope || ''}</span></div>
       <div class="info-row"><span class="info-label">uptime</span><span class="info-value">${status.uptime || ''}</span></div>
@@ -1491,7 +1651,6 @@ async function init() {
     const status = await res.json();
     const resolvedName = status.agentName || 'kern';
     agentNameEl.textContent = resolvedName;
-    headerMetaEl.textContent = status.model || '';
     setActiveAgent(resolvedName);
   } catch {
     agentNameEl.textContent = 'kern';
