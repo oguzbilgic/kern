@@ -69,7 +69,21 @@ export async function addTokenUsage(promptTokens: number, completionTokens: numb
   } catch {}
 }
 
-export function getStatus(): string {
+export interface StatusData {
+  version: string;
+  agent: string;
+  model: string;
+  provider: string;
+  toolScope: string;
+  uptime: string;
+  session: string;
+  context: string | null;
+  apiUsage: string;
+  promptTokens: number;
+  completionTokens: number;
+}
+
+export function getStatusData(): StatusData {
   const uptime = Math.floor((Date.now() - _startedAt) / 1000);
   const hours = Math.floor(uptime / 3600);
   const mins = Math.floor((uptime % 3600) / 60);
@@ -82,23 +96,45 @@ export function getStatus(): string {
         : `${secs}s`;
 
   const stats = _getSessionStats ? _getSessionStats() : null;
-  const sessionLine = stats
-    ? `session: ~${stats.estimatedTokens} tokens (${stats.totalMessages} messages)`
-    : `messages: ${_messageCount}`;
-  const contextLine = stats
-    ? `context: ~${stats.windowTokens} tokens`
-    : "";
+  const session = stats
+    ? `~${stats.estimatedTokens} tokens (${stats.totalMessages} messages)`
+    : `${_messageCount} messages`;
+  const context = stats
+    ? `~${stats.windowTokens} tokens`
+    : null;
+  const totalTokens = _totalPromptTokens + _totalCompletionTokens;
+  const apiUsage = `${totalTokens} tokens (in: ${_totalPromptTokens}, out: ${_totalCompletionTokens})`;
 
+  return {
+    version: _version,
+    agent: _agentDir,
+    model: _config.model,
+    provider: _config.provider,
+    toolScope: _config.toolScope,
+    uptime: uptimeStr,
+    session,
+    context,
+    apiUsage,
+    promptTokens: _totalPromptTokens,
+    completionTokens: _totalCompletionTokens,
+  };
+}
+
+export function formatStatus(data: StatusData): string {
   return [
-    `kern: ${_version}`,
-    `agent: ${_agentDir}`,
-    `model: ${_config.provider}/${_config.model}`,
-    `toolScope: ${_config.toolScope}`,
-    sessionLine,
-    contextLine,
-    `api usage: ${_totalPromptTokens + _totalCompletionTokens} tokens (in: ${_totalPromptTokens}, out: ${_totalCompletionTokens})`,
-    `uptime: ${uptimeStr}`,
+    `kern: ${data.version}`,
+    `agent: ${data.agent}`,
+    `model: ${data.provider}/${data.model}`,
+    `toolScope: ${data.toolScope}`,
+    `session: ${data.session}`,
+    data.context ? `context: ${data.context}` : "",
+    `api usage: ${data.apiUsage}`,
+    `uptime: ${data.uptime}`,
   ].filter(Boolean).join("\n");
+}
+
+export function getStatus(): string {
+  return formatStatus(getStatusData());
 }
 
 export const kernTool = tool({

@@ -63,6 +63,8 @@ export interface StreamEvent {
   text?: string;
   toolName?: string;
   toolDetail?: string;
+  toolInput?: Record<string, unknown>;
+  toolResult?: string;
   error?: string;
 }
 
@@ -219,9 +221,11 @@ export class Runtime {
         } else if (part.type === "tool-call") {
           const args = ("args" in part ? part.args : part.input) as Record<string, unknown>;
           const detail = String(args.path || args.command || args.pattern || args.url || args.action || args.userId || "");
-          onEvent({ type: "tool-call", toolName: part.toolName, toolDetail: detail });
+          onEvent({ type: "tool-call", toolName: part.toolName, toolDetail: detail, toolInput: args });
         } else if (part.type === "tool-result") {
-          onEvent({ type: "tool-result" });
+          const output = (part as any).output;
+          const resultText = typeof output === "string" ? output : JSON.stringify(output);
+          onEvent({ type: "tool-result", toolName: part.toolName, toolResult: resultText });
         }
       }
 

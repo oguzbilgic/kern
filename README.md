@@ -30,6 +30,7 @@ For automation: `npx kern-ai init my-agent --api-key sk-or-...` (no prompts, def
 
 ```
 TUI ──────────────┐
+Web UI ───────────┤
 Telegram DM ──────┤── kern ── one session ── one folder
 #engineering ─────┤
 Slack DM ─────────┘
@@ -65,23 +66,39 @@ kern start [name|path]    # start agents in background
 kern stop [name]          # stop agents
 kern restart [name]       # restart agents
 kern tui [name]           # interactive chat
+kern web <start|stop|status>  # web UI server
 kern logs [name]          # tail agent logs
 kern list                 # show all agents
 kern remove <name>        # unregister an agent
 kern backup <name>        # backup agent to .tar.gz
 kern restore <file>       # restore agent from backup
-kern import opencode <name>  # import session from OpenCode
+kern import opencode         # import session from OpenCode
 ```
 
 Agents auto-register when you init, start, or run them. `kern list` shows every agent with its running state.
 
+### Web UI
+
+`kern web start` launches a web UI server (default port 9000). Open it in a browser to chat with any running agent.
+
+```bash
+kern web start    # start web UI server
+kern web stop     # stop it
+kern web status   # check if running
+```
+
+The web UI auto-discovers running agents and connects directly to their APIs. Each agent binds to `0.0.0.0` by default and auto-generates an auth token on first start — no manual config needed.
+
+Works over Tailscale or LAN. Add remote agents manually in the sidebar.
+
 ### Slash commands
 
-Type these in any channel (TUI, Telegram, Slack). Handled by the runtime — no LLM call, instant response.
+Type these in any channel (TUI, Web, Telegram, Slack). Handled by the runtime — no LLM call, instant response.
 
 ```
 /status     # agent status, model, uptime, session size
 /restart    # restart the agent daemon
+/help       # list available commands
 ```
 
 ## User pairing
@@ -131,16 +148,32 @@ Structured, colored logs for queue, runtime, interfaces, and server. Logs stored
 
 ## Configuration
 
-`.kern/config.json`:
+### Per-agent: `.kern/config.json`
 
 ```json
 {
   "model": "anthropic/claude-opus-4.6",
   "provider": "openrouter",
   "toolScope": "full",
-  "maxSteps": 30
+  "maxSteps": 30,
+  "host": "0.0.0.0"
 }
 ```
+
+`host` controls the agent's HTTP bind address. Default `0.0.0.0` (all interfaces). Set to `127.0.0.1` for localhost only.
+
+Auth tokens are auto-generated on first start and stored in `.kern/.env`. No manual setup needed.
+
+### Global: `~/.kern/config.json`
+
+```json
+{
+  "web_port": 9000,
+  "web_host": "0.0.0.0"
+}
+```
+
+Controls the `kern web` server. Optional — defaults apply if the file doesn't exist.
 
 ### Tool scopes
 

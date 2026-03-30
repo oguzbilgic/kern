@@ -1,7 +1,4 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
-import { readFile } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
 import type { StreamEvent } from "./runtime.js";
 import { log } from "./log.js";
 
@@ -10,6 +7,7 @@ export interface ServerEvent extends StreamEvent {
   fromInterface?: string;
   fromUserId?: string;
   fromChannel?: string;
+  command?: string;
 }
 
 type SSEClient = {
@@ -20,7 +18,7 @@ export class AgentServer {
   private server: ReturnType<typeof createServer>;
   private clients: SSEClient[] = [];
   private onMessage: ((text: string, userId: string, iface: string, channel: string) => Promise<void>) | null = null;
-  private statusFn: (() => any) | null = null;
+  private statusFn: (() => any | Promise<any>) | null = null;
   private historyFn: ((limit: number, before?: number) => any[]) | null = null;
   private port = 0;
 
@@ -40,16 +38,9 @@ export class AgentServer {
     this.historyFn = fn;
   }
 
-  async start(): Promise<number> {
+  async start(host: string = "127.0.0.1"): Promise<number> {
     return new Promise((resolve) => {
-      const port = parseInt(process.env.KERN_PORT || "0", 10);
-      const host = process.env.KERN_HOST || "127.0.0.1";
-
-      if (host !== "127.0.0.1" && host !== "localhost" && host !== "::1" && !process.env.KERN_AUTH_TOKEN) {
-        log("server", `WARNING: binding to ${host} without KERN_AUTH_TOKEN — agent is accessible without authentication`);
-      }
-
-      this.server.listen(port, host, () => {
+      this.server.listen(0, host, () => {
         this.port = (this.server.address() as any).port;
         log("server", `listening on ${host}:${this.port}`);
         resolve(this.port);
@@ -87,13 +78,13 @@ export class AgentServer {
 
   private checkAuth(req: IncomingMessage): boolean {
     const token = process.env.KERN_AUTH_TOKEN;
-    if (!token) return true; // no token configured = open access
+    if (!token) return true; // shouldn't happen — token is always generated
 
     // Check Authorization: Bearer header
     const authHeader = req.headers.authorization;
     if (authHeader === `Bearer ${token}`) return true;
 
-    // Check ?token= query param (for EventSource and browser URLs)
+    // Check ?token= query param (for EventSource — can't set headers)
     const url = new URL(req.url || "/", "http://localhost");
     if (url.searchParams.get("token") === token) return true;
 
@@ -115,48 +106,14 @@ export class AgentServer {
     const rawUrl = req.url || "/";
     const url = rawUrl.split("?")[0]; // strip query string for route matching
 
-    // Health check — always public (for Docker healthchecks, load balancers)
+    // Health check — always public (for monitoring)
     if (url === "/health" && req.method === "GET") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, uptime: process.uptime() }));
       return;
     }
 
-    // Web UI — serve without auth (page handles auth via token param)
-    if (url === "/" && req.method === "GET") {
-      const webUiPath = join(import.meta.dirname, "..", "templates", "web", "index.html");
-      if (existsSync(webUiPath)) {
-        const html = await readFile(webUiPath, "utf-8");
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(html);
-      } else {
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end("<html><body><p>Web UI not found. Check kern installation.</p></body></html>");
-      }
-      return;
-    }
-
-    // PWA static files — served without auth
-    const pwaFiles: Record<string, { file: string; contentType: string }> = {
-      "/manifest.json": { file: "manifest.json", contentType: "application/manifest+json" },
-      "/sw.js": { file: "sw.js", contentType: "application/javascript" },
-      "/icon.svg": { file: "icon.svg", contentType: "image/svg+xml" },
-    };
-    if (req.method === "GET" && pwaFiles[url]) {
-      const { file, contentType } = pwaFiles[url];
-      const filePath = join(import.meta.dirname, "..", "templates", "web", file);
-      if (existsSync(filePath)) {
-        const content = await readFile(filePath, "utf-8");
-        res.writeHead(200, { "Content-Type": contentType });
-        res.end(content);
-      } else {
-        res.writeHead(404);
-        res.end();
-      }
-      return;
-    }
-
-    // Auth check — all other endpoints require token if KERN_AUTH_TOKEN is set
+    // Auth check — all other endpoints require token
     if (!this.checkAuth(req)) {
       const remote = req.socket.remoteAddress || "unknown";
       log("server", `401 unauthorized: ${req.method} ${url} from ${remote}`);
@@ -182,8 +139,7 @@ export class AgentServer {
       const client: SSEClient = { res };
       this.clients.push(client);
       const remote = req.socket.remoteAddress || "unknown";
-      const authed = process.env.KERN_AUTH_TOKEN ? "authenticated" : "no-auth";
-      log("server", `SSE client connected from ${remote} (${authed}, ${this.clients.length} total)`);
+      log("server", `SSE client connected from ${remote} (${this.clients.length} total)`);
 
       req.on("close", () => {
         clearInterval(keepalive);

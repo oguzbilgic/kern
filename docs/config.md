@@ -1,6 +1,6 @@
 # Configuration
 
-## .kern/config.json
+## Per-agent: .kern/config.json
 
 The main config file. Committed to git.
 
@@ -10,7 +10,8 @@ The main config file. Committed to git.
   "provider": "openrouter",
   "toolScope": "full",
   "maxSteps": 30,
-  "maxContextTokens": 40000
+  "maxContextTokens": 40000,
+  "host": "0.0.0.0"
 }
 ```
 
@@ -24,6 +25,7 @@ The main config file. Committed to git.
 | `maxSteps` | `30` | Max tool-use steps per message |
 | `maxContextTokens` | `40000` | Estimated token budget for context window. Messages beyond this are trimmed from the front (oldest first). Full history stays in JSONL. |
 | `heartbeatInterval` | `60` | Minutes between heartbeat prompts. Agent reviews notes, updates knowledge. 0 to disable. |
+| `host` | `0.0.0.0` | Bind address for the agent's HTTP API. Default binds to all interfaces. Set to `127.0.0.1` for localhost only. |
 
 ### Tool scopes
 
@@ -37,7 +39,7 @@ The main config file. Committed to git.
 - **anthropic** — direct Anthropic API. Model IDs like `claude-opus-4-6-20260301`.
 - **openai** — OpenAI or Azure. Model IDs like `gpt-4o`.
 
-## .kern/.env
+## Per-agent: .kern/.env
 
 Secrets. Gitignored. Never committed.
 
@@ -47,19 +49,42 @@ TELEGRAM_BOT_TOKEN=...
 SLACK_BOT_TOKEN=xoxb-...
 SLACK_APP_TOKEN=xapp-...
 KERN_AUTH_TOKEN=...
-KERN_HOST=0.0.0.0
-KERN_PORT=8080
 ```
 
-Only set the keys for providers/interfaces you use.
+Only set the API keys for providers/interfaces you use.
 
-### Environment variables
+### Auth token
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `KERN_PORT` | `0` (random) | Fixed port for the agent's HTTP server. |
-| `KERN_HOST` | `127.0.0.1` | Bind address. Set to `0.0.0.0` to allow network access. |
-| `KERN_AUTH_TOKEN` | (none) | Bearer token required on all API endpoints. TUI reads it from `.kern/.env` automatically. Web UI prompts for it or accepts `?token=` in URL. |
+`KERN_AUTH_TOKEN` is a Bearer token required on all agent API endpoints (except `/health`).
+
+- **Auto-generated** on first agent start if not set — written to `.kern/.env` automatically
+- **Registered** in `~/.kern/agents.json` so the TUI and web UI can read it
+- TUI reads it from the registry automatically
+- Web UI gets it via agent discovery (`/api/agents` endpoint on `kern web`)
+
+You never need to set this manually unless you want a specific token value.
+
+## Global: ~/.kern/config.json
+
+Global settings for the `kern web` server. Optional — defaults apply if the file doesn't exist.
+
+```json
+{
+  "web_port": 9000,
+  "web_host": "0.0.0.0"
+}
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `web_port` | `9000` | Port for the `kern web` UI server. |
+| `web_host` | `0.0.0.0` | Bind address for the web UI server. |
+
+## Global: ~/.kern/agents.json
+
+Agent registry. Managed automatically — do not edit by hand.
+
+Tracks all registered agents with their name, path, PID, port, and auth token. Updated when agents start/stop.
 
 ## .kern/sessions/
 

@@ -8,6 +8,7 @@ export interface AgentEntry {
   path: string;
   pid?: number | null;
   port?: number | null;
+  token?: string | null;
   addedAt: string;
 }
 
@@ -69,6 +70,25 @@ export async function setPort(nameOrPath: string, port: number | null): Promise<
   const agent = agents.find((a) => a.name === nameOrPath || a.path === nameOrPath);
   if (agent) {
     agent.port = port;
+    await saveRegistry(agents);
+  }
+}
+
+export async function setToken(nameOrPath: string, token: string | null): Promise<void> {
+  const agents = await loadRegistry();
+  const agent = agents.find((a) => a.name === nameOrPath || a.path === nameOrPath);
+  if (agent) {
+    agent.token = token;
+    await saveRegistry(agents);
+  }
+}
+
+export async function setPortAndToken(nameOrPath: string, port: number | null, token: string | null): Promise<void> {
+  const agents = await loadRegistry();
+  const agent = agents.find((a) => a.name === nameOrPath || a.path === nameOrPath);
+  if (agent) {
+    agent.port = port;
+    agent.token = token;
     await saveRegistry(agents);
   }
 }
