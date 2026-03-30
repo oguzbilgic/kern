@@ -137,7 +137,7 @@ export class AgentServer {
         "Connection": "keep-alive",
       });
       // Assign a connection ID and send it as the first event
-      const connectionId = Math.random().toString(36).slice(2, 10);
+      const connectionId = crypto.randomUUID().slice(0, 8);
       res.write(`data: ${JSON.stringify({ type: "connection", connectionId })}\n\n`);
 
       // Keepalive ping every 15s to prevent body timeout
