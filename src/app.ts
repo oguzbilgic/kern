@@ -209,8 +209,10 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     hubInterface = new HubInterface(agentDir, agentName, config.hub);
     await hubInterface.start(async (msg, onEvent) => {
       const response = await enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "");
-      // Auto-reply back to sender (same as Telegram/Slack DMs)
-      if (response && response !== "NO_REPLY" && response !== "(no text response)") {
+      // Auto-reply back to sender — agents handle loop prevention via NO_REPLY
+      const trimmed = (response || "").trim();
+      const suppress = !trimmed || trimmed.includes("NO_REPLY") || trimmed === "(no text response)";
+      if (!suppress) {
         await hubInterface!.sendMessage(msg.userId, response);
       }
       return response;

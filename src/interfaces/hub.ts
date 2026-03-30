@@ -87,7 +87,7 @@ export class HubInterface {
                 interface: "hub",
                 channel: "hub",
               },
-              () => {}, // no streaming events for hub messages
+              () => {},
             );
           }
           break;

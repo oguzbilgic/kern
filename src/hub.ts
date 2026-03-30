@@ -145,7 +145,6 @@ wss.on("connection", (ws) => {
         return;
       }
 
-      // Relay with sender info
       target.socket.send(JSON.stringify({
         type: "message",
         from: sender.name,
