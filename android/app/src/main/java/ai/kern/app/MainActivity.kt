@@ -24,7 +24,7 @@ import com.google.android.material.textfield.TextInputEditText
 class MainActivity : AppCompatActivity() {
 
     companion object {
-        const val BUILD = 25
+        const val BUILD = 26
     }
 
     private lateinit var webView: WebView
@@ -413,11 +413,9 @@ class MainActivity : AppCompatActivity() {
                 super.onPageFinished(view, url)
                 Log.d("KernWebView", "onPageFinished: $url")
                 if (url == "about:blank") return
-                // Inject bridge script — SSE will start when web UI calls AgentClient.connect()
-                // which the bridge intercepts and routes to KernNative.switchAgent()
-                view.evaluateJavascript("console.log('[kern-native] page finished, injecting build $BUILD');", null)
+                // Inject bridge — _kernPatched flag inside prevents double-patching
+                view.evaluateJavascript("console.log('[kern-native] onPageFinished, injecting build $BUILD');", null)
                 view.evaluateJavascript(bridgeScript(), null)
-                // Don't start SSE here — let the web UI pick an agent first (esp. on hub)
             }
 
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
@@ -490,6 +488,8 @@ class MainActivity : AppCompatActivity() {
                     "} else if (ev.type === '__sse_disconnected') { " +
                     "  if (window._kernNativeSseDisconnected) window._kernNativeSseDisconnected(); " +
                     "} else { " +
+                    "  window._kernEvCount = (window._kernEvCount||0) + 1; " +
+                    "  console.log('[kern-native] SSE event #' + window._kernEvCount + ' type=' + ev.type); " +
                     "  if (window.handleEvent) window.handleEvent(ev); " +
                     "} } catch(e) { console.log('SSE inject error: ' + e); } })();",
                     null
