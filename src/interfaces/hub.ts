@@ -3,6 +3,17 @@ import { sign, ensureKeypair } from "../keys.js";
 import { log } from "../log.js";
 import type { StartOptions } from "./types.js";
 
+const HUB_ALIASES: Record<string, string> = {
+  default: "ws://hub.kern-ai.com:4000",
+  local: "ws://localhost:4000",
+};
+
+function resolveHubUrl(hub: string): string {
+  if (HUB_ALIASES[hub]) return HUB_ALIASES[hub];
+  if (hub.startsWith("ws://") || hub.startsWith("wss://")) return hub;
+  return `ws://${hub}`;
+}
+
 export class HubInterface {
   private ws: WebSocket | null = null;
   private onMessage: StartOptions["onMessage"] | null = null;
@@ -15,7 +26,7 @@ export class HubInterface {
   constructor(agentDir: string, agentName: string, hubUrl: string) {
     this.agentDir = agentDir;
     this.agentName = agentName;
-    this.hubUrl = hubUrl;
+    this.hubUrl = resolveHubUrl(hubUrl);
   }
 
   async start(onMessage: StartOptions["onMessage"]): Promise<void> {
