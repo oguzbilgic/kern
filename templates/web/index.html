@@ -1417,12 +1417,16 @@ function addMessage(type, content, meta, toolInput, timestamp, iface) {
     const color = TOOL_COLORS[toolName] || 'var(--text-dim)';
     el.style.borderLeftColor = color;
     el.innerHTML = `<div class="tool-header"><span class="tool-arrow">&#9654;</span><span class="tool-name" style="color:${color}">${toolName}</span><span class="tool-detail">${toolDetail}</span></div><div class="tool-output"></div>`;
-    // For edit tools, pre-fill the diff from input
+    // Pre-fill tool output from input for specific tools
     if (toolName === 'edit' && toolInput) {
       const diff = formatEditDiff(toolInput);
       if (diff) {
         el.querySelector('.tool-output').innerHTML = diff;
       }
+    } else if (toolName === 'write' && toolInput && toolInput.content) {
+      el.querySelector('.tool-output').textContent = toolInput.content;
+    } else if (toolName === 'message' && toolInput && toolInput.text) {
+      el.querySelector('.tool-output').textContent = `→ ${toolInput.interface || 'unknown'}: ${toolInput.text}`;
     }
     el.addEventListener('click', () => el.classList.toggle('expanded'));
   } else if (type === 'incoming') {
