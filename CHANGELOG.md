@@ -1,55 +1,32 @@
 # Changelog
 
-## v0.11.0
+## v0.11.0 (unreleased)
 
 ### Features
 - **Web UI** — browser-based chat interface via `kern web start/stop/status`.
   - Separate process from agents — serves static HTML on port 9000 (configurable in `~/.kern/config.json`).
-  - Auto-discovers running agents via `/api/agents` endpoint. Browser connects directly to agent APIs — no proxy.
-  - **Left sidebar** with avatar agent list (colored initials, online/offline dots). Collapsible on desktop, slide-out on mobile. State persisted.
-  - **Agent info panel** — `⋮` button shows version, model, tools, uptime, session stats, API usage, connection string with copy button.
-  - **Add remote agent** modal for manual connections.
-  - **Slash commands** with autocomplete popup — type `/` to see available commands.
-  - **Collapsible tool output** — click any tool call to expand/collapse the result. Works for both live and history (matched via toolCallId).
-  - **Edit diffs** — edit tool calls show inline red/green diff.
-  - **Full markdown rendering** — headers, bullet/numbered lists, blockquotes, tables, code blocks, horizontal rules, inline formatting.
-  - **Message filters** — gear icon dropdown to toggle heartbeats, TUI, tool calls, Telegram/Slack, system messages. Filters hide entire turns (trigger + response + tools). Persisted in localStorage.
-  - **Message timestamps** — time shown below user/incoming/outgoing messages.
-  - **Thinking indicator** — bouncing dots between tool steps, not just at start.
-  - **Dark theme** — warm neutral palette, darker sidebar.
-  - **TUI-style message colors** — user (blue), incoming (yellow), outgoing (green), heartbeat (magenta), per-tool colors.
-  - **Auto-reconnect** — re-discovers agent port after restart, deduplicates connections.
-  - **Mobile-friendly** — responsive layout, touch targets, PWA support.
-- **Auto-generated auth tokens** — `KERN_AUTH_TOKEN` generated on first agent start, stored in `.kern/.env` and registered in `agents.json`. All API endpoints require token (except `/health`). No manual setup needed.
+  - Auto-discovers running agents via `/api/agents`. Browser connects directly to agent APIs — no proxy.
+  - Left sidebar with avatar agent list (colored initials, online/offline dots). Collapsible on desktop, slide-out on mobile.
+  - Agent info panel: version, model, uptime, session stats, API usage, connection string with copy button.
+  - Slash commands with autocomplete popup — type `/` to see available commands.
+  - Collapsible tool output — click to expand/collapse. Edit tools show inline red/green diffs.
+  - Full markdown rendering (headers, lists, blockquotes, tables, code blocks).
+  - Message filters — toggle heartbeats, TUI, tool calls, Telegram/Slack, system. Hides entire turns.
+  - Message timestamps on user/incoming/outgoing messages.
+  - Bouncing dots thinking indicator between tool steps.
+  - Auto-reconnect — re-discovers agent port after restart.
+  - Dark theme, mobile-friendly, PWA support.
+- **Auto-generated auth tokens** — `KERN_AUTH_TOKEN` generated on first agent start, stored in `.kern/.env` and `agents.json`. All API endpoints require token (except `/health`).
 - **Agents bind `0.0.0.0` by default** — accessible over Tailscale/LAN, secured by auto-generated token.
 - **`/help` slash command** — lists available commands with descriptions.
 - **Global config** — `~/.kern/config.json` for `web_port` and `web_host`.
-- **DRY status** — single `getStatusData()` returns structured data for tool, slash command, HTTP API, and web UI.
 - **`kern init` next steps** — shows `kern tui` and `kern web start` after agent creation.
 
-### Architecture
-- `src/web.ts` — static web server + `/api/agents` discovery endpoint.
-- `src/web-daemon.ts` — `kern web start/stop/status` daemon management.
-- `src/global-config.ts` — global `~/.kern/config.json` loader.
-- `src/hub.ts` removed — replaced by simpler direct-connection model.
-- `src/server.ts` — API only, no HTML serving. Auth middleware on all endpoints.
-- `src/tools/kern.ts` — `getStatusData()` / `formatStatus()` / `getStatus()` layered API.
-- `src/runtime.ts` — broadcasts `toolInput` and `toolResult` in stream events.
-- `agents.json` registry now includes `token` field.
-- `host` added to per-agent config (default `0.0.0.0`). Removed `KERN_HOST`/`KERN_PORT` env vars.
-
-### Security
-- XSS: markdown links only allow `http`/`https` protocols.
-- XSS: code blocks keep HTML-escaped content.
-- XSS: info panel sanitizes all status values.
-- Auth token truncated in log output.
-- Duplicate token prevention in `.env`.
-- Atomic `setPortAndToken` registry write.
-
 ### Changes
-- KERN.md: added web UI interface guidance, markdown note, `/help` command, heartbeat visibility for all SSE clients.
-- Stale TUI markers in docs replaced with actual border color descriptions.
-- `kern import opencode` docs fixed — interactive flow, flags documented correctly.
+- Agents serve API only — no HTML from agent process. `KERN_HOST`/`KERN_PORT` env vars removed. `host` field in `.kern/config.json` (default `0.0.0.0`).
+- Status data shared across tool, slash command, HTTP API, and web UI via `getStatusData()`.
+- KERN.md: added web UI interface guidance, markdown note, `/help` command.
+- Docs updated: README, config, interfaces, commands.
 
 ## v0.10.0
 
