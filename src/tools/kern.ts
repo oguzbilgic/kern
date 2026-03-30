@@ -17,9 +17,14 @@ let _getSessionStats: (() => { totalMessages: number; estimatedTokens: number; w
 let _reloadFn: (() => Promise<void>) | null = null;
 let _pairingManager: any = null;
 let _getQueueStatus: (() => { processing: boolean; pending: number; activeChannel: string | null }) | null = null;
+let _getHubStatus: (() => { url: string; connected: boolean } | null) | null = null;
 
 export function setQueueStatusFn(fn: () => { processing: boolean; pending: number; activeChannel: string | null }) {
   _getQueueStatus = fn;
+}
+
+export function setHubStatusFn(fn: () => { url: string; connected: boolean } | null) {
+  _getHubStatus = fn;
 }
 
 export async function initKernTool(opts: {
@@ -87,6 +92,7 @@ export interface StatusData {
   promptTokens: number;
   completionTokens: number;
   queue: string;
+  hub: string | null;
 }
 
 export function getStatusData(): StatusData {
@@ -129,6 +135,7 @@ export function getStatusData(): StatusData {
     promptTokens: _totalPromptTokens,
     completionTokens: _totalCompletionTokens,
     queue: queueStr,
+    hub: _getHubStatus ? (() => { const h = _getHubStatus!(); return h ? `${h.url} (${h.connected ? 'connected' : 'disconnected'})` : null; })() : null,
   };
 }
 
@@ -142,6 +149,7 @@ export function formatStatus(data: StatusData): string {
     data.context ? `context: ${data.context}` : "",
     `api usage: ${data.apiUsage}`,
     `queue: ${data.queue}`,
+    data.hub ? `hub: ${data.hub}` : "",
     `uptime: ${data.uptime}`,
   ].filter(Boolean).join("\n");
 }

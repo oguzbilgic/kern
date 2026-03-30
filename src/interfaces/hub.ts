@@ -31,6 +31,14 @@ export class HubInterface {
     }
   }
 
+  isConnected(): boolean {
+    return this.connected;
+  }
+
+  getUrl(): string {
+    return this.hubUrl;
+  }
+
   async sendMessage(userId: string, text: string): Promise<boolean> {
     if (!this.ws || !this.connected) return false;
     this.ws.send(JSON.stringify({ type: "message", to: userId, text }));

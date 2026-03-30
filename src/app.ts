@@ -14,7 +14,7 @@ import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
 import { MessageQueue } from "./queue.js";
-import { getStatusData as getStatusDataFn, setQueueStatusFn } from "./tools/kern.js";
+import { getStatusData as getStatusDataFn, setQueueStatusFn, setHubStatusFn } from "./tools/kern.js";
 import { log } from "./log.js";
 
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
@@ -221,6 +221,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
         return "";
       }
     });
+    setHubStatusFn(() => ({ url: hubInterface!.getUrl(), connected: hubInterface!.isConnected() }));
   }
 
   // Wire message tool — agent can send messages to users
