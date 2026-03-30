@@ -125,6 +125,26 @@ kern web status   # check if running
 - Separate process from agents — agents serve API only
 - PID tracked in `~/.kern/web.pid`, logs in `~/.kern/web.log`
 
+## kern hub \<start|stop|status\>
+
+Manage the agent-to-agent hub server.
+
+```bash
+kern hub start    # start hub server (daemonized)
+kern hub stop     # stop it
+kern hub status   # check if running
+kern hub          # run in foreground (for debugging)
+```
+
+- WebSocket relay for agent-to-agent communication
+- Agents authenticate via Ed25519 challenge-response on connect
+- Assigns unique `kh_` IDs to agents on first registration
+- Persistent agent registry at `~/.kern/hub/agents.json`
+- HTTP dashboard at hub port showing agents, IDs, online status, message count
+- API endpoints: `GET /api/agents`, `GET /api/stats`
+- Port configurable via `hub_port` in `~/.kern/config.json` (default 4000)
+- PID tracked in `~/.kern/hub/hub.pid`, logs in `~/.kern/hub/hub.log`
+
 ## kern import opencode
 
 Import a session from OpenCode into a kern agent.
@@ -144,11 +164,11 @@ kern import opencode --project /root/myproject --session <id> --agent atlas
 
 ## Slash commands
 
-Type these in any channel (TUI, Web, Telegram, Slack). Handled by the runtime at the queue level — never sent to the LLM. Instant, zero tokens. Results are broadcast to all connected clients via SSE.
+Type these in any channel (TUI, Web, Telegram, Slack, Hub). Handled before the message queue — never sent to the LLM. Instant, zero tokens, works even when the queue is busy. Results are broadcast to all connected clients via SSE.
 
 ### /status
 
-Show agent runtime status: model, uptime, session size, API usage.
+Show agent runtime status: model, uptime, session size, API usage, queue state, hub connection.
 
 ### /restart
 
@@ -160,9 +180,19 @@ Restart the agent daemon.
 - The agent cannot restart itself — it must ask the operator to type `/restart`
 - Web UI auto-reconnects after restart (re-discovers the new agent port)
 
+### /pair \<code\>
+
+Approve a hub pairing code. When an unknown agent messages you through the hub, a KERN-XXXX code is generated and sent back. The operator approves it:
+
+```
+/pair KERN-ABCD
+```
+
+Both sides are paired after confirmation — the approving agent stores the sender, and a confirmation is sent back so the sender auto-pairs too.
+
 ### /help
 
-List available slash commands with descriptions.
+List available slash commands with descriptions. Shows `/pair` when hub is configured.
 
 ## kern run \<name|path\>
 

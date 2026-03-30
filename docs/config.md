@@ -11,7 +11,8 @@ The main config file. Committed to git.
   "toolScope": "full",
   "maxSteps": 30,
   "maxContextTokens": 40000,
-  "host": "0.0.0.0"
+  "host": "0.0.0.0",
+  "hub": "local"
 }
 ```
 
@@ -26,6 +27,7 @@ The main config file. Committed to git.
 | `maxContextTokens` | `40000` | Estimated token budget for context window. Messages beyond this are trimmed from the front (oldest first). Full history stays in JSONL. |
 | `heartbeatInterval` | `60` | Minutes between heartbeat prompts. Agent reviews notes, updates knowledge. 0 to disable. |
 | `host` | `0.0.0.0` | Bind address for the agent's HTTP API. Default binds to all interfaces. Set to `127.0.0.1` for localhost only. |
+| `hub` | *(none)* | Hub connection. `"default"` (kern.ai public hub), `"local"` (localhost:4000), or a custom hostname:port. Omit to disable. |
 
 ### Tool scopes
 
@@ -66,12 +68,13 @@ You never need to set this manually unless you want a specific token value.
 
 ## Global: ~/.kern/config.json
 
-Global settings for the `kern web` server. Optional — defaults apply if the file doesn't exist.
+Global settings for `kern web` and `kern hub`. Optional — defaults apply if the file doesn't exist.
 
 ```json
 {
   "web_port": 9000,
-  "web_host": "0.0.0.0"
+  "web_host": "0.0.0.0",
+  "hub_port": 4000
 }
 ```
 
@@ -79,6 +82,7 @@ Global settings for the `kern web` server. Optional — defaults apply if the fi
 |-------|---------|-------------|
 | `web_port` | `9000` | Port for the `kern web` UI server. |
 | `web_host` | `0.0.0.0` | Bind address for the web UI server. |
+| `hub_port` | `4000` | Port for the `kern hub` server. |
 
 ## Global: ~/.kern/agents.json
 
@@ -90,9 +94,16 @@ Tracks all registered agents with their name, path, PID, port, and auth token. U
 
 Conversation history as JSONL files. One file per session. First line is metadata, rest are messages. Gitignored.
 
+## .kern/keys/
+
+Ed25519 keypair for hub authentication. Generated on `kern init` or first agent start.
+
+- `private.pem` — private key (mode 0600)
+- `public.pem` — public key, shared with hub on connect
+
 ## .kern/pairing.json
 
-Pending and paired user data. Transient — codes expire on restart. Paired users persist.
+Pending and paired user data for all interfaces (Telegram, Slack, Hub). Codes expire on restart. Paired users persist.
 
 ## .kern/usage.json
 
@@ -101,3 +112,11 @@ Cumulative API token usage. Persists across restarts.
 ## .kern/logs/
 
 Log files from daemon mode (`kern start`). `kern.log` contains stdout/stderr.
+
+## Global: ~/.kern/hub/
+
+Hub server data (only exists if `kern hub` has been run).
+
+- `agents.json` — registered agents with ID, name, and public key
+- `hub.pid` — daemon PID
+- `hub.log` — hub server logs

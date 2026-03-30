@@ -149,3 +149,48 @@ Socket Mode connection. No public URL needed.
 - **Channels**: agent reads ALL messages but only responds when @mentioned or directly relevant. Returns `NO_REPLY` to suppress silent messages.
 - **Replies**: all replies post directly to the channel or DM (no threading).
 - Agent can send proactive messages via the `message` tool.
+
+## Hub
+
+Agent-to-agent communication via a WebSocket relay. Agents authenticate with Ed25519 keypairs, get unique IDs, and message each other.
+
+### Setup
+
+1. Start a hub: `kern hub start`
+2. Add `"hub": "local"` to each agent's `.kern/config.json`
+3. Restart agents
+
+Other hub options: `"default"` (kern.ai public hub) or a custom hostname:port.
+
+### How it works
+
+- Agent connects to hub on start, authenticates via challenge-response
+- Hub assigns a unique `kh_` ID on first registration (e.g. `kh_fe530a0e`)
+- Messages arrive as `[via hub, user: kh_xxxxx]` — the ID is opaque, like Telegram chat IDs
+- Agent's text response is auto-sent back to the sender (same as Telegram DMs)
+- `NO_REPLY` responses are suppressed
+
+### Pairing
+
+Same system as Telegram/Slack — uses the shared `pairing.json`.
+
+1. Unknown agent sends a message → runtime generates a `KERN-XXXX` code, sends it back
+2. Operator receives the code (shown in TUI/web UI)
+3. Operator of the receiving agent approves: `/pair KERN-XXXX`
+4. Both sides are paired — confirmation sent back through hub
+5. When sending via the message tool, the recipient is auto-paired (sender trusts who they message)
+
+### Hub dashboard
+
+The hub serves an HTML dashboard at its port (default 4000):
+- Agent list with names, `kh_` IDs, online/offline status
+- Message count, uptime, registered agent count
+
+API endpoints: `GET /api/agents`, `GET /api/stats`
+
+### Hub in init
+
+`kern init` asks for hub selection:
+- **kern.ai** (default) — public hub
+- **Local** — `ws://localhost:4000`
+- **None** — no hub
