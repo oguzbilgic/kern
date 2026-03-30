@@ -18,11 +18,82 @@ kern tui [name]
 - Live connection indicator (`●`/`○`) that automatically reconnects
 - Ctrl-C only kills TUI, daemon stays alive
 
-Markers:
-- `>` green — your input
-- `◆` blue — agent response
-- `◇` yellow — incoming from other channels
-- `→` green — agent sent a message to a channel
+Message styling (colored left borders):
+- **green** — your input and outgoing messages to other channels
+- **yellow** — incoming from other channels (Telegram, Slack, Web)
+- **magenta** — heartbeat
+- Assistant responses are plain text, indented
+- Tool calls are color-coded by tool name (bash=red, read=cyan, write=green, edit=yellow, glob=magenta, grep=blue)
+
+## Web UI
+
+Browser-based chat interface. Runs as a separate process from agents — `kern web` serves the UI, agents serve their APIs.
+
+### Setup
+
+```bash
+kern web start    # start web UI server on port 9000
+kern web stop     # stop it
+kern web status   # check if running
+```
+
+Open in a browser:
+
+```
+http://localhost:9000/
+```
+
+Over Tailscale or LAN, use the machine's hostname or IP:
+
+```
+http://myhost.tail1234.ts.net:9000/
+```
+
+### Architecture
+
+- `kern web` serves a static HTML page and a `/api/agents` discovery endpoint
+- Agents serve only their HTTP API (no HTML) on random ports, bound to `0.0.0.0` by default
+- The web UI fetches the agent list from `kern web`, then connects directly to each agent's API
+- No proxy — the browser talks to agents directly
+- Auth tokens are auto-generated and registered in `~/.kern/agents.json` for seamless discovery
+
+### Agent discovery
+
+- **Local agents** are auto-discovered from `~/.kern/agents.json`. The web UI reads the list on load and when opening the agent sidebar.
+- **Remote agents** can be added manually in the sidebar (name, URL, token). These are stored in browser localStorage.
+
+### Authentication
+
+Each agent auto-generates a `KERN_AUTH_TOKEN` on first start. The token is:
+- Written to `.kern/.env`
+- Registered in `~/.kern/agents.json`
+- Passed to the web UI via the `/api/agents` discovery endpoint
+
+No manual token setup needed for local agents. For remote agents, you provide the token when adding them in the sidebar.
+
+### Features
+
+- **Agent sidebar** — left panel with avatar list, online/offline status dots, collapsible on desktop, slide-out on mobile
+- **Slash commands** — `/status`, `/restart`, `/help` with autocomplete popup
+- **Collapsible tool output** — click a tool call to expand and see the result. Edit tools show inline diffs (red/green).
+- **TUI-style message colors** — user (blue), incoming from Telegram/Slack (yellow), outgoing (green), heartbeat (magenta), per-tool colors
+- **Streaming responses** with live cursor and thinking indicator
+- **Full history** on connect, including tool call results
+- **Auto-reconnect** — re-discovers agent port after restart
+- **Dark theme**, mobile-friendly, PWA support
+
+### Global config
+
+Web server port and host are configured in `~/.kern/config.json`:
+
+```json
+{
+  "web_port": 9000,
+  "web_host": "0.0.0.0"
+}
+```
+
+Optional — defaults apply if the file doesn't exist.
 
 ## Web UI
 

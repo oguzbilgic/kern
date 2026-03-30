@@ -110,38 +110,59 @@ Restore an agent from a backup archive.
 - If agent already exists: warns and asks to confirm overwrite
 - If agent is running: stops it before overwriting
 
-## kern import opencode \<name\>
+## kern web \<start|stop|status\>
+
+Manage the web UI server.
+
+```bash
+kern web start    # start web UI server (daemonized)
+kern web stop     # stop it
+kern web status   # check if running
+```
+
+- Serves the web UI on port 9000 (configurable in `~/.kern/config.json`)
+- Provides `/api/agents` endpoint for agent discovery
+- Separate process from agents — agents serve API only
+- PID tracked in `~/.kern/web.pid`, logs in `~/.kern/web.log`
+
+## kern import opencode
 
 Import a session from OpenCode into a kern agent.
 
 - Finds OpenCode's SQLite database at `~/.local/share/opencode/opencode.db`
-- Looks up sessions by agent's directory path
+- Interactive: prompts to select project, session, and target agent
 - Converts messages and tool calls to kern's ModelMessage format
 - Validates tool-call/tool-result pairing
 - Writes to `.kern/sessions/` as JSONL
-- Accepts agent name (from registry) or directory path
 
 ```bash
-kern import opencode myagent
-kern import opencode /root/myagent
+kern import opencode                          # interactive
+kern import opencode /root/myproject          # specify project path
+kern import opencode --agent atlas            # specify target agent
+kern import opencode --project /root/myproject --session <id> --agent atlas
 ```
 
 ## Slash commands
 
-Type these in any channel (TUI, Telegram, Slack). Handled by the runtime at the queue level — never sent to the LLM. Instant, zero tokens.
+Type these in any channel (TUI, Web, Telegram, Slack). Handled by the runtime at the queue level — never sent to the LLM. Instant, zero tokens. Results are broadcast to all connected clients via SSE.
 
 ### /status
 
-Show agent runtime status: model, uptime, session size, API usage, TUI connection.
+Show agent runtime status: model, uptime, session size, API usage.
 
 ### /restart
 
 Restart the agent daemon.
 
-- 2-second delay to let Telegram acknowledge the message before the process dies
+- 2-second delay to let interfaces acknowledge the message before the process dies
 - Registered as a Telegram bot command (shows in the `/` menu)
 - Safe — no restart loops, no session corruption
 - The agent cannot restart itself — it must ask the operator to type `/restart`
+- Web UI auto-reconnects after restart (re-discovers the new agent port)
+
+### /help
+
+List available slash commands with descriptions.
 
 ## kern run \<name|path\>
 

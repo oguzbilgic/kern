@@ -4,21 +4,73 @@ import { TelegramInterface } from "./interfaces/telegram.js";
 import { SlackInterface } from "./interfaces/slack.js";
 import { CliInterface } from "./interfaces/cli.js";
 import { loadConfig } from "./config.js";
-import { readFile } from "fs/promises";
+import { readFile, appendFile } from "fs/promises";
 import { join, basename } from "path";
+import { randomBytes } from "crypto";
 import type { Interface, MessageHandler } from "./interfaces/types.js";
-import { registerAgent, setPort } from "./registry.js";
+import { registerAgent, setPortAndToken } from "./registry.js";
 import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
 import { MessageQueue } from "./queue.js";
+import { getStatusData as getStatusDataFn, setQueueStatusFn } from "./tools/kern.js";
 import { log } from "./log.js";
+
+async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
+  switch (cmd) {
+    case "/restart": {
+      log("kern", `restart requested by ${userId} via ${iface}`);
+      setTimeout(async () => {
+        const { spawn } = await import("child_process");
+        spawn("kern", ["restart", agentName], { detached: true, stdio: "ignore" }).unref();
+      }, 2000);
+      return "Restarting in 2 seconds...";
+    }
+
+    case "/status": {
+      const { formatStatus } = await import("./tools/kern.js");
+      return formatStatus(getStatusDataFn());
+    }
+
+    case "/help":
+      return [
+        "/status   — show agent status, uptime, token usage",
+        "/restart  — restart the agent process",
+        "/help     — show this help",
+      ].join("\n");
+
+    default:
+      return null; // unknown command — fall through to LLM
+  }
+}
 
 export async function startApp(agentDir: string, forceCli = false): Promise<void> {
   // Update kernel if newer version available
   await updateKernel(agentDir);
 
   const config = await loadConfig(agentDir);
+
+  // Auto-generate auth token if missing
+  if (!process.env.KERN_AUTH_TOKEN) {
+    const envPath = join(agentDir, ".kern", ".env");
+    // Check if token already exists in file (env might not have loaded it)
+    let existingToken: string | null = null;
+    try {
+      const envContent = await readFile(envPath, "utf-8");
+      const match = envContent.match(/^KERN_AUTH_TOKEN=(.+)$/m);
+      if (match) existingToken = match[1].trim();
+    } catch {}
+
+    if (existingToken) {
+      process.env.KERN_AUTH_TOKEN = existingToken;
+    } else {
+      const token = randomBytes(16).toString("hex");
+      await appendFile(envPath, `\nKERN_AUTH_TOKEN=${token}\n`);
+      process.env.KERN_AUTH_TOKEN = token;
+      log("kern", `generated auth token: ${token.slice(0, 8)}...`);
+    }
+  }
+
   const runtime = new Runtime(agentDir);
   await runtime.init();
 
@@ -47,25 +99,9 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   // Message queue — serializes messages, same-channel injection
   const queue = new MessageQueue();
+  setQueueStatusFn(() => queue.getStatus());
 
   queue.setHandler(async (msg, getPendingMessages) => {
-    const cmd = msg.text.trim();
-
-    // Intercept /restart — handle at runtime level, never send to LLM
-    if (cmd === "/restart") {
-      log("kern", `restart requested by ${msg.userId} via ${msg.interface}`);
-      setTimeout(async () => {
-        const { spawn } = await import("child_process");
-        spawn("kern", ["restart", agentName], { detached: true, stdio: "ignore" }).unref();
-      }, 2000);
-      return "Restarting in 2 seconds...";
-    }
-
-    // Intercept /status — calls the same kern tool status action, no LLM
-    if (cmd === "/status") {
-      const { getStatus } = await import("./tools/kern.js");
-      return getStatus();
-    }
 
     const time = new Date().toISOString();
     const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}, time: ${time}]\n${msg.text}`;
@@ -98,16 +134,26 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   });
 
   // Helper to enqueue from any interface
-  const enqueueMessage = (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void, clientId?: string) => {
+  const enqueueMessage = async (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void, clientId?: string) => {
+    // Slash commands bypass the queue — instant response even if queue is busy
+    const cmd = text.trim();
+    if (cmd.startsWith("/")) {
+      const result = await handleSlashCommand(cmd, userId, iface, agentName);
+      if (result !== null) {
+        server.broadcast({
+          type: "command-result" as any,
+          text: result,
+          command: cmd,
+        });
+        return result;
+      }
+    }
     return queue.enqueue({ text, userId, interface: iface, channel, clientId }, onEvent);
   };
 
-  server.setStatusFn(() => ({
-    model: config.model,
-    provider: config.provider,
-    toolScope: config.toolScope,
-    agentName,
-  }));
+  server.setStatusFn(() => {
+    return { ...getStatusDataFn(), agentName };
+  });
 
   server.setMessageHandler(async (text, userId, iface, channel, clientId?) => {
     await enqueueMessage(text, userId, iface, channel, undefined, clientId);
@@ -124,8 +170,8 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     }));
   });
 
-  const port = await server.start();
-  await setPort(agentName, port);
+  const port = await server.start(config.host);
+  await setPortAndToken(agentName, port, process.env.KERN_AUTH_TOKEN || null);
 
   // Start Telegram if configured
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN;

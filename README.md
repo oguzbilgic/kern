@@ -2,34 +2,36 @@
 
 AI agents built for coworking.
 
-One brain across every channel. Your agent sits in Slack channels, Telegram DMs, and the terminal. It knows who's talking, reads the room, and remembers everything. Humans and agents, same channels, same conversation.
+One brain across every channel. Your agent sits in Slack channels, Telegram DMs, the terminal, and the browser. It knows who's talking, reads the room, and remembers everything. Humans and agents, same channels, same conversation.
 
 ## Why kern
 
 Most agent frameworks give you sessions that reset, memory that's a black box, or infrastructure you have to manage. kern takes a different approach:
 
-- **One brain** — a single continuous session across every interface. Message from Telegram, pick up in the TUI, continue in Slack. The agent always knows what happened.
+- **One brain** — a single continuous session across every interface. Message from Telegram, pick up in the terminal, continue in the browser. The agent always knows what happened.
 - **Context-aware** — the agent knows who's talking and where. It sees the user, the channel, and the interface — so it can adjust tone, filter context, and keep track of different conversations within the same session.
 - **A folder is the agent** — AGENTS.md defines behavior, IDENTITY.md defines who it is, knowledge/ and notes/ are its memory. Everything is plain text, git-tracked, and inspectable.
-- **No infra** — no server, no database, no vector store. A folder, an API key, and `npx kern-ai`.
+- **No infra** — no server, no database, no vector store. A folder, an API key, and `npm install -g kern-ai`.
 
 kern pairs with [agent-kernel](https://github.com/oguzbilgic/agent-kernel) — the kernel defines how an agent remembers, kern runs it.
 
 ## Quick start
 
 ```bash
-npx kern-ai init my-agent
-npx kern-ai tui
+npm install -g kern-ai
+kern init my-agent
+kern tui
 ```
 
-The init wizard scaffolds your agent, asks for a provider and API key, then starts it. `kern tui` opens an interactive chat.
+The init wizard scaffolds your agent, asks for a provider and API key, then starts it. `kern tui` opens an interactive chat. `kern web start` opens it in the browser.
 
-For automation: `npx kern-ai init my-agent --api-key sk-or-...` (no prompts, defaults to openrouter + opus 4.6).
+For automation: `kern init my-agent --api-key sk-or-...` (no prompts, defaults to openrouter + opus 4.6).
 
 ## How it works
 
 ```
 TUI ──────────────┐
+Web UI ───────────┤
 Telegram DM ──────┤── kern ── one session ── one folder
 #engineering ─────┤
 Slack DM ─────────┘
@@ -65,23 +67,39 @@ kern start [name|path]    # start agents in background
 kern stop [name]          # stop agents
 kern restart [name]       # restart agents
 kern tui [name]           # interactive chat
+kern web <start|stop|status>  # web UI server
 kern logs [name]          # tail agent logs
 kern list                 # show all agents
 kern remove <name>        # unregister an agent
 kern backup <name>        # backup agent to .tar.gz
 kern restore <file>       # restore agent from backup
-kern import opencode <name>  # import session from OpenCode
+kern import opencode         # import session from OpenCode
 ```
 
 Agents auto-register when you init, start, or run them. `kern list` shows every agent with its running state.
 
+### Web UI
+
+`kern web start` launches a web UI server (default port 9000). Open it in a browser to chat with any running agent.
+
+```bash
+kern web start    # start web UI server
+kern web stop     # stop it
+kern web status   # check if running
+```
+
+The web UI auto-discovers running agents and connects directly to their APIs. Each agent binds to `0.0.0.0` by default and auto-generates an auth token on first start — no manual config needed.
+
+Works over Tailscale or LAN. Add remote agents manually in the sidebar.
+
 ### Slash commands
 
-Type these in any channel (TUI, Telegram, Slack). Handled by the runtime — no LLM call, instant response.
+Type these in any channel (TUI, Web, Telegram, Slack). Handled by the runtime — no LLM call, instant response.
 
 ```
 /status     # agent status, model, uptime, session size
 /restart    # restart the agent daemon
+/help       # list available commands
 ```
 
 ## User pairing
@@ -131,16 +149,32 @@ Structured, colored logs for queue, runtime, interfaces, and server. Logs stored
 
 ## Configuration
 
-`.kern/config.json`:
+### Per-agent: `.kern/config.json`
 
 ```json
 {
   "model": "anthropic/claude-opus-4.6",
   "provider": "openrouter",
   "toolScope": "full",
-  "maxSteps": 30
+  "maxSteps": 30,
+  "host": "0.0.0.0"
 }
 ```
+
+`host` controls the agent's HTTP bind address. Default `0.0.0.0` (all interfaces). Set to `127.0.0.1` for localhost only.
+
+Auth tokens are auto-generated on first start and stored in `.kern/.env`. No manual setup needed.
+
+### Global: `~/.kern/config.json`
+
+```json
+{
+  "web_port": 9000,
+  "web_host": "0.0.0.0"
+}
+```
+
+Controls the `kern web` server. Optional — defaults apply if the file doesn't exist.
 
 ### Tool scopes
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<meta name="theme-color" content="#0d1117">
+<meta name="theme-color" content="#1a1a1a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.json">
@@ -12,20 +12,33 @@
 <title>kern</title>
 <style>
   :root {
-    --bg: #0d1117;
-    --bg-surface: #161b22;
-    --bg-input: #0d1117;
-    --border: #30363d;
-    --text: #e6edf3;
-    --text-dim: #7d8590;
-    --text-muted: #484f58;
+    --bg: #1a1a1a;
+    --bg-surface: #252525;
+    --bg-sidebar: #141414;
+    --bg-input: #1a1a1a;
+    --border: #2a2a2a;
+    --text: #EDEDED;
+    --text-dim: #A0A0A0;
+    --text-muted: #707070;
     --accent: #58a6ff;
     --accent-dim: #1f6feb;
-    --green: #3fb950;
-    --red: #f85149;
-    --orange: #d29922;
-    --tool-bg: #1c2028;
+    --green: #12c905;
+    --red: #fc533a;
+    --orange: #fcd53a;
+    --tool-bg: #1e1e1e;
     --user-bg: #0d419d;
+    --magenta: #bc8cff;
+    --yellow: #d29922;
+    --cyan: #56d4dd;
+    --tool-bash: #f85149;
+    --tool-read: #56d4dd;
+    --tool-write: #3fb950;
+    --tool-edit: #d29922;
+    --tool-glob: #bc8cff;
+    --tool-grep: #58a6ff;
+    --tool-webfetch: #56d4dd;
+    --tool-kern: #e6edf3;
+    --tool-message: #3fb950;
     --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
     --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   }
@@ -40,8 +53,156 @@
     color: var(--text);
     height: 100dvh;
     display: flex;
+    flex-direction: row;
+    overflow: hidden;
+  }
+
+  /* --- Sidebar --- */
+  .sidebar {
+    width: 200px;
+    flex-shrink: 0;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+  }
+  .sidebar-header {
+    padding: 0 14px;
+    height: 42px;
+    min-height: 42px;
+    font-weight: 600;
+    font-size: 15px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .sidebar-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px;
+  }
+
+  /* Add agent modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    width: min(360px, 90vw);
+  }
+  .modal-title {
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 14px;
+  }
+  .modal input {
+    width: 100%;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: var(--font-sans);
+    margin-bottom: 8px;
+    outline: none;
+    box-sizing: border-box;
+  }
+  .modal input:focus { border-color: var(--text-muted); }
+  .modal input::placeholder { color: var(--text-muted); }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+    justify-content: flex-end;
+  }
+  .modal-actions button {
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .modal-actions .btn-add {
+    background: #333;
+    color: var(--text);
+  }
+  .modal-actions .btn-add:hover { background: #444; }
+  .modal-actions .btn-cancel {
+    background: transparent;
+    color: var(--text-dim);
+  }
+  .modal-actions .btn-cancel:hover { color: var(--text); }
+
+  .switcher-add-inline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 2px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .switcher-add-inline:hover { background: rgba(255,255,255,0.05); color: var(--text-dim); }
+  .switcher-add-inline span {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    line-height: 1;
+    border: 1px dashed var(--border);
+    flex-shrink: 0;
+  }
+
+  .main {
+    flex: 1;
+    display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-width: 0;
+  }
+
+  .sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; border-right: none; }
+
+  .sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 100;
+  }
+
+  /* Mobile: sidebar floats over content */
+  @media (max-width: 768px) {
+    .sidebar {
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 101;
+      transform: translateX(-100%);
+      transition: transform 0.2s ease;
+      width: 200px;
+    }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar.collapsed { transform: translateX(-100%); }
+    .sidebar-backdrop.open { display: block; }
   }
 
   /* --- Header --- */
@@ -49,12 +210,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 16px;
-    padding-top: max(8px, env(safe-area-inset-top));
+    padding: 0 16px;
     padding-left: max(16px, env(safe-area-inset-left));
     padding-right: max(16px, env(safe-area-inset-right));
+    height: 42px;
+    min-height: 42px;
     border-bottom: 1px solid var(--border);
-    background: var(--bg-surface);
+    background: var(--bg);
     flex-shrink: 0;
   }
   .header-left {
@@ -70,26 +232,139 @@
     font-size: 12px;
     color: var(--text-dim);
   }
+  .info-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    line-height: 1;
+    letter-spacing: 1px;
+  }
+  .info-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+  /* --- Agent info panel --- */
+  .info-panel {
+    display: none;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    line-height: 1.8;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+  .info-panel.open { display: block; }
+  .info-panel .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .info-panel .info-label { color: var(--text-muted); }
+  .info-panel .info-value { color: var(--text); }
+  .info-panel .info-section {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  .info-panel .info-copy {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    padding: 2px 8px;
+    cursor: pointer;
+    margin-left: 8px;
+  }
+  .info-panel .info-copy:hover { color: var(--text); border-color: var(--text-muted); }
+  .info-panel .info-url {
+    font-size: 11px;
+    color: var(--text-dim);
+    word-break: break-all;
+  }
   .status-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
     display: inline-block;
   }
-  .status-dot.connected { background: var(--green); }
+  .status-dot.connected { background: var(--accent); }
   .status-dot.disconnected { background: var(--red); }
   .status-dot.connecting { background: var(--orange); }
+
+  /* --- Filter dropdown --- */
+  .filter-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    line-height: 1;
+  }
+  .filter-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+  .filter-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 0;
+    z-index: 50;
+    min-width: 160px;
+  }
+  .filter-dropdown.open { display: block; }
+  .filter-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--text-dim);
+  }
+  .filter-item:hover { background: rgba(255,255,255,0.05); }
+  .filter-item .check {
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .filter-item.active .check { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* Filter hide rules — hides entire turn (trigger + response + tools) */
+  .messages.hide-heartbeat .from-heartbeat { display: none; }
+  .messages.hide-heartbeat .timestamp.from-heartbeat { display: none; }
+  .messages.hide-tools .message.tool { display: none; }
+  .messages.hide-incoming .from-incoming { display: none; }
+  .messages.hide-incoming .timestamp.from-incoming { display: none; }
+  .messages.hide-system .message.system { display: none; }
+  .messages.hide-tui .from-tui { display: none; }
+  .messages.hide-tui .timestamp.from-tui { display: none; }
 
   /* --- Messages --- */
   .messages {
     flex: 1;
     overflow-y: auto;
-    overflow-x: hidden;
     padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 4px;
-    min-height: 0; /* prevent flex item from overflowing */
   }
 
   .message {
@@ -127,26 +402,65 @@
 
   .message.user {
     align-self: flex-end;
-    background: var(--user-bg);
-    color: #fff;
-    border-radius: 8px 8px 2px 8px;
+    background: var(--bg-surface);
+    color: #d4d4d4;
+    border-right: 3px solid var(--accent);
+    border-radius: 8px 0 0 8px;
   }
   .message.assistant {
     align-self: flex-start;
     background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: 8px 8px 8px 2px;
+    color: #d4d4d4;
+  }
+  .timestamp {
+    font-size: 10px;
+    color: var(--text-muted);
+    padding: 2px 4px;
+  }
+  .ts-right { align-self: flex-end; }
+  .ts-left { align-self: flex-start; }
+  .message.assistant.muted {
+    color: var(--text-muted);
+    font-style: italic;
+    border-color: transparent;
+    background: transparent;
   }
   .message.tool {
     align-self: flex-start;
     background: var(--tool-bg);
-    border-left: 3px solid var(--accent-dim);
+    border-left: 3px solid var(--text-muted);
+    border-radius: 0;
     font-family: var(--font-mono);
     font-size: 12px;
     color: var(--text-dim);
     padding: 4px 10px;
     max-width: 90%;
   }
+  .message.tool { cursor: pointer; }
+  .message.tool .tool-header { display: flex; align-items: center; gap: 6px; }
+  .message.tool .tool-arrow { font-size: 10px; color: var(--text-muted); transition: transform 0.15s; }
+  .message.tool.expanded .tool-arrow { transform: rotate(90deg); }
+  .message.tool .tool-name { font-weight: 600; }
+  .message.tool .tool-detail { color: var(--text-muted); }
+  .message.tool .tool-output {
+    display: none;
+    margin-top: 6px;
+    padding: 8px;
+    background: var(--bg);
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 1.4;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: var(--text-dim);
+  }
+  .message.tool.expanded .tool-output { display: block; }
+  .message.tool .diff-line-old { color: var(--red); }
+  .message.tool .diff-line-new { color: var(--green); }
   .message.error {
     align-self: flex-start;
     background: rgba(248,81,73,0.1);
@@ -155,24 +469,56 @@
   }
   .message.incoming {
     align-self: flex-end;
-    background: var(--user-bg);
-    color: #fff;
-    border-radius: 8px 8px 2px 8px;
+    background: var(--bg-surface);
+    border-right: 3px solid var(--yellow);
+    border-radius: 8px 0 0 8px;
+    color: var(--text-dim);
     font-size: 14px;
     padding: 8px 12px;
   }
   .message.incoming .label {
     font-size: 11px;
-    opacity: 0.6;
+    color: var(--yellow);
     display: block;
     margin-bottom: 2px;
+    text-align: right;
   }
   .message.outgoing {
     align-self: flex-start;
-    background: transparent;
-    font-size: 12px;
+    background: var(--bg-surface);
+    border-left: 3px solid var(--green);
+    border-radius: 0 8px 8px 0;
+    font-size: 13px;
+    color: var(--text-dim);
+    padding: 6px 12px;
+  }
+  .message.outgoing .label {
+    font-size: 11px;
+    color: var(--green);
+    display: block;
+    margin-bottom: 2px;
+  }
+  .message.heartbeat {
+    align-self: flex-end;
+    background: var(--bg-surface);
+    border-right: 3px solid var(--magenta);
+    border-radius: 8px 0 0 8px;
     color: var(--text-muted);
-    padding: 2px 12px;
+    font-size: 12px;
+    padding: 4px 10px;
+    text-align: right;
+  }
+  .message.command-result {
+    align-self: flex-start;
+    background: var(--bg-surface);
+    border-left: 3px solid var(--green);
+    border-radius: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 8px 12px;
+    white-space: pre-wrap;
+    max-width: 90%;
   }
   .message.system {
     align-self: center;
@@ -180,6 +526,74 @@
     color: var(--text-muted);
     padding: 2px 8px;
   }
+
+  /* --- Markdown --- */
+  .message h1, .message h2, .message h3, .message h4, .message h5, .message h6 {
+    margin: 8px 0 4px 0;
+    line-height: 1.3;
+    color: var(--text);
+  }
+  .message h1 { font-size: 18px; }
+  .message h2 { font-size: 16px; }
+  .message h3 { font-size: 14px; }
+  .message h4, .message h5, .message h6 { font-size: 13px; }
+  .message ul, .message ol {
+    margin: 4px 0;
+    padding-left: 20px;
+  }
+  .message li { margin: 2px 0; }
+  .message blockquote {
+    border-left: 3px solid var(--border);
+    margin: 4px 0;
+    padding: 2px 10px;
+    color: var(--text-dim);
+  }
+  .message hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 8px 0;
+  }
+  .message table {
+    border-collapse: collapse;
+    margin: 6px 0;
+    font-size: 12px;
+  }
+  .message th, .message td {
+    border: 1px solid var(--border);
+    padding: 4px 8px;
+    text-align: left;
+  }
+  .message th {
+    background: var(--bg);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .message pre {
+    background: var(--bg);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 6px 0;
+    overflow-x: auto;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .message code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: var(--bg);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  .message pre code {
+    background: none;
+    padding: 0;
+  }
+  .message a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .message a:hover { text-decoration: underline; }
+  .message strong { color: var(--text); }
 
   .streaming-cursor::after {
     content: '▊';
@@ -190,18 +604,24 @@
 
   .thinking {
     align-self: flex-start;
-    color: var(--text-dim);
-    font-size: 13px;
-    padding: 8px 12px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
-  .thinking .dots::after {
-    content: '';
-    animation: dots 1.5s infinite;
+  .thinking .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    animation: bounce 1.4s ease-in-out infinite;
   }
-  @keyframes dots {
-    0% { content: '.'; }
-    33% { content: '..'; }
-    66% { content: '...'; }
+  .thinking .dot:nth-child(1) { animation-delay: 0s; }
+  .thinking .dot:nth-child(2) { animation-delay: 0.2s; }
+  .thinking .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-6px); opacity: 1; }
   }
 
   /* --- Input --- */
@@ -211,13 +631,14 @@
     padding-left: max(16px, env(safe-area-inset-left));
     padding-right: max(16px, env(safe-area-inset-right));
     border-top: 1px solid var(--border);
-    background: var(--bg-surface);
+    background: var(--bg);
     flex-shrink: 0;
   }
   .input-row {
     display: flex;
     gap: 8px;
     align-items: flex-end;
+    position: relative;
   }
   .input-row textarea {
     flex: 1;
@@ -227,7 +648,7 @@
     border-radius: 8px;
     padding: 10px 12px;
     font-family: var(--font-sans);
-    font-size: 16px;
+    font-size: 14px;
     line-height: 1.5;
     resize: none;
     outline: none;
@@ -236,23 +657,63 @@
     overflow-y: hidden;
   }
   .input-row textarea:focus {
-    border-color: var(--accent-dim);
+    border-color: var(--text-muted);
   }
   .input-row textarea::placeholder {
     color: var(--text-muted);
   }
   .input-row button {
-    background: var(--accent-dim);
-    color: #fff;
-    border: none;
+    background: var(--bg-surface);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 10px 16px;
-    font-size: 16px;
+    padding: 0 12px;
+    font-size: 18px;
     cursor: pointer;
-    white-space: nowrap;
     min-height: 44px;
+    flex-shrink: 0;
+    line-height: 1;
   }
-  .input-row button:hover { background: var(--accent); }
+  .input-row button:not(:disabled) { background: #333; color: var(--text); }
+  .input-row button:not(:disabled):hover { background: #3d3d3d; color: #fff; }
+  .input-row button:not(:disabled):active { background: #444; color: #fff; }
+  /* --- Command autocomplete --- */
+  .cmd-popup {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    margin-bottom: 4px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    z-index: 50;
+  }
+  .cmd-popup.open { display: block; }
+  .cmd-item {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .cmd-item:hover, .cmd-item.selected {
+    background: rgba(255,255,255,0.05);
+  }
+  .cmd-item-name {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .cmd-item-desc {
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
   .input-row button:disabled {
     opacity: 0.4;
     cursor: not-allowed;
@@ -263,12 +724,12 @@
   .messages::-webkit-scrollbar-track { background: transparent; }
   .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-  /* --- Agent Switcher --- */
+  /* --- Agent Switcher (reuses sidebar styles + these) --- */
   .menu-btn {
     background: none;
     border: none;
     color: var(--text-dim);
-    font-size: 20px;
+    font-size: 18px;
     cursor: pointer;
     padding: 4px 8px;
     border-radius: 4px;
@@ -276,134 +737,117 @@
   }
   .menu-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
 
-  .switcher-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 100;
-  }
-  .switcher-overlay.open { display: block; }
-
-  .switcher-panel {
-    position: fixed;
-    top: 0; right: 0; bottom: 0;
-    width: min(320px, 85vw);
-    background: var(--bg-surface);
-    border-left: 1px solid var(--border);
-    z-index: 101;
-    display: flex;
-    flex-direction: column;
-    transform: translateX(100%);
-    transition: transform 0.2s ease;
-  }
-  .switcher-overlay.open .switcher-panel { transform: translateX(0); }
-
-  .switcher-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border);
-    font-weight: 600;
-    font-size: 15px;
-  }
-  .switcher-close {
-    background: none; border: none; color: var(--text-dim);
-    font-size: 20px; cursor: pointer; padding: 4px;
-  }
-
-  .switcher-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px;
-  }
   .switcher-item {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 10px 12px;
-    border-radius: 6px;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
     cursor: pointer;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
+    position: relative;
   }
   .switcher-item:hover { background: rgba(255,255,255,0.05); }
-  .switcher-item.active { background: var(--accent-dim); }
-  .switcher-item-name { font-weight: 500; font-size: 14px; }
-  .switcher-item-url { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .switcher-item.active { background: rgba(255,255,255,0.08); }
+  .switcher-item.offline { opacity: 0.5; cursor: default; }
+  .switcher-item-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+    color: #fff;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .switcher-item-avatar .online-dot {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--bg-sidebar);
+  }
+  .switcher-item-avatar .online-dot.running { background: var(--accent); }
+  .switcher-item-avatar .online-dot.stopped { background: var(--text-muted); }
+  .switcher-item-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .switcher-item-name {
+    font-weight: 500;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .switcher-item-status {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 1px;
+  }
   .switcher-item-remove {
     background: none; border: none; color: var(--text-muted);
-    font-size: 16px; cursor: pointer; padding: 2px 6px;
+    font-size: 14px; cursor: pointer; padding: 2px 4px;
+    display: none;
   }
+  .switcher-item:hover .switcher-item-remove { display: block; }
   .switcher-item-remove:hover { color: var(--red); }
-
-  .switcher-add {
-    padding: 12px 16px;
-    border-top: 1px solid var(--border);
-  }
-  .switcher-add input {
-    width: 100%;
-    background: var(--bg-input);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 8px 10px;
-    font-size: 13px;
-    font-family: var(--font-sans);
-    margin-bottom: 6px;
-    outline: none;
-    box-sizing: border-box;
-  }
-  .switcher-add input:focus { border-color: var(--accent-dim); }
-  .switcher-add input::placeholder { color: var(--text-muted); }
-  .switcher-add button {
-    width: 100%;
-    background: var(--accent-dim);
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    padding: 8px;
-    font-size: 13px;
-    cursor: pointer;
-  }
-  .switcher-add button:hover { background: var(--accent); }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div class="header-left">
-    <span class="status-dot connecting" id="status-dot"></span>
-    <span class="header-title" id="agent-name">kern</span>
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <span>kern<span style="color:#58a6ff">.</span></span>
   </div>
-  <div style="display:flex;align-items:center;gap:8px;">
-    <span class="header-meta" id="header-meta"></span>
-    <button class="menu-btn" id="menu-btn" title="Switch agent">&#9776;</button>
-  </div>
+  <div class="sidebar-list" id="switcher-list"></div>
+
 </div>
 
-<div class="switcher-overlay" id="switcher-overlay">
-  <div class="switcher-panel" id="switcher-panel">
-    <div class="switcher-header">
-      <span>Agents</span>
-      <button class="switcher-close" id="switcher-close">&times;</button>
-    </div>
-    <div class="switcher-list" id="switcher-list"></div>
-    <div class="switcher-add">
-      <input id="add-name" type="text" placeholder="Name (e.g. kern-dev)" />
-      <input id="add-url" type="text" placeholder="URL (e.g. http://192.168.1.189:8084)" />
-      <input id="add-token" type="password" placeholder="Token (optional)" />
-      <button id="add-agent-btn">Add Agent</button>
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-title">Add agent</div>
+    <input id="add-name" type="text" placeholder="Name" />
+    <input id="add-url" type="text" placeholder="URL (http://host:port)" />
+    <input id="add-token" type="password" placeholder="Token" />
+    <div class="modal-actions">
+      <button class="btn-cancel" id="add-cancel-btn">Cancel</button>
+      <button class="btn-add" id="add-agent-btn">Add</button>
     </div>
   </div>
 </div>
 
-<div class="messages" id="messages"></div>
+<div class="main">
+  <div class="header">
+    <div class="header-left">
+      <button class="menu-btn" id="menu-btn" title="Agents">&#9776;</button>
+      <span class="header-title" id="agent-name">kern</span>
+      <span class="status-dot connecting" id="status-dot"></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:4px;position:relative;">
+      <button class="filter-btn" id="filter-btn" title="Filter messages">&#9881;</button>
+      <div class="filter-dropdown" id="filter-dropdown"></div>
+      <button class="info-btn" id="info-btn" title="Agent info">&#8942;</button>
+    </div>
+  </div>
 
-<div class="input-area">
-  <div class="input-row">
-    <textarea id="input" placeholder="Send a message..." rows="1" autofocus></textarea>
-    <button id="send" disabled>Send</button>
+  <div class="info-panel" id="info-panel"></div>
+  <div class="messages" id="messages"></div>
+
+  <div class="input-area">
+    <div class="input-row">
+      <div class="cmd-popup" id="cmd-popup"></div>
+      <textarea id="input" placeholder="Send a message..." rows="1" autofocus></textarea>
+      <button id="send" disabled>↑</button>
+    </div>
   </div>
 </div>
 
@@ -475,7 +919,6 @@ const AgentClient = {
         userId: opts.userId || 'tui',
         interface: opts.interface || 'web',
         channel: opts.channel || 'web',
-        clientId: opts.clientId,
       }),
     });
     return res.json();
@@ -516,46 +959,133 @@ const AgentClient = {
 function parseHistoryUserMessage(content) {
   const match = content.match(/^\[via ([^,]+),?\s*([^,]*),?\s*user:\s*([^,\]]*),?\s*(?:time:\s*([^\]]*))?\]\n?([\s\S]*)$/);
   if (match) {
-    const [, iface, channel, userId, , text] = match;
+    const [, iface, channel, userId, time, text] = match;
     const cleanText = (text || '').trim() || '(empty)';
+    const timestamp = time ? time.trim() : null;
     // TUI and web messages are the operator
-    if (iface.trim() === 'tui' || iface.trim() === 'web') return { type: 'user', text: cleanText };
+    if (iface.trim() === 'tui') return { type: 'user', text: cleanText, timestamp, iface: 'tui' };
+    if (iface.trim() === 'web') return { type: 'user', text: cleanText, timestamp, iface: 'web' };
     // Heartbeat
-    if (iface.trim() === 'system') return null; // skip heartbeats in history
+    if (iface.trim() === 'system') return { type: 'heartbeat', text: '', iface: 'heartbeat' };
     // Other interfaces (telegram, slack)
-    return { type: 'incoming', text: cleanText, meta: `[${iface.trim()} ${userId.trim()}]` };
+    return { type: 'incoming', text: cleanText, meta: `[${iface.trim()} ${userId.trim()}]`, timestamp, iface: 'incoming' };
   }
-  if (content === '[heartbeat]' || content.startsWith('[heartbeat')) return null;
+  if (content === '[heartbeat]' || content.startsWith('[heartbeat')) return { type: 'heartbeat', text: '', iface: 'heartbeat' };
   return { type: 'user', text: content };
 }
 
 function renderMarkdown(text) {
   if (!text) return '';
-  let html = text
-    // Escape HTML
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    // Code blocks (``` ... ```)
-    .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
-      `<pre><code>${code.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')}</code></pre>`)
-    // Inline code
+
+  // Escape HTML
+  let src = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Extract code blocks first to protect them
+  const codeBlocks = [];
+  src = src.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    const idx = codeBlocks.length;
+    // Keep HTML-escaped content inside code blocks — safe against injection
+    codeBlocks.push(`<pre><code>${code}</code></pre>`);
+    return `\x00CODEBLOCK${idx}\x00`;
+  });
+
+  // Process block elements line by line
+  const lines = src.split('\n');
+  const out = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Code block placeholder
+    const cbMatch = line.match(/^\x00CODEBLOCK(\d+)\x00$/);
+    if (cbMatch) { out.push(codeBlocks[parseInt(cbMatch[1])]); i++; continue; }
+
+    // Headers
+    const hMatch = line.match(/^(#{1,6})\s+(.+)$/);
+    if (hMatch) { const lvl = hMatch[1].length; out.push(`<h${lvl}>${inline(hMatch[2])}</h${lvl}>`); i++; continue; }
+
+    // Horizontal rule
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(line.trim())) { out.push('<hr>'); i++; continue; }
+
+    // Blockquote (collect consecutive > lines)
+    if (/^&gt;\s?/.test(line)) {
+      const bqLines = [];
+      while (i < lines.length && /^&gt;\s?/.test(lines[i])) {
+        bqLines.push(lines[i].replace(/^&gt;\s?/, ''));
+        i++;
+      }
+      out.push(`<blockquote>${renderMarkdown(bqLines.join('\n'))}</blockquote>`);
+      continue;
+    }
+
+    // Unordered list (collect consecutive - or * lines)
+    if (/^[\-\*]\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^[\-\*]\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^[\-\*]\s+/, ''));
+        i++;
+      }
+      out.push('<ul>' + items.map(li => `<li>${inline(li)}</li>`).join('') + '</ul>');
+      continue;
+    }
+
+    // Ordered list (collect consecutive 1. 2. lines)
+    if (/^\d+\.\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^\d+\.\s+/, ''));
+        i++;
+      }
+      out.push('<ol>' + items.map(li => `<li>${inline(li)}</li>`).join('') + '</ol>');
+      continue;
+    }
+
+    // Table (| ... | rows)
+    if (/^\|.+\|$/.test(line.trim())) {
+      const rows = [];
+      while (i < lines.length && /^\|.+\|$/.test(lines[i].trim())) {
+        rows.push(lines[i]);
+        i++;
+      }
+      if (rows.length >= 2) {
+        const header = rows[0].split('|').filter(c => c.trim()).map(c => `<th>${inline(c.trim())}</th>`).join('');
+        // Skip separator row (row 1)
+        const body = rows.slice(2).map(r => {
+          const cells = r.split('|').filter(c => c.trim()).map(c => `<td>${inline(c.trim())}</td>`).join('');
+          return `<tr>${cells}</tr>`;
+        }).join('');
+        out.push(`<table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>`);
+      } else {
+        out.push(inline(line));
+      }
+      continue;
+    }
+
+    // Empty line
+    if (line.trim() === '') { out.push(''); i++; continue; }
+
+    // Plain paragraph
+    out.push(inline(line));
+    i++;
+  }
+
+  // Join with <br> for single newlines, collapse empty lines
+  return out.join('<br>').replace(/(<br>){3,}/g, '<br><br>').replace(/<br>(<\/?(?:pre|ul|ol|li|blockquote|h[1-6]|hr|table|thead|tbody|tr|th|td))/g, '$1').replace(/(<\/(?:pre|ul|ol|li|blockquote|h[1-6]|hr|table|thead|tbody|tr|th|td)>)<br>/g, '$1');
+}
+
+function inline(text) {
+  return text
     .replace(/`([^`]+)`/g, '<code>$1</code>')
-    // Bold
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    // Italic
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Links
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-    // Line breaks (preserve newlines outside of pre blocks)
-    .replace(/\n/g, '<br>');
-
-  // Clean up <br> inside <pre> blocks (they already preserve whitespace)
-  html = html.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, (match) =>
-    match.replace(/<br>/g, '\n'));
-
-  // Strip leading/trailing <br> to avoid blank space at top/bottom of bubbles
-  html = html.replace(/^(<br>)+/, '').replace(/(<br>)+$/, '');
-
-  return html;
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => {
+      // Only allow http/https links
+      if (/^https?:\/\//i.test(url)) {
+        return `<a href="${url}" target="_blank" rel="noopener">${label}</a>`;
+      }
+      return `${label} (${url})`;
+    });
 }
 
 // ==========================================================================
@@ -568,95 +1098,151 @@ const inputEl = $('input');
 const sendBtn = $('send');
 const statusDot = $('status-dot');
 const agentNameEl = $('agent-name');
-const headerMetaEl = $('header-meta');
+const infoPanel = $('info-panel');
+
+// Toggle agent info panel
+$('info-btn').addEventListener('click', async () => {
+  if (infoPanel.classList.contains('open')) {
+    infoPanel.classList.remove('open');
+    return;
+  }
+  if (!BASE_URL) return;
+  try {
+    const res = await fetch(`${BASE_URL}/status`, { headers: AgentClient._headers(AUTH_TOKEN) });
+    if (!res.ok) return;
+    const status = await res.json();
+
+    const connUrl = BASE_URL || '';
+    const connString = AUTH_TOKEN ? `${connUrl}?token=${AUTH_TOKEN}` : connUrl;
+
+    const esc = (s) => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    infoPanel.innerHTML = `
+      <div class="info-row"><span class="info-label">kern</span><span class="info-value">v${esc(status.version) || '?'}</span></div>
+      <div class="info-row"><span class="info-label">model</span><span class="info-value">${esc(status.provider)}/${esc(status.model)}</span></div>
+      <div class="info-row"><span class="info-label">tools</span><span class="info-value">${esc(status.toolScope)}</span></div>
+      <div class="info-row"><span class="info-label">uptime</span><span class="info-value">${esc(status.uptime)}</span></div>
+      <div class="info-row"><span class="info-label">session</span><span class="info-value">${esc(status.session)}</span></div>
+      ${status.context ? `<div class="info-row"><span class="info-label">context</span><span class="info-value">${esc(status.context)}</span></div>` : ''}
+      <div class="info-row"><span class="info-label">api usage</span><span class="info-value">${esc(status.apiUsage)}</span></div>
+      <div class="info-row"><span class="info-label">queue</span><span class="info-value">${esc(status.queue)}</span></div>
+      <div class="info-section">
+        <div class="info-row">
+          <span class="info-label">connection</span>
+          <button class="info-copy" id="copy-conn">copy</button>
+        </div>
+        <div class="info-url">${esc(connString)}</div>
+      </div>
+    `;
+    infoPanel.classList.add('open');
+
+    $('copy-conn').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(connString);
+        $('copy-conn').textContent = 'copied';
+        setTimeout(() => { $('copy-conn').textContent = 'copy'; }, 1500);
+      } catch {}
+    });
+  } catch {}
+});
 
 // ==========================================================================
 // Agent Switcher
 // ==========================================================================
 
-function getSavedAgents() {
-  try { return JSON.parse(localStorage.getItem('kern_agents') || '[]'); } catch { return []; }
+// Manual agents — stored in localStorage (remote agents added by user)
+function getManualAgents() {
+  try { return JSON.parse(localStorage.getItem('kern_manual_agents') || '[]'); } catch { return []; }
 }
-function saveAgents(agents) {
-  localStorage.setItem('kern_agents', JSON.stringify(agents));
+function saveManualAgents(agents) {
+  localStorage.setItem('kern_manual_agents', JSON.stringify(agents));
 }
 function getActiveAgent() {
-  return localStorage.getItem('kern_active_agent') || null;
+  return sessionStorage.getItem('kern_active_agent') || null;
 }
 function setActiveAgent(name) {
-  localStorage.setItem('kern_active_agent', name);
+  sessionStorage.setItem('kern_active_agent', name);
 }
 
-// Determine base URL and auth token
-const params = new URLSearchParams(location.search);
+// Discovered agents — fetched from /api/agents, never persisted
+let discoveredAgents = [];
 
-// If URL has explicit params, use those and save as an agent
-let BASE_URL = params.get('url') || location.origin;
-let AUTH_TOKEN = params.get('token') || null;
-const CLIENT_ID = Math.random().toString(36).slice(2, 10);
+// All agents = discovered + manual
+function getAllAgents() {
+  const manual = getManualAgents();
+  const all = [...discoveredAgents];
+  for (const m of manual) {
+    if (!all.find(a => a.name === m.name)) {
+      all.push({ ...m, source: 'manual' });
+    }
+  }
+  return all;
+}
 
-if (params.get('token')) {
-  const urlName = params.get('name') || new URL(BASE_URL).port || 'default';
-  const agents = getSavedAgents();
-  const existing = agents.findIndex(a => a.url === BASE_URL);
-  if (existing >= 0) {
-    agents[existing].token = params.get('token');
-    agents[existing].name = urlName;
-  } else {
-    agents.push({ name: urlName, url: BASE_URL, token: params.get('token') });
-  }
-  saveAgents(agents);
-  setActiveAgent(urlName);
-  // Clean URL
-  const cleanUrl = new URL(location.href);
-  cleanUrl.searchParams.delete('token');
-  cleanUrl.searchParams.delete('name');
-  history.replaceState(null, '', cleanUrl.toString());
-} else {
-  // Try to load active agent from saved list
-  const agents = getSavedAgents();
-  const activeName = getActiveAgent();
-  const active = agents.find(a => a.name === activeName) || agents[0];
-  if (active) {
-    BASE_URL = active.url;
-    AUTH_TOKEN = active.token;
-  } else {
-    AUTH_TOKEN = localStorage.getItem('kern_auth_token') || null;
-  }
+let BASE_URL = null;
+let AUTH_TOKEN = null;
+
+// Avatar color from name hash
+const AVATAR_COLORS = ['#e06c75','#e5c07b','#98c379','#56b6c2','#61afef','#c678dd','#be5046','#d19a66'];
+function avatarColor(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
 // Render switcher panel
 function renderSwitcher() {
   const list = $('switcher-list');
-  const agents = getSavedAgents();
+  const agents = getAllAgents();
   const activeName = getActiveAgent();
   list.innerHTML = '';
   if (agents.length === 0) {
-    list.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:13px;">No saved agents. Add one below.</div>';
+    list.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:12px;">No agents found.</div>';
     return;
   }
   for (const agent of agents) {
+    const isManual = agent.source === 'manual';
     const item = document.createElement('div');
-    item.className = 'switcher-item' + (agent.name === activeName ? ' active' : '');
+    const classes = ['switcher-item'];
+    if (agent.name === activeName) classes.push('active');
+    if (!agent.running) classes.push('offline');
+    item.className = classes.join(' ');
+    const color = avatarColor(agent.name);
+    const initial = agent.name.charAt(0).toUpperCase();
+    const dotClass = agent.running ? 'running' : 'stopped';
     item.innerHTML = `
-      <div>
-        <div class="switcher-item-name">${agent.name}</div>
-        <div class="switcher-item-url">${agent.url}</div>
+      <div class="switcher-item-avatar" style="background:${color}">
+        ${initial}
+        <span class="online-dot ${dotClass}"></span>
       </div>
-      <button class="switcher-item-remove" title="Remove">&times;</button>
+      <div class="switcher-item-name">${agent.name}</div>
+      ${isManual ? '<button class="switcher-item-remove" title="Remove">&times;</button>' : ''}
     `;
-    item.addEventListener('click', (e) => {
-      if (e.target.closest('.switcher-item-remove')) return;
-      switchToAgent(agent);
-    });
-    item.querySelector('.switcher-item-remove').addEventListener('click', (e) => {
-      e.stopPropagation();
-      const updated = getSavedAgents().filter(a => a.name !== agent.name);
-      saveAgents(updated);
-      renderSwitcher();
-    });
+    if (agent.running && agent.url) {
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('.switcher-item-remove')) return;
+        switchToAgent(agent);
+      });
+    }
+    if (isManual) {
+      item.querySelector('.switcher-item-remove').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const updated = getManualAgents().filter(a => a.name !== agent.name);
+        saveManualAgents(updated);
+        renderSwitcher();
+      });
+    }
     list.appendChild(item);
   }
+  // Add agent row
+  const addItem = document.createElement('div');
+  addItem.className = 'switcher-add-inline';
+  addItem.id = 'show-add-btn';
+  addItem.innerHTML = '<span>+</span> Add agent';
+  addItem.addEventListener('click', () => {
+    $('add-modal').classList.add('open');
+    $('add-name').focus();
+  });
+  list.appendChild(addItem);
 }
 
 function switchToAgent(agent) {
@@ -664,38 +1250,68 @@ function switchToAgent(agent) {
   BASE_URL = agent.url;
   AUTH_TOKEN = agent.token;
   authFailed = false;
+  intentionalClose = true;
   if (connection) { connection.close(); connection = null; }
   messagesEl.innerHTML = '';
   inputEl.disabled = false;
   sendBtn.disabled = false;
   inputEl.value = '';
-  $('switcher-overlay').classList.remove('open');
-  // Notify native app to restart SSE for the new agent
-  if (window.KernNative && window.KernNative.switchAgent) {
-    window.KernNative.switchAgent(agent.url, agent.token || '');
-  }
+  // On mobile, close sidebar. On desktop, keep it open and just update active state.
+  if (window.innerWidth <= 768) closeSidebar();
+  renderSwitcher();
   init();
 }
 
-// Auto-discover agents from hub's /api/agents endpoint
+function toggleSidebar() {
+  const sidebar = $('sidebar');
+  const isMobile = window.innerWidth <= 768;
+  if (isMobile) {
+    const isOpen = sidebar.classList.contains('open');
+    sidebar.classList.remove('collapsed');
+    sidebar.classList.toggle('open', !isOpen);
+    $('sidebar-backdrop').classList.toggle('open', !isOpen);
+  } else {
+    sidebar.classList.remove('open');
+    const collapsed = sidebar.classList.toggle('collapsed');
+    localStorage.setItem('kern_sidebar_collapsed', collapsed ? '1' : '');
+  }
+}
+function openSidebar() {
+  const sidebar = $('sidebar');
+  sidebar.classList.remove('collapsed');
+  sidebar.classList.add('open');
+  $('sidebar-backdrop').classList.add('open');
+}
+function closeSidebar() {
+  const sidebar = $('sidebar');
+  sidebar.classList.remove('open');
+  $('sidebar-backdrop').classList.remove('open');
+  if (window.innerWidth > 768) {
+    sidebar.classList.add('collapsed');
+    localStorage.setItem('kern_sidebar_collapsed', '1');
+  }
+}
+
+// Restore sidebar state on load
+if (localStorage.getItem('kern_sidebar_collapsed') === '1' && window.innerWidth > 768) {
+  $('sidebar').classList.add('collapsed');
+}
+
+// Auto-discover agents from kern web /api/agents endpoint
 async function discoverAgents() {
   try {
     const res = await fetch(`${location.origin}/api/agents`);
     if (!res.ok) return;
-    const hubAgents = await res.json();
-    if (!Array.isArray(hubAgents) || hubAgents.length === 0) return;
-    const saved = getSavedAgents();
-    for (const ha of hubAgents) {
-      const hubUrl = `${location.origin}/agent/${ha.name}`;
-      if (!saved.find(a => a.name === ha.name)) {
-        saved.push({ name: ha.name, url: hubUrl, token: null });
-      } else {
-        // Update URL to hub proxy path
-        const idx = saved.findIndex(a => a.name === ha.name);
-        saved[idx].url = hubUrl;
-      }
-    }
-    saveAgents(saved);
+    const agents = await res.json();
+    if (!Array.isArray(agents)) return;
+    const hostname = location.hostname;
+    discoveredAgents = agents.map(a => ({
+      name: a.name,
+      url: a.running && a.port ? `${location.protocol}//${hostname}:${a.port}` : null,
+      token: a.token || null,
+      running: a.running,
+      source: 'discovered',
+    }));
   } catch {}
 }
 
@@ -703,33 +1319,43 @@ function setupSwitcher() {
   $('menu-btn').addEventListener('click', async () => {
     await discoverAgents();
     renderSwitcher();
-    $('switcher-overlay').classList.add('open');
+    toggleSidebar();
   });
-  $('switcher-close').addEventListener('click', () => {
-    $('switcher-overlay').classList.remove('open');
-  });
-  $('switcher-overlay').addEventListener('click', (e) => {
-    if (e.target === $('switcher-overlay')) {
-      $('switcher-overlay').classList.remove('open');
-    }
+  $('sidebar-backdrop').addEventListener('click', () => {
+    closeSidebar();
   });
   $('add-agent-btn').addEventListener('click', () => {
     const name = $('add-name').value.trim();
     const url = $('add-url').value.trim().replace(/\/$/, '');
     const token = $('add-token').value.trim() || null;
     if (!name || !url) return;
-    const agents = getSavedAgents();
+    const agents = getManualAgents();
     const existing = agents.findIndex(a => a.name === name);
     if (existing >= 0) {
-      agents[existing] = { name, url, token };
+      agents[existing] = { name, url, token, running: true, source: 'manual' };
     } else {
-      agents.push({ name, url, token });
+      agents.push({ name, url, token, running: true, source: 'manual' });
     }
-    saveAgents(agents);
+    saveManualAgents(agents);
     $('add-name').value = '';
     $('add-url').value = '';
     $('add-token').value = '';
+    $('add-modal').classList.remove('open');
     renderSwitcher();
+  });
+  $('add-cancel-btn').addEventListener('click', () => {
+    $('add-modal').classList.remove('open');
+    $('add-name').value = '';
+    $('add-url').value = '';
+    $('add-token').value = '';
+  });
+  $('add-modal').addEventListener('click', (e) => {
+    if (e.target === $('add-modal')) {
+      $('add-modal').classList.remove('open');
+      $('add-name').value = '';
+      $('add-url').value = '';
+      $('add-token').value = '';
+    }
   });
 }
 
@@ -738,8 +1364,8 @@ let streamingText = '';
 let streamingEl = null;
 let connection = null;
 let authFailed = false;
-let initialized = false;
-let reconnecting = false;
+let intentionalClose = false;
+let currentTurnContext = null; // tracks which interface/type triggered the current turn
 
 // --- Render helpers ---
 
@@ -747,11 +1373,62 @@ function scrollToBottom() {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-function addMessage(type, content, meta) {
+const TOOL_COLORS = {
+  bash: 'var(--tool-bash)', read: 'var(--tool-read)', write: 'var(--tool-write)',
+  edit: 'var(--tool-edit)', glob: 'var(--tool-glob)', grep: 'var(--tool-grep)',
+  webfetch: 'var(--tool-webfetch)', kern: 'var(--tool-kern)', message: 'var(--tool-message)',
+};
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function formatEditDiff(input) {
+  if (!input || !input.oldString || !input.newString) return null;
+  const oldLines = input.oldString.split('\n').map(l => `<span class="diff-line-old">- ${escapeHtml(l)}</span>`);
+  const newLines = input.newString.split('\n').map(l => `<span class="diff-line-new">+ ${escapeHtml(l)}</span>`);
+  return oldLines.join('\n') + '\n' + newLines.join('\n');
+}
+
+function formatTime(date) {
+  if (!date) return null;
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d)) return null;
+  const now = new Date();
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (d.toDateString() === now.toDateString()) return time;
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + time;
+}
+
+function addMessage(type, content, meta, toolInput, timestamp, iface) {
   const el = document.createElement('div');
   el.className = `message ${type}`;
+  // Set turn context on trigger messages
+  if (type === 'user' || type === 'incoming' || type === 'heartbeat') {
+    currentTurnContext = iface || type;
+  }
+  // Tag all messages with the current turn context
+  if (iface) el.classList.add(`from-${iface}`);
+  else if (currentTurnContext) el.classList.add(`from-${currentTurnContext}`);
   if (type === 'tool') {
-    el.textContent = content;
+    const spaceIdx = content.indexOf(' ');
+    const toolName = spaceIdx > 0 ? content.slice(0, spaceIdx) : content;
+    const toolDetail = spaceIdx > 0 ? content.slice(spaceIdx) : '';
+    const color = TOOL_COLORS[toolName] || 'var(--text-dim)';
+    el.style.borderLeftColor = color;
+    el.innerHTML = `<div class="tool-header"><span class="tool-arrow">&#9654;</span><span class="tool-name" style="color:${color}">${toolName}</span><span class="tool-detail">${toolDetail}</span></div><div class="tool-output"></div>`;
+    // Pre-fill tool output from input for specific tools
+    if (toolName === 'edit' && toolInput) {
+      const diff = formatEditDiff(toolInput);
+      if (diff) {
+        el.querySelector('.tool-output').innerHTML = diff;
+      }
+    } else if (toolName === 'write' && toolInput && toolInput.content) {
+      el.querySelector('.tool-output').textContent = toolInput.content;
+    } else if (toolName === 'message' && toolInput && toolInput.text) {
+      el.querySelector('.tool-output').textContent = `→ ${toolInput.interface || 'unknown'}: ${toolInput.text}`;
+    }
+    el.addEventListener('click', () => el.classList.toggle('expanded'));
   } else if (type === 'incoming') {
     if (meta) {
       const label = document.createElement('span');
@@ -762,12 +1439,39 @@ function addMessage(type, content, meta) {
     const text = document.createElement('span');
     text.innerHTML = renderMarkdown(content);
     el.appendChild(text);
-  } else if (type === 'outgoing' || type === 'system') {
-    el.textContent = meta ? `${meta} ${content}` : content;
+  } else if (type === 'outgoing') {
+    if (meta) {
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = meta;
+      el.appendChild(label);
+    }
+    const text = document.createElement('span');
+    text.innerHTML = renderMarkdown(content);
+    el.appendChild(text);
+  } else if (type === 'heartbeat') {
+    el.textContent = content || '\u2661 heartbeat';
+  } else if (type === 'command-result') {
+    el.textContent = content;
+  } else if (type === 'system') {
+    el.textContent = content;
   } else {
+    const isMuted = type === 'assistant' && (content.trim() === 'NO_REPLY' || content.trim() === '(no text response)');
+    if (isMuted) el.classList.add('muted');
     el.innerHTML = renderMarkdown(content);
   }
   messagesEl.appendChild(el);
+  if (timestamp && (type === 'user' || type === 'incoming' || type === 'outgoing')) {
+    const ts = formatTime(timestamp);
+    if (ts) {
+      const tsEl = document.createElement('div');
+      const side = (type === 'user' || type === 'incoming') ? 'ts-right' : 'ts-left';
+      const ctx = currentTurnContext ? `from-${currentTurnContext}` : '';
+      tsEl.className = `timestamp ${side} ${ctx}`;
+      tsEl.textContent = ts;
+      messagesEl.appendChild(tsEl);
+    }
+  }
   scrollToBottom();
   return el;
 }
@@ -775,6 +1479,8 @@ function addMessage(type, content, meta) {
 function flushStreaming() {
   if (streamingEl && streamingText) {
     streamingEl.classList.remove('streaming-cursor');
+    const isMuted = streamingText.trim() === 'NO_REPLY' || streamingText.trim() === '(no text response)';
+    if (isMuted) streamingEl.classList.add('muted');
     streamingEl.innerHTML = renderMarkdown(streamingText);
   }
   streamingText = '';
@@ -784,17 +1490,22 @@ function flushStreaming() {
 function setBusy(b) {
   busy = b;
   sendBtn.disabled = b || !inputEl.value.trim();
-  const thinking = $('thinking');
-  if (b && !streamingText && !thinking) {
-    const el = document.createElement('div');
-    el.className = 'thinking';
-    el.id = 'thinking';
-    el.innerHTML = 'thinking<span class="dots"></span>';
-    messagesEl.appendChild(el);
-    scrollToBottom();
-  } else if (!b && thinking) {
-    thinking.remove();
-  }
+  if (!b) hideThinking();
+}
+
+function showThinking() {
+  if ($('thinking')) return;
+  const el = document.createElement('div');
+  el.className = 'thinking';
+  el.id = 'thinking';
+  el.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+  messagesEl.appendChild(el);
+  scrollToBottom();
+}
+
+function hideThinking() {
+  const el = $('thinking');
+  if (el) el.remove();
 }
 
 function setConnected(state) {
@@ -804,12 +1515,9 @@ function setConnected(state) {
 // --- Event handling ---
 
 function handleEvent(event) {
-  // Remove thinking indicator on first content
-  const thinking = $('thinking');
-
   switch (event.type) {
     case 'text-delta':
-      if (thinking) thinking.remove();
+      hideThinking();
       if (!streamingEl) {
         streamingEl = addMessage('assistant', '');
         streamingEl.classList.add('streaming-cursor');
@@ -822,45 +1530,72 @@ function handleEvent(event) {
 
     case 'tool-call': {
       flushStreaming();
-      if (thinking) thinking.remove();
+      hideThinking();
       const detail = event.toolDetail ? ` ${event.toolDetail}` : '';
-      addMessage('tool', `${event.toolName}${detail}`);
+      addMessage('tool', `${event.toolName}${detail}`, null, event.toolInput);
       setBusy(true);
       break;
     }
 
-    case 'tool-result':
+    case 'tool-result': {
+      // Find the last tool message and attach the result
+      const toolMsgs = messagesEl.querySelectorAll('.message.tool');
+      if (toolMsgs.length > 0) {
+        const lastTool = toolMsgs[toolMsgs.length - 1];
+        const outputEl = lastTool.querySelector('.tool-output');
+        if (outputEl && event.toolResult) {
+          const text = event.toolResult.length > 5000
+            ? event.toolResult.slice(0, 5000) + '\n... (truncated)'
+            : event.toolResult;
+          if (outputEl.innerHTML) {
+            outputEl.innerHTML += '\n\n' + escapeHtml(text);
+          } else {
+            outputEl.textContent = text;
+          }
+        }
+      }
+      // Agent is thinking about what to do next — show dots
+      showThinking();
       break;
+    }
 
     case 'finish':
       flushStreaming();
-      if (thinking) thinking.remove();
+      hideThinking();
       setBusy(false);
       break;
 
     case 'error':
       flushStreaming();
-      if (thinking) thinking.remove();
+      hideThinking();
       addMessage('error', event.error || 'Unknown error');
       setBusy(false);
       break;
 
     case 'incoming':
-      // Show messages from other clients (skip our own — we already rendered it)
-      if (event.fromClientId !== CLIENT_ID) {
-        const isWeb = event.fromInterface === 'web' || event.fromInterface === 'tui';
-        const label = isWeb ? null : `[${event.fromInterface} ${event.fromUserId || ''}]`;
-        addMessage(isWeb ? 'user' : 'incoming', event.text || '', label);
+      if (event.fromInterface !== 'web') {
+        addMessage('incoming',
+          event.text || '',
+          `[${event.fromInterface} ${event.fromUserId || ''}]`,
+          null, new Date(), 'incoming');
       }
       break;
 
     case 'outgoing':
       addMessage('outgoing',
         event.text || '',
-        `[→ ${event.fromInterface} ${event.fromUserId || ''}]`);
+        `[→ ${event.fromInterface} ${event.fromUserId || ''}]`,
+        null, new Date());
       break;
 
     case 'heartbeat':
+      addMessage('heartbeat', '\u2661 heartbeat');
+      break;
+
+    case 'command-result':
+      hideThinking();
+      addMessage('command-result', event.text || '');
+      setBusy(false);
       break;
   }
 }
@@ -875,28 +1610,107 @@ async function send() {
   inputEl.style.height = 'auto';
   sendBtn.disabled = true;
 
-  addMessage('user', text);
+  addMessage('user', text, null, null, new Date(), 'web');
   setBusy(true);
+  showThinking();
 
   try {
-    await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text, { clientId: CLIENT_ID });
+    await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text);
   } catch (err) {
     addMessage('error', `Failed to send: ${err.message}`);
     setBusy(false);
   }
 }
 
+// --- Slash command autocomplete ---
+
+const SLASH_COMMANDS = [
+  { name: '/status', desc: 'agent status, uptime, token usage' },
+  { name: '/restart', desc: 'restart the agent process' },
+  { name: '/help', desc: 'list available commands' },
+];
+
+const cmdPopup = $('cmd-popup');
+let cmdSelectedIdx = 0;
+let cmdFiltered = [];
+
+function updateCmdPopup() {
+  const val = inputEl.value;
+  // Show popup only when input starts with / and is a single word (no spaces)
+  if (!val.startsWith('/') || val.includes(' ') || !val.trim()) {
+    cmdPopup.classList.remove('open');
+    cmdFiltered = [];
+    return;
+  }
+  const query = val.toLowerCase();
+  cmdFiltered = SLASH_COMMANDS.filter(c => c.name.startsWith(query));
+  if (cmdFiltered.length === 0) {
+    cmdPopup.classList.remove('open');
+    return;
+  }
+  cmdSelectedIdx = Math.min(cmdSelectedIdx, cmdFiltered.length - 1);
+  cmdPopup.innerHTML = cmdFiltered.map((c, i) =>
+    `<div class="cmd-item${i === cmdSelectedIdx ? ' selected' : ''}" data-idx="${i}">` +
+    `<span class="cmd-item-name">${c.name}</span>` +
+    `<span class="cmd-item-desc">${c.desc}</span>` +
+    `</div>`
+  ).join('');
+  cmdPopup.classList.add('open');
+}
+
+cmdPopup.addEventListener('click', (e) => {
+  const item = e.target.closest('.cmd-item');
+  if (!item) return;
+  const idx = parseInt(item.dataset.idx);
+  const cmd = cmdFiltered[idx];
+  if (cmd) {
+    inputEl.value = cmd.name;
+    cmdPopup.classList.remove('open');
+    send();
+  }
+});
+
 // --- Input ---
 
 inputEl.addEventListener('input', () => {
-  // Auto-resize — grow freely up to max-height, then show scrollbar
+  // Auto-resize
   inputEl.style.height = 'auto';
   inputEl.style.height = inputEl.scrollHeight + 'px';
   inputEl.style.overflowY = inputEl.scrollHeight > inputEl.offsetHeight ? 'auto' : 'hidden';
   sendBtn.disabled = busy || !inputEl.value.trim();
+  updateCmdPopup();
 });
 
 inputEl.addEventListener('keydown', (e) => {
+  // Arrow navigation in command popup
+  if (cmdPopup.classList.contains('open')) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      cmdSelectedIdx = Math.min(cmdSelectedIdx + 1, cmdFiltered.length - 1);
+      updateCmdPopup();
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      cmdSelectedIdx = Math.max(cmdSelectedIdx - 1, 0);
+      updateCmdPopup();
+      return;
+    }
+    if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
+      e.preventDefault();
+      const cmd = cmdFiltered[cmdSelectedIdx];
+      if (cmd) {
+        inputEl.value = cmd.name;
+        cmdPopup.classList.remove('open');
+        if (e.key === 'Enter') send();
+      }
+      return;
+    }
+    if (e.key === 'Escape') {
+      cmdPopup.classList.remove('open');
+      return;
+    }
+  }
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     send();
@@ -907,7 +1721,19 @@ sendBtn.addEventListener('click', send);
 
 // --- Connect ---
 
+let reconnectTimer = null;
+
 async function init() {
+  // Cancel any pending reconnect
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  // Close existing connection
+  intentionalClose = true;
+  if (connection) { connection.close(); connection = null; }
+  intentionalClose = false;
+  // Clear previous messages to avoid duplicates on reconnect
+  messagesEl.innerHTML = '';
+  streamingText = '';
+  streamingEl = null;
   setConnected('connecting');
 
   // Load status — also serves as auth check
@@ -953,17 +1779,6 @@ async function init() {
     const status = await res.json();
     const resolvedName = status.agentName || 'kern';
     agentNameEl.textContent = resolvedName;
-    headerMetaEl.textContent = status.model || '';
-    // Auto-save this agent to the switcher list
-    const agents = getSavedAgents();
-    const existing = agents.findIndex(a => a.url === BASE_URL);
-    if (existing >= 0) {
-      agents[existing].name = resolvedName;
-      if (AUTH_TOKEN) agents[existing].token = AUTH_TOKEN;
-    } else {
-      agents.push({ name: resolvedName, url: BASE_URL, token: AUTH_TOKEN });
-    }
-    saveAgents(agents);
     setActiveAgent(resolvedName);
   } catch {
     agentNameEl.textContent = 'kern';
@@ -972,10 +1787,24 @@ async function init() {
   // Load history
   try {
     const history = await AgentClient.getHistory(BASE_URL, AUTH_TOKEN, 100);
+    // Build tool result map: toolCallId → output string
+    const toolResults = {};
+    for (const msg of history) {
+      if (msg.role === 'tool' && Array.isArray(msg.content)) {
+        for (const part of msg.content) {
+          if (part.type === 'tool-result' && part.toolCallId) {
+            const output = part.output;
+            toolResults[part.toolCallId] = typeof output === 'string' ? output
+              : (output && output.value) ? String(output.value)
+              : JSON.stringify(output);
+          }
+        }
+      }
+    }
     for (const msg of history) {
       if (msg.role === 'user' && typeof msg.content === 'string') {
         const parsed = parseHistoryUserMessage(msg.content);
-        if (parsed) addMessage(parsed.type, parsed.text, parsed.meta);
+        if (parsed) addMessage(parsed.type, parsed.text, parsed.meta, null, parsed.timestamp, parsed.iface);
       } else if (msg.role === 'assistant') {
         if (Array.isArray(msg.content)) {
           for (const part of msg.content) {
@@ -984,7 +1813,23 @@ async function init() {
             } else if (part.type === 'tool-call') {
               const input = part.input || {};
               const detail = input.path || input.command || input.pattern || input.url || input.action || '';
-              addMessage('tool', `${part.toolName} ${detail}`);
+              const el = addMessage('tool', `${part.toolName} ${detail}`, null, input);
+              // Attach result if available (for non-edit tools, or append to edit diff)
+              const result = toolResults[part.toolCallId];
+              if (result && el) {
+                const outputEl = el.querySelector('.tool-output');
+                if (outputEl) {
+                  const truncated = result.length > 5000
+                    ? result.slice(0, 5000) + '\n... (truncated)'
+                    : result;
+                  if (outputEl.innerHTML) {
+                    // Already has content (edit diff, write content, etc) — append result
+                    outputEl.innerHTML += '\n\n' + escapeHtml(truncated);
+                  } else {
+                    outputEl.textContent = truncated;
+                  }
+                }
+              }
             }
           }
         } else if (typeof msg.content === 'string') {
@@ -1001,65 +1846,132 @@ async function init() {
       setConnected('connected');
       addMessage('system', 'connected');
     },
-    onDisconnect() {
-      if (authFailed) return; // don't reconnect on auth failure
+    async onDisconnect() {
+      if (authFailed || intentionalClose) return;
       setConnected('disconnected');
       addMessage('system', 'disconnected — reconnecting...');
-      setTimeout(init, 2000);
+      // Re-discover agents to pick up new port after restart
+      await discoverAgents();
+      const agents = getAllAgents();
+      const activeName = getActiveAgent();
+      const updated = agents.find(a => a.name === activeName && a.running && a.url);
+      if (updated && updated.url !== BASE_URL) {
+        BASE_URL = updated.url;
+        AUTH_TOKEN = updated.token;
+      }
+      reconnectTimer = setTimeout(init, 2000);
     },
   });
 }
 
 setupSwitcher();
 
-// If we have a saved active agent, connect. Otherwise check if we're on a hub
-// and show the switcher to let user pick.
+// --- Filters ---
+const FILTERS = [
+  { key: 'heartbeat', label: 'Heartbeats', default: false },
+  { key: 'tui', label: 'TUI messages', default: true },
+  { key: 'tools', label: 'Tool calls', default: true },
+  { key: 'incoming', label: 'Telegram / Slack', default: true },
+  { key: 'system', label: 'System messages', default: true },
+];
+
+function getFilters() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('kern_filters') || '{}');
+    const result = {};
+    for (const f of FILTERS) result[f.key] = f.key in saved ? saved[f.key] : f.default;
+    return result;
+  } catch { return Object.fromEntries(FILTERS.map(f => [f.key, f.default])); }
+}
+
+function saveFilters(filters) {
+  localStorage.setItem('kern_filters', JSON.stringify(filters));
+}
+
+function applyFilters() {
+  const filters = getFilters();
+  const el = messagesEl;
+  el.classList.toggle('hide-heartbeat', !filters.heartbeat);
+  el.classList.toggle('hide-tui', !filters.tui);
+  el.classList.toggle('hide-tools', !filters.tools);
+  el.classList.toggle('hide-incoming', !filters.incoming);
+  el.classList.toggle('hide-system', !filters.system);
+}
+
+function renderFilterDropdown() {
+  const filters = getFilters();
+  const dd = $('filter-dropdown');
+  dd.innerHTML = FILTERS.map(f => {
+    const active = filters[f.key];
+    return `<div class="filter-item ${active ? 'active' : ''}" data-key="${f.key}">
+      <span class="check">${active ? '✓' : ''}</span>
+      ${f.label}
+    </div>`;
+  }).join('');
+}
+
+$('filter-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const dd = $('filter-dropdown');
+  const isOpen = dd.classList.contains('open');
+  dd.classList.toggle('open', !isOpen);
+  if (!isOpen) renderFilterDropdown();
+});
+
+$('filter-dropdown').addEventListener('click', (e) => {
+  const item = e.target.closest('.filter-item');
+  if (!item) return;
+  e.stopPropagation();
+  const key = item.dataset.key;
+  const filters = getFilters();
+  filters[key] = !filters[key];
+  saveFilters(filters);
+  applyFilters();
+  renderFilterDropdown();
+});
+
+document.addEventListener('click', () => {
+  $('filter-dropdown').classList.remove('open');
+});
+
+applyFilters();
+
+// On load: discover agents, auto-connect or show switcher
 (async () => {
-  const agents = getSavedAgents();
+  await discoverAgents();
+  renderSwitcher();
+
+  const agents = getAllAgents();
   const activeName = getActiveAgent();
-  const hasActiveAgent = agents.find(a => a.name === activeName);
+  const activeAgent = agents.find(a => a.name === activeName && a.running && a.url);
+  const runningAgents = agents.filter(a => a.running && a.url);
 
-  if (!hasActiveAgent && !params.get('token')) {
-    // Try hub discovery — if /api/agents exists, we're on a hub
-    try {
-      const res = await fetch(`${location.origin}/api/agents`);
-      if (res.ok) {
-        const hubAgents = await res.json();
-        if (Array.isArray(hubAgents) && hubAgents.length > 0) {
-          // Save discovered agents and show switcher
-          const saved = getSavedAgents();
-          for (const ha of hubAgents) {
-            const hubUrl = `${location.origin}/agent/${ha.name}`;
-            if (!saved.find(a => a.name === ha.name)) {
-              saved.push({ name: ha.name, url: hubUrl, token: null });
-            }
-          }
-          saveAgents(saved);
-          setConnected('disconnected');
-          agentNameEl.textContent = 'kern hub';
-          renderSwitcher();
-          $('switcher-overlay').classList.add('open');
-          return;
-        }
-      }
-    } catch {}
+  if (activeAgent) {
+    // Resume previous agent
+    BASE_URL = activeAgent.url;
+    AUTH_TOKEN = activeAgent.token;
+    init();
+  } else if (runningAgents.length === 1) {
+    // Only one running agent — auto-connect
+    switchToAgent(runningAgents[0]);
+  } else if (runningAgents.length > 1) {
+    // Multiple running agents — show switcher on mobile
+    setConnected('disconnected');
+    agentNameEl.textContent = 'kern';
+    renderSwitcher();
+    openSidebar();
+  } else {
+    // No running agents
+    setConnected('disconnected');
+    agentNameEl.textContent = 'kern';
+    addMessage('system', 'No running agents found. Start an agent with `kern start` or add one manually.');
   }
-
-  init();
 })();
 
 // Register service worker for PWA
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
-
-// Expose key variables for native app bridge (const/let aren't on window)
-window.AgentClient = AgentClient;
-window._kern = { get connection() { return connection; }, set connection(v) { connection = v; },
-  get streamingText() { return streamingText; }, set streamingText(v) { streamingText = v; },
-  get streamingEl() { return streamingEl; }, set streamingEl(v) { streamingEl = v; },
-  get busy() { return busy; }, set busy(v) { busy = v; },
-  get authFailed() { return authFailed; }, set authFailed(v) { authFailed = v; } };
 </script>
 </body>
 </html>
