@@ -807,6 +807,7 @@
 <div class="sidebar" id="sidebar">
   <div class="sidebar-header">
     <span>kern<span style="color:#58a6ff">.</span></span>
+    <a id="hub-link" href="#" target="_blank" title="Hub" style="display:none;font-size:12px;color:var(--text-muted);text-decoration:none;margin-left:auto;" >◆</a>
   </div>
   <div class="sidebar-list" id="switcher-list"></div>
 
@@ -1942,9 +1943,28 @@ document.addEventListener('click', () => {
 
 applyFilters();
 
+// Discover local hub
+async function discoverHub() {
+  try {
+    const res = await fetch(`${location.origin}/api/hubs`);
+    if (!res.ok) return;
+    const hubs = await res.json();
+    const hubLink = $('hub-link');
+    if (hubs.length > 0 && hubs[0].running) {
+      hubLink.href = hubs[0].url;
+      hubLink.style.display = 'inline';
+      hubLink.style.color = 'var(--accent)';
+      hubLink.title = `Hub on port ${hubs[0].port}`;
+    } else {
+      hubLink.style.display = 'none';
+    }
+  } catch {}
+}
+
 // On load: discover agents, auto-connect or show switcher
 (async () => {
   await discoverAgents();
+  await discoverHub();
   renderSwitcher();
 
   const agents = getAllAgents();
