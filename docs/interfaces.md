@@ -194,4 +194,5 @@ API endpoints: `GET /api/agents`, `GET /api/stats`
 `kern init` asks for hub selection:
 - **kern.ai** (default) — public hub
 - **Local** — `ws://localhost:4000`
+- **Custom** — prompts for hostname:port
 - **None** — no hub
