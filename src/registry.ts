@@ -83,6 +83,16 @@ export async function setToken(nameOrPath: string, token: string | null): Promis
   }
 }
 
+export async function setPortAndToken(nameOrPath: string, port: number | null, token: string | null): Promise<void> {
+  const agents = await loadRegistry();
+  const agent = agents.find((a) => a.name === nameOrPath || a.path === nameOrPath);
+  if (agent) {
+    agent.port = port;
+    agent.token = token;
+    await saveRegistry(agents);
+  }
+}
+
 export async function removeAgent(nameOrPath: string): Promise<boolean> {
   const agents = await loadRegistry();
   const idx = agents.findIndex((a) => a.name === nameOrPath || a.path === nameOrPath);

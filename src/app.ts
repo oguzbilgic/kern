@@ -8,7 +8,7 @@ import { readFile, appendFile } from "fs/promises";
 import { join, basename } from "path";
 import { randomBytes } from "crypto";
 import type { Interface, MessageHandler } from "./interfaces/types.js";
-import { registerAgent, setPort, setToken } from "./registry.js";
+import { registerAgent, setPortAndToken } from "./registry.js";
 import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
@@ -52,11 +52,23 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   // Auto-generate auth token if missing
   if (!process.env.KERN_AUTH_TOKEN) {
-    const token = randomBytes(16).toString("hex");
     const envPath = join(agentDir, ".kern", ".env");
-    await appendFile(envPath, `\nKERN_AUTH_TOKEN=${token}\n`);
-    process.env.KERN_AUTH_TOKEN = token;
-    log("kern", `generated auth token: ${token}`);
+    // Check if token already exists in file (env might not have loaded it)
+    let existingToken: string | null = null;
+    try {
+      const envContent = await readFile(envPath, "utf-8");
+      const match = envContent.match(/^KERN_AUTH_TOKEN=(.+)$/m);
+      if (match) existingToken = match[1].trim();
+    } catch {}
+
+    if (existingToken) {
+      process.env.KERN_AUTH_TOKEN = existingToken;
+    } else {
+      const token = randomBytes(16).toString("hex");
+      await appendFile(envPath, `\nKERN_AUTH_TOKEN=${token}\n`);
+      process.env.KERN_AUTH_TOKEN = token;
+      log("kern", `generated auth token: ${token.slice(0, 8)}...`);
+    }
   }
 
   const runtime = new Runtime(agentDir);
@@ -159,8 +171,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   });
 
   const port = await server.start(config.host);
-  await setPort(agentName, port);
-  await setToken(agentName, process.env.KERN_AUTH_TOKEN || null);
+  await setPortAndToken(agentName, port, process.env.KERN_AUTH_TOKEN || null);
 
   // Start Telegram if configured
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN;

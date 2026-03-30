@@ -905,8 +905,8 @@ function renderMarkdown(text) {
   const codeBlocks = [];
   src = src.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
     const idx = codeBlocks.length;
-    const unescaped = code.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
-    codeBlocks.push(`<pre><code>${unescaped}</code></pre>`);
+    // Keep HTML-escaped content inside code blocks — safe against injection
+    codeBlocks.push(`<pre><code>${code}</code></pre>`);
     return `\x00CODEBLOCK${idx}\x00`;
   });
 
@@ -1000,7 +1000,13 @@ function inline(text) {
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => {
+      // Only allow http/https links
+      if (/^https?:\/\//i.test(url)) {
+        return `<a href="${url}" target="_blank" rel="noopener">${label}</a>`;
+      }
+      return `${label} (${url})`;
+    });
 }
 
 // ==========================================================================
@@ -1030,20 +1036,21 @@ $('info-btn').addEventListener('click', async () => {
     const connUrl = BASE_URL || '';
     const connString = AUTH_TOKEN ? `${connUrl}?token=${AUTH_TOKEN}` : connUrl;
 
+    const esc = (s) => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     infoPanel.innerHTML = `
-      <div class="info-row"><span class="info-label">kern</span><span class="info-value">v${status.version || '?'}</span></div>
-      <div class="info-row"><span class="info-label">model</span><span class="info-value">${status.provider || ''}/${status.model || ''}</span></div>
-      <div class="info-row"><span class="info-label">tools</span><span class="info-value">${status.toolScope || ''}</span></div>
-      <div class="info-row"><span class="info-label">uptime</span><span class="info-value">${status.uptime || ''}</span></div>
-      <div class="info-row"><span class="info-label">session</span><span class="info-value">${status.session || ''}</span></div>
-      ${status.context ? `<div class="info-row"><span class="info-label">context</span><span class="info-value">${status.context}</span></div>` : ''}
-      <div class="info-row"><span class="info-label">api usage</span><span class="info-value">${status.apiUsage || ''}</span></div>
+      <div class="info-row"><span class="info-label">kern</span><span class="info-value">v${esc(status.version) || '?'}</span></div>
+      <div class="info-row"><span class="info-label">model</span><span class="info-value">${esc(status.provider)}/${esc(status.model)}</span></div>
+      <div class="info-row"><span class="info-label">tools</span><span class="info-value">${esc(status.toolScope)}</span></div>
+      <div class="info-row"><span class="info-label">uptime</span><span class="info-value">${esc(status.uptime)}</span></div>
+      <div class="info-row"><span class="info-label">session</span><span class="info-value">${esc(status.session)}</span></div>
+      ${status.context ? `<div class="info-row"><span class="info-label">context</span><span class="info-value">${esc(status.context)}</span></div>` : ''}
+      <div class="info-row"><span class="info-label">api usage</span><span class="info-value">${esc(status.apiUsage)}</span></div>
       <div class="info-section">
         <div class="info-row">
           <span class="info-label">connection</span>
           <button class="info-copy" id="copy-conn">copy</button>
         </div>
-        <div class="info-url">${connString}</div>
+        <div class="info-url">${esc(connString)}</div>
       </div>
     `;
     infoPanel.classList.add('open');
@@ -1277,8 +1284,6 @@ let streamingText = '';
 let streamingEl = null;
 let connection = null;
 let authFailed = false;
-let initialized = false;
-let reconnecting = false;
 let intentionalClose = false;
 
 // --- Render helpers ---
@@ -1606,6 +1611,10 @@ async function init() {
   intentionalClose = true;
   if (connection) { connection.close(); connection = null; }
   intentionalClose = false;
+  // Clear previous messages to avoid duplicates on reconnect
+  messagesEl.innerHTML = '';
+  streamingText = '';
+  streamingEl = null;
   setConnected('connecting');
 
   // Load status — also serves as auth check

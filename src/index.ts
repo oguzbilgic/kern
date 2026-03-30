@@ -42,8 +42,8 @@ async function showHelp() {
   w(`    ${cyan("kern import")} ${dim("opencode <name>")}  import session from OpenCode`);
   w(`    ${cyan("kern restore")} ${dim("<file>")}         restore agent from backup`);
   w(`    ${cyan("kern logs")} ${dim("[name]")}            tail agent logs`);
-    w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
-    w(`    ${cyan("kern web")} ${dim("<start|stop|status>")}  web UI server`);
+  w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
+  w(`    ${cyan("kern web")} ${dim("<start|stop|status>")}  web UI server`);
   w("");
 }
 
