@@ -20,12 +20,18 @@ import { join } from "path";
 import { homedir } from "os";
 
 interface Agent {
+  id: string;
   name: string;
   publicKey: string;
   socket: WebSocket;
 }
 
+function generateId(): string {
+  return "kh_" + randomBytes(4).toString("hex");
+}
+
 interface RegisteredAgent {
+  id: string;
   name: string;
   publicKey: string;
 }
@@ -176,11 +182,15 @@ wss.on("connection", (ws) => {
         return;
       }
 
-      // Register if new
+      // Register if new, assign ID
+      let agentId: string;
       if (!knownAgent) {
-        registry.push({ name, publicKey });
+        agentId = generateId();
+        registry.push({ id: agentId, name, publicKey });
         saveRegistry(registry);
-        log(`${name} registered (new agent)`);
+        log(`${name} registered as ${agentId} (new agent)`);
+      } else {
+        agentId = knownAgent.id;
       }
 
       // If same agent reconnecting, close old socket
@@ -189,9 +199,9 @@ wss.on("connection", (ws) => {
         try { online.socket.close(); } catch {}
       }
 
-      agents.set(name, { name, publicKey, socket: ws });
-      ws.send(JSON.stringify({ type: "registered", name }));
-      log(`${name} connected (${agents.size} agents online)`);
+      agents.set(name, { id: agentId, name, publicKey, socket: ws });
+      ws.send(JSON.stringify({ type: "registered", name, id: agentId }));
+      log(`${name} (${agentId}) connected (${agents.size} agents online)`);
       return;
     }
 
@@ -209,7 +219,14 @@ wss.on("connection", (ws) => {
         return;
       }
 
-      const target = agents.get(to);
+      // Route by name or ID
+      let target = agents.get(to);
+      if (!target) {
+        // Try by ID
+        for (const a of agents.values()) {
+          if (a.id === to) { target = a; break; }
+        }
+      }
       if (!target) {
         ws.send(JSON.stringify({ type: "error", error: `agent '${to}' not found` }));
         return;
@@ -217,7 +234,7 @@ wss.on("connection", (ws) => {
 
       target.socket.send(JSON.stringify({
         type: "message",
-        from: sender.name,
+        from: sender.id,
         text,
         timestamp: new Date().toISOString(),
       }));
