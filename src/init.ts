@@ -357,15 +357,22 @@ export async function runInit(targetArg?: string, flags?: Record<string, string>
   }
 
   // Hub
-  const hub = await select({
+  let hub = await select({
     message: "Hub (agent-to-agent)",
     choices: [
       { name: "kern.ai (default)", value: "default" },
       { name: "Local", value: "local" },
+      { name: "Custom", value: "custom" },
       { name: "None", value: "" },
     ],
     default: "default",
   });
+
+  if (hub === "custom") {
+    hub = await input({
+      message: "Hub URL (hostname:port)",
+    });
+  }
 
   await scaffoldAgent({
     name, dir, provider, model, apiKey, envVar,
