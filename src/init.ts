@@ -289,11 +289,12 @@ export async function runInit(targetArg?: string, flags?: Record<string, string>
     const telegramToken = flags["telegram-token"] || "";
     const slackBotToken = flags["slack-bot-token"] || "";
     const slackAppToken = flags["slack-app-token"] || "";
+    const hub = flags["hub"] || "default";
     const dir = resolve(name);
 
     await scaffoldAgent({
       name, dir, provider, model, apiKey, envVar,
-      telegramToken, slackBotToken, slackAppToken,
+      telegramToken, slackBotToken, slackAppToken, hub,
     });
     return;
   }
@@ -355,9 +356,20 @@ export async function runInit(targetArg?: string, flags?: Record<string, string>
     });
   }
 
+  // Hub
+  const hub = await select({
+    message: "Hub (agent-to-agent)",
+    choices: [
+      { name: "kern.ai (default)", value: "default" },
+      { name: "Local", value: "local" },
+      { name: "None", value: "" },
+    ],
+    default: "default",
+  });
+
   await scaffoldAgent({
     name, dir, provider, model, apiKey, envVar,
-    telegramToken, slackBotToken, slackAppToken,
+    telegramToken, slackBotToken, slackAppToken, hub,
   });
 }
 
@@ -371,10 +383,11 @@ interface ScaffoldOpts {
   telegramToken: string;
   slackBotToken: string;
   slackAppToken: string;
+  hub: string;
 }
 
 async function scaffoldAgent(opts: ScaffoldOpts): Promise<void> {
-  const { name, dir, provider, model, apiKey, envVar, telegramToken, slackBotToken, slackAppToken } = opts;
+  const { name, dir, provider, model, apiKey, envVar, telegramToken, slackBotToken, slackAppToken, hub } = opts;
 
   const dirExists = existsSync(dir);
   print("");
@@ -413,6 +426,7 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
     toolScope: "full",
     maxSteps: 30,
   };
+  if (hub) config.hub = hub;
   // .kern/.env
   const envLines: string[] = [];
   if (apiKey) {
