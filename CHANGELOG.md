@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.0 (unreleased)
+## v0.11.0
 
 ### Features
 - **Web UI** — browser-based chat interface via `kern web start/stop/status`.
