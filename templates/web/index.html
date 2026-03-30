@@ -1819,13 +1819,14 @@ async function init() {
               if (result && el) {
                 const outputEl = el.querySelector('.tool-output');
                 if (outputEl) {
-                  if (part.toolName === 'edit' && outputEl.innerHTML) {
-                    // Already has diff, append result below
-                    outputEl.innerHTML += '\n\n' + escapeHtml(result);
+                  const truncated = result.length > 5000
+                    ? result.slice(0, 5000) + '\n... (truncated)'
+                    : result;
+                  if (outputEl.innerHTML) {
+                    // Already has content (edit diff, write content, etc) — append result
+                    outputEl.innerHTML += '\n\n' + escapeHtml(truncated);
                   } else {
-                    outputEl.textContent = result.length > 5000
-                      ? result.slice(0, 5000) + '\n... (truncated)'
-                      : result;
+                    outputEl.textContent = truncated;
                   }
                 }
               }
