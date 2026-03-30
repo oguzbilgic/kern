@@ -173,13 +173,15 @@ export class AgentServer {
 
         // Broadcast incoming to all OTHER clients (exclude sender)
         if (!this.isHeartbeat(text)) {
+          const excludeId = connectionId || undefined;
+          log("server", `incoming broadcast: interface=${iface || "web"} user=${userId || "tui"} exclude=${excludeId || "none"} clients=${this.clients.length}`);
           this.broadcast({
             type: "incoming" as any,
             text,
             fromInterface: iface || "web",
             fromUserId: userId || "tui",
             fromChannel: channel || "web",
-          }, connectionId || undefined);
+          }, excludeId);
         }
 
         // Handle async — don't await, response already sent
