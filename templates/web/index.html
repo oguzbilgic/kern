@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0d1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon.svg">
+<title>kern</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-surface: #161b22;
+    --bg-input: #0d1117;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #7d8590;
+    --text-muted: #484f58;
+    --accent: #58a6ff;
+    --accent-dim: #1f6feb;
+    --green: #3fb950;
+    --red: #f85149;
+    --orange: #d29922;
+    --tool-bg: #1c2028;
+    --user-bg: #0d419d;
+    --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    background: var(--bg);
+    color: var(--text);
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* --- Header --- */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-surface);
+    flex-shrink: 0;
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-title {
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .header-meta {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .status-dot.connected { background: var(--green); }
+  .status-dot.disconnected { background: var(--red); }
+  .status-dot.connecting { background: var(--orange); }
+
+  /* --- Messages --- */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .message {
+    max-width: 85%;
+    padding: 8px 12px;
+    border-radius: 8px;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .message a { color: var(--accent); }
+  .message code {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: rgba(110,118,129,0.15);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .message pre {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    overflow-x: auto;
+    margin: 6px 0;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .message pre code {
+    background: none;
+    padding: 0;
+  }
+
+  .message.user {
+    align-self: flex-end;
+    background: var(--user-bg);
+    color: #fff;
+    border-radius: 8px 8px 2px 8px;
+  }
+  .message.assistant {
+    align-self: flex-start;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px 8px 8px 2px;
+  }
+  .message.tool {
+    align-self: flex-start;
+    background: var(--tool-bg);
+    border-left: 3px solid var(--accent-dim);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 4px 10px;
+    max-width: 90%;
+  }
+  .message.error {
+    align-self: flex-start;
+    background: rgba(248,81,73,0.1);
+    border: 1px solid var(--red);
+    color: var(--red);
+  }
+  .message.incoming {
+    align-self: flex-end;
+    background: var(--user-bg);
+    color: #fff;
+    border-radius: 8px 8px 2px 8px;
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+  .message.incoming .label {
+    font-size: 11px;
+    opacity: 0.6;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .message.outgoing {
+    align-self: flex-start;
+    background: transparent;
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 2px 12px;
+  }
+  .message.system {
+    align-self: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 2px 8px;
+  }
+
+  .streaming-cursor::after {
+    content: '▊';
+    animation: blink 0.8s infinite;
+    color: var(--accent);
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .thinking {
+    align-self: flex-start;
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+  .thinking .dots::after {
+    content: '';
+    animation: dots 1.5s infinite;
+  }
+  @keyframes dots {
+    0% { content: '.'; }
+    33% { content: '..'; }
+    66% { content: '...'; }
+  }
+
+  /* --- Input --- */
+  .input-area {
+    padding: 12px 16px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    border-top: 1px solid var(--border);
+    background: var(--bg-surface);
+    flex-shrink: 0;
+  }
+  .input-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+  .input-row textarea {
+    flex: 1;
+    background: var(--bg-input);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    resize: none;
+    outline: none;
+    max-height: 40vh;
+    min-height: 44px;
+    overflow-y: hidden;
+  }
+  .input-row textarea:focus {
+    border-color: var(--accent-dim);
+  }
+  .input-row textarea::placeholder {
+    color: var(--text-muted);
+  }
+  .input-row button {
+    background: var(--accent-dim);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 16px;
+    cursor: pointer;
+    white-space: nowrap;
+    min-height: 44px;
+  }
+  .input-row button:hover { background: var(--accent); }
+  .input-row button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* --- Scrollbar --- */
+  .messages::-webkit-scrollbar { width: 6px; }
+  .messages::-webkit-scrollbar-track { background: transparent; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* --- Agent Switcher --- */
+  .menu-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    line-height: 1;
+  }
+  .menu-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+  .switcher-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 100;
+  }
+  .switcher-overlay.open { display: block; }
+
+  .switcher-panel {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: min(320px, 85vw);
+    background: var(--bg-surface);
+    border-left: 1px solid var(--border);
+    z-index: 101;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.2s ease;
+  }
+  .switcher-overlay.open .switcher-panel { transform: translateX(0); }
+
+  .switcher-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .switcher-close {
+    background: none; border: none; color: var(--text-dim);
+    font-size: 20px; cursor: pointer; padding: 4px;
+  }
+
+  .switcher-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+  .switcher-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 4px;
+  }
+  .switcher-item:hover { background: rgba(255,255,255,0.05); }
+  .switcher-item.active { background: var(--accent-dim); }
+  .switcher-item-name { font-weight: 500; font-size: 14px; }
+  .switcher-item-url { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .switcher-item-remove {
+    background: none; border: none; color: var(--text-muted);
+    font-size: 16px; cursor: pointer; padding: 2px 6px;
+  }
+  .switcher-item-remove:hover { color: var(--red); }
+
+  .switcher-add {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+  }
+  .switcher-add input {
+    width: 100%;
+    background: var(--bg-input);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: var(--font-sans);
+    margin-bottom: 6px;
+    outline: none;
+    box-sizing: border-box;
+  }
+  .switcher-add input:focus { border-color: var(--accent-dim); }
+  .switcher-add input::placeholder { color: var(--text-muted); }
+  .switcher-add button {
+    width: 100%;
+    background: var(--accent-dim);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .switcher-add button:hover { background: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <span class="status-dot connecting" id="status-dot"></span>
+    <span class="header-title" id="agent-name">kern</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span class="header-meta" id="header-meta"></span>
+    <button class="menu-btn" id="menu-btn" title="Switch agent">&#9776;</button>
+  </div>
+</div>
+
+<div class="switcher-overlay" id="switcher-overlay">
+  <div class="switcher-panel" id="switcher-panel">
+    <div class="switcher-header">
+      <span>Agents</span>
+      <button class="switcher-close" id="switcher-close">&times;</button>
+    </div>
+    <div class="switcher-list" id="switcher-list"></div>
+    <div class="switcher-add">
+      <input id="add-name" type="text" placeholder="Name (e.g. kern-dev)" />
+      <input id="add-url" type="text" placeholder="URL (e.g. http://192.168.1.189:8084)" />
+      <input id="add-token" type="password" placeholder="Token (optional)" />
+      <button id="add-agent-btn">Add Agent</button>
+    </div>
+  </div>
+</div>
+
+<div class="messages" id="messages"></div>
+
+<div class="input-area">
+  <div class="input-row">
+    <textarea id="input" placeholder="Send a message..." rows="1" autofocus></textarea>
+    <button id="send" disabled>Send</button>
+  </div>
+</div>
+
+<script>
+// ==========================================================================
+// Agent Client Protocol
+// ==========================================================================
+// Pure data layer — no DOM, no rendering. Portable to any client.
+
+const AgentClient = {
+  /**
+   * Connect to agent SSE event stream.
+   * @param {string} baseUrl - Agent HTTP base URL
+   * @param {string} [token] - Auth token
+   * @param {function} onEvent - Called with each ServerEvent
+   * @param {function} onConnect - Called when stream connects
+   * @param {function} onDisconnect - Called when stream disconnects
+   * @returns {{ close: function }} - Call close() to disconnect
+   */
+  connect(baseUrl, token, { onEvent, onConnect, onDisconnect }) {
+    // EventSource can't set headers — pass token as query param
+    const url = token ? `${baseUrl}/events?token=${encodeURIComponent(token)}` : `${baseUrl}/events`;
+    const es = new EventSource(url);
+    let connected = false;
+    es.onopen = () => { connected = true; onConnect?.(); };
+    es.onmessage = (e) => {
+      try { onEvent(JSON.parse(e.data)); } catch {}
+    };
+    es.onerror = () => {
+      es.close();
+      if (connected) {
+        connected = false;
+        onDisconnect?.();
+      } else {
+        // Never connected — likely auth failure or server down
+        onDisconnect?.();
+      }
+    };
+    return {
+      close() { es.close(); onDisconnect?.(); }
+    };
+  },
+
+  /**
+   * Build headers for authenticated requests.
+   * @param {string} [token]
+   * @returns {object}
+   */
+  _headers(token) {
+    const h = { 'Content-Type': 'application/json' };
+    if (token) h['Authorization'] = `Bearer ${token}`;
+    return h;
+  },
+
+  /**
+   * Send a message to the agent.
+   * @param {string} baseUrl
+   * @param {string} [token]
+   * @param {string} text
+   * @param {object} [opts] - userId, interface, channel
+   * @returns {Promise<{ok: boolean}>}
+   */
+  async sendMessage(baseUrl, token, text, opts = {}) {
+    const res = await fetch(`${baseUrl}/message`, {
+      method: 'POST',
+      headers: this._headers(token),
+      body: JSON.stringify({
+        text,
+        userId: opts.userId || 'tui',
+        interface: opts.interface || 'web',
+        channel: opts.channel || 'web',
+      }),
+    });
+    return res.json();
+  },
+
+  /**
+   * Get agent status.
+   * @param {string} baseUrl
+   * @param {string} [token]
+   * @returns {Promise<object>}
+   */
+  async getStatus(baseUrl, token) {
+    const res = await fetch(`${baseUrl}/status`, { headers: this._headers(token) });
+    return res.json();
+  },
+
+  /**
+   * Get message history.
+   * @param {string} baseUrl
+   * @param {string} [token]
+   * @param {number} [limit=50]
+   * @param {number} [before] - Index to paginate from
+   * @returns {Promise<Array>}
+   */
+  async getHistory(baseUrl, token, limit = 50, before) {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (before !== undefined) params.set('before', String(before));
+    const res = await fetch(`${baseUrl}/history?${params}`, { headers: this._headers(token) });
+    return res.json();
+  },
+};
+
+// ==========================================================================
+// Markdown (minimal)
+// ==========================================================================
+
+// Parse user messages from history — strips [via ...] metadata prefix
+function parseHistoryUserMessage(content) {
+  const match = content.match(/^\[via ([^,]+),?\s*([^,]*),?\s*user:\s*([^,\]]*),?\s*(?:time:\s*([^\]]*))?\]\n?([\s\S]*)$/);
+  if (match) {
+    const [, iface, channel, userId, , text] = match;
+    const cleanText = (text || '').trim() || '(empty)';
+    // TUI and web messages are the operator
+    if (iface.trim() === 'tui' || iface.trim() === 'web') return { type: 'user', text: cleanText };
+    // Heartbeat
+    if (iface.trim() === 'system') return null; // skip heartbeats in history
+    // Other interfaces (telegram, slack)
+    return { type: 'incoming', text: cleanText, meta: `[${iface.trim()} ${userId.trim()}]` };
+  }
+  if (content === '[heartbeat]' || content.startsWith('[heartbeat')) return null;
+  return { type: 'user', text: content };
+}
+
+function renderMarkdown(text) {
+  if (!text) return '';
+  let html = text
+    // Escape HTML
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    // Code blocks (``` ... ```)
+    .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
+      `<pre><code>${code.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')}</code></pre>`)
+    // Inline code
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    // Bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    // Italic
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // Links
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    // Line breaks (preserve newlines outside of pre blocks)
+    .replace(/\n/g, '<br>');
+
+  // Clean up <br> inside <pre> blocks (they already preserve whitespace)
+  html = html.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, (match) =>
+    match.replace(/<br>/g, '\n'));
+
+  return html;
+}
+
+// ==========================================================================
+// UI
+// ==========================================================================
+
+const $ = (id) => document.getElementById(id);
+const messagesEl = $('messages');
+const inputEl = $('input');
+const sendBtn = $('send');
+const statusDot = $('status-dot');
+const agentNameEl = $('agent-name');
+const headerMetaEl = $('header-meta');
+
+// ==========================================================================
+// Agent Switcher
+// ==========================================================================
+
+function getSavedAgents() {
+  try { return JSON.parse(localStorage.getItem('kern_agents') || '[]'); } catch { return []; }
+}
+function saveAgents(agents) {
+  localStorage.setItem('kern_agents', JSON.stringify(agents));
+}
+function getActiveAgent() {
+  return localStorage.getItem('kern_active_agent') || null;
+}
+function setActiveAgent(name) {
+  localStorage.setItem('kern_active_agent', name);
+}
+
+// Determine base URL and auth token
+const params = new URLSearchParams(location.search);
+
+// If URL has explicit params, use those and save as an agent
+let BASE_URL = params.get('url') || location.origin;
+let AUTH_TOKEN = params.get('token') || null;
+
+if (params.get('token')) {
+  const urlName = params.get('name') || new URL(BASE_URL).port || 'default';
+  const agents = getSavedAgents();
+  const existing = agents.findIndex(a => a.url === BASE_URL);
+  if (existing >= 0) {
+    agents[existing].token = params.get('token');
+    agents[existing].name = urlName;
+  } else {
+    agents.push({ name: urlName, url: BASE_URL, token: params.get('token') });
+  }
+  saveAgents(agents);
+  setActiveAgent(urlName);
+  // Clean URL
+  const cleanUrl = new URL(location.href);
+  cleanUrl.searchParams.delete('token');
+  cleanUrl.searchParams.delete('name');
+  history.replaceState(null, '', cleanUrl.toString());
+} else {
+  // Try to load active agent from saved list
+  const agents = getSavedAgents();
+  const activeName = getActiveAgent();
+  const active = agents.find(a => a.name === activeName) || agents[0];
+  if (active) {
+    BASE_URL = active.url;
+    AUTH_TOKEN = active.token;
+  } else {
+    AUTH_TOKEN = localStorage.getItem('kern_auth_token') || null;
+  }
+}
+
+// Render switcher panel
+function renderSwitcher() {
+  const list = $('switcher-list');
+  const agents = getSavedAgents();
+  const activeName = getActiveAgent();
+  list.innerHTML = '';
+  if (agents.length === 0) {
+    list.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:13px;">No saved agents. Add one below.</div>';
+    return;
+  }
+  for (const agent of agents) {
+    const item = document.createElement('div');
+    item.className = 'switcher-item' + (agent.name === activeName ? ' active' : '');
+    item.innerHTML = `
+      <div>
+        <div class="switcher-item-name">${agent.name}</div>
+        <div class="switcher-item-url">${agent.url}</div>
+      </div>
+      <button class="switcher-item-remove" title="Remove">&times;</button>
+    `;
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('.switcher-item-remove')) return;
+      switchToAgent(agent);
+    });
+    item.querySelector('.switcher-item-remove').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const updated = getSavedAgents().filter(a => a.name !== agent.name);
+      saveAgents(updated);
+      renderSwitcher();
+    });
+    list.appendChild(item);
+  }
+}
+
+function switchToAgent(agent) {
+  setActiveAgent(agent.name);
+  BASE_URL = agent.url;
+  AUTH_TOKEN = agent.token;
+  authFailed = false;
+  if (connection) { connection.close(); connection = null; }
+  messagesEl.innerHTML = '';
+  inputEl.disabled = false;
+  sendBtn.disabled = false;
+  inputEl.value = '';
+  $('switcher-overlay').classList.remove('open');
+  init();
+}
+
+// Auto-discover agents from hub's /api/agents endpoint
+async function discoverAgents() {
+  try {
+    const res = await fetch(`${location.origin}/api/agents`);
+    if (!res.ok) return;
+    const hubAgents = await res.json();
+    if (!Array.isArray(hubAgents) || hubAgents.length === 0) return;
+    const saved = getSavedAgents();
+    for (const ha of hubAgents) {
+      const hubUrl = `${location.origin}/agent/${ha.name}`;
+      if (!saved.find(a => a.name === ha.name)) {
+        saved.push({ name: ha.name, url: hubUrl, token: null });
+      } else {
+        // Update URL to hub proxy path
+        const idx = saved.findIndex(a => a.name === ha.name);
+        saved[idx].url = hubUrl;
+      }
+    }
+    saveAgents(saved);
+  } catch {}
+}
+
+function setupSwitcher() {
+  $('menu-btn').addEventListener('click', async () => {
+    await discoverAgents();
+    renderSwitcher();
+    $('switcher-overlay').classList.add('open');
+  });
+  $('switcher-close').addEventListener('click', () => {
+    $('switcher-overlay').classList.remove('open');
+  });
+  $('switcher-overlay').addEventListener('click', (e) => {
+    if (e.target === $('switcher-overlay')) {
+      $('switcher-overlay').classList.remove('open');
+    }
+  });
+  $('add-agent-btn').addEventListener('click', () => {
+    const name = $('add-name').value.trim();
+    const url = $('add-url').value.trim().replace(/\/$/, '');
+    const token = $('add-token').value.trim() || null;
+    if (!name || !url) return;
+    const agents = getSavedAgents();
+    const existing = agents.findIndex(a => a.name === name);
+    if (existing >= 0) {
+      agents[existing] = { name, url, token };
+    } else {
+      agents.push({ name, url, token });
+    }
+    saveAgents(agents);
+    $('add-name').value = '';
+    $('add-url').value = '';
+    $('add-token').value = '';
+    renderSwitcher();
+  });
+}
+
+let busy = false;
+let streamingText = '';
+let streamingEl = null;
+let connection = null;
+let authFailed = false;
+let initialized = false;
+let reconnecting = false;
+
+// --- Render helpers ---
+
+function scrollToBottom() {
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function addMessage(type, content, meta) {
+  const el = document.createElement('div');
+  el.className = `message ${type}`;
+  if (type === 'tool') {
+    el.textContent = content;
+  } else if (type === 'incoming') {
+    if (meta) {
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = meta;
+      el.appendChild(label);
+    }
+    const text = document.createElement('span');
+    text.innerHTML = renderMarkdown(content);
+    el.appendChild(text);
+  } else if (type === 'outgoing' || type === 'system') {
+    el.textContent = meta ? `${meta} ${content}` : content;
+  } else {
+    el.innerHTML = renderMarkdown(content);
+  }
+  messagesEl.appendChild(el);
+  scrollToBottom();
+  return el;
+}
+
+function flushStreaming() {
+  if (streamingEl && streamingText) {
+    streamingEl.classList.remove('streaming-cursor');
+    streamingEl.innerHTML = renderMarkdown(streamingText);
+  }
+  streamingText = '';
+  streamingEl = null;
+}
+
+function setBusy(b) {
+  busy = b;
+  sendBtn.disabled = b || !inputEl.value.trim();
+  const thinking = $('thinking');
+  if (b && !streamingText && !thinking) {
+    const el = document.createElement('div');
+    el.className = 'thinking';
+    el.id = 'thinking';
+    el.innerHTML = 'thinking<span class="dots"></span>';
+    messagesEl.appendChild(el);
+    scrollToBottom();
+  } else if (!b && thinking) {
+    thinking.remove();
+  }
+}
+
+function setConnected(state) {
+  statusDot.className = `status-dot ${state}`;
+}
+
+// --- Event handling ---
+
+function handleEvent(event) {
+  // Remove thinking indicator on first content
+  const thinking = $('thinking');
+
+  switch (event.type) {
+    case 'text-delta':
+      if (thinking) thinking.remove();
+      if (!streamingEl) {
+        streamingEl = addMessage('assistant', '');
+        streamingEl.classList.add('streaming-cursor');
+      }
+      streamingText += event.text || '';
+      streamingEl.innerHTML = renderMarkdown(streamingText);
+      scrollToBottom();
+      setBusy(true);
+      break;
+
+    case 'tool-call': {
+      flushStreaming();
+      if (thinking) thinking.remove();
+      const detail = event.toolDetail ? ` ${event.toolDetail}` : '';
+      addMessage('tool', `${event.toolName}${detail}`);
+      setBusy(true);
+      break;
+    }
+
+    case 'tool-result':
+      break;
+
+    case 'finish':
+      flushStreaming();
+      if (thinking) thinking.remove();
+      setBusy(false);
+      break;
+
+    case 'error':
+      flushStreaming();
+      if (thinking) thinking.remove();
+      addMessage('error', event.error || 'Unknown error');
+      setBusy(false);
+      break;
+
+    case 'incoming':
+      if (event.fromInterface !== 'web') {
+        addMessage('incoming',
+          event.text || '',
+          `[${event.fromInterface} ${event.fromUserId || ''}]`);
+      }
+      break;
+
+    case 'outgoing':
+      addMessage('outgoing',
+        event.text || '',
+        `[→ ${event.fromInterface} ${event.fromUserId || ''}]`);
+      break;
+
+    case 'heartbeat':
+      break;
+  }
+}
+
+// --- Send ---
+
+async function send() {
+  const text = inputEl.value.trim();
+  if (!text || busy) return;
+
+  inputEl.value = '';
+  inputEl.style.height = 'auto';
+  sendBtn.disabled = true;
+
+  addMessage('user', text);
+  setBusy(true);
+
+  try {
+    await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text);
+  } catch (err) {
+    addMessage('error', `Failed to send: ${err.message}`);
+    setBusy(false);
+  }
+}
+
+// --- Input ---
+
+inputEl.addEventListener('input', () => {
+  // Auto-resize — grow freely up to max-height, then show scrollbar
+  inputEl.style.height = 'auto';
+  inputEl.style.height = inputEl.scrollHeight + 'px';
+  inputEl.style.overflowY = inputEl.scrollHeight > inputEl.offsetHeight ? 'auto' : 'hidden';
+  sendBtn.disabled = busy || !inputEl.value.trim();
+});
+
+inputEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+});
+
+sendBtn.addEventListener('click', send);
+
+// --- Connect ---
+
+async function init() {
+  setConnected('connecting');
+
+  // Load status — also serves as auth check
+  try {
+    const res = await fetch(`${BASE_URL}/status`, { headers: AgentClient._headers(AUTH_TOKEN) });
+    if (res.status === 401) {
+      authFailed = true;
+      localStorage.removeItem('kern_auth_token');
+      setConnected('disconnected');
+      agentNameEl.textContent = 'kern';
+      // Show token input prompt
+      messagesEl.innerHTML = '';
+      const prompt = document.createElement('div');
+      prompt.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;';
+      prompt.innerHTML = `
+        <div style="color:var(--text-dim);font-size:14px;">Enter auth token</div>
+        <input id="token-input" type="password" placeholder="KERN_AUTH_TOKEN"
+          style="background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;width:280px;outline:none;font-family:var(--font-sans);" />
+        <button id="token-submit"
+          style="background:var(--accent-dim);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;">Connect</button>
+      `;
+      messagesEl.appendChild(prompt);
+      const tokenInput = $('token-input');
+      const tokenSubmit = $('token-submit');
+      tokenInput.focus();
+      function submitToken() {
+        const val = tokenInput.value.trim();
+        if (!val) return;
+        localStorage.setItem('kern_auth_token', val);
+        AUTH_TOKEN = val;
+        authFailed = false;
+        messagesEl.innerHTML = '';
+        inputEl.disabled = false;
+        sendBtn.disabled = false;
+        init();
+      }
+      tokenSubmit.addEventListener('click', submitToken);
+      tokenInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitToken(); });
+      inputEl.disabled = true;
+      sendBtn.disabled = true;
+      return;
+    }
+    const status = await res.json();
+    const resolvedName = status.agentName || 'kern';
+    agentNameEl.textContent = resolvedName;
+    headerMetaEl.textContent = status.model || '';
+    // Auto-save this agent to the switcher list
+    const agents = getSavedAgents();
+    const existing = agents.findIndex(a => a.url === BASE_URL);
+    if (existing >= 0) {
+      agents[existing].name = resolvedName;
+      if (AUTH_TOKEN) agents[existing].token = AUTH_TOKEN;
+    } else {
+      agents.push({ name: resolvedName, url: BASE_URL, token: AUTH_TOKEN });
+    }
+    saveAgents(agents);
+    setActiveAgent(resolvedName);
+  } catch {
+    agentNameEl.textContent = 'kern';
+  }
+
+  // Load history
+  try {
+    const history = await AgentClient.getHistory(BASE_URL, AUTH_TOKEN, 100);
+    for (const msg of history) {
+      if (msg.role === 'user' && typeof msg.content === 'string') {
+        const parsed = parseHistoryUserMessage(msg.content);
+        if (parsed) addMessage(parsed.type, parsed.text, parsed.meta);
+      } else if (msg.role === 'assistant') {
+        if (Array.isArray(msg.content)) {
+          for (const part of msg.content) {
+            if (part.type === 'text' && part.text) {
+              addMessage('assistant', part.text);
+            } else if (part.type === 'tool-call') {
+              const input = part.input || {};
+              const detail = input.path || input.command || input.pattern || input.url || input.action || '';
+              addMessage('tool', `${part.toolName} ${detail}`);
+            }
+          }
+        } else if (typeof msg.content === 'string') {
+          addMessage('assistant', msg.content);
+        }
+      }
+    }
+  } catch {}
+
+  // Connect SSE
+  connection = AgentClient.connect(BASE_URL, AUTH_TOKEN, {
+    onEvent: handleEvent,
+    onConnect() {
+      setConnected('connected');
+      addMessage('system', 'connected');
+    },
+    onDisconnect() {
+      if (authFailed) return; // don't reconnect on auth failure
+      setConnected('disconnected');
+      addMessage('system', 'disconnected — reconnecting...');
+      setTimeout(init, 2000);
+    },
+  });
+}
+
+setupSwitcher();
+
+// If we have a saved active agent, connect. Otherwise check if we're on a hub
+// and show the switcher to let user pick.
+(async () => {
+  const agents = getSavedAgents();
+  const activeName = getActiveAgent();
+  const hasActiveAgent = agents.find(a => a.name === activeName);
+
+  if (!hasActiveAgent && !params.get('token')) {
+    // Try hub discovery — if /api/agents exists, we're on a hub
+    try {
+      const res = await fetch(`${location.origin}/api/agents`);
+      if (res.ok) {
+        const hubAgents = await res.json();
+        if (Array.isArray(hubAgents) && hubAgents.length > 0) {
+          // Save discovered agents and show switcher
+          const saved = getSavedAgents();
+          for (const ha of hubAgents) {
+            const hubUrl = `${location.origin}/agent/${ha.name}`;
+            if (!saved.find(a => a.name === ha.name)) {
+              saved.push({ name: ha.name, url: hubUrl, token: null });
+            }
+          }
+          saveAgents(saved);
+          setConnected('disconnected');
+          agentNameEl.textContent = 'kern hub';
+          renderSwitcher();
+          $('switcher-overlay').classList.add('open');
+          return;
+        }
+      }
+    } catch {}
+  }
+
+  init();
+})();
+
+// Register service worker for PWA
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>

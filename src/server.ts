@@ -1,4 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
+import { readFile } from "fs/promises";
+import { join } from "path";
+import { existsSync } from "fs";
 import type { StreamEvent } from "./runtime.js";
 import { log } from "./log.js";
 
@@ -39,9 +42,16 @@ export class AgentServer {
 
   async start(): Promise<number> {
     return new Promise((resolve) => {
-      this.server.listen(0, "127.0.0.1", () => {
+      const port = parseInt(process.env.KERN_PORT || "0", 10);
+      const host = process.env.KERN_HOST || "127.0.0.1";
+
+      if (host !== "127.0.0.1" && host !== "localhost" && host !== "::1" && !process.env.KERN_AUTH_TOKEN) {
+        log("server", `WARNING: binding to ${host} without KERN_AUTH_TOKEN — agent is accessible without authentication`);
+      }
+
+      this.server.listen(port, host, () => {
         this.port = (this.server.address() as any).port;
-        log("server", `listening on :${this.port}`);
+        log("server", `listening on ${host}:${this.port}`);
         resolve(this.port);
       });
     });
@@ -75,11 +85,26 @@ export class AgentServer {
     return this.port;
   }
 
+  private checkAuth(req: IncomingMessage): boolean {
+    const token = process.env.KERN_AUTH_TOKEN;
+    if (!token) return true; // no token configured = open access
+
+    // Check Authorization: Bearer header
+    const authHeader = req.headers.authorization;
+    if (authHeader === `Bearer ${token}`) return true;
+
+    // Check ?token= query param (for EventSource and browser URLs)
+    const url = new URL(req.url || "/", "http://localhost");
+    if (url.searchParams.get("token") === token) return true;
+
+    return false;
+  }
+
   private async handleRequest(req: IncomingMessage, res: ServerResponse) {
-    // CORS for potential web UI
+    // CORS for web UI
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
     if (req.method === "OPTIONS") {
       res.writeHead(200);
@@ -87,7 +112,58 @@ export class AgentServer {
       return;
     }
 
-    const url = req.url || "/";
+    const rawUrl = req.url || "/";
+    const url = rawUrl.split("?")[0]; // strip query string for route matching
+
+    // Health check — always public (for Docker healthchecks, load balancers)
+    if (url === "/health" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, uptime: process.uptime() }));
+      return;
+    }
+
+    // Web UI — serve without auth (page handles auth via token param)
+    if (url === "/" && req.method === "GET") {
+      const webUiPath = join(import.meta.dirname, "..", "templates", "web", "index.html");
+      if (existsSync(webUiPath)) {
+        const html = await readFile(webUiPath, "utf-8");
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(html);
+      } else {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end("<html><body><p>Web UI not found. Check kern installation.</p></body></html>");
+      }
+      return;
+    }
+
+    // PWA static files — served without auth
+    const pwaFiles: Record<string, { file: string; contentType: string }> = {
+      "/manifest.json": { file: "manifest.json", contentType: "application/manifest+json" },
+      "/sw.js": { file: "sw.js", contentType: "application/javascript" },
+      "/icon.svg": { file: "icon.svg", contentType: "image/svg+xml" },
+    };
+    if (req.method === "GET" && pwaFiles[url]) {
+      const { file, contentType } = pwaFiles[url];
+      const filePath = join(import.meta.dirname, "..", "templates", "web", file);
+      if (existsSync(filePath)) {
+        const content = await readFile(filePath, "utf-8");
+        res.writeHead(200, { "Content-Type": contentType });
+        res.end(content);
+      } else {
+        res.writeHead(404);
+        res.end();
+      }
+      return;
+    }
+
+    // Auth check — all other endpoints require token if KERN_AUTH_TOKEN is set
+    if (!this.checkAuth(req)) {
+      const remote = req.socket.remoteAddress || "unknown";
+      log("server", `401 unauthorized: ${req.method} ${url} from ${remote}`);
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "unauthorized" }));
+      return;
+    }
 
     // SSE endpoint — stream all events
     if (url === "/events" && req.method === "GET") {
@@ -105,7 +181,9 @@ export class AgentServer {
 
       const client: SSEClient = { res };
       this.clients.push(client);
-      log("server", `SSE client connected (${this.clients.length} total)`);
+      const remote = req.socket.remoteAddress || "unknown";
+      const authed = process.env.KERN_AUTH_TOKEN ? "authenticated" : "no-auth";
+      log("server", `SSE client connected from ${remote} (${authed}, ${this.clients.length} total)`);
 
       req.on("close", () => {
         clearInterval(keepalive);
@@ -147,8 +225,8 @@ export class AgentServer {
     }
 
     // History — ?limit=50&before=<index>
-    if (url?.startsWith("/history") && req.method === "GET") {
-      const params = new URL(url, "http://localhost").searchParams;
+    if (url === "/history" && req.method === "GET") {
+      const params = new URL(rawUrl, "http://localhost").searchParams;
       const limit = parseInt(params.get("limit") || "50", 10);
       const beforeStr = params.get("before");
       const before = beforeStr ? parseInt(beforeStr, 10) : undefined;

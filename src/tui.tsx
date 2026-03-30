@@ -23,6 +23,7 @@ interface TuiProps {
   port: number;
   agentName: string;
   version: string;
+  authToken?: string;
 }
 
 // --- Helpers ---
@@ -380,9 +381,10 @@ function RenderBlockView({ block, width }: { block: RenderBlock; width: number }
 
 // --- App ---
 
-function App({ port, agentName, version }: TuiProps) {
+function App({ port, agentName, version, authToken }: TuiProps) {
   const { exit } = useApp();
   const { stdout } = useStdout();
+  const authHeaders: Record<string, string> = authToken ? { "Authorization": `Bearer ${authToken}` } : {};
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -408,11 +410,11 @@ function App({ port, agentName, version }: TuiProps) {
   useEffect(() => {
     (async () => {
       try {
-        const s = await (await fetch(`${baseUrl}/status`)).json();
+        const s = await (await fetch(`${baseUrl}/status`, { headers: authHeaders })).json();
         if (s.model) setModel(s.model);
       } catch {}
       try {
-        const h = await (await fetch(`${baseUrl}/history?limit=30`)).json();
+        const h = await (await fetch(`${baseUrl}/history?limit=30`, { headers: authHeaders })).json();
         if (h.length > 0) {
           setMessages(convertHistory(h));
         }
@@ -484,11 +486,11 @@ function App({ port, agentName, version }: TuiProps) {
     }
     async function connect() {
       try {
-        const res = await fetch(`${baseUrl}/events`);
+        const res = await fetch(`${baseUrl}/events`, { headers: authHeaders });
         setConnected(true);
 
         // Refetch status to update model on reconnect
-        fetch(`${baseUrl}/status`)
+        fetch(`${baseUrl}/status`, { headers: authHeaders })
           .then((r) => r.json())
           .then((s) => {
             if (s.model) setModel(s.model);
@@ -549,7 +551,7 @@ function App({ port, agentName, version }: TuiProps) {
       setBusy(true);
       fetch(`${baseUrl}/message`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({ text, userId: "tui", interface: "tui", channel: "tui" }),
       }).catch(() => {
         setMessages((m: ChatMessage[]) => [...m, { type: "error", text: "Connection error" }]);
@@ -609,14 +611,22 @@ function App({ port, agentName, version }: TuiProps) {
 
 // --- Entry ---
 
-export async function connectTui(port: number, agentName: string): Promise<void> {
+export async function connectTui(port: number, agentName: string, authToken?: string): Promise<void> {
+  const headers: Record<string, string> = {};
+  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+
   let model = "";
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/status`);
+    const res = await fetch(`http://127.0.0.1:${port}/status`, { headers });
+    if (res.status === 401) {
+      console.error(`Auth required for ${agentName}. Check KERN_AUTH_TOKEN in .kern/.env`);
+      process.exit(1);
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const status = await res.json();
     model = status.model || "";
-  } catch {
+  } catch (e: any) {
+    if (e.message?.includes("Auth required")) throw e;
     console.error(`Cannot connect to ${agentName} on port ${port}`);
     process.exit(1);
   }
@@ -630,7 +640,7 @@ export async function connectTui(port: number, agentName: string): Promise<void>
   } catch {}
 
   const { waitUntilExit } = render(
-    <App port={port} agentName={agentName} version={version} />,
+    <App port={port} agentName={agentName} version={version} authToken={authToken} />,
     { exitOnCtrlC: true }
   );
   await waitUntilExit();

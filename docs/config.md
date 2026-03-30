@@ -46,9 +46,20 @@ OPENROUTER_API_KEY=sk-or-...
 TELEGRAM_BOT_TOKEN=...
 SLACK_BOT_TOKEN=xoxb-...
 SLACK_APP_TOKEN=xapp-...
+KERN_AUTH_TOKEN=...
+KERN_HOST=0.0.0.0
+KERN_PORT=8080
 ```
 
 Only set the keys for providers/interfaces you use.
+
+### Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KERN_PORT` | `0` (random) | Fixed port for the agent's HTTP server. |
+| `KERN_HOST` | `127.0.0.1` | Bind address. Set to `0.0.0.0` to allow network access. |
+| `KERN_AUTH_TOKEN` | (none) | Bearer token required on all API endpoints. TUI reads it from `.kern/.env` automatically. Web UI prompts for it or accepts `?token=` in URL. |
 
 ## .kern/sessions/
 

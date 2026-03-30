@@ -1,0 +1,17 @@
+{
+  "name": "kern",
+  "short_name": "kern",
+  "description": "AI agent chat",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#0d1117",
+  "background_color": "#0d1117",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

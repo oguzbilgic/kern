@@ -251,13 +251,30 @@ async function main() {
       process.exit(1);
     }
 
-    await connectTui(agent.port, agentName);
+    // Read auth token from agent's .kern/.env if present
+    let authToken: string | undefined;
+    try {
+      const { config: loadDotenv } = await import("dotenv");
+      const envPath = join(agent.path, ".kern", ".env");
+      const { existsSync } = await import("fs");
+      if (existsSync(envPath)) {
+        const parsed = loadDotenv({ path: envPath, override: false });
+        authToken = parsed.parsed?.KERN_AUTH_TOKEN || process.env.KERN_AUTH_TOKEN;
+      }
+    } catch {}
+
+    await connectTui(agent.port, agentName, authToken);
     return;
   }
 
   if (cmd === "run") {
     const agentDir = await resolveAgentDir(args[1]);
     await startApp(agentDir);
+    return;
+  }
+
+  if (cmd === "hub") {
+    await import("./hub.js");
     return;
   }
 
