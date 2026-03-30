@@ -297,6 +297,66 @@
   .status-dot.disconnected { background: var(--red); }
   .status-dot.connecting { background: var(--orange); }
 
+  /* --- Filter dropdown --- */
+  .filter-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    line-height: 1;
+  }
+  .filter-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+  .filter-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 0;
+    z-index: 50;
+    min-width: 160px;
+  }
+  .filter-dropdown.open { display: block; }
+  .filter-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--text-dim);
+  }
+  .filter-item:hover { background: rgba(255,255,255,0.05); }
+  .filter-item .check {
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .filter-item.active .check { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* Filter hide rules — hides entire turn (trigger + response + tools) */
+  .messages.hide-heartbeat .from-heartbeat { display: none; }
+  .messages.hide-heartbeat .timestamp.from-heartbeat { display: none; }
+  .messages.hide-tools .message.tool { display: none; }
+  .messages.hide-incoming .from-incoming { display: none; }
+  .messages.hide-incoming .timestamp.from-incoming { display: none; }
+  .messages.hide-system .message.system { display: none; }
+  .messages.hide-tui .from-tui { display: none; }
+  .messages.hide-tui .timestamp.from-tui { display: none; }
+
   /* --- Messages --- */
   .messages {
     flex: 1;
@@ -772,7 +832,11 @@
       <span class="header-title" id="agent-name">kern</span>
       <span class="status-dot connecting" id="status-dot"></span>
     </div>
-    <button class="info-btn" id="info-btn" title="Agent info">&#8942;</button>
+    <div style="display:flex;align-items:center;gap:4px;position:relative;">
+      <button class="filter-btn" id="filter-btn" title="Filter messages">&#9881;</button>
+      <div class="filter-dropdown" id="filter-dropdown"></div>
+      <button class="info-btn" id="info-btn" title="Agent info">&#8942;</button>
+    </div>
   </div>
 
   <div class="info-panel" id="info-panel"></div>
@@ -899,13 +963,14 @@ function parseHistoryUserMessage(content) {
     const cleanText = (text || '').trim() || '(empty)';
     const timestamp = time ? time.trim() : null;
     // TUI and web messages are the operator
-    if (iface.trim() === 'tui' || iface.trim() === 'web') return { type: 'user', text: cleanText, timestamp };
+    if (iface.trim() === 'tui') return { type: 'user', text: cleanText, timestamp, iface: 'tui' };
+    if (iface.trim() === 'web') return { type: 'user', text: cleanText, timestamp, iface: 'web' };
     // Heartbeat
-    if (iface.trim() === 'system') return null;
+    if (iface.trim() === 'system') return { type: 'heartbeat', text: '', iface: 'heartbeat' };
     // Other interfaces (telegram, slack)
-    return { type: 'incoming', text: cleanText, meta: `[${iface.trim()} ${userId.trim()}]`, timestamp };
+    return { type: 'incoming', text: cleanText, meta: `[${iface.trim()} ${userId.trim()}]`, timestamp, iface: 'incoming' };
   }
-  if (content === '[heartbeat]' || content.startsWith('[heartbeat')) return null;
+  if (content === '[heartbeat]' || content.startsWith('[heartbeat')) return { type: 'heartbeat', text: '', iface: 'heartbeat' };
   return { type: 'user', text: content };
 }
 
@@ -1299,6 +1364,7 @@ let streamingEl = null;
 let connection = null;
 let authFailed = false;
 let intentionalClose = false;
+let currentTurnContext = null; // tracks which interface/type triggered the current turn
 
 // --- Render helpers ---
 
@@ -1333,9 +1399,16 @@ function formatTime(date) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + time;
 }
 
-function addMessage(type, content, meta, toolInput, timestamp) {
+function addMessage(type, content, meta, toolInput, timestamp, iface) {
   const el = document.createElement('div');
   el.className = `message ${type}`;
+  // Set turn context on trigger messages
+  if (type === 'user' || type === 'incoming' || type === 'heartbeat') {
+    currentTurnContext = iface || type;
+  }
+  // Tag all messages with the current turn context
+  if (iface) el.classList.add(`from-${iface}`);
+  else if (currentTurnContext) el.classList.add(`from-${currentTurnContext}`);
   if (type === 'tool') {
     const spaceIdx = content.indexOf(' ');
     const toolName = spaceIdx > 0 ? content.slice(0, spaceIdx) : content;
@@ -1387,7 +1460,9 @@ function addMessage(type, content, meta, toolInput, timestamp) {
     const ts = formatTime(timestamp);
     if (ts) {
       const tsEl = document.createElement('div');
-      tsEl.className = `timestamp ${type === 'user' || type === 'incoming' ? 'ts-right' : 'ts-left'}`;
+      const side = (type === 'user' || type === 'incoming') ? 'ts-right' : 'ts-left';
+      const ctx = currentTurnContext ? `from-${currentTurnContext}` : '';
+      tsEl.className = `timestamp ${side} ${ctx}`;
       tsEl.textContent = ts;
       messagesEl.appendChild(tsEl);
     }
@@ -1497,7 +1572,7 @@ function handleEvent(event) {
         addMessage('incoming',
           event.text || '',
           `[${event.fromInterface} ${event.fromUserId || ''}]`,
-          null, new Date());
+          null, new Date(), 'incoming');
       }
       break;
 
@@ -1530,7 +1605,7 @@ async function send() {
   inputEl.style.height = 'auto';
   sendBtn.disabled = true;
 
-  addMessage('user', text, null, null, new Date());
+  addMessage('user', text, null, null, new Date(), 'web');
   setBusy(true);
   showThinking();
 
@@ -1724,7 +1799,7 @@ async function init() {
     for (const msg of history) {
       if (msg.role === 'user' && typeof msg.content === 'string') {
         const parsed = parseHistoryUserMessage(msg.content);
-        if (parsed) addMessage(parsed.type, parsed.text, parsed.meta, null, parsed.timestamp);
+        if (parsed) addMessage(parsed.type, parsed.text, parsed.meta, null, parsed.timestamp, parsed.iface);
       } else if (msg.role === 'assistant') {
         if (Array.isArray(msg.content)) {
           for (const part of msg.content) {
@@ -1784,6 +1859,76 @@ async function init() {
 }
 
 setupSwitcher();
+
+// --- Filters ---
+const FILTERS = [
+  { key: 'heartbeat', label: 'Heartbeats', default: false },
+  { key: 'tui', label: 'TUI messages', default: true },
+  { key: 'tools', label: 'Tool calls', default: true },
+  { key: 'incoming', label: 'Telegram / Slack', default: true },
+  { key: 'system', label: 'System messages', default: true },
+];
+
+function getFilters() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('kern_filters') || '{}');
+    const result = {};
+    for (const f of FILTERS) result[f.key] = f.key in saved ? saved[f.key] : f.default;
+    return result;
+  } catch { return Object.fromEntries(FILTERS.map(f => [f.key, f.default])); }
+}
+
+function saveFilters(filters) {
+  localStorage.setItem('kern_filters', JSON.stringify(filters));
+}
+
+function applyFilters() {
+  const filters = getFilters();
+  const el = messagesEl;
+  el.classList.toggle('hide-heartbeat', !filters.heartbeat);
+  el.classList.toggle('hide-tui', !filters.tui);
+  el.classList.toggle('hide-tools', !filters.tools);
+  el.classList.toggle('hide-incoming', !filters.incoming);
+  el.classList.toggle('hide-system', !filters.system);
+}
+
+function renderFilterDropdown() {
+  const filters = getFilters();
+  const dd = $('filter-dropdown');
+  dd.innerHTML = FILTERS.map(f => {
+    const active = filters[f.key];
+    return `<div class="filter-item ${active ? 'active' : ''}" data-key="${f.key}">
+      <span class="check">${active ? '✓' : ''}</span>
+      ${f.label}
+    </div>`;
+  }).join('');
+}
+
+$('filter-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const dd = $('filter-dropdown');
+  const isOpen = dd.classList.contains('open');
+  dd.classList.toggle('open', !isOpen);
+  if (!isOpen) renderFilterDropdown();
+});
+
+$('filter-dropdown').addEventListener('click', (e) => {
+  const item = e.target.closest('.filter-item');
+  if (!item) return;
+  e.stopPropagation();
+  const key = item.dataset.key;
+  const filters = getFilters();
+  filters[key] = !filters[key];
+  saveFilters(filters);
+  applyFilters();
+  renderFilterDropdown();
+});
+
+document.addEventListener('click', () => {
+  $('filter-dropdown').classList.remove('open');
+});
+
+applyFilters();
 
 // On load: discover agents, auto-connect or show switcher
 (async () => {
