@@ -4,15 +4,16 @@
 
 ### Features
 - **Web UI** — browser-based chat interface via `kern web start/stop/status`.
-  - Full conversation history with streaming responses and thinking indicator.
-  - Agent sidebar with avatars, online/offline status. Collapsible on desktop, slide-out on mobile.
-  - Slash commands (`/status`, `/restart`, `/help`) with autocomplete popup.
-  - Collapsible tool output — click to expand. Edit tools show inline red/green diffs.
-  - Full markdown rendering (headers, lists, blockquotes, tables, code blocks).
-  - Message filters — toggle heartbeats, TUI, tool calls, Telegram/Slack. Hides entire turns.
-  - Message timestamps. Agent info panel with connection string and copy button.
-  - Auto-discovers agents, auto-reconnects after restart.
-  - Dark theme, mobile-friendly, PWA support.
+  - **Streaming** — full conversation history with live streaming responses and thinking indicator between tool steps.
+  - **Agent sidebar** — avatars with online/offline status. Collapsible on desktop, slide-out on mobile.
+  - **Slash commands** — `/status`, `/restart`, `/help` with autocomplete popup.
+  - **Collapsible tool output** — click to expand. Edit tools show inline red/green diffs.
+  - **Markdown** — headers, lists, blockquotes, tables, code blocks, inline formatting.
+  - **Message filters** — toggle heartbeats, TUI, tool calls, Telegram/Slack. Hides entire turns.
+  - **Timestamps** — shown on user, incoming, and outgoing messages.
+  - **Agent info panel** — version, model, uptime, session stats, connection string with copy.
+  - **Auto-discovery** — finds running agents, reconnects after restart.
+  - **Dark theme** — mobile-friendly, PWA support.
 - **Auto-generated auth tokens** — `KERN_AUTH_TOKEN` generated on first agent start, stored in `.kern/.env` and `agents.json`. All API endpoints require token (except `/health`).
 - **Agents bind `0.0.0.0` by default** — accessible over Tailscale/LAN, secured by auto-generated token.
 - **`/help` slash command** — lists available commands with descriptions.
