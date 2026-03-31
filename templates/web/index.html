@@ -2034,7 +2034,6 @@ async function init() {
     onEvent: handleEvent,
     onConnect() {
       setConnected('connected');
-      addMessage('system', 'connected');
     },
     async onDisconnect() {
       if (authFailed || intentionalClose) return;
