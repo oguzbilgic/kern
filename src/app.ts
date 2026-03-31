@@ -13,7 +13,7 @@ import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
 import { MessageQueue } from "./queue.js";
-import { getStatusData as getStatusDataFn, setQueueStatusFn } from "./tools/kern.js";
+import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, type InterfaceStatus } from "./tools/kern.js";
 import { log } from "./log.js";
 
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
@@ -201,6 +201,18 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     });
   }
 
+  // Register interface status reporting
+  setInterfaceStatusFn(() => {
+    const statuses: InterfaceStatus[] = [];
+    if (telegramBot) {
+      statuses.push({ name: "telegram", status: telegramBot.status, detail: telegramBot.statusDetail });
+    }
+    if (slackBot) {
+      statuses.push({ name: "slack", status: slackBot.status, detail: slackBot.statusDetail });
+    }
+    return statuses;
+  });
+
   // Wire message tool — agent can send messages to users
   setMessageSender(async (userId: string, iface: string, text: string) => {
     if (iface === "telegram" && telegramBot) {
@@ -272,14 +284,14 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   }
 
   // Graceful shutdown
-  process.on("SIGTERM", () => {
-    log("kern", `stopped ${agentName}`);
+  const shutdown = async () => {
+    log("kern", `stopping ${agentName}`);
+    if (telegramBot) await telegramBot.stop().catch(() => {});
+    if (slackBot) await slackBot.stop().catch(() => {});
     server.stop();
-    process.exit(0);
-  });
-  process.on("SIGINT", () => {
     log("kern", `stopped ${agentName}`);
-    server.stop();
     process.exit(0);
-  });
+  };
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 }
