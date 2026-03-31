@@ -78,22 +78,33 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   // Initialize recall index (opt-out via "recall": false in config)
   let recallIndex: RecallIndex | null = null;
+  let recallBuilding = false;
   if ((config as any).recall !== false) {
     try {
       recallIndex = new RecallIndex(agentDir, config.provider);
       setRecallIndex(recallIndex);
+      setRecallStatsFn(() => {
+        if (!recallIndex) return null;
+        const stats = recallIndex.getStats();
+        return { ...stats, building: recallBuilding };
+      });
 
-      // Backfill: index existing session
+      // Backfill in background — don't block startup
       const sessionId = runtime.getSessionId();
       if (sessionId) {
-        const indexed = await recallIndex.indexSession(sessionId);
-        if (indexed > 0) {
-          log("kern", `recall: backfilled ${indexed} chunks`);
-        }
+        recallBuilding = true;
+        recallIndex.indexSession(sessionId).then((indexed) => {
+          recallBuilding = false;
+          if (indexed > 0) {
+            log("recall", `backfilled ${indexed} chunks`);
+          }
+        }).catch((err) => {
+          recallBuilding = false;
+          log("recall", `backfill failed: ${err.message}`);
+        });
       }
-      setRecallStatsFn(() => recallIndex ? recallIndex.getStats() : null);
     } catch (err: any) {
-      log("kern", `recall: init failed: ${err.message} — recall disabled`);
+      log("recall", `init failed: ${err.message} — recall disabled`);
     }
   }
 
@@ -163,7 +174,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       const sessionId = runtime.getSessionId();
       if (sessionId) {
         recallIndex.indexSession(sessionId).catch((err) => {
-          log("kern", `recall: indexing failed: ${err.message}`);
+          log("recall", `indexing failed: ${err.message}`);
         });
       }
     }
