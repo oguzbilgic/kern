@@ -169,26 +169,63 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
-  // Hub discovery — check if local hub is running
-  if (url === "/api/hubs" && req.method === "GET") {
-    const hubs: any[] = [];
+  // Hub API — /api/hub, /api/hub/agents, /api/hub/stats
+  if (url.startsWith("/api/hub") && req.method === "GET") {
+    // Check if local hub is running
     const hubPidFile = join(homedir(), ".kern", "hub", "hub.pid");
-    if (existsSync(hubPidFile)) {
-      try {
+    let hubRunning = false;
+    let hubPort = 4000;
+    try {
+      if (existsSync(hubPidFile)) {
         const pid = parseInt(await readFile(hubPidFile, "utf-8"), 10);
         if (pid && isProcessRunning(pid)) {
+          hubRunning = true;
           const config = await loadGlobalConfig();
-          const hostname = req.headers.host?.split(":")[0] || "localhost";
-          hubs.push({
-            url: `http://${hostname}:${config.hub_port}`,
-            port: config.hub_port,
-            running: true,
-          });
+          hubPort = config.hub_port;
         }
-      } catch {}
+      }
+    } catch {}
+
+    // /api/hub — hub status
+    if (url === "/api/hub") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ running: hubRunning, port: hubRunning ? hubPort : undefined }));
+      return;
     }
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(hubs));
+
+    // /api/hub/* — proxy to local hub
+    if (!hubRunning) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "hub not running" }));
+      return;
+    }
+
+    const hubPath = url.replace(/^\/api\/hub/, "") || "/";
+    const queryString = rawUrl.includes("?") ? rawUrl.slice(rawUrl.indexOf("?")) : "";
+    const targetPath = `/api${hubPath}${queryString}`;
+
+    const proxyReq = httpRequest(
+      {
+        hostname: "127.0.0.1",
+        port: hubPort,
+        path: targetPath,
+        method: req.method,
+        headers: { ...req.headers, host: `127.0.0.1:${hubPort}` },
+      },
+      (proxyRes) => {
+        res.writeHead(proxyRes.statusCode || 502, proxyRes.headers);
+        proxyRes.pipe(res);
+      },
+    );
+    proxyReq.on("error", (err) => {
+      log(`hub proxy error: ${err.message}`);
+      if (!res.headersSent) {
+        res.writeHead(502, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "hub unreachable" }));
+      }
+    });
+    res.on("close", () => proxyReq.destroy());
+    proxyReq.end();
     return;
   }
 

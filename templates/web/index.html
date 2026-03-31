@@ -906,6 +906,15 @@
     color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;
   }
   .switcher-server-header .switcher-item-remove { display: inline; font-size: 12px; }
+  .switcher-hub-header {
+    display: flex; align-items: center; gap: 6px;
+    padding: 10px 12px 4px; font-size: 11px; font-weight: 600;
+    color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .switcher-hub-header .hub-diamond { color: var(--accent); font-size: 10px; }
+  .switcher-hub-header .hub-count { font-weight: 400; margin-left: auto; font-size: 10px; }
+  .switcher-item.hub-agent { opacity: 0.7; }
+  .switcher-item.hub-agent:hover { opacity: 1; }
 </style>
 </head>
 <body>
@@ -1328,6 +1337,7 @@ function setActiveAgent(name) {
 
 // All discovered agents grouped by server — fetched fresh each time
 let allAgents = [];
+let allHubs = []; // [{server, agents: [{name, online, publicKey}]}]
 
 let BASE_URL = null;
 let AUTH_TOKEN = null;
@@ -1404,6 +1414,30 @@ function renderSwitcher() {
         }
         list.appendChild(item);
       }
+
+      // Hub agents for this server
+      const serverHub = allHubs.find(h => h.server === serverUrl);
+      if (serverHub && serverHub.agents && serverHub.agents.length > 0) {
+        const hubHeader = document.createElement('div');
+        hubHeader.className = 'switcher-hub-header';
+        const onlineCount = serverHub.agents.filter(a => a.online).length;
+        hubHeader.innerHTML = `<span class="hub-diamond">◆</span> Hub <span class="hub-count">${onlineCount} online</span>`;
+        list.appendChild(hubHeader);
+        for (const ha of serverHub.agents) {
+          const item = document.createElement('div');
+          item.className = 'switcher-item hub-agent' + (ha.online ? '' : ' offline');
+          const color = avatarColor(ha.name);
+          const initial = ha.name.charAt(0).toUpperCase();
+          item.innerHTML = `
+            <div class="switcher-item-avatar" style="background:${color}">
+              ${initial}
+              <span class="online-dot ${ha.online ? 'running' : 'stopped'}"></span>
+            </div>
+            <div class="switcher-item-name">${escapeHtml(ha.name)}</div>
+          `;
+          list.appendChild(item);
+        }
+      }
     }
   }
   // Add server row
@@ -1477,12 +1511,29 @@ async function fetchServerAgents(serverUrl) {
     const token = getServerToken(serverUrl);
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     const res = await fetch(`${serverUrl}/api/agents`, { headers });
-    if (res.status === 401) return { agents: [], status: 'unauthorized' };
-    if (!res.ok) return { agents: [], status: 'error' };
+    if (res.status === 401) return { agents: [], hub: null, status: 'unauthorized' };
+    if (!res.ok) return { agents: [], hub: null, status: 'error' };
     const data = await res.json();
-    if (!Array.isArray(data)) return { agents: [], status: 'ok' };
+    if (!Array.isArray(data)) return { agents: [], hub: null, status: 'ok' };
+
+    // Also fetch hub info
+    let hub = null;
+    try {
+      const hubRes = await fetch(`${serverUrl}/api/hub`, { headers });
+      if (hubRes.ok) {
+        const hubData = await hubRes.json();
+        if (hubData.running) {
+          const hubAgentsRes = await fetch(`${serverUrl}/api/hub/agents`, { headers });
+          if (hubAgentsRes.ok) {
+            hub = { agents: await hubAgentsRes.json(), server: serverUrl };
+          }
+        }
+      }
+    } catch {}
+
     return {
       status: 'ok',
+      hub,
       agents: data.map(a => ({
         name: a.name,
         url: a.running ? `${serverUrl}/api/agents/${a.name}` : null,
@@ -1490,7 +1541,7 @@ async function fetchServerAgents(serverUrl) {
         server: serverUrl,
       })),
     };
-  } catch { return { agents: [], status: 'error' }; }
+  } catch { return { agents: [], hub: null, status: 'error' }; }
 }
 
 // Discover agents from local server + all saved remote servers
@@ -1502,6 +1553,7 @@ async function discoverAllAgents() {
   const allUrls = [localUrl, ...remoteUrls];
   const results = await Promise.all(allUrls.map(url => fetchServerAgents(url)));
   allAgents = results.flatMap(r => r.agents);
+  allHubs = results.map(r => r.hub).filter(Boolean);
   // Return local server status
   return results[0].status;
 }
