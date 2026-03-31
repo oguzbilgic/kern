@@ -236,7 +236,17 @@ export class Runtime {
         onStepFinish: async (step) => {
           // Persist only new messages from this step (response.messages is cumulative)
           const allMsgs = step.response.messages as ModelMessage[];
-          const newMsgs = allMsgs.slice(persistedCount);
+          const newMsgs = allMsgs.slice(persistedCount).map((msg) => {
+            if (msg.role === "assistant" && typeof msg.content === "string") {
+              return { ...msg, content: msg.content.replace(/^\n+/, "") };
+            }
+            if (msg.role === "assistant" && Array.isArray(msg.content)) {
+              return { ...msg, content: msg.content.map((part: any) =>
+                part.type === "text" ? { ...part, text: part.text.replace(/^\n+/, "") } : part
+              )};
+            }
+            return msg;
+          });
           if (newMsgs.length > 0) {
             await this.session.append(newMsgs);
             persistedCount = allMsgs.length;
