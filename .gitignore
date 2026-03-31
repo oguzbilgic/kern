@@ -2,3 +2,11 @@ node_modules/
 dist/
 *.tsbuildinfo
 .npmrc
+
+# Android
+android/.kotlin/
+android/hs_err_*
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
