@@ -47,11 +47,16 @@ function stripMarkdown(text: string): string {
 export class TelegramInterface implements Interface {
   private bot: Bot;
   private pairing: PairingManager | null;
+  private _status: "connected" | "disconnected" | "error" = "disconnected";
+  private _statusDetail?: string;
 
   constructor(token: string, pairing?: PairingManager) {
     this.bot = new Bot(token);
     this.pairing = pairing || null;
   }
+
+  get status() { return this._status; }
+  get statusDetail() { return this._statusDetail; }
 
   async start({ onMessage }: StartOptions): Promise<void> {
     // Register bot commands with Telegram
@@ -161,12 +166,39 @@ export class TelegramInterface implements Interface {
       }
     });
 
+    // Catch polling errors — prevent unhandled exceptions from crashing the process
+    this.bot.catch((err) => {
+      log("telegram", `bot error: ${err.message || err}`);
+    });
+
     log("telegram", "connected");
-    this.bot.start();
+    this.startPolling();
+  }
+
+  private startPolling(): void {
+    this.bot.start({
+      onStart: () => {
+        this._status = "connected";
+        this._statusDetail = undefined;
+        log("telegram", "polling started");
+      },
+    }).catch((err) => {
+      const msg = err?.message || String(err);
+      if (msg.includes("409") || msg.includes("Conflict")) {
+        this._status = "error";
+        this._statusDetail = "409 conflict, retrying";
+        log("telegram", "409 conflict — retrying in 5s");
+        setTimeout(() => this.startPolling(), 5000);
+      } else {
+        this._status = "error";
+        this._statusDetail = msg;
+        log("telegram", `polling failed: ${msg}`);
+      }
+    });
   }
 
   async stop(): Promise<void> {
-    this.bot.stop();
+    await this.bot.stop();
   }
 
   async sendToUser(chatId: string, text: string): Promise<boolean> {

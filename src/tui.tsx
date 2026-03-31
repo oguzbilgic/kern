@@ -135,7 +135,7 @@ function InputBox({ input, busy, version, agentName, model, width, connected }: 
   input: string; busy: boolean; version: string; agentName: string; model: string; width: number; connected: boolean;
 }) {
   const iw = width - 3;
-  const cursor = busy ? "" : "▎";
+  const cursor = "▎";
   const inputLine = ("  " + input + cursor).padEnd(iw);
   const connectionStr = connected ? "●" : "○";
   
@@ -429,9 +429,12 @@ function App({ port, agentName, version, authToken }: TuiProps) {
     
     function handle(event: ServerEvent) {
       if ((event as any).type === "incoming" && event.fromInterface !== "tui") {
+        const iface = event.fromInterface || "unknown";
+        const user = event.fromUserId || "";
+        const label = (user && user !== iface) ? `[${iface} ${user}]` : `[${iface}]`;
         setMessages((m: ChatMessage[]) => [...m, {
           type: "incoming", text: event.text || "",
-          meta: `[${event.fromInterface} ${event.fromUserId || ""}]`,
+          meta: label,
         }]);
         return;
       }
@@ -548,18 +551,18 @@ function App({ port, agentName, version, authToken }: TuiProps) {
   useInput((ch: string, key: any) => {
     if (key.escape) { exit(); return; }
 
-    if (key.return && input.trim() && !busy) {
+    if (key.return && input.trim()) {
       const text = input.trim();
       setInput("");
       setMessages((m: ChatMessage[]) => [...m, { type: "user", text }]);
-      setBusy(true);
+      if (!busy) setBusy(true);
       fetch(`${baseUrl}/message`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({ text, userId: "tui", interface: "tui", channel: "tui" }),
       }).catch(() => {
         setMessages((m: ChatMessage[]) => [...m, { type: "error", text: "Connection error" }]);
-        setBusy(false);
+        if (!busy) setBusy(false);
       });
       return;
     }

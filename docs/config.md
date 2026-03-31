@@ -10,8 +10,7 @@ The main config file. Committed to git.
   "provider": "openrouter",
   "toolScope": "full",
   "maxSteps": 30,
-  "maxContextTokens": 40000,
-  "host": "0.0.0.0"
+  "maxContextTokens": 40000
 }
 ```
 
@@ -25,13 +24,14 @@ The main config file. Committed to git.
 | `maxSteps` | `30` | Max tool-use steps per message |
 | `maxContextTokens` | `40000` | Estimated token budget for context window. Messages beyond this are trimmed from the front (oldest first). Full history stays in JSONL. |
 | `heartbeatInterval` | `60` | Minutes between heartbeat prompts. Agent reviews notes, updates knowledge. 0 to disable. |
-| `host` | `0.0.0.0` | Bind address for the agent's HTTP API. Default binds to all interfaces. Set to `127.0.0.1` for localhost only. |
+| `recall` | `true` | Enable recall (long-term memory). Set to `false` to disable. Requires an embedding API key. |
+| `autoRecall` | `false` | Automatically inject relevant old context before each turn. Requires recall enabled. |
 
 ### Tool scopes
 
-- **full** — bash, read, write, edit, glob, grep, webfetch, kern, message
-- **write** — read, write, edit, glob, grep, webfetch, kern, message
-- **read** — read, glob, grep, webfetch, kern
+- **full** — bash, read, write, edit, glob, grep, webfetch, kern, message, recall
+- **write** — read, write, edit, glob, grep, webfetch, kern, message, recall
+- **read** — read, glob, grep, webfetch, kern, recall
 
 ### Providers
 
@@ -53,16 +53,23 @@ KERN_AUTH_TOKEN=...
 
 Only set the API keys for providers/interfaces you use.
 
-### Auth token
+### Auth tokens
 
-`KERN_AUTH_TOKEN` is a Bearer token required on all agent API endpoints (except `/health`).
+**`KERN_AUTH_TOKEN`** — per-agent Bearer token required on all agent API endpoints (except `/health`).
 
-- **Auto-generated** on first agent start if not set — written to `.kern/.env` automatically
-- **Registered** in `~/.kern/agents.json` so the TUI and web UI can read it
+- Auto-generated on first agent start — written to `.kern/.env` automatically
+- Registered in `~/.kern/agents.json` so the TUI and web proxy can read it
 - TUI reads it from the registry automatically
-- Web UI gets it via agent discovery (`/api/agents` endpoint on `kern web`)
+- Web proxy injects it into proxied requests — the browser never sees agent tokens
 
-You never need to set this manually unless you want a specific token value.
+**`KERN_WEB_TOKEN`** — web proxy auth token stored in `~/.kern/.env`.
+
+- Auto-generated on first `kern web start`
+- Required on all `/api/*` proxy routes (Bearer header or `?token=` query param)
+- Printed by `kern web start` and `kern web token`
+- Web UI prompts for it on first visit, saves to localStorage
+
+You never need to set either token manually unless you want specific values.
 
 ## Global: ~/.kern/config.json
 
@@ -85,6 +92,10 @@ Global settings for the `kern web` server. Optional — defaults apply if the fi
 Agent registry. Managed automatically — do not edit by hand.
 
 Tracks all registered agents with their name, path, PID, port, and auth token. Updated when agents start/stop.
+
+## .kern/recall.db
+
+SQLite database with sqlite-vec extension for the recall tool. Contains three tables: `messages` (raw message content), `chunks` (turn-level summaries), and `vec_chunks` (embeddings). Auto-created on first start. Gitignored. Safe to delete — will be rebuilt on next start from session JSONL files.
 
 ## .kern/sessions/
 

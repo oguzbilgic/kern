@@ -67,7 +67,7 @@ kern start [name|path]    # start agents in background
 kern stop [name]          # stop agents
 kern restart [name]       # restart agents
 kern tui [name]           # interactive chat
-kern web <start|stop|status>  # web UI server
+kern web <start|stop|status|token>  # web UI server
 kern logs [name]          # tail agent logs
 kern list                 # show all agents
 kern remove <name>        # unregister an agent
@@ -80,17 +80,18 @@ Agents auto-register when you init, start, or run them. `kern list` shows every 
 
 ### Web UI
 
-`kern web start` launches a web UI server (default port 9000). Open it in a browser to chat with any running agent.
+`kern web start` launches a web UI server (default port 9000). It prints a URL with an auth token — click it to connect.
 
 ```bash
-kern web start    # start web UI server
+kern web start    # start web UI, prints URL with token
 kern web stop     # stop it
 kern web status   # check if running
+kern web token    # print the URL with token again
 ```
 
-The web UI auto-discovers running agents and connects directly to their APIs. Each agent binds to `0.0.0.0` by default and auto-generates an auth token on first start — no manual config needed.
+The web UI proxies all agent requests — agents bind to localhost only and are never exposed directly. Auth is handled at the proxy level with a single `KERN_WEB_TOKEN` (auto-generated, stored in `~/.kern/.env`).
 
-Works over Tailscale or LAN. Add remote agents manually in the sidebar.
+Works over Tailscale or LAN. Add remote kern servers in the sidebar.
 
 ### Slash commands
 
@@ -156,14 +157,11 @@ Structured, colored logs for queue, runtime, interfaces, and server. Logs stored
   "model": "anthropic/claude-opus-4.6",
   "provider": "openrouter",
   "toolScope": "full",
-  "maxSteps": 30,
-  "host": "0.0.0.0"
+  "maxSteps": 30
 }
 ```
 
-`host` controls the agent's HTTP bind address. Default `0.0.0.0` (all interfaces). Set to `127.0.0.1` for localhost only.
-
-Auth tokens are auto-generated on first start and stored in `.kern/.env`. No manual setup needed.
+Agent auth tokens are auto-generated on first start and stored in `.kern/.env`. The web proxy injects them automatically — no manual setup needed.
 
 ### Global: `~/.kern/config.json`
 

@@ -1,27 +1,50 @@
 #!/usr/bin/env node
 
 /**
- * kern web — serves the web UI, agent discovery, and proxy.
+ * kern web — serves the web UI, provides agent discovery, and proxies to agents.
  *
  * Routes:
- *   GET  /              → web UI (index.html)
- *   GET  /api/agents    → list of registered agents (name, running, proxy path)
- *   GET  /manifest.json → PWA manifest
- *   GET  /sw.js         → service worker
- *   GET  /icon.svg      → app icon
- *   *    /agent/:name/* → proxy to agent's localhost port (auth forwarded as-is)
+ *   GET  /                              → web UI (index.html)
+ *   GET  /api/agents                    → list of registered agents
+ *   GET  /api/agents/:name/events       → SSE proxy to agent
+ *   POST /api/agents/:name/message      → proxy to agent
+ *   GET  /api/agents/:name/status       → proxy to agent
+ *   GET  /api/agents/:name/history      → proxy to agent
+ *   GET  /api/agents/:name/health       → proxy to agent
+ *   GET  /manifest.json                 → PWA manifest
+ *   GET  /sw.js                         → service worker
+ *   GET  /icon.svg                      → app icon
  */
 
 import { createServer, request as httpRequest, type IncomingMessage, type ServerResponse } from "http";
-import { readFile } from "fs/promises";
+import { readFile, appendFile } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 import { homedir } from "os";
+import { randomBytes } from "crypto";
 import { isProcessRunning, type AgentEntry } from "./registry.js";
 import { loadGlobalConfig } from "./global-config.js";
 
 const KERN_DIR = join(homedir(), ".kern");
 const AGENTS_FILE = join(KERN_DIR, "agents.json");
+const ENV_FILE = join(KERN_DIR, ".env");
+
+/** Load or auto-generate the web auth token from ~/.kern/.env */
+async function getWebToken(): Promise<string> {
+  // Check existing .env
+  if (existsSync(ENV_FILE)) {
+    const content = await readFile(ENV_FILE, "utf-8");
+    const match = content.match(/^KERN_WEB_TOKEN=(.+)$/m);
+    if (match) return match[1].trim();
+  }
+  // Generate and persist
+  const token = randomBytes(16).toString("hex");
+  await appendFile(ENV_FILE, `${existsSync(ENV_FILE) ? "\n" : ""}KERN_WEB_TOKEN=${token}\n`);
+  log(`generated web token: ${token.slice(0, 8)}...`);
+  return token;
+}
+
+let webToken: string;
 
 async function loadAgents(): Promise<AgentEntry[]> {
   if (!existsSync(AGENTS_FILE)) return [];
@@ -37,64 +60,48 @@ function log(msg: string) {
   process.stderr.write(`${ts} [web] ${msg}\n`);
 }
 
-// Find agent by name and return its port
-async function resolveAgent(name: string): Promise<number | null> {
-  const agents = await loadAgents();
-  const agent = agents.find((a) => a.name === name);
-  if (!agent || !agent.port || !agent.pid || !isProcessRunning(agent.pid)) return null;
-  return agent.port;
-}
-
-// Proxy an HTTP request to an agent — fully transparent, forwards auth as-is
-function proxyRequest(agentPort: number, path: string, req: IncomingMessage, res: ServerResponse) {
-  const headers: Record<string, string> = {};
-  if (req.headers["authorization"]) headers["Authorization"] = req.headers["authorization"];
-  if (req.headers["content-type"]) headers["Content-Type"] = req.headers["content-type"];
-  // Forward query params (needed for ?token= on SSE EventSource)
-  const rawUrl = req.url || "";
-  const queryIdx = rawUrl.indexOf("?");
-  if (queryIdx !== -1) path += rawUrl.slice(queryIdx);
-
-  const proxyReq = httpRequest({
-    hostname: "127.0.0.1",
-    port: agentPort,
-    path,
-    method: req.method,
-    headers,
-  }, (proxyRes) => {
-    const ct = proxyRes.headers["content-type"] || "";
-    const proxyHeaders: Record<string, string> = {
-      "Content-Type": ct,
-      "Access-Control-Allow-Origin": "*",
-    };
-    if (ct.includes("text/event-stream")) {
-      proxyHeaders["Cache-Control"] = "no-cache";
-      proxyHeaders["Connection"] = "keep-alive";
-      proxyHeaders["X-Accel-Buffering"] = "no";
-    }
-    res.writeHead(proxyRes.statusCode || 200, proxyHeaders);
-    proxyRes.pipe(res);
-
-    // Clean up upstream connection when client disconnects
-    res.on("close", () => proxyReq.destroy());
-  });
-
-  proxyReq.on("error", (e) => {
-    log(`proxy error: ${e.message}`);
-    if (!res.headersSent) {
-      res.writeHead(502, { "Content-Type": "application/json" });
-    }
-    res.end(JSON.stringify({ error: "agent unavailable" }));
-  });
-
-  req.pipe(proxyReq);
-}
-
 const staticFiles: Record<string, { file: string; contentType: string }> = {
   "/manifest.json": { file: "manifest.json", contentType: "application/manifest+json" },
   "/sw.js": { file: "sw.js", contentType: "application/javascript" },
   "/icon.svg": { file: "icon.svg", contentType: "image/svg+xml" },
 };
+
+/** Proxy a request to an agent's HTTP server, injecting its auth token */
+function proxyToAgent(req: IncomingMessage, res: ServerResponse, agent: AgentEntry, targetPath: string) {
+  const proxyReq = httpRequest(
+    {
+      hostname: "127.0.0.1",
+      port: agent.port!,
+      path: targetPath,
+      method: req.method,
+      headers: {
+        ...req.headers,
+        host: `127.0.0.1:${agent.port}`,
+        authorization: agent.token ? `Bearer ${agent.token}` : "",
+      },
+    },
+    (proxyRes) => {
+      // Copy status + headers from agent response
+      res.writeHead(proxyRes.statusCode || 502, proxyRes.headers);
+      // Pipe the response — works for SSE streams and regular responses
+      proxyRes.pipe(res);
+    },
+  );
+
+  proxyReq.on("error", (err) => {
+    log(`proxy error for ${agent.name}: ${err.message}`);
+    if (!res.headersSent) {
+      res.writeHead(502, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "agent unreachable" }));
+    }
+  });
+
+  // Abort proxy request if client disconnects (important for SSE streams)
+  res.on("close", () => proxyReq.destroy());
+
+  // Pipe request body (for POST /message)
+  req.pipe(proxyReq);
+}
 
 const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const rawUrl = req.url || "/";
@@ -139,13 +146,22 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
-  // Agent list API
+  // Auth check — all /api/* routes require web token
+  if (url.startsWith("/api/")) {
+    const authHeader = req.headers.authorization;
+    const queryToken = new URL(rawUrl, "http://localhost").searchParams.get("token");
+    if (authHeader !== `Bearer ${webToken}` && queryToken !== webToken) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "unauthorized" }));
+      return;
+    }
+  }
+
+  // Agent list API — returns agents (no port/token — proxy handles auth)
   if (url === "/api/agents" && req.method === "GET") {
     const agents = await loadAgents();
     const result = agents.map((a) => ({
       name: a.name,
-      port: a.port || null,
-      token: a.token || null,
       running: !!(a.pid && isProcessRunning(a.pid)),
       proxy: a.port ? `/agent/${encodeURIComponent(a.name)}` : null,
     }));
@@ -154,17 +170,24 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
-  // Agent proxy: /agent/:name/* → localhost:port/*
-  const proxyMatch = url.match(/^\/agent\/([^/]+)(\/.*)?$/);
-  if (proxyMatch && req.method) {
-    const agentName = decodeURIComponent(proxyMatch[1]);
-    const agentPort = await resolveAgent(agentName);
-    if (!agentPort) {
+  // Agent proxy — /api/agents/:name/:endpoint
+  const proxyMatch = url.match(/^\/api\/agents\/([^/]+)\/(.+)$/);
+  if (proxyMatch) {
+    const [, agentName, endpoint] = proxyMatch;
+    const agents = await loadAgents();
+    const agent = agents.find((a) => a.name === agentName);
+
+    if (!agent || !agent.port || !agent.pid || !isProcessRunning(agent.pid)) {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "agent not found or not running" }));
       return;
     }
-    proxyRequest(agentPort, proxyMatch[2] || "/", req, res);
+
+    // Build target URL — preserve query string
+    const queryString = rawUrl.includes("?") ? rawUrl.slice(rawUrl.indexOf("?")) : "";
+    const targetPath = `/${endpoint}${queryString}`;
+
+    proxyToAgent(req, res, agent, targetPath);
     return;
   }
 
@@ -173,6 +196,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 });
 
 async function start() {
+  webToken = await getWebToken();
   const config = await loadGlobalConfig();
   server.listen(config.web_port, config.web_host, () => {
     log(`listening on ${config.web_host}:${config.web_port}`);

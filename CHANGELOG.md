@@ -1,5 +1,81 @@
 # Changelog
 
+## v0.14.0
+
+### Features
+- **Web proxy** — `kern web` now proxies all agent API requests. Browser never talks to agents directly.
+  - Routes: `/api/agents/:name/status`, `/api/agents/:name/message`, `/api/agents/:name/events`, `/api/agents/:name/history`, `/api/agents/:name/health`.
+  - Agent HTTP servers bind to `127.0.0.1` — only reachable locally via proxy.
+  - Proxy injects agent auth tokens automatically — web UI never sees them.
+- **Web auth** — `KERN_WEB_TOKEN` auto-generated on first `kern web start`, stored in `~/.kern/.env`.
+  - All `/api/*` routes require Bearer token or `?token=` query param.
+  - Static HTML/PWA files remain public.
+  - Web UI prompts with a modal on first visit. Token saved to localStorage.
+  - Logout button in sidebar header clears token and returns to auth prompt.
+- **`kern web token`** — print the web UI URL with auth token anytime.
+- **`kern web start` prints token** — always shows the URL with token on start and when already running.
+- **Multi-server discovery** — web UI sidebar groups agents by server.
+  - Local agents shown first, remote servers shown with hostname header.
+  - "Add server" modal with URL + token fields.
+  - Remove button on remote server headers.
+  - Servers stored as `{url, token}` objects in localStorage.
+- **Auto-expand last tool call** — latest tool call stays expanded during streaming. Collapses when the next tool starts or text response begins.
+- **Smart scroll** — won't pull you down when scrolled up reading history. Auto-scrolls only when at the bottom.
+- **Scroll-to-bottom button** — floating ↓ button appears when scrolled up, click to jump back down.
+- **SSE cleanup** — proxy aborts agent connection when browser disconnects.
+
+### Changes
+- Agents bind `127.0.0.1` instead of `0.0.0.0` — no longer directly accessible over the network.
+- Web UI no longer stores or manages per-agent tokens. Auth is at the proxy level.
+- Agent discovery returns name and running state only — no port or token exposed.
+- Removed `host` config field — agents always bind localhost now.
+
+## v0.13.0
+
+### Features
+- **Recall tool** — semantic search over past conversations outside the current context window. Agents can now remember things from weeks ago.
+  - **Search mode** — query by meaning, get ranked results with distance scores. Optional `before`/`after` date filters.
+  - **Load mode** — fetch raw messages by session ID and index range for full context around a search hit.
+  - **Messages in sqlite** — raw messages stored in recall.db alongside embedded chunks. Load mode reads from sqlite, no JSONL parsing on retrieval.
+  - **Non-blocking backfill** — index builds in background on startup. Agent is available immediately. Status shows `(building)` until complete.
+  - **Incremental indexing** — only new JSONL lines are parsed after each turn. No full-file re-reads.
+  - **sqlite-vec** — local vector database using sqlite-vec extension. No external services needed.
+  - **Turn-based chunking** — messages chunked by user→assistant turns, embedded via `text-embedding-3-small` (1536 dimensions).
+  - **Recall in status** — `kern({ action: "status" })` and web UI show message/chunk counts and build state.
+  - **Opt-out** — set `"recall": false` in config to disable.
+  - 11 built-in tools (was 10).
+- **Auto-recall** — before each turn, relevant old context is automatically injected into the sliding window.
+  - Embeds user message, searches recall index (top 3, distance < 0.95).
+  - Skips chunks already visible in context window (dedup by message index).
+  - Injects `<recall>` block at top of context (ephemeral, not persisted to session).
+  - Capped at ~2000 tokens.
+  - Web UI shows collapsible `📎 N memories recalled` with query and chunk details.
+  - **Opt-in** — set `"autoRecall": true` in config to enable.
+- **KNOWLEDGE.md in system prompt** — memory index file is now loaded into the system prompt automatically, so agents know what state files exist without being told.
+
+## v0.12.0
+
+### Features
+- **Incremental session persistence** — session is saved after each step via `onStepFinish`, not just at end of turn. Crash mid-turn no longer loses the entire turn's work. History is available on page refresh mid-turn.
+- **Mid-turn thinking indicator** — web UI checks `/status` on load and shows thinking dots if the agent is mid-turn. Dots also show during tool execution.
+- **Mid-turn messaging** — send messages while the agent is working. Input stays enabled in both Web UI and TUI. Messages are injected between tool steps via `prepareStep` and the agent addresses them inline.
+- **Interface status** — `/status` API and slash command now report `telegram` and `slack` connection state (connected/disconnected/error). Web UI info panel shows them.
+- **Queue status in `/status`** — shows busy/idle and pending message count.
+- **Slash commands bypass queue** — `/status`, `/restart`, `/help` respond instantly even when the queue is busy.
+- **Tool output in web UI** — `write` shows file content, `message` shows message text in collapsible tool output.
+
+### Fixes
+- **Telegram crash on restart** — SIGTERM handler now stops Telegram bot polling before exit. Previously, the old `getUpdates` long-poll lingered for up to 30s, causing the new process to hit a 409 Conflict and crash with an unhandled grammyError. Added `bot.catch()` and 409 retry logic.
+- **Graceful shutdown** — SIGTERM/SIGINT stop Telegram and Slack interfaces before `process.exit()`.
+- **Cross-client message sync** — SSE clients get unique connection IDs; broadcasts exclude the sender to prevent echo. New `user-remote` message type for messages from other web/TUI tabs.
+- **History tool output** — appends to pre-filled content instead of overwriting.
+- **Session-scoped active agent** — uses `sessionStorage` so each browser tab tracks its own agent independently.
+
+### Changes
+- Web UI info panel closes on agent switch to prevent stale data.
+- TUI cursor stays visible during agent processing.
+- README updated with npm install instructions and browser references.
+
 ## v0.11.0
 
 ### Features

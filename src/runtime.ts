@@ -57,15 +57,17 @@ function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): ModelMe
   return messages.slice(cutIndex);
 }
 import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern.js";
+import type { RecallIndex } from "./recall.js";
 
 export interface StreamEvent {
-  type: "text-delta" | "tool-call" | "tool-result" | "finish" | "error";
+  type: "text-delta" | "tool-call" | "tool-result" | "finish" | "error" | "recall";
   text?: string;
   toolName?: string;
   toolDetail?: string;
   toolInput?: Record<string, unknown>;
   toolResult?: string;
   error?: string;
+  recall?: { query: string; chunks: number; tokens: number; results: Array<{ timestamp: string; text: string; distance: number }> };
 }
 
 export type StreamHandler = (event: StreamEvent) => void;
@@ -75,9 +77,14 @@ export class Runtime {
   private systemPrompt!: string;
   private session!: SessionManager;
   private agentDir: string;
+  private recallIndex: RecallIndex | null = null;
 
   constructor(agentDir: string) {
     this.agentDir = agentDir;
+  }
+
+  setRecallIndex(index: RecallIndex) {
+    this.recallIndex = index;
   }
 
   async setPairingManager(pairing: any): Promise<void> {
@@ -164,11 +171,48 @@ export class Runtime {
 
       // Trim messages to fit context window
       const allMessages = this.session.getMessages();
-      const contextMessages = trimToTokenBudget(allMessages, this.config.maxContextTokens);
-      if (contextMessages.length < allMessages.length) {
-        const trimmed = allMessages.length - contextMessages.length;
-        log("runtime", `context trimmed: ${trimmed} old messages excluded`);
+      let contextMessages = trimToTokenBudget(allMessages, this.config.maxContextTokens);
+      const trimmedCount = allMessages.length - contextMessages.length;
+      if (trimmedCount > 0) {
+        log("runtime", `context trimmed: ${trimmedCount} old messages excluded`);
       }
+
+      // Auto-recall: inject relevant old context when messages have been trimmed
+      if (trimmedCount > 0 && this.recallIndex && this.config.autoRecall) {
+        try {
+          const results = await this.recallIndex.search(userMessage, 3);
+          // Filter: distance threshold + skip chunks already in context window
+          const contextStart = trimmedCount; // messages before this index were trimmed
+          const relevant = results.filter(r => r.distance < 0.95 && r.msg_end < contextStart);
+          if (relevant.length > 0) {
+            const recallText = relevant
+              .map(r => `[${r.timestamp}]\n${r.text}`)
+              .join("\n---\n");
+            const recallMsg: ModelMessage = {
+              role: "user",
+              content: `<recall>\nRelevant context from past conversations:\n${recallText}\n</recall>`,
+            };
+            // Budget: only inject if it fits within ~2000 tokens
+            const recallTokens = getMsgSize(recallMsg);
+            if (recallTokens <= 2000) {
+              contextMessages = [recallMsg, ...contextMessages];
+              log("recall", `auto-recall: injected ${relevant.length} chunks (~${recallTokens} tokens)`);
+              onEvent({
+                type: "recall",
+                recall: {
+                  query: userMessage,
+                  chunks: relevant.length,
+                  tokens: recallTokens,
+                  results: relevant.map(r => ({ timestamp: r.timestamp, text: r.text, distance: r.distance })),
+                },
+              });
+            }
+          }
+        } catch (err: any) {
+          log("recall", `auto-recall failed: ${err.message}`);
+        }
+      }
+
       log("runtime", `context: ${contextMessages.length} messages, ~${estimateTokens(contextMessages)} tokens`);
       if (contextMessages.length > 0) {
         const first = contextMessages[0];
@@ -177,6 +221,7 @@ export class Runtime {
       }
 
       const pendingInjections = this.pendingInjections;
+      let persistedCount = 0;
 
       const result = streamText({
         model,
@@ -187,6 +232,16 @@ export class Runtime {
         onError: ({ error }) => {
           streamError = error;
           log("runtime", `streamText error: ${error}`);
+        },
+        onStepFinish: async (step) => {
+          // Persist only new messages from this step (response.messages is cumulative)
+          const allMsgs = step.response.messages as ModelMessage[];
+          const newMsgs = allMsgs.slice(persistedCount);
+          if (newMsgs.length > 0) {
+            await this.session.append(newMsgs);
+            persistedCount = allMsgs.length;
+            log("runtime", `step ${step.stepNumber} persisted ${newMsgs.length} new message(s)`);
+          }
         },
         prepareStep: ({ messages, stepNumber }) => {
           if (stepNumber === 0 || !pendingInjections) return {};
@@ -220,7 +275,7 @@ export class Runtime {
           onEvent({ type: "text-delta", text });
         } else if (part.type === "tool-call") {
           const args = ("args" in part ? part.args : part.input) as Record<string, unknown>;
-          const detail = String(args.path || args.command || args.pattern || args.url || args.action || args.userId || "");
+          const detail = String(args.path || args.command || args.pattern || args.url || args.action || args.userId || args.query || "");
           onEvent({ type: "tool-call", toolName: part.toolName, toolDetail: detail, toolInput: args });
         } else if (part.type === "tool-result") {
           const output = (part as any).output;
@@ -231,8 +286,10 @@ export class Runtime {
 
       log("runtime", `stream finished, text length: ${fullText.length}`);
 
-      const response = await result.response;
-      await this.session.append(response.messages as ModelMessage[]);
+      // If the stream had an error and produced no output, throw to hit error handler
+      if (streamError && fullText.length === 0) {
+        throw streamError;
+      }
 
       try {
         const usage = await result.totalUsage;

@@ -16,6 +16,7 @@ kern tui [name]
 - Shows cross-channel messages in real time
 - Renders Markdown (code blocks, quotes, bold, italic)
 - Live connection indicator (`●`/`○`) that automatically reconnects
+- **Mid-turn messaging** — input stays enabled while agent is working. Messages are injected between tool steps.
 - Ctrl-C only kills TUI, daemon stays alive
 
 Message styling (colored left borders):
@@ -32,53 +33,51 @@ Browser-based chat interface. Runs as a separate process from agents — `kern w
 ### Setup
 
 ```bash
-kern web start    # start web UI server on port 9000
+kern web start    # start web UI, prints URL with token
 kern web stop     # stop it
 kern web status   # check if running
+kern web token    # print URL with token again
 ```
 
-Open in a browser:
+`kern web start` prints a URL with the auth token. Open it to connect:
 
 ```
-http://localhost:9000/
+  ● web started (pid 12345, port 9000)
+  → http://localhost:9000?token=abc123...
 ```
 
-Over Tailscale or LAN, use the machine's hostname or IP:
-
-```
-http://myhost.tail1234.ts.net:9000/
-```
+Over Tailscale or LAN, use the machine's hostname or IP with the same token.
 
 ### Architecture
 
-- `kern web` serves a static HTML page and a `/api/agents` discovery endpoint
-- Agents serve only their HTTP API (no HTML) on random ports, bound to `0.0.0.0` by default
-- The web UI fetches the agent list from `kern web`, then connects directly to each agent's API
-- No proxy — the browser talks to agents directly
-- Auth tokens are auto-generated and registered in `~/.kern/agents.json` for seamless discovery
+- `kern web` serves the HTML page and proxies all API requests to agents
+- Agents bind to `127.0.0.1` on random ports — only reachable locally via the proxy
+- The web proxy injects agent auth tokens automatically — the browser never sees them
+- Single `KERN_WEB_TOKEN` protects the proxy layer
 
 ### Agent discovery
 
-- **Local agents** are auto-discovered from `~/.kern/agents.json`. The web UI reads the list on load and when opening the agent sidebar.
-- **Remote agents** can be added manually in the sidebar (name, URL, token). These are stored in browser localStorage.
+- **Local agents** are auto-discovered from `~/.kern/agents.json`. The sidebar shows them grouped under the local server.
+- **Remote servers** can be added in the sidebar ("Add server" with URL + token). Agents on remote servers are fetched and grouped by server hostname. Stored in browser localStorage.
 
 ### Authentication
 
-Each agent auto-generates a `KERN_AUTH_TOKEN` on first start. The token is:
-- Written to `.kern/.env`
-- Registered in `~/.kern/agents.json`
-- Passed to the web UI via the `/api/agents` discovery endpoint
+Two layers:
 
-No manual token setup needed for local agents. For remote agents, you provide the token when adding them in the sidebar.
+1. **Web proxy auth** — `KERN_WEB_TOKEN` in `~/.kern/.env`, auto-generated on first `kern web start`. Required on all `/api/*` routes. Web UI prompts for it on first visit, saves to localStorage. Logout button in sidebar clears it.
+
+2. **Agent auth** — per-agent `KERN_AUTH_TOKEN` in `.kern/.env`, auto-generated on first agent start. The web proxy reads these from `~/.kern/agents.json` and injects them into proxied requests. Users never interact with agent tokens.
 
 ### Features
 
-- **Agent sidebar** — left panel with avatar list, online/offline status dots, collapsible on desktop, slide-out on mobile
+- **Agent sidebar** — left panel with agents grouped by server, online/offline status dots, collapsible on desktop, slide-out on mobile
 - **Slash commands** — `/status`, `/restart`, `/help` with autocomplete popup
 - **Collapsible tool output** — click a tool call to expand and see the result. Edit tools show inline diffs (red/green).
 - **TUI-style message colors** — user (blue), incoming from Telegram/Slack (yellow), outgoing (green), heartbeat (magenta), per-tool colors
 - **Streaming responses** with live cursor and thinking indicator
+- **Mid-turn messaging** — input stays enabled while agent is working. Send follow-up messages or corrections that get injected between tool steps.
 - **Full history** on connect, including tool call results
+- **Agent info panel** — version, model, tools, Telegram/Slack connection status, uptime, session stats, API usage, queue state, connection string with copy
 - **Auto-reconnect** — re-discovers agent port after restart
 - **Dark theme**, mobile-friendly, PWA support
 
@@ -168,6 +167,9 @@ Long polling bot. Works behind NAT, no public URL needed.
 - Responses stream with typing indicator
 - Tool calls shown live (⚙), replaced by response
 - Markdown converted to Telegram HTML
+- Connection status reported in `/status` (connected/disconnected/error)
+- Graceful shutdown: polling stops cleanly on SIGTERM — no 409 conflicts on restart
+- If a 409 conflict occurs (e.g. rapid restart), retries automatically after 5 seconds
 
 ## Slack
 
@@ -205,3 +207,5 @@ Socket Mode connection. No public URL needed.
 - **Channels**: agent reads ALL messages but only responds when @mentioned or directly relevant. Returns `NO_REPLY` to suppress silent messages.
 - **Replies**: all replies post directly to the channel or DM (no threading).
 - Agent can send proactive messages via the `message` tool.
+- Connection status reported in `/status` (connected/disconnected/error).
+- Graceful shutdown: Socket Mode connection closes cleanly on SIGTERM.
