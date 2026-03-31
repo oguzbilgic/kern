@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.13.0
+
+### Features
+- **Recall tool** — semantic search over past conversations outside the current context window. Agents can now remember things from weeks ago.
+  - **Search mode** — query by meaning, get ranked results with distance scores. Optional `before`/`after` date filters.
+  - **Load mode** — fetch raw messages by session ID and index range for full context around a search hit.
+  - **Automatic indexing** — on startup, backfills the current session. After each turn, new messages are incrementally indexed.
+  - **sqlite-vec** — local vector database using sqlite-vec extension. No external services needed.
+  - **Turn-based chunking** — messages chunked by user→assistant turns (~500 char target) for meaningful search units.
+  - **Batched embedding** — embeds in batches of 100 to stay within API limits. Uses `text-embedding-3-small` (1536 dimensions).
+  - **Timestamp extraction** — extracts real timestamps from message metadata, interpolates for older messages.
+  - 11 built-in tools (was 10).
+
 ## v0.12.0
 
 ### Features

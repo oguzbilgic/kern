@@ -29,9 +29,9 @@ The main config file. Committed to git.
 
 ### Tool scopes
 
-- **full** — bash, read, write, edit, glob, grep, webfetch, kern, message
-- **write** — read, write, edit, glob, grep, webfetch, kern, message
-- **read** — read, glob, grep, webfetch, kern
+- **full** — bash, read, write, edit, glob, grep, webfetch, kern, message, recall
+- **write** — read, write, edit, glob, grep, webfetch, kern, message, recall
+- **read** — read, glob, grep, webfetch, kern, recall
 
 ### Providers
 
@@ -85,6 +85,10 @@ Global settings for the `kern web` server. Optional — defaults apply if the fi
 Agent registry. Managed automatically — do not edit by hand.
 
 Tracks all registered agents with their name, path, PID, port, and auth token. Updated when agents start/stop.
+
+## .kern/recall.db
+
+SQLite database with sqlite-vec extension for the recall tool's vector index. Auto-created on first start. Gitignored. Safe to delete — will be rebuilt on next start.
 
 ## .kern/sessions/
 
