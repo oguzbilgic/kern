@@ -272,14 +272,14 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   }
 
   // Graceful shutdown
-  process.on("SIGTERM", () => {
-    log("kern", `stopped ${agentName}`);
+  const shutdown = async () => {
+    log("kern", `stopping ${agentName}`);
+    if (telegramBot) await telegramBot.stop().catch(() => {});
+    if (slackBot) await slackBot.stop().catch(() => {});
     server.stop();
-    process.exit(0);
-  });
-  process.on("SIGINT", () => {
     log("kern", `stopped ${agentName}`);
-    server.stop();
     process.exit(0);
-  });
+  };
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 }

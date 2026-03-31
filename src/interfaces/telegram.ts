@@ -161,12 +161,32 @@ export class TelegramInterface implements Interface {
       }
     });
 
+    // Catch polling errors — prevent unhandled exceptions from crashing the process
+    this.bot.catch((err) => {
+      log("telegram", `bot error: ${err.message || err}`);
+    });
+
     log("telegram", "connected");
-    this.bot.start();
+    this.startPolling();
+  }
+
+  private startPolling(): void {
+    this.bot.start({
+      onStart: () => log("telegram", "polling started"),
+    }).catch((err) => {
+      const msg = err?.message || String(err);
+      if (msg.includes("409") || msg.includes("Conflict")) {
+        // Old poll still active — retry after a delay
+        log("telegram", "409 conflict — retrying in 5s");
+        setTimeout(() => this.startPolling(), 5000);
+      } else {
+        log("telegram", `polling failed: ${msg}`);
+      }
+    });
   }
 
   async stop(): Promise<void> {
-    this.bot.stop();
+    await this.bot.stop();
   }
 
   async sendToUser(chatId: string, text: string): Promise<boolean> {
