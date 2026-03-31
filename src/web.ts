@@ -188,8 +188,13 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
     // /api/hub — hub status
     if (url === "/api/hub") {
+      const configured = existsSync(hubPidFile);
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ running: hubRunning, port: hubRunning ? hubPort : undefined }));
+      res.end(JSON.stringify({
+        configured,
+        running: hubRunning,
+        port: hubRunning ? hubPort : undefined,
+      }));
       return;
     }
 
