@@ -39,7 +39,7 @@ export async function hubStart(): Promise<void> {
   const logFd = openSync(LOG_FILE, "a");
   const hubEntry = join(import.meta.dirname, "hub.js");
 
-  const child = spawn("node", ["--no-deprecation", hubEntry, String(port)], {
+  const child = spawn("node", ["--no-deprecation", hubEntry, "--port", String(port)], {
     detached: true,
     stdio: ["ignore", logFd, logFd],
   });

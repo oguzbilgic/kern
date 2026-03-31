@@ -13,7 +13,16 @@ import { verify } from "./keys.js";
 import { loadGlobalConfig } from "./global-config.js";
 
 const config = await loadGlobalConfig();
-const PORT = parseInt(process.argv[2] || String(config.hub_port), 10);
+
+// Parse --port flag
+let portArg: string | undefined;
+const args = process.argv.slice(2);
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === "--port" && args[i + 1]) { portArg = args[i + 1]; break; }
+  if (args[i].startsWith("--port=")) { portArg = args[i].split("=")[1]; break; }
+  if (/^\d+$/.test(args[i])) { portArg = args[i]; break; } // legacy positional
+}
+const PORT = parseInt(portArg || String(config.hub_port || 4000), 10);
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
