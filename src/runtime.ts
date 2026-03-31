@@ -67,7 +67,7 @@ export interface StreamEvent {
   toolInput?: Record<string, unknown>;
   toolResult?: string;
   error?: string;
-  recall?: { chunks: number; tokens: number; results: Array<{ timestamp: string; text: string; distance: number }> };
+  recall?: { query: string; chunks: number; tokens: number; results: Array<{ timestamp: string; text: string; distance: number }> };
 }
 
 export type StreamHandler = (event: StreamEvent) => void;
@@ -178,7 +178,7 @@ export class Runtime {
       }
 
       // Auto-recall: inject relevant old context when messages have been trimmed
-      if (trimmedCount > 0 && this.recallIndex) {
+      if (trimmedCount > 0 && this.recallIndex && this.config.autoRecall) {
         try {
           const results = await this.recallIndex.search(userMessage, 3);
           // Filter: distance threshold + skip chunks already in context window
@@ -200,6 +200,7 @@ export class Runtime {
               onEvent({
                 type: "recall",
                 recall: {
+                  query: userMessage,
                   chunks: relevant.length,
                   tokens: recallTokens,
                   results: relevant.map(r => ({ timestamp: r.timestamp, text: r.text, distance: r.distance })),
@@ -274,7 +275,7 @@ export class Runtime {
           onEvent({ type: "text-delta", text });
         } else if (part.type === "tool-call") {
           const args = ("args" in part ? part.args : part.input) as Record<string, unknown>;
-          const detail = String(args.path || args.command || args.pattern || args.url || args.action || args.userId || "");
+          const detail = String(args.path || args.command || args.pattern || args.url || args.action || args.userId || args.query || "");
           onEvent({ type: "tool-call", toolName: part.toolName, toolDetail: detail, toolInput: args });
         } else if (part.type === "tool-result") {
           const output = (part as any).output;

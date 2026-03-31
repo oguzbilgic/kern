@@ -1628,7 +1628,8 @@ function handleEvent(event) {
         const el = document.createElement('div');
         el.className = 'message recall';
         el.setAttribute('data-type', 'recall');
-        const summary = `📎 ${r.chunks} memor${r.chunks === 1 ? 'y' : 'ies'} recalled (~${r.tokens} tokens)`;
+        const queryPreview = r.query ? r.query.replace(/\[via [^\]]+\]\s*/g, '').slice(0, 80) : '';
+        const summary = `📎 ${r.chunks} memor${r.chunks === 1 ? 'y' : 'ies'} recalled (~${r.tokens} tokens)${queryPreview ? ` — "${escapeHtml(queryPreview)}"` : ''}`;
         const details = r.results.map(res => {
           const time = res.timestamp ? new Date(res.timestamp).toLocaleString() : '';
           const text = res.text.length > 300 ? res.text.slice(0, 300) + '...' : res.text;
