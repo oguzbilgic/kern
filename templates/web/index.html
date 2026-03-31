@@ -902,6 +902,7 @@
     <div style="display:flex;align-items:center;gap:4px;position:relative;">
       <button class="filter-btn" id="filter-btn" title="Filter messages">&#9881;</button>
       <div class="filter-dropdown" id="filter-dropdown"></div>
+      <button class="filter-btn" id="logout-btn" title="Logout" style="font-size:14px;">&#x23FB;</button>
       <button class="info-btn" id="info-btn" title="Agent info">&#8942;</button>
     </div>
   </div>
@@ -2049,6 +2050,11 @@ function renderFilterDropdown() {
     </div>`;
   }).join('');
 }
+
+$('logout-btn').addEventListener('click', () => {
+  localStorage.removeItem('kern_web_token');
+  location.reload();
+});
 
 $('filter-btn').addEventListener('click', (e) => {
   e.stopPropagation();
