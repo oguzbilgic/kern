@@ -126,7 +126,20 @@
   .modal-title {
     font-weight: 600;
     font-size: 15px;
+    margin-bottom: 4px;
+  }
+  .modal-desc {
+    font-size: 12px;
+    color: var(--text-muted);
     margin-bottom: 14px;
+    line-height: 1.4;
+  }
+  .modal-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    display: block;
   }
   .modal input {
     width: 100%;
@@ -924,22 +937,34 @@
   .switcher-hub-item .hub-name { font-size: 13px; color: var(--text-dim); }
   .switcher-hub-item .hub-meta { font-size: 11px; color: var(--text-muted); }
 
-  .hub-agent-list {
-    overflow: hidden; max-height: 0;
-    transition: max-height 0.2s ease;
+  .hub-modal { width: min(400px, 90vw); }
+  .hub-modal-stats {
+    display: flex; gap: 12px; margin-bottom: 14px;
   }
-  .hub-agent-list.open { max-height: 500px; }
-  .hub-agent-list .hub-agent {
+  .hub-stat {
+    flex: 1; padding: 10px 12px;
+    background: var(--bg); border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .hub-stat-value { font-size: 18px; font-weight: 600; color: var(--text); }
+  .hub-stat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .hub-modal-agents { margin-bottom: 8px; }
+  .hub-modal-agents-title {
+    font-size: 11px; font-weight: 600; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  .hub-agent-row {
     display: flex; align-items: center; gap: 8px;
-    padding: 5px 12px 5px 52px;
-    font-size: 12px; color: var(--text-dim);
+    padding: 6px 0; font-size: 13px; color: var(--text-dim);
   }
-  .hub-agent.offline { opacity: 0.4; }
-  .hub-agent .hub-agent-dot {
-    width: 6px; height: 6px; border-radius: 50%;
+  .hub-agent-row.offline { opacity: 0.4; }
+  .hub-agent-dot {
+    width: 7px; height: 7px; border-radius: 50%;
     background: var(--green); flex-shrink: 0;
   }
-  .hub-agent.offline .hub-agent-dot { background: var(--text-muted); }
+  .hub-agent-row.offline .hub-agent-dot { background: var(--text-muted); }
+  .hub-agent-id { margin-left: auto; font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
 </style>
 </head>
 <body>
@@ -976,11 +1001,26 @@
 <div class="modal-overlay" id="add-modal">
   <div class="modal">
     <div class="modal-title">Add server</div>
-    <input id="add-url" type="text" placeholder="http://host:port" />
-    <input id="add-token" type="password" placeholder="Web token" />
+    <div class="modal-desc">Manage agents and monitor hub on another machine.</div>
+    <label class="modal-label" for="add-url">Server URL</label>
+    <input id="add-url" type="text" placeholder="http://host:8080" />
+    <label class="modal-label" for="add-token">Token</label>
+    <input id="add-token" type="password" placeholder="Shown on kern web start" />
     <div class="modal-actions">
       <button class="btn-cancel" id="add-cancel-btn">Cancel</button>
-      <button class="btn-add" id="add-server-btn">Add</button>
+      <button class="btn-add" id="add-server-btn">Connect</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="hub-modal">
+  <div class="modal hub-modal">
+    <div class="modal-title">Hub</div>
+    <div class="modal-desc" id="hub-modal-url"></div>
+    <div class="hub-modal-stats" id="hub-modal-stats"></div>
+    <div class="hub-modal-agents" id="hub-modal-agents"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="hub-modal-close">Close</button>
     </div>
   </div>
 </div>
@@ -1376,6 +1416,65 @@ function avatarColor(name) {
 }
 
 // Render switcher panel — grouped by server
+async function showHubModal(hub, serverUrl) {
+  const modal = $('hub-modal');
+  const token = getServerToken(serverUrl);
+  const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+  // Fetch stats
+  let stats = null;
+  try {
+    const res = await fetch(`${serverUrl}/api/hub/stats`, { headers });
+    if (res.ok) stats = await res.json();
+  } catch {}
+
+  // Fetch hub status to get port
+  let hubUrl = serverUrl;
+  try {
+    const hubRes = await fetch(`${serverUrl}/api/hub`, { headers });
+    if (hubRes.ok) {
+      const hubData = await hubRes.json();
+      if (hubData.port) {
+        const u = new URL(serverUrl);
+        hubUrl = `${u.protocol}//${u.hostname}:${hubData.port}`;
+      }
+    }
+  } catch {}
+  $('hub-modal-url').textContent = hubUrl;
+
+  const statsEl = $('hub-modal-stats');
+  if (stats) {
+    const h = Math.floor(stats.uptime / 3600);
+    const m = Math.floor((stats.uptime % 3600) / 60);
+    const uptimeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+    statsEl.innerHTML = `
+      <div class="hub-stat"><div class="hub-stat-value">${stats.agents.online}/${stats.agents.registered}</div><div class="hub-stat-label">Agents online</div></div>
+      <div class="hub-stat"><div class="hub-stat-value">${stats.messages}</div><div class="hub-stat-label">Messages</div></div>
+      <div class="hub-stat"><div class="hub-stat-value">${uptimeStr}</div><div class="hub-stat-label">Uptime</div></div>
+    `;
+  } else {
+    statsEl.innerHTML = '';
+  }
+
+  const agentsEl = $('hub-modal-agents');
+  const agents = hub.agents || [];
+  agentsEl.innerHTML = `
+    <div class="hub-modal-agents-title">Connected agents</div>
+    ${agents
+      .sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0) || a.name.localeCompare(b.name))
+      .map(a => {
+        return `<div class="hub-agent-row${a.online ? '' : ' offline'}"><span class="hub-agent-dot"></span><span>${escapeHtml(a.name)}</span>${a.id ? `<span class="hub-agent-id">${escapeHtml(a.id)}</span>` : ''}</div>`;
+      })
+      .join('')}
+    ${agents.length === 0 ? '<div style="font-size:12px;color:var(--text-muted)">No agents connected</div>' : ''}
+  `;
+
+  modal.classList.add('open');
+}
+
+$('hub-modal-close').addEventListener('click', () => $('hub-modal').classList.remove('open'));
+$('hub-modal').addEventListener('click', (e) => { if (e.target === $('hub-modal')) $('hub-modal').classList.remove('open'); });
+
 function renderSwitcher() {
   const list = $('switcher-list');
   const agents = getAllAgents();
@@ -1462,10 +1561,9 @@ function renderSwitcher() {
           .map(ha => `<div class="hub-agent${ha.online ? '' : ' offline'}"><span class="hub-agent-dot"></span>${escapeHtml(ha.name)}</div>`)
           .join('');
         item.addEventListener('click', () => {
-          agentList.classList.toggle('open');
+          showHubModal(serverHub, serverUrl);
         });
         list.appendChild(item);
-        list.appendChild(agentList);
       }
     }
   }

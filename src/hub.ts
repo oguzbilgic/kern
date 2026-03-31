@@ -74,6 +74,7 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
 
   if (url === "/api/agents" && req.method === "GET") {
     const result = registry.map(a => ({
+      id: a.id,
       name: a.name,
       online: agents.has(a.name),
       publicKey: a.publicKey.replace(/-----BEGIN PUBLIC KEY-----\n|\n-----END PUBLIC KEY-----\n/g, "").trim(),
