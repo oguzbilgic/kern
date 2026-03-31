@@ -87,6 +87,12 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig): Pr
     parts.push(await readFile(kernMdPackage, "utf-8"));
   }
 
+  // Load KNOWLEDGE.md (memory index)
+  const knowledgePath = join(agentDir, "KNOWLEDGE.md");
+  if (existsSync(knowledgePath)) {
+    parts.push(await readFile(knowledgePath, "utf-8"));
+  }
+
   // Inject live runtime info
   const tools = getToolsForScope(config.toolScope);
   const toolDescriptions: Record<string, string> = {
