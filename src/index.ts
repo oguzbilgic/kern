@@ -43,7 +43,7 @@ async function showHelp() {
   w(`    ${cyan("kern restore")} ${dim("<file>")}         restore agent from backup`);
   w(`    ${cyan("kern logs")} ${dim("[name]")}            tail agent logs`);
   w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
-  w(`    ${cyan("kern web")} ${dim("<start|stop|status>")}  web UI server`);
+  w(`    ${cyan("kern web")} ${dim("<start|stop|status|token>")}  web UI server`);
   w("");
 }
 
@@ -267,15 +267,17 @@ async function main() {
 
   if (cmd === "web") {
     const subcmd = args[1]; // start, stop, status
-    const { webStart, webStop, webStatus } = await import("./web-daemon.js");
+    const { webStart, webStop, webStatus, webToken } = await import("./web-daemon.js");
     if (subcmd === "start") {
       await webStart();
     } else if (subcmd === "stop") {
       await webStop();
     } else if (subcmd === "status") {
       await webStatus();
+    } else if (subcmd === "token") {
+      await webToken();
     } else {
-      console.error("Usage: kern web <start|stop|status>");
+      console.error("Usage: kern web <start|stop|status|token>");
       process.exit(1);
     }
     return;

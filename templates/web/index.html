@@ -2097,6 +2097,16 @@ function showTokenPrompt() {
   });
 }
 
+// On load: check URL for token param, save and clean URL
+(function checkUrlToken() {
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token');
+  if (token) {
+    setLocalToken(token);
+    history.replaceState(null, '', location.pathname);
+  }
+})();
+
 // On load: discover agents, auto-connect or show switcher
 (async () => {
   let localStatus = await discoverAllAgents();
