@@ -972,7 +972,7 @@
   <div class="input-area">
     <div class="input-row">
       <div class="cmd-popup" id="cmd-popup"></div>
-      <textarea id="input" placeholder="Send a message..." rows="1" autofocus></textarea>
+      <textarea id="input" placeholder="Send a message..." rows="1" autofocus autocomplete="off" autocorrect="off" spellcheck="false" autocapitalize="off"></textarea>
       <button id="send" disabled>↑</button>
     </div>
   </div>
@@ -1570,6 +1570,7 @@ function setupSwitcher() {
 let busy = false;
 let streamingText = '';
 let streamingEl = null;
+let _streamRaf = 0;
 let connection = null;
 let authFailed = false;
 let intentionalClose = false;
@@ -1729,6 +1730,7 @@ function flushStreaming() {
   }
   streamingText = '';
   streamingEl = null;
+  if (_streamRaf) { cancelAnimationFrame(_streamRaf); _streamRaf = 0; }
 }
 
 function setBusy(b) {
@@ -1768,8 +1770,14 @@ function handleEvent(event) {
         streamingEl.classList.add('streaming-cursor');
       }
       streamingText += event.text || '';
-      streamingEl.innerHTML = renderMarkdown(streamingText);
-      scrollToBottom();
+      // Debounce render to avoid layout thrash on every delta (helps mobile input lag)
+      if (!_streamRaf) {
+        _streamRaf = requestAnimationFrame(() => {
+          _streamRaf = 0;
+          if (streamingEl) streamingEl.innerHTML = renderMarkdown(streamingText);
+          scrollToBottom();
+        });
+      }
       setBusy(true);
       break;
 
@@ -1946,13 +1954,19 @@ cmdPopup.addEventListener('click', (e) => {
 
 // --- Input ---
 
+let _inputRaf = 0;
 inputEl.addEventListener('input', () => {
-  // Auto-resize
-  inputEl.style.height = 'auto';
-  inputEl.style.height = inputEl.scrollHeight + 'px';
-  inputEl.style.overflowY = inputEl.scrollHeight > inputEl.offsetHeight ? 'auto' : 'hidden';
-  sendBtn.disabled = !inputEl.value.trim();
-  updateCmdPopup();
+  // Batch all DOM work into a single frame to avoid keystroke lag on mobile
+  if (!_inputRaf) {
+    _inputRaf = requestAnimationFrame(() => {
+      _inputRaf = 0;
+      sendBtn.disabled = !inputEl.value.trim();
+      updateCmdPopup();
+      inputEl.style.height = 'auto';
+      inputEl.style.height = inputEl.scrollHeight + 'px';
+      inputEl.style.overflowY = inputEl.scrollHeight > inputEl.offsetHeight ? 'auto' : 'hidden';
+    });
+  }
 });
 
 inputEl.addEventListener('keydown', (e) => {
