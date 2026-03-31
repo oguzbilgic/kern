@@ -98,7 +98,8 @@ export interface StatusData {
   promptTokens: number;
   completionTokens: number;
   queue: string;
-  interfaces: InterfaceStatus[];
+  telegram: string | null;
+  slack: string | null;
 }
 
 export function getStatusData(): StatusData {
@@ -128,7 +129,9 @@ export function getStatusData(): StatusData {
     ? qs.processing ? `busy (${qs.pending} pending)` : `idle (${qs.pending} pending)`
     : "unknown";
 
-  const interfaces = _getInterfaceStatuses ? _getInterfaceStatuses() : [];
+  const ifaces = _getInterfaceStatuses ? _getInterfaceStatuses() : [];
+  const tg = ifaces.find(i => i.name === "telegram");
+  const sl = ifaces.find(i => i.name === "slack");
 
   return {
     version: _version,
@@ -143,20 +146,19 @@ export function getStatusData(): StatusData {
     promptTokens: _totalPromptTokens,
     completionTokens: _totalCompletionTokens,
     queue: queueStr,
-    interfaces,
+    telegram: tg ? (tg.detail ? `${tg.status} (${tg.detail})` : tg.status) : null,
+    slack: sl ? (sl.detail ? `${sl.status} (${sl.detail})` : sl.status) : null,
   };
 }
 
 export function formatStatus(data: StatusData): string {
-  const ifaceStr = data.interfaces.length > 0
-    ? data.interfaces.map(i => `${i.name}: ${i.status}${i.detail ? ` (${i.detail})` : ""}`).join(", ")
-    : "none";
   return [
     `kern: ${data.version}`,
     `agent: ${data.agent}`,
     `model: ${data.provider}/${data.model}`,
     `toolScope: ${data.toolScope}`,
-    `interfaces: ${ifaceStr}`,
+    data.telegram ? `telegram: ${data.telegram}` : "",
+    data.slack ? `slack: ${data.slack}` : "",
     `session: ${data.session}`,
     data.context ? `context: ${data.context}` : "",
     `api usage: ${data.apiUsage}`,
