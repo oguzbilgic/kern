@@ -221,12 +221,17 @@ wss.on("connection", (ws) => {
       }
 
       // Route by ID
+      const registered = registry.find(a => a.id === to);
+      if (!registered) {
+        ws.send(JSON.stringify({ type: "error", error: "not_found", detail: `agent '${to}' is not registered` }));
+        return;
+      }
       let target: Agent | undefined;
       for (const a of agents.values()) {
         if (a.id === to) { target = a; break; }
       }
       if (!target) {
-        ws.send(JSON.stringify({ type: "error", error: `agent '${to}' not found` }));
+        ws.send(JSON.stringify({ type: "error", error: "offline", detail: `agent '${registered.name}' (${to}) is offline` }));
         return;
       }
 

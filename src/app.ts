@@ -266,7 +266,10 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
         const trimmed = (response || "").trim();
         const suppress = !trimmed || trimmed.includes("NO_REPLY") || trimmed === "(no text response)";
         if (!suppress) {
-          await hubInterface!.sendMessage(msg.userId, response);
+          const result = await hubInterface!.sendMessage(msg.userId, response);
+          if (!result.ok) {
+            log("hub", `reply failed to ${msg.userId}: ${result.error} — ${result.detail}`);
+          }
         }
         return response;
       } catch (e: any) {
@@ -329,16 +332,18 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
         await pairing.autoPairFirst(userId, "hub", userId);
         log("hub", `auto-paired ${userId} (outgoing message)`);
       }
-      const sent = await _hubInterface.sendMessage(userId, text);
-      if (sent) {
+      const result = await _hubInterface.sendMessage(userId, text);
+      if (result.ok) {
         server.broadcast({
           type: "outgoing" as any,
           text,
           fromInterface: iface,
           fromUserId: userId,
         });
+      } else {
+        log("hub", `delivery failed to ${userId}: ${result.error} — ${result.detail}`);
       }
-      return sent;
+      return result;
     }
     return false;
   });

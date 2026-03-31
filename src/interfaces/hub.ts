@@ -58,10 +58,21 @@ export class HubInterface {
     return this.myId;
   }
 
-  async sendMessage(userId: string, text: string): Promise<boolean> {
-    if (!this.ws || !this.connected) return false;
-    this.ws.send(JSON.stringify({ type: "message", to: userId, text }));
-    return true;
+  private pendingDelivery: { resolve: (v: { ok: boolean; error?: string; detail?: string }) => void } | null = null;
+
+  async sendMessage(userId: string, text: string): Promise<{ ok: boolean; error?: string; detail?: string }> {
+    if (!this.ws || !this.connected) return { ok: false, error: "disconnected", detail: "not connected to hub" };
+    return new Promise((resolve) => {
+      this.pendingDelivery = { resolve };
+      this.ws!.send(JSON.stringify({ type: "message", to: userId, text }));
+      // Timeout after 5s
+      setTimeout(() => {
+        if (this.pendingDelivery?.resolve === resolve) {
+          this.pendingDelivery = null;
+          resolve({ ok: false, error: "timeout", detail: "no response from hub" });
+        }
+      }, 5000);
+    });
   }
 
   // Send pairing confirmation to another agent
@@ -176,10 +187,18 @@ export class HubInterface {
 
 
         case "delivered":
+          if (this.pendingDelivery) {
+            this.pendingDelivery.resolve({ ok: true });
+            this.pendingDelivery = null;
+          }
           break;
 
         case "error":
-          log("hub", `error: ${msg.error}`);
+          log("hub", `error: ${msg.error} — ${msg.detail || ""}`);
+          if (this.pendingDelivery) {
+            this.pendingDelivery.resolve({ ok: false, error: msg.error, detail: msg.detail });
+            this.pendingDelivery = null;
+          }
           break;
       }
     });
