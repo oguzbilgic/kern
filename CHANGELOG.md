@@ -1,21 +1,21 @@
 # Changelog
 
-## Next
+## v0.14.1
 
 ### Fixes
-- **Silent error fix** — streamText errors (e.g. credit limits, auth failures) now surface to the user instead of silent empty responses.
-- **Focus input on agent switch** — cursor moves to the text input when switching agents.
+- Errors (credit limits, auth failures) now surface to the user instead of silent empty responses.
 
-### Changes
-- Sidebar footer with Docs link, GitHub icon, and kern version.
-- Kern logo links to kern-ai.com. Docs link points to kern-ai.com/docs.
-- Cleaner tool styling — borderless, rounded. Bash shows `$ command` instead of `▶ bash command`.
-- User messages — no accent border, fully rounded.
-- Darker tool background — tools and output share consistent bg.
-- Removed "connected" system message on load.
+### Web UI
+- Sidebar footer with Docs, GitHub, and version.
+- Logo links to kern-ai.com. Docs link points to kern-ai.com/docs.
+- Cleaner tool styling — borderless, rounded. Bash shows `$ command`.
+- User messages — no border, fully rounded.
+- Darker tool background.
+- Focus input on agent switch.
+- Removed "connected" system message.
 
 ### Docs
-- Get Started guide added.
+- Get Started guide.
 - `docs/` included in npm package.
 
 ---
