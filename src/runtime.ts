@@ -286,6 +286,11 @@ export class Runtime {
 
       log("runtime", `stream finished, text length: ${fullText.length}`);
 
+      // If the stream had an error and produced no output, throw to hit error handler
+      if (streamError && fullText.length === 0) {
+        throw streamError;
+      }
+
       try {
         const usage = await result.totalUsage;
         addTokenUsage(usage.inputTokens || 0, usage.outputTokens || 0);
