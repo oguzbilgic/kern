@@ -56,6 +56,8 @@ You also have implicit memory via the `recall` tool — semantic search over all
 
 Two modes: search (semantic query with optional date filters) and load (fetch raw messages by index).
 
+You may also see `<recall>` blocks injected at the top of your context automatically — these are past conversations retrieved because they seem relevant to the current message. You didn't request them; they're there to help you remember.
+
 ### Heartbeat
 The runtime sends you a `[heartbeat]` message periodically (default every 60 minutes, configurable via `heartbeatInterval` in `.kern/config.json`). When you receive one:
 

@@ -72,7 +72,8 @@ export class RecallIndex {
         msg_end INTEGER NOT NULL,
         text TEXT NOT NULL,
         timestamp TEXT NOT NULL,
-        token_count INTEGER NOT NULL
+        token_count INTEGER NOT NULL,
+        UNIQUE(session_id, msg_start, msg_end)
       );
 
       CREATE TABLE IF NOT EXISTS index_state (
@@ -175,7 +176,7 @@ export class RecallIndex {
 
     // Insert chunks + embeddings
     const insertChunk = this.db.prepare(
-      "INSERT INTO chunks (session_id, msg_start, msg_end, text, timestamp, token_count) VALUES (?, ?, ?, ?, ?, ?)"
+      "INSERT OR IGNORE INTO chunks (session_id, msg_start, msg_end, text, timestamp, token_count) VALUES (?, ?, ?, ?, ?, ?)"
     );
     const insertVec = this.db.prepare(
       "INSERT INTO vec_chunks (rowid, embedding) VALUES (?, ?)"
@@ -196,6 +197,7 @@ export class RecallIndex {
           chunk.timestamp,
           chunk.token_count
         );
+        if (info.changes === 0) continue; // duplicate chunk, skip vec insert
         const chunkId = typeof info.lastInsertRowid === "bigint" ? info.lastInsertRowid : BigInt(info.lastInsertRowid);
         insertVec.run(chunkId, new Float32Array(embeddings[i]));
         indexed++;

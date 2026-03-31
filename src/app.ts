@@ -83,6 +83,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     try {
       recallIndex = new RecallIndex(agentDir, config.provider);
       setRecallIndex(recallIndex);
+      runtime.setRecallIndex(recallIndex);
       setRecallStatsFn(() => {
         if (!recallIndex) return null;
         const stats = recallIndex.getStats();

@@ -351,6 +351,7 @@
   .messages.hide-heartbeat .from-heartbeat { display: none; }
   .messages.hide-heartbeat .timestamp.from-heartbeat { display: none; }
   .messages.hide-tools .message.tool { display: none; }
+  .messages.hide-tools .message.recall { display: none; }
   .messages.hide-incoming .from-incoming { display: none; }
   .messages.hide-incoming .timestamp.from-incoming { display: none; }
   .messages.hide-system .message.system { display: none; }
@@ -475,6 +476,30 @@
   .message.tool.expanded .tool-output { display: block; }
   .message.tool .diff-line-old { color: var(--red); }
   .message.tool .diff-line-new { color: var(--green); }
+  .message.recall {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 4px 12px;
+    cursor: pointer;
+  }
+  .message.recall .recall-header { display: flex; align-items: center; gap: 6px; }
+  .message.recall .recall-summary { font-weight: 500; }
+  .message.recall .recall-details {
+    display: none;
+    margin-top: 8px;
+    padding: 8px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: pre-wrap;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  .message.recall.expanded .recall-details { display: block; }
+  .message.recall.expanded .tool-arrow { transform: rotate(90deg); }
+  .message.recall .recall-chunk { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .message.recall .recall-chunk:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .message.recall .recall-time { color: var(--text-muted); font-size: 11px; }
   .message.error {
     align-self: flex-start;
     background: rgba(248,81,73,0.1);
@@ -1592,6 +1617,28 @@ function handleEvent(event) {
         }
       }
       // Agent is thinking about what to do next — show dots
+      showThinking();
+      break;
+    }
+
+    case 'recall': {
+      hideThinking();
+      const r = event.recall;
+      if (r && r.chunks > 0) {
+        const el = document.createElement('div');
+        el.className = 'message recall';
+        el.setAttribute('data-type', 'recall');
+        const summary = `📎 ${r.chunks} memor${r.chunks === 1 ? 'y' : 'ies'} recalled (~${r.tokens} tokens)`;
+        const details = r.results.map(res => {
+          const time = res.timestamp ? new Date(res.timestamp).toLocaleString() : '';
+          const text = res.text.length > 300 ? res.text.slice(0, 300) + '...' : res.text;
+          return `<div class="recall-chunk"><span class="recall-time">${escapeHtml(time)}</span>\n${escapeHtml(text)}</div>`;
+        }).join('');
+        el.innerHTML = `<div class="recall-header"><span class="tool-arrow">&#9654;</span><span class="recall-summary">${summary}</span></div><div class="recall-details">${details}</div>`;
+        el.addEventListener('click', () => el.classList.toggle('expanded'));
+        messagesEl.appendChild(el);
+        scrollToBottom();
+      }
       showThinking();
       break;
     }
