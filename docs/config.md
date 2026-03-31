@@ -26,12 +26,14 @@ The main config file. Committed to git.
 | `maxContextTokens` | `40000` | Estimated token budget for context window. Messages beyond this are trimmed from the front (oldest first). Full history stays in JSONL. |
 | `heartbeatInterval` | `60` | Minutes between heartbeat prompts. Agent reviews notes, updates knowledge. 0 to disable. |
 | `host` | `0.0.0.0` | Bind address for the agent's HTTP API. Default binds to all interfaces. Set to `127.0.0.1` for localhost only. |
+| `recall` | `true` | Enable recall (long-term memory). Set to `false` to disable. Requires an embedding API key. |
+| `autoRecall` | `false` | Automatically inject relevant old context before each turn. Requires recall enabled. |
 
 ### Tool scopes
 
-- **full** — bash, read, write, edit, glob, grep, webfetch, kern, message
-- **write** — read, write, edit, glob, grep, webfetch, kern, message
-- **read** — read, glob, grep, webfetch, kern
+- **full** — bash, read, write, edit, glob, grep, webfetch, kern, message, recall
+- **write** — read, write, edit, glob, grep, webfetch, kern, message, recall
+- **read** — read, glob, grep, webfetch, kern, recall
 
 ### Providers
 
@@ -85,6 +87,10 @@ Global settings for the `kern web` server. Optional — defaults apply if the fi
 Agent registry. Managed automatically — do not edit by hand.
 
 Tracks all registered agents with their name, path, PID, port, and auth token. Updated when agents start/stop.
+
+## .kern/recall.db
+
+SQLite database with sqlite-vec extension for the recall tool. Contains three tables: `messages` (raw message content), `chunks` (turn-level summaries), and `vec_chunks` (embeddings). Auto-created on first start. Gitignored. Safe to delete — will be rebuilt on next start from session JSONL files.
 
 ## .kern/sessions/
 

@@ -1,6 +1,6 @@
 # Tools
 
-kern provides 10 built-in tools. Availability depends on `toolScope` in config.
+kern provides 11 built-in tools. Availability depends on `toolScope` in config.
 
 ## bash
 
@@ -100,3 +100,64 @@ message({ userId: "12345", interface: "telegram", text: "Hello!" })
 - `interface` — `telegram` or `slack`
 - Looks up chatId from pairing data
 - Broadcasts outgoing event to TUI
+
+## recall
+
+Search long-term memory for old conversations outside the current context window. Two modes:
+
+### Search mode
+
+```
+recall({ query: "pfSense firewall rules", limit: 5, after: "2026-03-25", before: "2026-03-28" })
+```
+
+- `query` — semantic search query
+- `limit` — max results (default 5)
+- `after` — only results after this date (ISO 8601 or YYYY-MM-DD)
+- `before` — only results before this date
+
+Returns matching conversation chunks with distance score, timestamp, session ID, and message range.
+
+### Load mode
+
+```
+recall({ sessionId: "96fbe7c5-...", messageStart: 100, messageEnd: 110 })
+```
+
+- `sessionId` — session to load from
+- `messageStart` / `messageEnd` — message index range
+
+Returns raw messages for a specific range — use after search to get full context around a hit.
+
+### How it works
+
+On startup, kern indexes the current session's messages into a local sqlite-vec database (`.kern/recall.db`). Indexing runs in the background — the agent is available immediately while the index builds. Raw messages are stored in sqlite alongside embedded chunks, so retrieval doesn't need to read session files.
+
+Messages are chunked by turn (user→assistant pairs), embedded via `text-embedding-3-small`, and stored as vectors. After each turn, new messages are incrementally indexed — only new lines are parsed.
+
+Search uses cosine similarity (KNN) to find the most relevant past conversation chunks.
+
+Check indexing status via `kern({ action: "status" })` — the `recall` field shows message/chunk counts and whether the index is still building.
+
+### Requirements
+
+Requires an API key for the configured provider (used for embeddings). Uses `text-embedding-3-small` (1536 dimensions).
+
+### Auto-recall
+
+When `"autoRecall": true` is set in config, kern automatically injects relevant old context before each turn:
+
+- Embeds the user's message and searches the recall index (top 3 results, distance < 0.95)
+- Skips chunks already visible in the current context window
+- Injects a `<recall>` block at the top of the context (ephemeral — not persisted to session)
+- Capped at ~2000 tokens to avoid bloating context
+
+The web UI shows a collapsible `📎 N memories recalled` block with the search query and chunk details.
+
+Auto-recall only fires when messages have been trimmed from context (long sessions). Short sessions with everything in context don't trigger it.
+
+### Opt-out
+
+Set `"recall": false` in `.kern/config.json` to disable recall entirely.
+
+Set `"autoRecall": false` (or omit it) to disable auto-injection while keeping the recall search tool available.

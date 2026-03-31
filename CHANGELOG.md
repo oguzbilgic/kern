@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.13.0
+
+### Features
+- **Recall tool** — semantic search over past conversations outside the current context window. Agents can now remember things from weeks ago.
+  - **Search mode** — query by meaning, get ranked results with distance scores. Optional `before`/`after` date filters.
+  - **Load mode** — fetch raw messages by session ID and index range for full context around a search hit.
+  - **Messages in sqlite** — raw messages stored in recall.db alongside embedded chunks. Load mode reads from sqlite, no JSONL parsing on retrieval.
+  - **Non-blocking backfill** — index builds in background on startup. Agent is available immediately. Status shows `(building)` until complete.
+  - **Incremental indexing** — only new JSONL lines are parsed after each turn. No full-file re-reads.
+  - **sqlite-vec** — local vector database using sqlite-vec extension. No external services needed.
+  - **Turn-based chunking** — messages chunked by user→assistant turns, embedded via `text-embedding-3-small` (1536 dimensions).
+  - **Recall in status** — `kern({ action: "status" })` and web UI show message/chunk counts and build state.
+  - **Opt-out** — set `"recall": false` in config to disable.
+  - 11 built-in tools (was 10).
+- **Auto-recall** — before each turn, relevant old context is automatically injected into the sliding window.
+  - Embeds user message, searches recall index (top 3, distance < 0.95).
+  - Skips chunks already visible in context window (dedup by message index).
+  - Injects `<recall>` block at top of context (ephemeral, not persisted to session).
+  - Capped at ~2000 tokens.
+  - Web UI shows collapsible `📎 N memories recalled` with query and chunk details.
+  - **Opt-in** — set `"autoRecall": true` in config to enable.
+- **KNOWLEDGE.md in system prompt** — memory index file is now loaded into the system prompt automatically, so agents know what state files exist without being told.
+
 ## v0.12.0
 
 ### Features

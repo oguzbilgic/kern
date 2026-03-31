@@ -12,8 +12,10 @@ import { registerAgent, setPortAndToken } from "./registry.js";
 import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
+import { setRecallIndex } from "./tools/recall.js";
+import { RecallIndex } from "./recall.js";
 import { MessageQueue } from "./queue.js";
-import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, type InterfaceStatus } from "./tools/kern.js";
+import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, type InterfaceStatus } from "./tools/kern.js";
 import { log } from "./log.js";
 
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
@@ -74,6 +76,39 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   const runtime = new Runtime(agentDir);
   await runtime.init();
 
+  // Initialize recall index (opt-out via "recall": false in config)
+  let recallIndex: RecallIndex | null = null;
+  let recallBuilding = false;
+  if ((config as any).recall !== false) {
+    try {
+      recallIndex = new RecallIndex(agentDir, config.provider);
+      setRecallIndex(recallIndex);
+      runtime.setRecallIndex(recallIndex);
+      setRecallStatsFn(() => {
+        if (!recallIndex) return null;
+        const stats = recallIndex.getStats();
+        return { ...stats, building: recallBuilding };
+      });
+
+      // Backfill in background — don't block startup
+      const sessionId = runtime.getSessionId();
+      if (sessionId) {
+        recallBuilding = true;
+        recallIndex.indexSession(sessionId).then((indexed) => {
+          recallBuilding = false;
+          if (indexed > 0) {
+            log("recall", `backfilled ${indexed} chunks`);
+          }
+        }).catch((err) => {
+          recallBuilding = false;
+          log("recall", `backfill failed: ${err.message}`);
+        });
+      }
+    } catch (err: any) {
+      log("recall", `init failed: ${err.message} — recall disabled`);
+    }
+  }
+
   const agentName = basename(agentDir);
   await registerAgent(agentName, agentDir);
   process.chdir(agentDir);
@@ -130,10 +165,22 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       }));
     });
 
-    return runtime.handleMessage(context, (event: StreamEvent) => {
+    const result = await runtime.handleMessage(context, (event: StreamEvent) => {
       server.broadcast(event);
       msg.onEvent?.(event);
     });
+
+    // Index new messages for recall (async, non-blocking)
+    if (recallIndex) {
+      const sessionId = runtime.getSessionId();
+      if (sessionId) {
+        recallIndex.indexSession(sessionId).catch((err) => {
+          log("recall", `indexing failed: ${err.message}`);
+        });
+      }
+    }
+
+    return result;
   });
 
   // Helper to enqueue from any interface

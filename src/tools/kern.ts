@@ -18,6 +18,7 @@ let _reloadFn: (() => Promise<void>) | null = null;
 let _pairingManager: any = null;
 let _getQueueStatus: (() => { processing: boolean; pending: number; activeChannel: string | null }) | null = null;
 let _getInterfaceStatuses: (() => InterfaceStatus[]) | null = null;
+let _getRecallStats: (() => { chunks: number; sessions: number; messages: number; building: boolean } | null) | null = null;
 
 export function setQueueStatusFn(fn: () => { processing: boolean; pending: number; activeChannel: string | null }) {
   _getQueueStatus = fn;
@@ -25,6 +26,10 @@ export function setQueueStatusFn(fn: () => { processing: boolean; pending: numbe
 
 export function setInterfaceStatusFn(fn: () => InterfaceStatus[]) {
   _getInterfaceStatuses = fn;
+}
+
+export function setRecallStatsFn(fn: () => { chunks: number; sessions: number; messages: number; building: boolean } | null) {
+  _getRecallStats = fn;
 }
 
 export async function initKernTool(opts: {
@@ -100,6 +105,7 @@ export interface StatusData {
   queue: string;
   telegram: string | null;
   slack: string | null;
+  recall: string | null;
 }
 
 export function getStatusData(): StatusData {
@@ -148,6 +154,10 @@ export function getStatusData(): StatusData {
     queue: queueStr,
     telegram: tg ? (tg.detail ? `${tg.status} (${tg.detail})` : tg.status) : null,
     slack: sl ? (sl.detail ? `${sl.status} (${sl.detail})` : sl.status) : null,
+    recall: _getRecallStats ? (() => {
+      const rs = _getRecallStats!();
+      return rs ? `${rs.messages} messages, ${rs.chunks} chunks${rs.building ? " (building)" : ""}` : "disabled";
+    })() : null,
   };
 }
 
@@ -161,6 +171,7 @@ export function formatStatus(data: StatusData): string {
     data.slack ? `slack: ${data.slack}` : "",
     `session: ${data.session}`,
     data.context ? `context: ${data.context}` : "",
+    data.recall ? `recall: ${data.recall}` : "",
     `api usage: ${data.apiUsage}`,
     `queue: ${data.queue}`,
     `uptime: ${data.uptime}`,
