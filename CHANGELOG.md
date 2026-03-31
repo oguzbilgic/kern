@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.14.0
+
+### Features
+- **Web proxy** — `kern web` now proxies all agent API requests. Browser never talks to agents directly.
+  - Routes: `/api/agents/:name/status`, `/api/agents/:name/message`, `/api/agents/:name/events`, `/api/agents/:name/history`, `/api/agents/:name/health`.
+  - Agent HTTP servers bind to `127.0.0.1` — only reachable locally via proxy.
+  - Proxy injects agent auth tokens automatically — web UI never sees them.
+- **Web auth** — `KERN_WEB_TOKEN` auto-generated on first `kern web start`, stored in `~/.kern/.env`.
+  - All `/api/*` routes require Bearer token or `?token=` query param.
+  - Static HTML/PWA files remain public.
+  - Web UI prompts with a modal on first visit. Token saved to localStorage.
+  - Logout button in sidebar header clears token and returns to auth prompt.
+- **`kern web token`** — print the web UI URL with auth token anytime.
+- **`kern web start` prints token** — always shows the URL with token on start and when already running.
+- **Multi-server discovery** — web UI sidebar groups agents by server.
+  - Local agents shown first, remote servers shown with hostname header.
+  - "Add server" modal with URL + token fields.
+  - Remove button on remote server headers.
+  - Servers stored as `{url, token}` objects in localStorage.
+
+### Changes
+- Agents bind `127.0.0.1` instead of `0.0.0.0` — no longer directly accessible over the network.
+- Web UI no longer stores or manages per-agent tokens. Auth is at the proxy level.
+- Agent discovery returns name and running state only — no port or token exposed.
+
 ## v0.13.0
 
 ### Features
