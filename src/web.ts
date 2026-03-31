@@ -17,15 +17,34 @@
  */
 
 import { createServer, request as httpRequest, type IncomingMessage, type ServerResponse } from "http";
-import { readFile } from "fs/promises";
+import { readFile, appendFile } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 import { homedir } from "os";
+import { randomBytes } from "crypto";
 import { isProcessRunning, type AgentEntry } from "./registry.js";
 import { loadGlobalConfig } from "./global-config.js";
 
 const KERN_DIR = join(homedir(), ".kern");
 const AGENTS_FILE = join(KERN_DIR, "agents.json");
+const ENV_FILE = join(KERN_DIR, ".env");
+
+/** Load or auto-generate the web auth token from ~/.kern/.env */
+async function getWebToken(): Promise<string> {
+  // Check existing .env
+  if (existsSync(ENV_FILE)) {
+    const content = await readFile(ENV_FILE, "utf-8");
+    const match = content.match(/^KERN_WEB_TOKEN=(.+)$/m);
+    if (match) return match[1].trim();
+  }
+  // Generate and persist
+  const token = randomBytes(16).toString("hex");
+  await appendFile(ENV_FILE, `${existsSync(ENV_FILE) ? "\n" : ""}KERN_WEB_TOKEN=${token}\n`);
+  log(`generated web token: ${token.slice(0, 8)}...`);
+  return token;
+}
+
+let webToken: string;
 
 async function loadAgents(): Promise<AgentEntry[]> {
   if (!existsSync(AGENTS_FILE)) return [];
@@ -124,6 +143,17 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
+  // Auth check — all /api/* routes require web token
+  if (url.startsWith("/api/")) {
+    const authHeader = req.headers.authorization;
+    const queryToken = new URL(rawUrl, "http://localhost").searchParams.get("token");
+    if (authHeader !== `Bearer ${webToken}` && queryToken !== webToken) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "unauthorized" }));
+      return;
+    }
+  }
+
   // Agent list API — returns agents (no port/token — proxy handles auth)
   if (url === "/api/agents" && req.method === "GET") {
     const agents = await loadAgents();
@@ -162,6 +192,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 });
 
 async function start() {
+  webToken = await getWebToken();
   const config = await loadGlobalConfig();
   server.listen(config.web_port, config.web_host, () => {
     log(`listening on ${config.web_host}:${config.web_port}`);

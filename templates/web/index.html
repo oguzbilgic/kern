@@ -873,6 +873,7 @@
   <div class="modal">
     <div class="modal-title">Add server</div>
     <input id="add-url" type="text" placeholder="http://host:port" />
+    <input id="add-token" type="password" placeholder="Web token" />
     <div class="modal-actions">
       <button class="btn-cancel" id="add-cancel-btn">Cancel</button>
       <button class="btn-add" id="add-server-btn">Add</button>
@@ -1217,12 +1218,24 @@ $('info-btn').addEventListener('click', async () => {
 // Agent Switcher
 // ==========================================================================
 
-// Servers — stored in localStorage (remote kern web URLs)
+// Servers — stored in localStorage as [{url, token}]
 function getSavedServers() {
   try { return JSON.parse(localStorage.getItem('kern_servers') || '[]'); } catch { return []; }
 }
 function saveServers(servers) {
   localStorage.setItem('kern_servers', JSON.stringify(servers));
+}
+// Get token for a server URL (local or remote)
+function getServerToken(serverUrl) {
+  if (serverUrl === location.origin) {
+    return localStorage.getItem('kern_web_token') || null;
+  }
+  const servers = getSavedServers();
+  const entry = servers.find(s => s.url === serverUrl);
+  return entry ? entry.token : null;
+}
+function setLocalToken(token) {
+  localStorage.setItem('kern_web_token', token);
 }
 function getActiveAgent() {
   return sessionStorage.getItem('kern_active_agent') || null;
@@ -1264,7 +1277,7 @@ function renderSwitcher() {
     const remoteServers = getSavedServers();
     for (const [serverUrl, serverAgents] of groups) {
       const isLocal = serverUrl === location.origin;
-      const isRemote = remoteServers.includes(serverUrl);
+      const isRemote = remoteServers.some(s => s.url === serverUrl);
       // Server header for remote servers
       if (!isLocal) {
         const header = document.createElement('div');
@@ -1280,7 +1293,7 @@ function renderSwitcher() {
           removeBtn.style.display = 'inline';
           removeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            saveServers(remoteServers.filter(s => s !== serverUrl));
+            saveServers(remoteServers.filter(s => s.url !== serverUrl));
             allAgents = allAgents.filter(a => a.server !== serverUrl);
             renderSwitcher();
           });
@@ -1325,7 +1338,7 @@ function renderSwitcher() {
 function switchToAgent(agent) {
   setActiveAgent(agent.name);
   BASE_URL = agent.url;
-  AUTH_TOKEN = null;
+  AUTH_TOKEN = getServerToken(agent.server || location.origin);
   authFailed = false;
   intentionalClose = true;
   if (connection) { connection.close(); connection = null; }
@@ -1378,7 +1391,10 @@ if (localStorage.getItem('kern_sidebar_collapsed') === '1' && window.innerWidth 
 // Fetch agents from a server URL, returns array of agent objects
 async function fetchServerAgents(serverUrl) {
   try {
-    const res = await fetch(`${serverUrl}/api/agents`);
+    const token = getServerToken(serverUrl);
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    const res = await fetch(`${serverUrl}/api/agents`, { headers });
+    if (res.status === 401) return [];
     if (!res.ok) return [];
     const agents = await res.json();
     if (!Array.isArray(agents)) return [];
@@ -1394,7 +1410,7 @@ async function fetchServerAgents(serverUrl) {
 // Discover agents from local server + all saved remote servers
 async function discoverAllAgents() {
   const localUrl = location.origin;
-  const remoteUrls = getSavedServers();
+  const remoteUrls = getSavedServers().map(s => s.url);
   const fetches = [localUrl, ...remoteUrls].map(url => fetchServerAgents(url));
   const results = await Promise.all(fetches);
   allAgents = results.flat();
@@ -1416,20 +1432,28 @@ function setupSwitcher() {
   });
   $('add-server-btn').addEventListener('click', async () => {
     const url = $('add-url').value.trim().replace(/\/$/, '');
+    const token = $('add-token').value.trim() || null;
     if (!url) return;
+    // Save token first so fetchServerAgents can use it
+    const servers = getSavedServers();
+    const existing = servers.findIndex(s => s.url === url);
+    if (existing >= 0) {
+      servers[existing] = { url, token };
+    } else {
+      servers.push({ url, token });
+    }
+    saveServers(servers);
     // Validate by fetching agents
     const agents = await fetchServerAgents(url);
     if (agents.length === 0) {
+      // Remove if validation failed
+      saveServers(servers.filter(s => s.url !== url));
       $('add-url').style.borderColor = 'var(--red)';
       setTimeout(() => $('add-url').style.borderColor = '', 2000);
       return;
     }
-    const servers = getSavedServers();
-    if (!servers.includes(url)) {
-      servers.push(url);
-      saveServers(servers);
-    }
     $('add-url').value = '';
+    $('add-token').value = '';
     $('add-modal').classList.remove('open');
     await discoverAllAgents();
     renderSwitcher();
@@ -1437,11 +1461,13 @@ function setupSwitcher() {
   $('add-cancel-btn').addEventListener('click', () => {
     $('add-modal').classList.remove('open');
     $('add-url').value = '';
+    $('add-token').value = '';
   });
   $('add-modal').addEventListener('click', (e) => {
     if (e.target === $('add-modal')) {
       $('add-modal').classList.remove('open');
       $('add-url').value = '';
+      $('add-token').value = '';
     }
   });
 }
@@ -1863,7 +1889,6 @@ async function init() {
     const res = await fetch(`${BASE_URL}/status`, { headers: AgentClient._headers(AUTH_TOKEN) });
     if (res.status === 401) {
       authFailed = true;
-      localStorage.removeItem('kern_auth_token');
       setConnected('disconnected');
       agentNameEl.textContent = 'kern';
       // Show token input prompt
@@ -1871,8 +1896,8 @@ async function init() {
       const prompt = document.createElement('div');
       prompt.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;';
       prompt.innerHTML = `
-        <div style="color:var(--text-dim);font-size:14px;">Enter auth token</div>
-        <input id="token-input" type="password" placeholder="KERN_AUTH_TOKEN"
+        <div style="color:var(--text-dim);font-size:14px;">Enter web token</div>
+        <input id="token-input" type="password" placeholder="KERN_WEB_TOKEN"
           style="background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;width:280px;outline:none;font-family:var(--font-sans);" />
         <button id="token-submit"
           style="background:var(--accent-dim);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;">Connect</button>
@@ -1884,7 +1909,7 @@ async function init() {
       function submitToken() {
         const val = tokenInput.value.trim();
         if (!val) return;
-        localStorage.setItem('kern_auth_token', val);
+        setLocalToken(val);
         AUTH_TOKEN = val;
         authFailed = false;
         messagesEl.innerHTML = '';
@@ -2073,7 +2098,7 @@ applyFilters();
   if (activeAgent) {
     // Resume previous agent
     BASE_URL = activeAgent.url;
-    AUTH_TOKEN = null;
+    AUTH_TOKEN = getServerToken(activeAgent.server || location.origin);
     init();
   } else if (runningAgents.length === 1) {
     // Only one running agent — auto-connect
