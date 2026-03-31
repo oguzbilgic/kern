@@ -10,8 +10,7 @@ The main config file. Committed to git.
   "provider": "openrouter",
   "toolScope": "full",
   "maxSteps": 30,
-  "maxContextTokens": 40000,
-  "host": "0.0.0.0"
+  "maxContextTokens": 40000
 }
 ```
 
@@ -25,7 +24,6 @@ The main config file. Committed to git.
 | `maxSteps` | `30` | Max tool-use steps per message |
 | `maxContextTokens` | `40000` | Estimated token budget for context window. Messages beyond this are trimmed from the front (oldest first). Full history stays in JSONL. |
 | `heartbeatInterval` | `60` | Minutes between heartbeat prompts. Agent reviews notes, updates knowledge. 0 to disable. |
-| `host` | `127.0.0.1` | Bind address for the agent's HTTP API. Default binds to localhost only — accessed via the web proxy. |
 | `recall` | `true` | Enable recall (long-term memory). Set to `false` to disable. Requires an embedding API key. |
 | `autoRecall` | `false` | Automatically inject relevant old context before each turn. Requires recall enabled. |
 

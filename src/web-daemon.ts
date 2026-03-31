@@ -1,10 +1,9 @@
 import { spawn } from "child_process";
-import { readFile, writeFile, unlink, mkdir } from "fs/promises";
+import { readFile, writeFile, unlink, mkdir, appendFile } from "fs/promises";
 import { join } from "path";
 import { existsSync, openSync } from "fs";
 import { homedir } from "os";
 import { randomBytes } from "crypto";
-import { appendFile } from "fs/promises";
 import { isProcessRunning } from "./registry.js";
 import { loadGlobalConfig } from "./global-config.js";
 

@@ -96,6 +96,9 @@ function proxyToAgent(req: IncomingMessage, res: ServerResponse, agent: AgentEnt
     }
   });
 
+  // Abort proxy request if client disconnects (important for SSE streams)
+  res.on("close", () => proxyReq.destroy());
+
   // Pipe request body (for POST /message)
   req.pipe(proxyReq);
 }

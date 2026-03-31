@@ -157,12 +157,9 @@ Structured, colored logs for queue, runtime, interfaces, and server. Logs stored
   "model": "anthropic/claude-opus-4.6",
   "provider": "openrouter",
   "toolScope": "full",
-  "maxSteps": 30,
-  "host": "0.0.0.0"
+  "maxSteps": 30
 }
 ```
-
-`host` controls the agent's HTTP bind address. Default `127.0.0.1` (localhost only — accessed via the web proxy).
 
 Agent auth tokens are auto-generated on first start and stored in `.kern/.env`. The web proxy injects them automatically — no manual setup needed.
 
