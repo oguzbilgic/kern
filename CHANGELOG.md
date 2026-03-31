@@ -3,6 +3,7 @@
 ## v0.12.0
 
 ### Features
+- **Mid-turn messaging** — send messages while the agent is working. Input stays enabled in both Web UI and TUI. Messages are injected between tool steps via `prepareStep` and the agent addresses them inline.
 - **Interface status** — `/status` API and slash command now report `telegram` and `slack` connection state (connected/disconnected/error). Web UI info panel shows them.
 - **Queue status in `/status`** — shows busy/idle and pending message count.
 - **Slash commands bypass queue** — `/status`, `/restart`, `/help` respond instantly even when the queue is busy.
@@ -17,6 +18,7 @@
 
 ### Changes
 - Web UI info panel closes on agent switch to prevent stale data.
+- TUI cursor stays visible during agent processing.
 - README updated with npm install instructions and browser references.
 
 ## v0.11.0

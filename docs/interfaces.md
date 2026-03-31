@@ -16,6 +16,7 @@ kern tui [name]
 - Shows cross-channel messages in real time
 - Renders Markdown (code blocks, quotes, bold, italic)
 - Live connection indicator (`●`/`○`) that automatically reconnects
+- **Mid-turn messaging** — input stays enabled while agent is working. Messages are injected between tool steps.
 - Ctrl-C only kills TUI, daemon stays alive
 
 Message styling (colored left borders):
@@ -78,6 +79,7 @@ No manual token setup needed for local agents. For remote agents, you provide th
 - **Collapsible tool output** — click a tool call to expand and see the result. Edit tools show inline diffs (red/green).
 - **TUI-style message colors** — user (blue), incoming from Telegram/Slack (yellow), outgoing (green), heartbeat (magenta), per-tool colors
 - **Streaming responses** with live cursor and thinking indicator
+- **Mid-turn messaging** — input stays enabled while agent is working. Send follow-up messages or corrections that get injected between tool steps.
 - **Full history** on connect, including tool call results
 - **Agent info panel** — version, model, tools, Telegram/Slack connection status, uptime, session stats, API usage, queue state, connection string with copy
 - **Auto-reconnect** — re-discovers agent port after restart
