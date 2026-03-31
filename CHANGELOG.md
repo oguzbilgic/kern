@@ -19,7 +19,6 @@
   - "Add server" modal with URL + token fields.
   - Remove button on remote server headers.
   - Servers stored as `{url, token}` objects in localStorage.
-
 - **Auto-expand last tool call** — latest tool call stays expanded during streaming. Collapses when the next tool starts or text response begins.
 - **Smart scroll** — won't pull you down when scrolled up reading history. Auto-scrolls only when at the bottom.
 - **Scroll-to-bottom button** — floating ↓ button appears when scrolled up, click to jump back down.
