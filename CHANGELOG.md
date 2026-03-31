@@ -6,12 +6,15 @@
 - **Recall tool** — semantic search over past conversations outside the current context window. Agents can now remember things from weeks ago.
   - **Search mode** — query by meaning, get ranked results with distance scores. Optional `before`/`after` date filters.
   - **Load mode** — fetch raw messages by session ID and index range for full context around a search hit.
-  - **Automatic indexing** — on startup, backfills the current session. After each turn, new messages are incrementally indexed.
+  - **Messages in sqlite** — raw messages stored in recall.db alongside embedded chunks. Load mode reads from sqlite, no JSONL parsing on retrieval.
+  - **Non-blocking backfill** — index builds in background on startup. Agent is available immediately. Status shows `(building)` until complete.
+  - **Incremental indexing** — only new JSONL lines are parsed after each turn. No full-file re-reads.
   - **sqlite-vec** — local vector database using sqlite-vec extension. No external services needed.
-  - **Turn-based chunking** — messages chunked by user→assistant turns (~500 char target) for meaningful search units.
-  - **Batched embedding** — embeds in batches of 100 to stay within API limits. Uses `text-embedding-3-small` (1536 dimensions).
-  - **Timestamp extraction** — extracts real timestamps from message metadata, interpolates for older messages.
+  - **Turn-based chunking** — messages chunked by user→assistant turns, embedded via `text-embedding-3-small` (1536 dimensions).
+  - **Recall in status** — `kern({ action: "status" })` and web UI show message/chunk counts and build state.
+  - **Opt-out** — set `"recall": false` in config to disable.
   - 11 built-in tools (was 10).
+- **KNOWLEDGE.md in system prompt** — memory index file is now loaded into the system prompt automatically, so agents know what state files exist without being told.
 
 ## v0.12.0
 

@@ -26,6 +26,7 @@ The main config file. Committed to git.
 | `maxContextTokens` | `40000` | Estimated token budget for context window. Messages beyond this are trimmed from the front (oldest first). Full history stays in JSONL. |
 | `heartbeatInterval` | `60` | Minutes between heartbeat prompts. Agent reviews notes, updates knowledge. 0 to disable. |
 | `host` | `0.0.0.0` | Bind address for the agent's HTTP API. Default binds to all interfaces. Set to `127.0.0.1` for localhost only. |
+| `recall` | `true` | Enable recall (long-term memory). Set to `false` to disable. Requires an embedding API key. |
 
 ### Tool scopes
 
@@ -88,7 +89,7 @@ Tracks all registered agents with their name, path, PID, port, and auth token. U
 
 ## .kern/recall.db
 
-SQLite database with sqlite-vec extension for the recall tool's vector index. Auto-created on first start. Gitignored. Safe to delete — will be rebuilt on next start.
+SQLite database with sqlite-vec extension for the recall tool. Contains three tables: `messages` (raw message content), `chunks` (turn-level summaries), and `vec_chunks` (embeddings). Auto-created on first start. Gitignored. Safe to delete — will be rebuilt on next start from session JSONL files.
 
 ## .kern/sessions/
 

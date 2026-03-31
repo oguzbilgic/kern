@@ -131,10 +131,18 @@ Returns raw messages for a specific range — use after search to get full conte
 
 ### How it works
 
-On startup, kern indexes the current session's messages into a local sqlite-vec database (`.kern/recall.db`). Messages are chunked by turn (user→assistant pairs), embedded via the configured provider's embedding model, and stored as vectors. After each turn, new messages are incrementally indexed.
+On startup, kern indexes the current session's messages into a local sqlite-vec database (`.kern/recall.db`). Indexing runs in the background — the agent is available immediately while the index builds. Raw messages are stored in sqlite alongside embedded chunks, so retrieval doesn't need to read session files.
+
+Messages are chunked by turn (user→assistant pairs), embedded via `text-embedding-3-small`, and stored as vectors. After each turn, new messages are incrementally indexed — only new lines are parsed.
 
 Search uses cosine similarity (KNN) to find the most relevant past conversation chunks.
+
+Check indexing status via `kern({ action: "status" })` — the `recall` field shows message/chunk counts and whether the index is still building.
 
 ### Requirements
 
 Requires an API key for the configured provider (used for embeddings). Uses `text-embedding-3-small` (1536 dimensions).
+
+### Opt-out
+
+Set `"recall": false` in `.kern/config.json` to disable.
