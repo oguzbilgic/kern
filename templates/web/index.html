@@ -1146,6 +1146,7 @@ $('info-btn').addEventListener('click', async () => {
       <div class="info-row"><span class="info-label">tools</span><span class="info-value">${esc(status.toolScope)}</span></div>
       ${status.telegram ? `<div class="info-row"><span class="info-label">telegram</span><span class="info-value">${esc(status.telegram)}</span></div>` : ''}
       ${status.slack ? `<div class="info-row"><span class="info-label">slack</span><span class="info-value">${esc(status.slack)}</span></div>` : ''}
+      ${status.recall ? `<div class="info-row"><span class="info-label">recall</span><span class="info-value">${esc(status.recall)}</span></div>` : ''}
       <div class="info-row"><span class="info-label">uptime</span><span class="info-value">${esc(status.uptime)}</span></div>
       <div class="info-row"><span class="info-label">session</span><span class="info-value">${esc(status.session)}</span></div>
       ${status.context ? `<div class="info-row"><span class="info-label">context</span><span class="info-value">${esc(status.context)}</span></div>` : ''}
