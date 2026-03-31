@@ -81,7 +81,7 @@ Truncates responses over 50000 chars.
 Manage the runtime.
 
 ```
-kern({ action: "status" })     // runtime info, context size, API usage
+kern({ action: "status" })     // runtime info, context size, API usage, queue, interface status
 kern({ action: "config" })     // show .kern/config.json
 kern({ action: "env" })        // show env var names (masked values)
 kern({ action: "pair", code: "KERN-XXXX" })  // approve a pairing code

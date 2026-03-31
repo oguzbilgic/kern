@@ -148,7 +148,7 @@ Type these in any channel (TUI, Web, Telegram, Slack). Handled by the runtime at
 
 ### /status
 
-Show agent runtime status: model, uptime, session size, API usage.
+Show agent runtime status: model, uptime, session size, API usage, queue state, and interface connection status (Telegram, Slack).
 
 ### /restart
 

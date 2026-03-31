@@ -79,6 +79,7 @@ No manual token setup needed for local agents. For remote agents, you provide th
 - **TUI-style message colors** — user (blue), incoming from Telegram/Slack (yellow), outgoing (green), heartbeat (magenta), per-tool colors
 - **Streaming responses** with live cursor and thinking indicator
 - **Full history** on connect, including tool call results
+- **Agent info panel** — version, model, tools, Telegram/Slack connection status, uptime, session stats, API usage, queue state, connection string with copy
 - **Auto-reconnect** — re-discovers agent port after restart
 - **Dark theme**, mobile-friendly, PWA support
 
@@ -112,6 +113,9 @@ Long polling bot. Works behind NAT, no public URL needed.
 - Responses stream with typing indicator
 - Tool calls shown live (⚙), replaced by response
 - Markdown converted to Telegram HTML
+- Connection status reported in `/status` (connected/disconnected/error)
+- Graceful shutdown: polling stops cleanly on SIGTERM — no 409 conflicts on restart
+- If a 409 conflict occurs (e.g. rapid restart), retries automatically after 5 seconds
 
 ## Slack
 
@@ -149,3 +153,5 @@ Socket Mode connection. No public URL needed.
 - **Channels**: agent reads ALL messages but only responds when @mentioned or directly relevant. Returns `NO_REPLY` to suppress silent messages.
 - **Replies**: all replies post directly to the channel or DM (no threading).
 - Agent can send proactive messages via the `message` tool.
+- Connection status reported in `/status` (connected/disconnected/error).
+- Graceful shutdown: Socket Mode connection closes cleanly on SIGTERM.
