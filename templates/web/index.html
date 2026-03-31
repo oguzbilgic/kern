@@ -1542,6 +1542,7 @@ function setupSwitcher() {
 let busy = false;
 let streamingText = '';
 let streamingEl = null;
+let _streamRaf = 0;
 let connection = null;
 let authFailed = false;
 let intentionalClose = false;
@@ -1701,6 +1702,7 @@ function flushStreaming() {
   }
   streamingText = '';
   streamingEl = null;
+  if (_streamRaf) { cancelAnimationFrame(_streamRaf); _streamRaf = 0; }
 }
 
 function setBusy(b) {
@@ -1740,8 +1742,14 @@ function handleEvent(event) {
         streamingEl.classList.add('streaming-cursor');
       }
       streamingText += event.text || '';
-      streamingEl.innerHTML = renderMarkdown(streamingText);
-      scrollToBottom();
+      // Debounce render to avoid layout thrash on every delta (helps mobile input lag)
+      if (!_streamRaf) {
+        _streamRaf = requestAnimationFrame(() => {
+          _streamRaf = 0;
+          if (streamingEl) streamingEl.innerHTML = renderMarkdown(streamingText);
+          scrollToBottom();
+        });
+      }
       setBusy(true);
       break;
 
@@ -1918,14 +1926,14 @@ cmdPopup.addEventListener('click', (e) => {
 
 // --- Input ---
 
-let _resizeRaf = 0;
+let _inputRaf = 0;
 inputEl.addEventListener('input', () => {
-  sendBtn.disabled = !inputEl.value.trim();
-  updateCmdPopup();
-  // Debounce auto-resize to next frame to avoid per-keystroke reflow
-  if (!_resizeRaf) {
-    _resizeRaf = requestAnimationFrame(() => {
-      _resizeRaf = 0;
+  // Batch all DOM work into a single frame to avoid keystroke lag on mobile
+  if (!_inputRaf) {
+    _inputRaf = requestAnimationFrame(() => {
+      _inputRaf = 0;
+      sendBtn.disabled = !inputEl.value.trim();
+      updateCmdPopup();
       inputEl.style.height = 'auto';
       inputEl.style.height = inputEl.scrollHeight + 'px';
       inputEl.style.overflowY = inputEl.scrollHeight > inputEl.offsetHeight ? 'auto' : 'hidden';
