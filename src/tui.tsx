@@ -429,9 +429,12 @@ function App({ port, agentName, version, authToken }: TuiProps) {
     
     function handle(event: ServerEvent) {
       if ((event as any).type === "incoming" && event.fromInterface !== "tui") {
+        const iface = event.fromInterface || "unknown";
+        const user = event.fromUserId || "";
+        const label = (user && user !== iface) ? `[${iface} ${user}]` : `[${iface}]`;
         setMessages((m: ChatMessage[]) => [...m, {
           type: "incoming", text: event.text || "",
-          meta: `[${event.fromInterface} ${event.fromUserId || ""}]`,
+          meta: label,
         }]);
         return;
       }

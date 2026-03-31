@@ -106,8 +106,12 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     const time = new Date().toISOString();
     const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}, time: ${time}]\n${msg.text}`;
 
-    // Broadcast incoming to TUI
-    if (!msg.isHeartbeat) {
+    // Broadcast incoming to other clients.
+    // Messages from /message POST (web, tui) are already broadcast by the server
+    // with sender exclusion. Only broadcast here for adapter interfaces
+    // (Telegram, Slack) which don't go through the HTTP endpoint.
+    const httpInterfaces = ["web", "tui"];
+    if (!msg.isHeartbeat && !httpInterfaces.includes(msg.interface)) {
       server.broadcast({
         type: "incoming" as any,
         text: msg.text,
