@@ -2477,6 +2477,12 @@ function showTokenPrompt() {
     agentNameEl.textContent = 'kern';
     addMessage('system', 'No running agents found. Start an agent with `kern start` or add a server.');
   }
+
+  // Poll sidebar every 30s
+  setInterval(async () => {
+    await discoverAllAgents();
+    renderSwitcher();
+  }, 30000);
 })();
 
 // Register service worker for PWA
