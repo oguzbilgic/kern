@@ -1524,7 +1524,7 @@ function flushStreaming() {
 
 function setBusy(b) {
   busy = b;
-  sendBtn.disabled = b || !inputEl.value.trim();
+  sendBtn.disabled = !inputEl.value.trim();
   if (!b) hideThinking();
 }
 
@@ -1640,21 +1640,23 @@ function handleEvent(event) {
 
 async function send() {
   const text = inputEl.value.trim();
-  if (!text || busy) return;
+  if (!text) return;
 
   inputEl.value = '';
   inputEl.style.height = 'auto';
   sendBtn.disabled = true;
 
   addMessage('user', text, null, null, new Date(), 'web');
-  setBusy(true);
-  showThinking();
+  if (!busy) {
+    setBusy(true);
+    showThinking();
+  }
 
   try {
     await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text, { connectionId: connection?.connectionId });
   } catch (err) {
     addMessage('error', `Failed to send: ${err.message}`);
-    setBusy(false);
+    if (!busy) setBusy(false);
   }
 }
 
@@ -1713,7 +1715,7 @@ inputEl.addEventListener('input', () => {
   inputEl.style.height = 'auto';
   inputEl.style.height = inputEl.scrollHeight + 'px';
   inputEl.style.overflowY = inputEl.scrollHeight > inputEl.offsetHeight ? 'auto' : 'hidden';
-  sendBtn.disabled = busy || !inputEl.value.trim();
+  sendBtn.disabled = !inputEl.value.trim();
   updateCmdPopup();
 });
 
