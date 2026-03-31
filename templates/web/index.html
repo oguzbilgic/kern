@@ -889,6 +889,10 @@
   }
   .switcher-item-avatar .online-dot.running { background: var(--accent); }
   .switcher-item-avatar .online-dot.stopped { background: var(--text-muted); }
+  .switcher-item-avatar .online-dot.hub {
+    border-radius: 2px;
+    transform: rotate(45deg);
+  }
   .switcher-item-info {
     flex: 1;
     min-width: 0;
@@ -1526,10 +1530,11 @@ function renderSwitcher() {
         const color = avatarColor(agent.name);
         const initial = agent.name.charAt(0).toUpperCase();
         const dotClass = agent.running ? 'running' : 'stopped';
+        const hubClass = agent.running && agent.hubConnected ? ' hub' : '';
         item.innerHTML = `
           <div class="switcher-item-avatar" style="background:${color}">
             ${initial}
-            <span class="online-dot ${dotClass}"></span>
+            <span class="online-dot ${dotClass}${hubClass}"></span>
           </div>
           <div class="switcher-item-name">${agent.name}</div>
         `;
@@ -1661,16 +1666,28 @@ async function fetchServerAgents(serverUrl) {
       }
     } catch {}
 
-    return {
-      status: 'ok',
-      hub,
-      agents: data.map(a => ({
+    // Fetch hub status for each running agent
+    const agentList = await Promise.all(data.map(async (a) => {
+      const agent = {
         name: a.name,
         url: a.running ? `${serverUrl}/api/agents/${a.name}` : null,
         running: a.running,
         server: serverUrl,
-      })),
-    };
+        hubConnected: false,
+      };
+      if (a.running) {
+        try {
+          const statusRes = await fetch(`${serverUrl}/api/agents/${a.name}/status`, { headers });
+          if (statusRes.ok) {
+            const status = await statusRes.json();
+            if (status.hub && status.hub.includes('connected')) agent.hubConnected = true;
+          }
+        } catch {}
+      }
+      return agent;
+    }));
+
+    return { status: 'ok', hub, agents: agentList };
   } catch { return { agents: [], hub: null, status: 'error' }; }
 }
 
