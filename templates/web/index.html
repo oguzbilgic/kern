@@ -1388,32 +1388,38 @@ if (localStorage.getItem('kern_sidebar_collapsed') === '1' && window.innerWidth 
   $('sidebar').classList.add('collapsed');
 }
 
-// Fetch agents from a server URL, returns array of agent objects
+// Fetch agents from a server URL, returns { agents, status }
 async function fetchServerAgents(serverUrl) {
   try {
     const token = getServerToken(serverUrl);
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     const res = await fetch(`${serverUrl}/api/agents`, { headers });
-    if (res.status === 401) return [];
-    if (!res.ok) return [];
-    const agents = await res.json();
-    if (!Array.isArray(agents)) return [];
-    return agents.map(a => ({
-      name: a.name,
-      url: a.running ? `${serverUrl}/api/agents/${a.name}` : null,
-      running: a.running,
-      server: serverUrl,
-    }));
-  } catch { return []; }
+    if (res.status === 401) return { agents: [], status: 'unauthorized' };
+    if (!res.ok) return { agents: [], status: 'error' };
+    const data = await res.json();
+    if (!Array.isArray(data)) return { agents: [], status: 'ok' };
+    return {
+      status: 'ok',
+      agents: data.map(a => ({
+        name: a.name,
+        url: a.running ? `${serverUrl}/api/agents/${a.name}` : null,
+        running: a.running,
+        server: serverUrl,
+      })),
+    };
+  } catch { return { agents: [], status: 'error' }; }
 }
 
 // Discover agents from local server + all saved remote servers
+// Returns 'ok', 'unauthorized' (local server needs token), or 'error'
 async function discoverAllAgents() {
   const localUrl = location.origin;
   const remoteUrls = getSavedServers().map(s => s.url);
-  const fetches = [localUrl, ...remoteUrls].map(url => fetchServerAgents(url));
-  const results = await Promise.all(fetches);
-  allAgents = results.flat();
+  const allUrls = [localUrl, ...remoteUrls];
+  const results = await Promise.all(allUrls.map(url => fetchServerAgents(url)));
+  allAgents = results.flatMap(r => r.agents);
+  // Return local server status
+  return results[0].status;
 }
 
 // Get all agents (use cached results from last discover)
@@ -1444,8 +1450,8 @@ function setupSwitcher() {
     }
     saveServers(servers);
     // Validate by fetching agents
-    const agents = await fetchServerAgents(url);
-    if (agents.length === 0) {
+    const result = await fetchServerAgents(url);
+    if (result.agents.length === 0) {
       // Remove if validation failed
       saveServers(servers.filter(s => s.url !== url));
       $('add-url').style.borderColor = 'var(--red)';
@@ -2085,9 +2091,47 @@ document.addEventListener('click', () => {
 
 applyFilters();
 
+// Show token prompt — resolves when user submits
+function showTokenPrompt() {
+  return new Promise(resolve => {
+    setConnected('disconnected');
+    agentNameEl.textContent = 'kern';
+    messagesEl.innerHTML = '';
+    const prompt = document.createElement('div');
+    prompt.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;';
+    prompt.innerHTML = `
+      <div style="color:var(--text-dim);font-size:14px;">Enter web token</div>
+      <div style="color:var(--text-muted);font-size:12px;">Found in ~/.kern/.env as KERN_WEB_TOKEN</div>
+      <input id="token-input" type="password" placeholder="KERN_WEB_TOKEN"
+        style="background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;width:280px;outline:none;font-family:var(--font-sans);" />
+      <button id="token-submit"
+        style="background:var(--accent-dim);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;">Connect</button>
+    `;
+    messagesEl.appendChild(prompt);
+    const tokenInput = $('token-input');
+    tokenInput.focus();
+    function submit() {
+      const val = tokenInput.value.trim();
+      if (!val) return;
+      setLocalToken(val);
+      messagesEl.innerHTML = '';
+      resolve(val);
+    }
+    $('token-submit').addEventListener('click', submit);
+    tokenInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  });
+}
+
 // On load: discover agents, auto-connect or show switcher
 (async () => {
-  await discoverAllAgents();
+  let localStatus = await discoverAllAgents();
+
+  // If local server needs auth, prompt for token
+  while (localStatus === 'unauthorized') {
+    await showTokenPrompt();
+    localStatus = await discoverAllAgents();
+  }
+
   renderSwitcher();
 
   const agents = getAllAgents();
