@@ -1490,8 +1490,18 @@ let isLoadingHistory = false; // suppress auto-expand during history load
 
 // --- Render helpers ---
 
-function scrollToBottom() {
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+let userScrolledUp = false;
+
+messagesEl.addEventListener('scroll', () => {
+  const threshold = 80;
+  const atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < threshold;
+  userScrolledUp = !atBottom;
+});
+
+function scrollToBottom(force) {
+  if (force || !userScrolledUp) {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
 }
 
 const TOOL_COLORS = {
@@ -1772,6 +1782,7 @@ async function send() {
   sendBtn.disabled = true;
 
   addMessage('user', text, null, null, new Date(), 'web');
+  scrollToBottom(true);
   if (!busy) {
     setBusy(true);
     showThinking();
@@ -1977,6 +1988,7 @@ async function init() {
     }
   } catch {}
   isLoadingHistory = false;
+  scrollToBottom(true);
 
   // If agent is mid-turn, show thinking indicator
   try {
