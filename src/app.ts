@@ -220,7 +220,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     }));
   });
 
-  const port = await server.start(config.host);
+  const port = await server.start("127.0.0.1");
   await setPortAndToken(agentName, port, process.env.KERN_AUTH_TOKEN || null);
 
   // Start Telegram if configured

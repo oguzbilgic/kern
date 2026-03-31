@@ -178,6 +178,7 @@
     flex-direction: column;
     overflow: hidden;
     min-width: 0;
+    position: relative;
   }
 
   .sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; border-right: none; }
@@ -664,6 +665,28 @@
   }
 
   /* --- Input --- */
+  .scroll-down-btn {
+    display: none;
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text);
+    font-size: 20px;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    transition: opacity 0.15s;
+    opacity: 0.85;
+  }
+  .scroll-down-btn:hover { opacity: 1; background: var(--bg-hover); border-color: var(--text-muted); }
+  .scroll-down-btn.visible { display: flex; }
   .input-area {
     padding: 12px 16px;
     padding-bottom: max(12px, env(safe-area-inset-bottom));
@@ -837,6 +860,12 @@
   }
   .switcher-item:hover .switcher-item-remove { display: block; }
   .switcher-item-remove:hover { color: var(--red); }
+  .switcher-server-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px 4px; font-size: 11px; font-weight: 600;
+    color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .switcher-server-header .switcher-item-remove { display: inline; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -846,20 +875,31 @@
 <div class="sidebar" id="sidebar">
   <div class="sidebar-header">
     <span>kern<span style="color:#58a6ff">.</span></span>
+    <button class="filter-btn" id="logout-btn" title="Logout" style="font-size:14px;">&#x23FB;</button>
   </div>
   <div class="sidebar-list" id="switcher-list"></div>
 
 </div>
 
+<div class="modal-overlay" id="auth-modal">
+  <div class="modal">
+    <div class="modal-title">Connect</div>
+    <input id="auth-token" type="password" placeholder="Web token" />
+    <div style="color:var(--text-muted);font-size:11px;margin-top:-4px;">~/.kern/.env → KERN_WEB_TOKEN</div>
+    <div class="modal-actions">
+      <button class="btn-add" id="auth-submit">Connect</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="add-modal">
   <div class="modal">
-    <div class="modal-title">Add agent</div>
-    <input id="add-name" type="text" placeholder="Name" />
-    <input id="add-url" type="text" placeholder="URL (http://host:port)" />
-    <input id="add-token" type="password" placeholder="Token" />
+    <div class="modal-title">Add server</div>
+    <input id="add-url" type="text" placeholder="http://host:port" />
+    <input id="add-token" type="password" placeholder="Web token" />
     <div class="modal-actions">
       <button class="btn-cancel" id="add-cancel-btn">Cancel</button>
-      <button class="btn-add" id="add-agent-btn">Add</button>
+      <button class="btn-add" id="add-server-btn">Add</button>
     </div>
   </div>
 </div>
@@ -881,6 +921,7 @@
   <div class="info-panel" id="info-panel"></div>
   <div class="messages" id="messages"></div>
 
+  <button class="scroll-down-btn" id="scroll-down-btn" title="Scroll to bottom">&#8595;</button>
   <div class="input-area">
     <div class="input-row">
       <div class="cmd-popup" id="cmd-popup"></div>
@@ -1201,12 +1242,24 @@ $('info-btn').addEventListener('click', async () => {
 // Agent Switcher
 // ==========================================================================
 
-// Manual agents — stored in localStorage (remote agents added by user)
-function getManualAgents() {
-  try { return JSON.parse(localStorage.getItem('kern_manual_agents') || '[]'); } catch { return []; }
+// Servers — stored in localStorage as [{url, token}]
+function getSavedServers() {
+  try { return JSON.parse(localStorage.getItem('kern_servers') || '[]'); } catch { return []; }
 }
-function saveManualAgents(agents) {
-  localStorage.setItem('kern_manual_agents', JSON.stringify(agents));
+function saveServers(servers) {
+  localStorage.setItem('kern_servers', JSON.stringify(servers));
+}
+// Get token for a server URL (local or remote)
+function getServerToken(serverUrl) {
+  if (serverUrl === location.origin) {
+    return localStorage.getItem('kern_web_token') || null;
+  }
+  const servers = getSavedServers();
+  const entry = servers.find(s => s.url === serverUrl);
+  return entry ? entry.token : null;
+}
+function setLocalToken(token) {
+  localStorage.setItem('kern_web_token', token);
 }
 function getActiveAgent() {
   return sessionStorage.getItem('kern_active_agent') || null;
@@ -1215,20 +1268,8 @@ function setActiveAgent(name) {
   sessionStorage.setItem('kern_active_agent', name);
 }
 
-// Discovered agents — fetched from /api/agents, never persisted
-let discoveredAgents = [];
-
-// All agents = discovered + manual
-function getAllAgents() {
-  const manual = getManualAgents();
-  const all = [...discoveredAgents];
-  for (const m of manual) {
-    if (!all.find(a => a.name === m.name)) {
-      all.push({ ...m, source: 'manual' });
-    }
-  }
-  return all;
-}
+// All discovered agents grouped by server — fetched fresh each time
+let allAgents = [];
 
 let BASE_URL = null;
 let AUTH_TOKEN = null;
@@ -1241,7 +1282,7 @@ function avatarColor(name) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-// Render switcher panel
+// Render switcher panel — grouped by server
 function renderSwitcher() {
   const list = $('switcher-list');
   const agents = getAllAgents();
@@ -1249,50 +1290,71 @@ function renderSwitcher() {
   list.innerHTML = '';
   if (agents.length === 0) {
     list.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:12px;">No agents found.</div>';
-    return;
-  }
-  for (const agent of agents) {
-    const isManual = agent.source === 'manual';
-    const item = document.createElement('div');
-    const classes = ['switcher-item'];
-    if (agent.name === activeName) classes.push('active');
-    if (!agent.running) classes.push('offline');
-    item.className = classes.join(' ');
-    const color = avatarColor(agent.name);
-    const initial = agent.name.charAt(0).toUpperCase();
-    const dotClass = agent.running ? 'running' : 'stopped';
-    item.innerHTML = `
-      <div class="switcher-item-avatar" style="background:${color}">
-        ${initial}
-        <span class="online-dot ${dotClass}"></span>
-      </div>
-      <div class="switcher-item-name">${agent.name}</div>
-      ${isManual ? '<button class="switcher-item-remove" title="Remove">&times;</button>' : ''}
-    `;
-    if (agent.running && agent.url) {
-      item.addEventListener('click', (e) => {
-        if (e.target.closest('.switcher-item-remove')) return;
-        switchToAgent(agent);
-      });
+  } else {
+    // Group by server
+    const groups = new Map();
+    for (const agent of agents) {
+      const key = agent.server || location.origin;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(agent);
     }
-    if (isManual) {
-      item.querySelector('.switcher-item-remove').addEventListener('click', (e) => {
-        e.stopPropagation();
-        const updated = getManualAgents().filter(a => a.name !== agent.name);
-        saveManualAgents(updated);
-        renderSwitcher();
-      });
+    const remoteServers = getSavedServers();
+    for (const [serverUrl, serverAgents] of groups) {
+      const isLocal = serverUrl === location.origin;
+      const isRemote = remoteServers.some(s => s.url === serverUrl);
+      // Server header for remote servers
+      if (!isLocal) {
+        const header = document.createElement('div');
+        header.className = 'switcher-server-header';
+        let label;
+        try { label = new URL(serverUrl).hostname; } catch { label = serverUrl; }
+        header.innerHTML = `<span>${escapeHtml(label)}</span>`;
+        if (isRemote) {
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'switcher-item-remove';
+          removeBtn.title = 'Remove server';
+          removeBtn.innerHTML = '&times;';
+          removeBtn.style.display = 'inline';
+          removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            saveServers(remoteServers.filter(s => s.url !== serverUrl));
+            allAgents = allAgents.filter(a => a.server !== serverUrl);
+            renderSwitcher();
+          });
+          header.appendChild(removeBtn);
+        }
+        list.appendChild(header);
+      }
+      for (const agent of serverAgents) {
+        const item = document.createElement('div');
+        const classes = ['switcher-item'];
+        if (agent.name === activeName) classes.push('active');
+        if (!agent.running) classes.push('offline');
+        item.className = classes.join(' ');
+        const color = avatarColor(agent.name);
+        const initial = agent.name.charAt(0).toUpperCase();
+        const dotClass = agent.running ? 'running' : 'stopped';
+        item.innerHTML = `
+          <div class="switcher-item-avatar" style="background:${color}">
+            ${initial}
+            <span class="online-dot ${dotClass}"></span>
+          </div>
+          <div class="switcher-item-name">${agent.name}</div>
+        `;
+        if (agent.running && agent.url) {
+          item.addEventListener('click', () => switchToAgent(agent));
+        }
+        list.appendChild(item);
+      }
     }
-    list.appendChild(item);
   }
-  // Add agent row
+  // Add server row
   const addItem = document.createElement('div');
   addItem.className = 'switcher-add-inline';
-  addItem.id = 'show-add-btn';
-  addItem.innerHTML = '<span>+</span> Add agent';
+  addItem.innerHTML = '<span>+</span> Add server';
   addItem.addEventListener('click', () => {
     $('add-modal').classList.add('open');
-    $('add-name').focus();
+    $('add-url').focus();
   });
   list.appendChild(addItem);
 }
@@ -1300,7 +1362,7 @@ function renderSwitcher() {
 function switchToAgent(agent) {
   setActiveAgent(agent.name);
   BASE_URL = agent.url;
-  AUTH_TOKEN = agent.token;
+  AUTH_TOKEN = getServerToken(agent.server || location.origin);
   authFailed = false;
   intentionalClose = true;
   if (connection) { connection.close(); connection = null; }
@@ -1350,62 +1412,90 @@ if (localStorage.getItem('kern_sidebar_collapsed') === '1' && window.innerWidth 
   $('sidebar').classList.add('collapsed');
 }
 
-// Auto-discover agents from kern web /api/agents endpoint
-async function discoverAgents() {
+// Fetch agents from a server URL, returns { agents, status }
+async function fetchServerAgents(serverUrl) {
   try {
-    const res = await fetch(`${location.origin}/api/agents`);
-    if (!res.ok) return;
-    const agents = await res.json();
-    if (!Array.isArray(agents)) return;
-    const hostname = location.hostname;
-    discoveredAgents = agents.map(a => ({
-      name: a.name,
-      url: a.running && a.port ? `${location.protocol}//${hostname}:${a.port}` : null,
-      token: a.token || null,
-      running: a.running,
-      source: 'discovered',
-    }));
-  } catch {}
+    const token = getServerToken(serverUrl);
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    const res = await fetch(`${serverUrl}/api/agents`, { headers });
+    if (res.status === 401) return { agents: [], status: 'unauthorized' };
+    if (!res.ok) return { agents: [], status: 'error' };
+    const data = await res.json();
+    if (!Array.isArray(data)) return { agents: [], status: 'ok' };
+    return {
+      status: 'ok',
+      agents: data.map(a => ({
+        name: a.name,
+        url: a.running ? `${serverUrl}/api/agents/${a.name}` : null,
+        running: a.running,
+        server: serverUrl,
+      })),
+    };
+  } catch { return { agents: [], status: 'error' }; }
+}
+
+// Discover agents from local server + all saved remote servers
+// Returns 'ok', 'unauthorized' (local server needs token), or 'error'
+async function discoverAllAgents() {
+  const localUrl = location.origin;
+  const remoteUrls = getSavedServers().map(s => s.url);
+  const allUrls = [localUrl, ...remoteUrls];
+  const results = await Promise.all(allUrls.map(url => fetchServerAgents(url)));
+  allAgents = results.flatMap(r => r.agents);
+  // Return local server status
+  return results[0].status;
+}
+
+// Get all agents (use cached results from last discover)
+function getAllAgents() {
+  return allAgents;
 }
 
 function setupSwitcher() {
   $('menu-btn').addEventListener('click', async () => {
-    await discoverAgents();
+    await discoverAllAgents();
     renderSwitcher();
     toggleSidebar();
   });
   $('sidebar-backdrop').addEventListener('click', () => {
     closeSidebar();
   });
-  $('add-agent-btn').addEventListener('click', () => {
-    const name = $('add-name').value.trim();
+  $('add-server-btn').addEventListener('click', async () => {
     const url = $('add-url').value.trim().replace(/\/$/, '');
     const token = $('add-token').value.trim() || null;
-    if (!name || !url) return;
-    const agents = getManualAgents();
-    const existing = agents.findIndex(a => a.name === name);
+    if (!url) return;
+    // Save token first so fetchServerAgents can use it
+    const servers = getSavedServers();
+    const existing = servers.findIndex(s => s.url === url);
     if (existing >= 0) {
-      agents[existing] = { name, url, token, running: true, source: 'manual' };
+      servers[existing] = { url, token };
     } else {
-      agents.push({ name, url, token, running: true, source: 'manual' });
+      servers.push({ url, token });
     }
-    saveManualAgents(agents);
-    $('add-name').value = '';
+    saveServers(servers);
+    // Validate by fetching agents
+    const result = await fetchServerAgents(url);
+    if (result.agents.length === 0) {
+      // Remove if validation failed
+      saveServers(servers.filter(s => s.url !== url));
+      $('add-url').style.borderColor = 'var(--red)';
+      setTimeout(() => $('add-url').style.borderColor = '', 2000);
+      return;
+    }
     $('add-url').value = '';
     $('add-token').value = '';
     $('add-modal').classList.remove('open');
+    await discoverAllAgents();
     renderSwitcher();
   });
   $('add-cancel-btn').addEventListener('click', () => {
     $('add-modal').classList.remove('open');
-    $('add-name').value = '';
     $('add-url').value = '';
     $('add-token').value = '';
   });
   $('add-modal').addEventListener('click', (e) => {
     if (e.target === $('add-modal')) {
       $('add-modal').classList.remove('open');
-      $('add-name').value = '';
       $('add-url').value = '';
       $('add-token').value = '';
     }
@@ -1419,11 +1509,28 @@ let connection = null;
 let authFailed = false;
 let intentionalClose = false;
 let currentTurnContext = null; // tracks which interface/type triggered the current turn
+let lastToolEl = null; // last tool call element — kept expanded during streaming
+let isLoadingHistory = false; // suppress auto-expand during history load
 
 // --- Render helpers ---
 
-function scrollToBottom() {
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+let userScrolledUp = false;
+
+const scrollDownBtn = $('scroll-down-btn');
+
+messagesEl.addEventListener('scroll', () => {
+  const threshold = 80;
+  const atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < threshold;
+  userScrolledUp = !atBottom;
+  scrollDownBtn.classList.toggle('visible', userScrolledUp);
+});
+
+scrollDownBtn.addEventListener('click', () => scrollToBottom(true));
+
+function scrollToBottom(force) {
+  if (force || !userScrolledUp) {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
 }
 
 const TOOL_COLORS = {
@@ -1482,6 +1589,12 @@ function addMessage(type, content, meta, toolInput, timestamp, iface) {
       el.querySelector('.tool-output').textContent = `→ ${toolInput.interface || 'unknown'}: ${toolInput.text}`;
     }
     el.addEventListener('click', () => el.classList.toggle('expanded'));
+    // Auto-expand last tool call during streaming, collapse previous
+    if (!isLoadingHistory) {
+      if (lastToolEl) lastToolEl.classList.remove('expanded');
+      el.classList.add('expanded');
+      lastToolEl = el;
+    }
   } else if (type === 'user-remote') {
     if (meta) {
       const label = document.createElement('span');
@@ -1580,6 +1693,7 @@ function handleEvent(event) {
     case 'text-delta':
       hideThinking();
       if (!streamingEl) {
+        if (lastToolEl) { lastToolEl.classList.remove('expanded'); lastToolEl = null; }
         streamingEl = addMessage('assistant', '');
         streamingEl.classList.add('streaming-cursor');
       }
@@ -1616,6 +1730,7 @@ function handleEvent(event) {
           }
         }
       }
+      scrollToBottom();
       // Agent is thinking about what to do next — show dots
       showThinking();
       break;
@@ -1697,6 +1812,7 @@ async function send() {
   sendBtn.disabled = true;
 
   addMessage('user', text, null, null, new Date(), 'web');
+  scrollToBottom(true);
   if (!busy) {
     setBusy(true);
     showThinking();
@@ -1822,6 +1938,7 @@ async function init() {
   messagesEl.innerHTML = '';
   streamingText = '';
   streamingEl = null;
+  lastToolEl = null;
   setConnected('connecting');
 
   // Load status — also serves as auth check
@@ -1829,39 +1946,12 @@ async function init() {
     const res = await fetch(`${BASE_URL}/status`, { headers: AgentClient._headers(AUTH_TOKEN) });
     if (res.status === 401) {
       authFailed = true;
-      localStorage.removeItem('kern_auth_token');
       setConnected('disconnected');
-      agentNameEl.textContent = 'kern';
-      // Show token input prompt
-      messagesEl.innerHTML = '';
-      const prompt = document.createElement('div');
-      prompt.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;';
-      prompt.innerHTML = `
-        <div style="color:var(--text-dim);font-size:14px;">Enter auth token</div>
-        <input id="token-input" type="password" placeholder="KERN_AUTH_TOKEN"
-          style="background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;width:280px;outline:none;font-family:var(--font-sans);" />
-        <button id="token-submit"
-          style="background:var(--accent-dim);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;">Connect</button>
-      `;
-      messagesEl.appendChild(prompt);
-      const tokenInput = $('token-input');
-      const tokenSubmit = $('token-submit');
-      tokenInput.focus();
-      function submitToken() {
-        const val = tokenInput.value.trim();
-        if (!val) return;
-        localStorage.setItem('kern_auth_token', val);
-        AUTH_TOKEN = val;
-        authFailed = false;
-        messagesEl.innerHTML = '';
-        inputEl.disabled = false;
-        sendBtn.disabled = false;
-        init();
-      }
-      tokenSubmit.addEventListener('click', submitToken);
-      tokenInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitToken(); });
-      inputEl.disabled = true;
-      sendBtn.disabled = true;
+      // Re-prompt for token
+      await showTokenPrompt();
+      AUTH_TOKEN = getServerToken(location.origin);
+      authFailed = false;
+      init();
       return;
     }
     const status = await res.json();
@@ -1875,6 +1965,7 @@ async function init() {
   // Load history
   try {
     const history = await AgentClient.getHistory(BASE_URL, AUTH_TOKEN, 100);
+    isLoadingHistory = true;
     // Build tool result map: toolCallId → output string
     const toolResults = {};
     for (const msg of history) {
@@ -1926,6 +2017,8 @@ async function init() {
       }
     }
   } catch {}
+  isLoadingHistory = false;
+  scrollToBottom(true);
 
   // If agent is mid-turn, show thinking indicator
   try {
@@ -1947,15 +2040,8 @@ async function init() {
       if (authFailed || intentionalClose) return;
       setConnected('disconnected');
       addMessage('system', 'disconnected — reconnecting...');
-      // Re-discover agents to pick up new port after restart
-      await discoverAgents();
-      const agents = getAllAgents();
-      const activeName = getActiveAgent();
-      const updated = agents.find(a => a.name === activeName && a.running && a.url);
-      if (updated && updated.url !== BASE_URL) {
-        BASE_URL = updated.url;
-        AUTH_TOKEN = updated.token;
-      }
+      // Re-discover agents (proxy URL is stable, but agent may have stopped)
+      await discoverAllAgents();
       reconnectTimer = setTimeout(init, 2000);
     },
   });
@@ -2007,6 +2093,11 @@ function renderFilterDropdown() {
   }).join('');
 }
 
+$('logout-btn').addEventListener('click', () => {
+  localStorage.removeItem('kern_web_token');
+  location.reload();
+});
+
 $('filter-btn').addEventListener('click', (e) => {
   e.stopPropagation();
   const dd = $('filter-dropdown');
@@ -2033,9 +2124,47 @@ document.addEventListener('click', () => {
 
 applyFilters();
 
+// Show token prompt using modal — resolves when user submits valid token
+function showTokenPrompt() {
+  return new Promise(resolve => {
+    const modal = $('auth-modal');
+    const input = $('auth-token');
+    const btn = $('auth-submit');
+    input.value = '';
+    modal.classList.add('open');
+    input.focus();
+    function submit() {
+      const val = input.value.trim();
+      if (!val) return;
+      setLocalToken(val);
+      modal.classList.remove('open');
+      resolve(val);
+    }
+    btn.onclick = submit;
+    input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+  });
+}
+
+// On load: check URL for token param, save and clean URL
+(function checkUrlToken() {
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token');
+  if (token) {
+    setLocalToken(token);
+    history.replaceState(null, '', location.pathname);
+  }
+})();
+
 // On load: discover agents, auto-connect or show switcher
 (async () => {
-  await discoverAgents();
+  let localStatus = await discoverAllAgents();
+
+  // If local server needs auth, prompt for token
+  while (localStatus === 'unauthorized') {
+    await showTokenPrompt();
+    localStatus = await discoverAllAgents();
+  }
+
   renderSwitcher();
 
   const agents = getAllAgents();
@@ -2046,13 +2175,13 @@ applyFilters();
   if (activeAgent) {
     // Resume previous agent
     BASE_URL = activeAgent.url;
-    AUTH_TOKEN = activeAgent.token;
+    AUTH_TOKEN = getServerToken(activeAgent.server || location.origin);
     init();
   } else if (runningAgents.length === 1) {
     // Only one running agent — auto-connect
     switchToAgent(runningAgents[0]);
   } else if (runningAgents.length > 1) {
-    // Multiple running agents — show switcher on mobile
+    // Multiple running agents — show switcher
     setConnected('disconnected');
     agentNameEl.textContent = 'kern';
     renderSwitcher();
@@ -2061,7 +2190,7 @@ applyFilters();
     // No running agents
     setConnected('disconnected');
     agentNameEl.textContent = 'kern';
-    addMessage('system', 'No running agents found. Start an agent with `kern start` or add one manually.');
+    addMessage('system', 'No running agents found. Start an agent with `kern start` or add a server.');
   }
 })();
 

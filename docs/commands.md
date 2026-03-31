@@ -110,19 +110,23 @@ Restore an agent from a backup archive.
 - If agent already exists: warns and asks to confirm overwrite
 - If agent is running: stops it before overwriting
 
-## kern web \<start|stop|status\>
+## kern web \<start|stop|status|token\>
 
 Manage the web UI server.
 
 ```bash
-kern web start    # start web UI server (daemonized)
+kern web start    # start web UI, prints URL with auth token
 kern web stop     # stop it
 kern web status   # check if running
+kern web token    # print URL with auth token
 ```
 
-- Serves the web UI on port 9000 (configurable in `~/.kern/config.json`)
-- Provides `/api/agents` endpoint for agent discovery
-- Separate process from agents — agents serve API only
+- Serves the web UI and proxies all agent API requests
+- Agents bind to `127.0.0.1` — only reachable through the proxy
+- `KERN_WEB_TOKEN` auto-generated on first start, stored in `~/.kern/.env`
+- All `/api/*` routes require the web token (Bearer header or `?token=` query param)
+- `kern web start` and `kern web token` always print the full URL with token
+- Port configurable in `~/.kern/config.json` (default 9000)
 - PID tracked in `~/.kern/web.pid`, logs in `~/.kern/web.log`
 
 ## kern import opencode
