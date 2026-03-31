@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.12.0
+
+### Features
+- **Interface status** — `/status` API and slash command now report `telegram` and `slack` connection state (connected/disconnected/error). Web UI info panel shows them.
+- **Queue status in `/status`** — shows busy/idle and pending message count.
+- **Slash commands bypass queue** — `/status`, `/restart`, `/help` respond instantly even when the queue is busy.
+- **Tool output in web UI** — `write` shows file content, `message` shows message text in collapsible tool output.
+
+### Fixes
+- **Telegram crash on restart** — SIGTERM handler now stops Telegram bot polling before exit. Previously, the old `getUpdates` long-poll lingered for up to 30s, causing the new process to hit a 409 Conflict and crash with an unhandled grammyError. Added `bot.catch()` and 409 retry logic.
+- **Graceful shutdown** — SIGTERM/SIGINT stop Telegram and Slack interfaces before `process.exit()`.
+- **Cross-client message sync** — SSE clients get unique connection IDs; broadcasts exclude the sender to prevent echo. New `user-remote` message type for messages from other web/TUI tabs.
+- **History tool output** — appends to pre-filled content instead of overwriting.
+- **Session-scoped active agent** — uses `sessionStorage` so each browser tab tracks its own agent independently.
+
+### Changes
+- Web UI info panel closes on agent switch to prevent stale data.
+- README updated with npm install instructions and browser references.
+
 ## v0.11.0
 
 ### Features
