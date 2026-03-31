@@ -830,13 +830,31 @@
     color: var(--text-muted);
     margin-top: 1px;
   }
+  .switcher-server-header {
+    padding: 8px 14px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
   .switcher-item-remove {
     background: none; border: none; color: var(--text-muted);
     font-size: 14px; cursor: pointer; padding: 2px 4px;
     display: none;
   }
+  .switcher-server-header .switcher-item-remove { display: inline; }
   .switcher-item:hover .switcher-item-remove { display: block; }
   .switcher-item-remove:hover { color: var(--red); }
+  .switcher-server-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px 4px; font-size: 11px; font-weight: 600;
+    color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .switcher-server-header .switcher-item-remove { display: inline; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -853,13 +871,11 @@
 
 <div class="modal-overlay" id="add-modal">
   <div class="modal">
-    <div class="modal-title">Add agent</div>
-    <input id="add-name" type="text" placeholder="Name" />
-    <input id="add-url" type="text" placeholder="URL (http://host:port)" />
-    <input id="add-token" type="password" placeholder="Token" />
+    <div class="modal-title">Add server</div>
+    <input id="add-url" type="text" placeholder="http://host:port" />
     <div class="modal-actions">
       <button class="btn-cancel" id="add-cancel-btn">Cancel</button>
-      <button class="btn-add" id="add-agent-btn">Add</button>
+      <button class="btn-add" id="add-server-btn">Add</button>
     </div>
   </div>
 </div>
@@ -1201,12 +1217,12 @@ $('info-btn').addEventListener('click', async () => {
 // Agent Switcher
 // ==========================================================================
 
-// Manual agents — stored in localStorage (remote agents added by user)
-function getManualAgents() {
-  try { return JSON.parse(localStorage.getItem('kern_manual_agents') || '[]'); } catch { return []; }
+// Servers — stored in localStorage (remote kern web URLs)
+function getSavedServers() {
+  try { return JSON.parse(localStorage.getItem('kern_servers') || '[]'); } catch { return []; }
 }
-function saveManualAgents(agents) {
-  localStorage.setItem('kern_manual_agents', JSON.stringify(agents));
+function saveServers(servers) {
+  localStorage.setItem('kern_servers', JSON.stringify(servers));
 }
 function getActiveAgent() {
   return sessionStorage.getItem('kern_active_agent') || null;
@@ -1215,20 +1231,8 @@ function setActiveAgent(name) {
   sessionStorage.setItem('kern_active_agent', name);
 }
 
-// Discovered agents — fetched from /api/agents, never persisted
-let discoveredAgents = [];
-
-// All agents = discovered + manual
-function getAllAgents() {
-  const manual = getManualAgents();
-  const all = [...discoveredAgents];
-  for (const m of manual) {
-    if (!all.find(a => a.name === m.name)) {
-      all.push({ ...m, source: 'manual' });
-    }
-  }
-  return all;
-}
+// All discovered agents grouped by server — fetched fresh each time
+let allAgents = [];
 
 let BASE_URL = null;
 let AUTH_TOKEN = null;
@@ -1241,7 +1245,7 @@ function avatarColor(name) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-// Render switcher panel
+// Render switcher panel — grouped by server
 function renderSwitcher() {
   const list = $('switcher-list');
   const agents = getAllAgents();
@@ -1249,50 +1253,71 @@ function renderSwitcher() {
   list.innerHTML = '';
   if (agents.length === 0) {
     list.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:12px;">No agents found.</div>';
-    return;
-  }
-  for (const agent of agents) {
-    const isManual = agent.source === 'manual';
-    const item = document.createElement('div');
-    const classes = ['switcher-item'];
-    if (agent.name === activeName) classes.push('active');
-    if (!agent.running) classes.push('offline');
-    item.className = classes.join(' ');
-    const color = avatarColor(agent.name);
-    const initial = agent.name.charAt(0).toUpperCase();
-    const dotClass = agent.running ? 'running' : 'stopped';
-    item.innerHTML = `
-      <div class="switcher-item-avatar" style="background:${color}">
-        ${initial}
-        <span class="online-dot ${dotClass}"></span>
-      </div>
-      <div class="switcher-item-name">${agent.name}</div>
-      ${isManual ? '<button class="switcher-item-remove" title="Remove">&times;</button>' : ''}
-    `;
-    if (agent.running && agent.url) {
-      item.addEventListener('click', (e) => {
-        if (e.target.closest('.switcher-item-remove')) return;
-        switchToAgent(agent);
-      });
+  } else {
+    // Group by server
+    const groups = new Map();
+    for (const agent of agents) {
+      const key = agent.server || location.origin;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(agent);
     }
-    if (isManual) {
-      item.querySelector('.switcher-item-remove').addEventListener('click', (e) => {
-        e.stopPropagation();
-        const updated = getManualAgents().filter(a => a.name !== agent.name);
-        saveManualAgents(updated);
-        renderSwitcher();
-      });
+    const remoteServers = getSavedServers();
+    for (const [serverUrl, serverAgents] of groups) {
+      const isLocal = serverUrl === location.origin;
+      const isRemote = remoteServers.includes(serverUrl);
+      // Server header for remote servers
+      if (!isLocal) {
+        const header = document.createElement('div');
+        header.className = 'switcher-server-header';
+        let label;
+        try { label = new URL(serverUrl).hostname; } catch { label = serverUrl; }
+        header.innerHTML = `<span>${escapeHtml(label)}</span>`;
+        if (isRemote) {
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'switcher-item-remove';
+          removeBtn.title = 'Remove server';
+          removeBtn.innerHTML = '&times;';
+          removeBtn.style.display = 'inline';
+          removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            saveServers(remoteServers.filter(s => s !== serverUrl));
+            allAgents = allAgents.filter(a => a.server !== serverUrl);
+            renderSwitcher();
+          });
+          header.appendChild(removeBtn);
+        }
+        list.appendChild(header);
+      }
+      for (const agent of serverAgents) {
+        const item = document.createElement('div');
+        const classes = ['switcher-item'];
+        if (agent.name === activeName) classes.push('active');
+        if (!agent.running) classes.push('offline');
+        item.className = classes.join(' ');
+        const color = avatarColor(agent.name);
+        const initial = agent.name.charAt(0).toUpperCase();
+        const dotClass = agent.running ? 'running' : 'stopped';
+        item.innerHTML = `
+          <div class="switcher-item-avatar" style="background:${color}">
+            ${initial}
+            <span class="online-dot ${dotClass}"></span>
+          </div>
+          <div class="switcher-item-name">${agent.name}</div>
+        `;
+        if (agent.running && agent.url) {
+          item.addEventListener('click', () => switchToAgent(agent));
+        }
+        list.appendChild(item);
+      }
     }
-    list.appendChild(item);
   }
-  // Add agent row
+  // Add server row
   const addItem = document.createElement('div');
   addItem.className = 'switcher-add-inline';
-  addItem.id = 'show-add-btn';
-  addItem.innerHTML = '<span>+</span> Add agent';
+  addItem.innerHTML = '<span>+</span> Add server';
   addItem.addEventListener('click', () => {
     $('add-modal').classList.add('open');
-    $('add-name').focus();
+    $('add-url').focus();
   });
   list.appendChild(addItem);
 }
@@ -1300,7 +1325,7 @@ function renderSwitcher() {
 function switchToAgent(agent) {
   setActiveAgent(agent.name);
   BASE_URL = agent.url;
-  AUTH_TOKEN = agent.token;
+  AUTH_TOKEN = null;
   authFailed = false;
   intentionalClose = true;
   if (connection) { connection.close(); connection = null; }
@@ -1350,63 +1375,73 @@ if (localStorage.getItem('kern_sidebar_collapsed') === '1' && window.innerWidth 
   $('sidebar').classList.add('collapsed');
 }
 
-// Auto-discover agents from kern web /api/agents endpoint
-async function discoverAgents() {
+// Fetch agents from a server URL, returns array of agent objects
+async function fetchServerAgents(serverUrl) {
   try {
-    const res = await fetch(`${location.origin}/api/agents`);
-    if (!res.ok) return;
+    const res = await fetch(`${serverUrl}/api/agents`);
+    if (!res.ok) return [];
     const agents = await res.json();
-    if (!Array.isArray(agents)) return;
-    discoveredAgents = agents.map(a => ({
+    if (!Array.isArray(agents)) return [];
+    return agents.map(a => ({
       name: a.name,
-      url: a.running ? `${location.origin}/api/agents/${a.name}` : null,
-      token: null,
+      url: a.running ? `${serverUrl}/api/agents/${a.name}` : null,
       running: a.running,
-      source: 'discovered',
+      server: serverUrl,
     }));
-  } catch {}
+  } catch { return []; }
+}
+
+// Discover agents from local server + all saved remote servers
+async function discoverAllAgents() {
+  const localUrl = location.origin;
+  const remoteUrls = getSavedServers();
+  const fetches = [localUrl, ...remoteUrls].map(url => fetchServerAgents(url));
+  const results = await Promise.all(fetches);
+  allAgents = results.flat();
+}
+
+// Get all agents (use cached results from last discover)
+function getAllAgents() {
+  return allAgents;
 }
 
 function setupSwitcher() {
   $('menu-btn').addEventListener('click', async () => {
-    await discoverAgents();
+    await discoverAllAgents();
     renderSwitcher();
     toggleSidebar();
   });
   $('sidebar-backdrop').addEventListener('click', () => {
     closeSidebar();
   });
-  $('add-agent-btn').addEventListener('click', () => {
-    const name = $('add-name').value.trim();
+  $('add-server-btn').addEventListener('click', async () => {
     const url = $('add-url').value.trim().replace(/\/$/, '');
-    const token = $('add-token').value.trim() || null;
-    if (!name || !url) return;
-    const agents = getManualAgents();
-    const existing = agents.findIndex(a => a.name === name);
-    if (existing >= 0) {
-      agents[existing] = { name, url, token, running: true, source: 'manual' };
-    } else {
-      agents.push({ name, url, token, running: true, source: 'manual' });
+    if (!url) return;
+    // Validate by fetching agents
+    const agents = await fetchServerAgents(url);
+    if (agents.length === 0) {
+      $('add-url').style.borderColor = 'var(--red)';
+      setTimeout(() => $('add-url').style.borderColor = '', 2000);
+      return;
     }
-    saveManualAgents(agents);
-    $('add-name').value = '';
+    const servers = getSavedServers();
+    if (!servers.includes(url)) {
+      servers.push(url);
+      saveServers(servers);
+    }
     $('add-url').value = '';
-    $('add-token').value = '';
     $('add-modal').classList.remove('open');
+    await discoverAllAgents();
     renderSwitcher();
   });
   $('add-cancel-btn').addEventListener('click', () => {
     $('add-modal').classList.remove('open');
-    $('add-name').value = '';
     $('add-url').value = '';
-    $('add-token').value = '';
   });
   $('add-modal').addEventListener('click', (e) => {
     if (e.target === $('add-modal')) {
       $('add-modal').classList.remove('open');
-      $('add-name').value = '';
       $('add-url').value = '';
-      $('add-token').value = '';
     }
   });
 }
@@ -1946,15 +1981,8 @@ async function init() {
       if (authFailed || intentionalClose) return;
       setConnected('disconnected');
       addMessage('system', 'disconnected — reconnecting...');
-      // Re-discover agents to pick up new port after restart
-      await discoverAgents();
-      const agents = getAllAgents();
-      const activeName = getActiveAgent();
-      const updated = agents.find(a => a.name === activeName && a.running && a.url);
-      if (updated && updated.url !== BASE_URL) {
-        BASE_URL = updated.url;
-        AUTH_TOKEN = updated.token;
-      }
+      // Re-discover agents (proxy URL is stable, but agent may have stopped)
+      await discoverAllAgents();
       reconnectTimer = setTimeout(init, 2000);
     },
   });
@@ -2034,7 +2062,7 @@ applyFilters();
 
 // On load: discover agents, auto-connect or show switcher
 (async () => {
-  await discoverAgents();
+  await discoverAllAgents();
   renderSwitcher();
 
   const agents = getAllAgents();
@@ -2045,13 +2073,13 @@ applyFilters();
   if (activeAgent) {
     // Resume previous agent
     BASE_URL = activeAgent.url;
-    AUTH_TOKEN = activeAgent.token;
+    AUTH_TOKEN = null;
     init();
   } else if (runningAgents.length === 1) {
     // Only one running agent — auto-connect
     switchToAgent(runningAgents[0]);
   } else if (runningAgents.length > 1) {
-    // Multiple running agents — show switcher on mobile
+    // Multiple running agents — show switcher
     setConnected('disconnected');
     agentNameEl.textContent = 'kern';
     renderSwitcher();
@@ -2060,7 +2088,7 @@ applyFilters();
     // No running agents
     setConnected('disconnected');
     agentNameEl.textContent = 'kern';
-    addMessage('system', 'No running agents found. Start an agent with `kern start` or add one manually.');
+    addMessage('system', 'No running agents found. Start an agent with `kern start` or add a server.');
   }
 })();
 
