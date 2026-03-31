@@ -20,10 +20,17 @@
   - Remove button on remote server headers.
   - Servers stored as `{url, token}` objects in localStorage.
 
+### Web UI improvements
+- **Auto-expand last tool call** — latest tool call stays expanded during streaming. Collapses when the next tool starts or text response begins.
+- **Smart scroll** — won't pull you down when scrolled up reading history. Auto-scrolls only when at the bottom.
+- **Scroll-to-bottom button** — floating ↓ button appears when scrolled up, click to jump back down.
+- **SSE cleanup** — proxy aborts agent connection when browser disconnects.
+
 ### Changes
 - Agents bind `127.0.0.1` instead of `0.0.0.0` — no longer directly accessible over the network.
 - Web UI no longer stores or manages per-agent tokens. Auth is at the proxy level.
 - Agent discovery returns name and running state only — no port or token exposed.
+- Removed `host` config field — agents always bind localhost now.
 
 ## v0.13.0
 
