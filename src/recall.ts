@@ -42,18 +42,22 @@ export class RecallIndex {
     this.db = new Database(dbPath);
     sqliteVec.load(this.db);
 
-    // Create embedding model — route through same provider
-    const openrouter = createOpenAI({
-      baseURL: provider === "openrouter"
-        ? "https://openrouter.ai/api/v1"
-        : undefined,
-      apiKey: provider === "openrouter"
-        ? process.env.OPENROUTER_API_KEY
-        : provider === "openai"
-          ? process.env.OPENAI_API_KEY
-          : process.env.OPENROUTER_API_KEY, // fallback to openrouter
+    // Create embedding model — use OpenAI-compatible endpoint
+    const apiKey = provider === "openrouter"
+      ? process.env.OPENROUTER_API_KEY
+      : provider === "openai"
+        ? process.env.OPENAI_API_KEY
+        : process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
+
+    if (!apiKey) {
+      throw new Error("No API key available for embeddings (need OPENROUTER_API_KEY or OPENAI_API_KEY)");
+    }
+
+    const client = createOpenAI({
+      baseURL: provider === "openai" ? undefined : "https://openrouter.ai/api/v1",
+      apiKey,
     });
-    this.embeddingModel = openrouter.embeddingModel(EMBEDDING_MODEL);
+    this.embeddingModel = client.embeddingModel(EMBEDDING_MODEL);
 
     this.initSchema();
   }

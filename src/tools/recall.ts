@@ -48,44 +48,48 @@ export const recallTool = tool({
       return "Recall is not available.";
     }
 
-    // Load mode
-    if (args.sessionId && args.messageStart !== undefined && args.messageEnd !== undefined) {
-      return _recallIndex.loadMessages(args.sessionId, args.messageStart, args.messageEnd);
+    try {
+      // Load mode
+      if (args.sessionId && args.messageStart !== undefined && args.messageEnd !== undefined) {
+        return await _recallIndex.loadMessages(args.sessionId, args.messageStart, args.messageEnd);
+      }
+
+      // Search mode
+      if (args.query) {
+        let results = await _recallIndex.search(args.query, (args.limit || 5) * 3); // fetch extra for filtering
+        
+        // Apply date filters
+        if (args.after) {
+          const after = new Date(args.after).toISOString();
+          results = results.filter((r) => r.timestamp >= after);
+        }
+        if (args.before) {
+          const before = new Date(args.before).toISOString();
+          results = results.filter((r) => r.timestamp <= before);
+        }
+        
+        results = results.slice(0, args.limit || 5);
+        if (results.length === 0) {
+          return "No relevant past conversations found.";
+        }
+
+        return results
+          .map((r, i) => {
+            return [
+              `--- Result ${i + 1} (distance: ${r.distance.toFixed(3)}) ---`,
+              `Session: ${r.session_id}`,
+              `Messages: ${r.msg_start}-${r.msg_end}`,
+              `Time: ${r.timestamp}`,
+              ``,
+              r.text,
+            ].join("\n");
+          })
+          .join("\n\n");
+      }
+
+      return "Provide either a 'query' for search or 'sessionId'+'messageStart'+'messageEnd' to load messages.";
+    } catch (err: any) {
+      return `Recall error: ${err.message}`;
     }
-
-    // Search mode
-    if (args.query) {
-      let results = await _recallIndex.search(args.query, (args.limit || 5) * 3); // fetch extra for filtering
-      
-      // Apply date filters
-      if (args.after) {
-        const after = new Date(args.after).toISOString();
-        results = results.filter((r) => r.timestamp >= after);
-      }
-      if (args.before) {
-        const before = new Date(args.before).toISOString();
-        results = results.filter((r) => r.timestamp <= before);
-      }
-      
-      results = results.slice(0, args.limit || 5);
-      if (results.length === 0) {
-        return "No relevant past conversations found.";
-      }
-
-      return results
-        .map((r, i) => {
-          return [
-            `--- Result ${i + 1} (distance: ${r.distance.toFixed(3)}) ---`,
-            `Session: ${r.session_id}`,
-            `Messages: ${r.msg_start}-${r.msg_end}`,
-            `Time: ${r.timestamp}`,
-            ``,
-            r.text,
-          ].join("\n");
-        })
-        .join("\n\n");
-    }
-
-    return "Provide either a 'query' for search or 'sessionId'+'messageStart'+'messageEnd' to load messages.";
   },
 });
