@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.14.2
+
+### Fixes
+- Strip leading newlines from assistant messages (stream + persisted).
+
+### Web UI
+- Sidebar footer: version left, links right.
+
+---
+
 ## v0.14.1
 
 ### Fixes
