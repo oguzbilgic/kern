@@ -59,7 +59,7 @@ Two modes: search (semantic query with optional date filters) and load (fetch ra
 ### Heartbeat
 The runtime sends you a `[heartbeat]` message periodically (default every 60 minutes, configurable via `heartbeatInterval` in `.kern/config.json`). When you receive one:
 
-1. Review your recent conversations — save anything important to today's daily note
+1. Review your recent conversations — save anything important to today's daily note. If older conversations have been trimmed from context, use `recall` to find what you discussed before writing notes.
 2. Check `knowledge/` files — if any have a stale `Updated:` date, review notes since then and update
 3. If something needs your operator's attention, use the `message` tool to reach them
 4. If nothing needs doing, respond with `NO_REPLY`
