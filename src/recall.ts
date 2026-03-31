@@ -108,8 +108,13 @@ export class RecallIndex {
 
     if (lastIndexed >= messages.length) return 0;
 
+    // Parse session metadata for timestamp interpolation
+    const meta = JSON.parse(lines[0]);
+    const sessionCreated = new Date(meta.createdAt).getTime();
+    const sessionUpdated = new Date(meta.updatedAt).getTime();
+
     // Chunk new messages by turn
-    const chunks = this.chunkMessages(messages, lastIndexed, sessionId);
+    const chunks = this.chunkMessages(messages, lastIndexed, sessionId, sessionCreated, sessionUpdated);
     if (chunks.length === 0) return 0;
 
     // Embed chunks in batches (API limits)
@@ -237,7 +242,9 @@ export class RecallIndex {
   private chunkMessages(
     messages: ModelMessage[],
     startFrom: number,
-    sessionId: string
+    sessionId: string,
+    sessionCreated: number,
+    sessionUpdated: number
   ): Array<{ session_id: string; msg_start: number; msg_end: number; text: string; timestamp: string; token_count: number }> {
     const chunks: Array<{ session_id: string; msg_start: number; msg_end: number; text: string; timestamp: string; token_count: number }> = [];
 
@@ -286,11 +293,19 @@ export class RecallIndex {
       const turnEnd = i;
       const chunkText = parts.join("\n");
 
-      // Extract timestamp from user message metadata if present
-      const timeMatch = typeof msg.content === "string"
-        ? msg.content.match(/time: (\d{4}-\d{2}-\d{2}T[\d:.]+Z)/)
-        : null;
-      const timestamp = timeMatch?.[1] || new Date().toISOString();
+      // Extract timestamp from message metadata (e.g. "[via web, ..., time: 2026-03-30T...]")
+      let timestamp = "";
+      for (let j = turnStart; j < turnEnd && !timestamp; j++) {
+        const content = typeof messages[j].content === "string" ? messages[j].content as string : "";
+        const timeMatch = content.match(/time: (\d{4}-\d{2}-\d{2}T[\d:.]+Z)/);
+        if (timeMatch) timestamp = timeMatch[1];
+      }
+      // Fallback: interpolate from position in session
+      if (!timestamp) {
+        const progress = messages.length > 1 ? turnStart / (messages.length - 1) : 0;
+        const estimated = sessionCreated + progress * (sessionUpdated - sessionCreated);
+        timestamp = new Date(estimated).toISOString();
+      }
 
       chunks.push({
         session_id: sessionId,
