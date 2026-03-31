@@ -33,11 +33,17 @@ async function startOne(name: string, path: string): Promise<void> {
   // Find the kern entry point
   const kernBin = join(import.meta.dirname, "index.js");
 
+  // Clean up env vars that shouldn't be inherited by other agents
+  const env = { ...process.env };
+  delete env.KERN_AUTH_TOKEN;
+  delete env.PORT;
+
   // Fork detached process using kern run
   const child = spawn("node", ["--no-deprecation", kernBin, "run", path], {
     detached: true,
     stdio: ["ignore", logFd, logFd],
     cwd: path,
+    env,
   });
 
   child.unref();
