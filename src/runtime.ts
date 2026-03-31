@@ -268,9 +268,15 @@ export class Runtime {
         },
       });
 
+      let textStarted = false;
       for await (const part of result.fullStream) {
         if (part.type === "text-delta") {
-          const text = ("delta" in part ? part.delta : (part as any).text) || "";
+          let text = ("delta" in part ? part.delta : (part as any).text) || "";
+          if (!textStarted) {
+            text = text.replace(/^\n+/, "");
+            if (!text) continue;
+            textStarted = true;
+          }
           fullText += text;
           onEvent({ type: "text-delta", text });
         } else if (part.type === "tool-call") {
