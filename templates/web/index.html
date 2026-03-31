@@ -85,6 +85,21 @@
     padding: 6px;
   }
 
+  .sidebar-footer {
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+  }
+  .sidebar-footer a {
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+  .sidebar-footer a:hover {
+    color: var(--text);
+  }
+
   /* Add agent modal */
   .modal-overlay {
     display: none;
@@ -878,7 +893,10 @@
     <button class="filter-btn" id="logout-btn" title="Logout" style="font-size:14px;">&#x23FB;</button>
   </div>
   <div class="sidebar-list" id="switcher-list"></div>
-
+  <div class="sidebar-footer">
+    <a href="https://github.com/oguzbilgic/kern-ai/tree/master/docs" target="_blank" rel="noopener">Docs</a>
+    <a href="https://github.com/oguzbilgic/kern-ai" target="_blank" rel="noopener">GitHub</a>
+  </div>
 </div>
 
 <div class="modal-overlay" id="auth-modal">
