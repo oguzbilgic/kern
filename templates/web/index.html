@@ -1469,7 +1469,8 @@ async function fetchServerAgents(serverUrl) {
 // Returns 'ok', 'unauthorized' (local server needs token), or 'error'
 async function discoverAllAgents() {
   const localUrl = location.origin;
-  const remoteUrls = getSavedServers().map(s => s.url);
+  // Filter out remote servers that match the local URL to prevent duplicates
+  const remoteUrls = getSavedServers().map(s => s.url).filter(u => u !== localUrl);
   const allUrls = [localUrl, ...remoteUrls];
   const results = await Promise.all(allUrls.map(url => fetchServerAgents(url)));
   allAgents = results.flatMap(r => r.agents);
@@ -1495,6 +1496,11 @@ function setupSwitcher() {
     const url = $('add-url').value.trim().replace(/\/$/, '');
     const token = $('add-token').value.trim() || null;
     if (!url) return;
+    if (url === location.origin) {
+      $('add-url').style.borderColor = 'var(--red)';
+      setTimeout(() => $('add-url').style.borderColor = '', 2000);
+      return;
+    }
     // Save token first so fetchServerAgents can use it
     const servers = getSavedServers();
     const existing = servers.findIndex(s => s.url === url);
