@@ -80,7 +80,6 @@ export class RecallIndex {
     try {
       this.db.exec(`
         CREATE VIRTUAL TABLE vec_chunks USING vec0(
-          chunk_id INTEGER PRIMARY KEY,
           embedding FLOAT[${EMBEDDING_DIMENSIONS}]
         );
       `);
@@ -113,14 +112,21 @@ export class RecallIndex {
     const chunks = this.chunkMessages(messages, lastIndexed, sessionId);
     if (chunks.length === 0) return 0;
 
-    // Embed all chunks
+    // Embed chunks in batches (API limits)
+    const BATCH_SIZE = 100;
     const texts = chunks.map((c) => c.text);
     log("runtime", `recall: embedding ${texts.length} chunks (${texts.reduce((a, t) => a + t.length, 0)} chars)`);
 
-    let embeddings: number[][];
+    const embeddings: number[][] = [];
     try {
-      const result = await embedMany({ model: this.embeddingModel, values: texts });
-      embeddings = result.embeddings;
+      for (let b = 0; b < texts.length; b += BATCH_SIZE) {
+        const batch = texts.slice(b, b + BATCH_SIZE);
+        const result = await embedMany({ model: this.embeddingModel, values: batch });
+        embeddings.push(...result.embeddings);
+        if (texts.length > BATCH_SIZE) {
+          log("runtime", `recall: embedded batch ${Math.floor(b / BATCH_SIZE) + 1}/${Math.ceil(texts.length / BATCH_SIZE)}`);
+        }
+      }
     } catch (err: any) {
       log("runtime", `recall: embedding failed: ${err.message}`);
       return 0;
@@ -131,7 +137,7 @@ export class RecallIndex {
       "INSERT INTO chunks (session_id, msg_start, msg_end, text, timestamp, token_count) VALUES (?, ?, ?, ?, ?, ?)"
     );
     const insertVec = this.db.prepare(
-      "INSERT INTO vec_chunks (chunk_id, embedding) VALUES (?, ?)"
+      "INSERT INTO vec_chunks (rowid, embedding) VALUES (?, ?)"
     );
     const upsertState = this.db.prepare(
       "INSERT OR REPLACE INTO index_state (session_id, last_indexed_msg) VALUES (?, ?)"
@@ -149,7 +155,7 @@ export class RecallIndex {
           chunk.timestamp,
           chunk.token_count
         );
-        const chunkId = info.lastInsertRowid as number;
+        const chunkId = typeof info.lastInsertRowid === "bigint" ? info.lastInsertRowid : BigInt(info.lastInsertRowid);
         insertVec.run(chunkId, new Float32Array(embeddings[i]));
         indexed++;
       }
@@ -169,7 +175,7 @@ export class RecallIndex {
 
     const rows = this.db.prepare(`
       SELECT
-        v.chunk_id,
+        v.rowid,
         v.distance,
         c.text,
         c.timestamp,
@@ -177,12 +183,11 @@ export class RecallIndex {
         c.msg_start,
         c.msg_end
       FROM vec_chunks v
-      JOIN chunks c ON c.id = v.chunk_id
-      WHERE embedding MATCH ?
+      JOIN chunks c ON c.id = v.rowid
+      WHERE embedding MATCH ? AND k = ?
       ORDER BY distance
-      LIMIT ?
     `).all(new Float32Array(embedding), limit) as Array<{
-      chunk_id: number;
+      rowid: number;
       distance: number;
       text: string;
       timestamp: string;
