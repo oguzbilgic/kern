@@ -25,7 +25,7 @@
     --green: #12c905;
     --red: #fc533a;
     --orange: #fcd53a;
-    --tool-bg: #1e1e1e;
+    --tool-bg: #141414;
     --user-bg: #0d419d;
     --magenta: #bc8cff;
     --yellow: #d29922;
@@ -426,8 +426,7 @@
     align-self: flex-end;
     background: var(--bg-surface);
     color: #d4d4d4;
-    border-right: 3px solid var(--accent);
-    border-radius: 8px 0 0 8px;
+    border-radius: 8px;
   }
   .message.user-remote {
     align-self: flex-end;
@@ -466,8 +465,8 @@
   .message.tool {
     align-self: flex-start;
     background: var(--tool-bg);
-    border-left: 3px solid var(--text-muted);
-    border-radius: 0;
+    border: none;
+    border-radius: 6px;
     font-family: var(--font-mono);
     font-size: 12px;
     color: var(--text-dim);
@@ -479,12 +478,19 @@
   .message.tool .tool-arrow { font-size: 10px; color: var(--text-muted); transition: transform 0.15s; }
   .message.tool.expanded .tool-arrow { transform: rotate(90deg); }
   .message.tool .tool-name { font-weight: 600; }
+  .message.tool.tool-bash-style {
+    background: var(--tool-bg);
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+  }
+  .message.tool .tool-prompt { color: var(--text-muted); user-select: none; }
   .message.tool .tool-detail { color: var(--text-muted); }
   .message.tool .tool-output {
     display: none;
     margin-top: 6px;
     padding: 8px;
-    background: var(--bg);
+    background: var(--tool-bg);
     border-radius: 4px;
     font-size: 11px;
     line-height: 1.4;
@@ -1601,7 +1607,12 @@ function addMessage(type, content, meta, toolInput, timestamp, iface) {
     const toolDetail = spaceIdx > 0 ? content.slice(spaceIdx) : '';
     const color = TOOL_COLORS[toolName] || 'var(--text-dim)';
     el.style.borderLeftColor = color;
-    el.innerHTML = `<div class="tool-header"><span class="tool-arrow">&#9654;</span><span class="tool-name" style="color:${color}">${toolName}</span><span class="tool-detail">${toolDetail}</span></div><div class="tool-output"></div>`;
+    if (toolName === 'bash') {
+      el.classList.add('tool-bash-style');
+      el.innerHTML = `<div class="tool-header"><span class="tool-prompt">$</span><span class="tool-detail">${toolDetail}</span></div><div class="tool-output"></div>`;
+    } else {
+      el.innerHTML = `<div class="tool-header"><span class="tool-arrow">&#9654;</span><span class="tool-name" style="color:${color}">${toolName}</span><span class="tool-detail">${toolDetail}</span></div><div class="tool-output"></div>`;
+    }
     // Pre-fill tool output from input for specific tools
     if (toolName === 'edit' && toolInput) {
       const diff = formatEditDiff(toolInput);
