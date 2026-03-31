@@ -17,7 +17,7 @@ let _getSessionStats: (() => { totalMessages: number; estimatedTokens: number; w
 let _reloadFn: (() => Promise<void>) | null = null;
 let _pairingManager: any = null;
 let _getQueueStatus: (() => { processing: boolean; pending: number; activeChannel: string | null }) | null = null;
-let _getHubStatus: (() => { url: string; connected: boolean } | null) | null = null;
+let _getHubStatus: (() => { url: string; connected: boolean; id: string | null } | null) | null = null;
 let _hubPairConfirmFn: ((userId: string) => Promise<boolean>) | null = null;
 let _getInterfaceStatuses: (() => InterfaceStatus[]) | null = null;
 let _getRecallStats: (() => { chunks: number; sessions: number; messages: number; building: boolean } | null) | null = null;
@@ -30,7 +30,7 @@ export function setQueueStatusFn(fn: () => { processing: boolean; pending: numbe
   _getQueueStatus = fn;
 }
 
-export function setHubStatusFn(fn: () => { url: string; connected: boolean } | null) {
+export function setHubStatusFn(fn: () => { url: string; connected: boolean; id: string | null } | null) {
   _getHubStatus = fn;
 }
 
@@ -163,7 +163,7 @@ export function getStatusData(): StatusData {
     promptTokens: _totalPromptTokens,
     completionTokens: _totalCompletionTokens,
     queue: queueStr,
-    hub: _getHubStatus ? (() => { const h = _getHubStatus!(); return h ? `${h.url} (${h.connected ? 'connected' : 'disconnected'})` : null; })() : null,
+    hub: _getHubStatus ? (() => { const h = _getHubStatus!(); return h ? `${h.url} (${h.connected ? 'connected' : 'disconnected'})${h.id ? ` id: ${h.id}` : ''}` : null; })() : null,
     telegram: tg ? (tg.detail ? `${tg.status} (${tg.detail})` : tg.status) : null,
     slack: sl ? (sl.detail ? `${sl.status} (${sl.detail})` : sl.status) : null,
     recall: _getRecallStats ? (() => {

@@ -277,7 +277,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
         return "";
       }
     });
-    setHubStatusFn(() => ({ url: hubInterface!.getUrl(), connected: hubInterface!.isConnected() }));
+    setHubStatusFn(() => ({ url: hubInterface!.getUrl(), connected: hubInterface!.isConnected(), id: hubInterface!.getMyId() }));
     setHubPairConfirmFn(async (userId: string) => {
       return hubInterface!.sendPairConfirmation(userId);
     });
