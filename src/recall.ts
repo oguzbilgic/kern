@@ -12,16 +12,6 @@ const EMBEDDING_MODEL = "openai/text-embedding-3-small";
 const EMBEDDING_DIMENSIONS = 1536;
 const MAX_CHUNK_TOKENS = 1000; // rough token limit per chunk
 
-interface Chunk {
-  id: number;
-  session_id: string;
-  msg_start: number;
-  msg_end: number;
-  text: string;
-  timestamp: string;
-  token_count: number;
-}
-
 interface RecallResult {
   text: string;
   timestamp: string;
@@ -65,6 +55,16 @@ export class RecallIndex {
 
   private initSchema(): void {
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        msg_index INTEGER NOT NULL,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        timestamp TEXT,
+        UNIQUE(session_id, msg_index)
+      );
+
       CREATE TABLE IF NOT EXISTS chunks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         session_id TEXT NOT NULL,
@@ -95,6 +95,7 @@ export class RecallIndex {
 
   /**
    * Index new messages from a session's JSONL file.
+   * Only reads and parses new lines since last indexed position.
    */
   async indexSession(sessionId: string): Promise<number> {
     const jsonlPath = join(this.agentDir, ".kern", "sessions", `${sessionId}.jsonl`);
@@ -104,23 +105,53 @@ export class RecallIndex {
     const lines = content.trim().split("\n").filter(Boolean);
     if (lines.length <= 1) return 0; // only metadata line
 
-    // Messages start at line index 1
-    const messages: ModelMessage[] = lines.slice(1).map((l) => JSON.parse(l));
+    const totalMessages = lines.length - 1; // exclude metadata line
 
     // Get last indexed position
     const state = this.db.prepare("SELECT last_indexed_msg FROM index_state WHERE session_id = ?").get(sessionId) as { last_indexed_msg: number } | undefined;
     const lastIndexed = state?.last_indexed_msg ?? 0;
 
-    if (lastIndexed >= messages.length) return 0;
+    if (lastIndexed >= totalMessages) return 0;
+
+    // Parse only new lines (from lastIndexed onward)
+    const newLines = lines.slice(1 + lastIndexed);
+    const newMessages: ModelMessage[] = newLines.map((l) => JSON.parse(l));
 
     // Parse session metadata for timestamp interpolation
     const meta = JSON.parse(lines[0]);
     const sessionCreated = new Date(meta.createdAt).getTime();
     const sessionUpdated = new Date(meta.updatedAt).getTime();
 
-    // Chunk new messages by turn
-    const chunks = this.chunkMessages(messages, lastIndexed, sessionId, sessionCreated, sessionUpdated);
-    if (chunks.length === 0) return 0;
+    // Store raw messages in sqlite
+    const insertMsg = this.db.prepare(
+      "INSERT OR IGNORE INTO messages (session_id, msg_index, role, content, timestamp) VALUES (?, ?, ?, ?, ?)"
+    );
+    const msgTx = this.db.transaction(() => {
+      for (let i = 0; i < newMessages.length; i++) {
+        const msg = newMessages[i];
+        const msgIndex = lastIndexed + i;
+        const msgContent = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
+
+        // Extract timestamp from message metadata
+        let timestamp: string | null = null;
+        const timeMatch = msgContent.match(/time: (\d{4}-\d{2}-\d{2}T[\d:.]+Z)/);
+        if (timeMatch) timestamp = timeMatch[1];
+
+        insertMsg.run(sessionId, msgIndex, msg.role, msgContent, timestamp);
+      }
+    });
+    msgTx();
+
+    // Chunk new messages into turns
+    // We need context: if lastIndexed lands mid-turn (after a user msg, before next user msg),
+    // we need to find the right start point. Load a few messages before to find turn boundary.
+    const chunkStartOffset = lastIndexed;
+    const chunks = this.chunkMessages(newMessages, chunkStartOffset, totalMessages, sessionId, sessionCreated, sessionUpdated);
+    if (chunks.length === 0) {
+      // Still update state — messages were stored even if no complete turns yet
+      this.db.prepare("INSERT OR REPLACE INTO index_state (session_id, last_indexed_msg) VALUES (?, ?)").run(sessionId, totalMessages);
+      return 0;
+    }
 
     // Embed chunks in batches (API limits)
     const BATCH_SIZE = 100;
@@ -142,7 +173,7 @@ export class RecallIndex {
       return 0;
     }
 
-    // Insert into DB
+    // Insert chunks + embeddings
     const insertChunk = this.db.prepare(
       "INSERT INTO chunks (session_id, msg_start, msg_end, text, timestamp, token_count) VALUES (?, ?, ?, ?, ?, ?)"
     );
@@ -169,7 +200,7 @@ export class RecallIndex {
         insertVec.run(chunkId, new Float32Array(embeddings[i]));
         indexed++;
       }
-      upsertState.run(sessionId, messages.length);
+      upsertState.run(sessionId, totalMessages);
     });
     tx();
 
@@ -217,43 +248,60 @@ export class RecallIndex {
   }
 
   /**
-   * Load raw messages from a session by index range.
+   * Load raw messages from sqlite by session and index range.
+   * Falls back to JSONL if messages aren't in sqlite yet.
    */
   async loadMessages(sessionId: string, start: number, end: number): Promise<string> {
+    const from = Math.max(0, start);
+    const to = end;
+
+    // Try sqlite first
+    const rows = this.db.prepare(
+      "SELECT msg_index, role, content FROM messages WHERE session_id = ? AND msg_index >= ? AND msg_index < ? ORDER BY msg_index"
+    ).all(sessionId, from, to) as Array<{ msg_index: number; role: string; content: string }>;
+
+    if (rows.length > 0) {
+      return rows.map((r) => {
+        const preview = r.content.length > 500 ? r.content.slice(0, 500) + "..." : r.content;
+        return `[${r.msg_index}] ${r.role}: ${preview}`;
+      }).join("\n\n");
+    }
+
+    // Fallback to JSONL for messages not yet in sqlite
     const jsonlPath = join(this.agentDir, ".kern", "sessions", `${sessionId}.jsonl`);
     if (!existsSync(jsonlPath)) return "Session not found.";
 
     const content = await readFile(jsonlPath, "utf-8");
     const lines = content.trim().split("\n").filter(Boolean);
-    const messages: ModelMessage[] = lines.slice(1).map((l) => JSON.parse(l));
+    const totalMessages = lines.length - 1;
 
-    const from = Math.max(0, start);
-    const to = Math.min(messages.length, end);
-    const slice = messages.slice(from, to);
+    const actualTo = Math.min(totalMessages, to);
+    const result: string[] = [];
+    for (let i = from; i < actualTo; i++) {
+      const msg: ModelMessage = JSON.parse(lines[i + 1]); // +1 for metadata line
+      const msgContent = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
+      const preview = msgContent.length > 500 ? msgContent.slice(0, 500) + "..." : msgContent;
+      result.push(`[${i}] ${msg.role}: ${preview}`);
+    }
 
-    return slice.map((msg, i) => {
-      const idx = from + i;
-      const content = typeof msg.content === "string"
-        ? msg.content
-        : JSON.stringify(msg.content);
-      const preview = content.length > 500 ? content.slice(0, 500) + "..." : content;
-      return `[${idx}] ${msg.role}: ${preview}`;
-    }).join("\n\n");
+    return result.length > 0 ? result.join("\n\n") : "No messages found in range.";
   }
 
   /**
-   * Chunk messages into turns starting from a given offset.
+   * Chunk messages into turns.
+   * Messages are passed starting from an offset — msg_start/msg_end use absolute indices.
    */
   private chunkMessages(
     messages: ModelMessage[],
-    startFrom: number,
+    absoluteOffset: number,
+    totalMessages: number,
     sessionId: string,
     sessionCreated: number,
     sessionUpdated: number
   ): Array<{ session_id: string; msg_start: number; msg_end: number; text: string; timestamp: string; token_count: number }> {
     const chunks: Array<{ session_id: string; msg_start: number; msg_end: number; text: string; timestamp: string; token_count: number }> = [];
 
-    let i = startFrom;
+    let i = 0;
     while (i < messages.length) {
       const msg = messages[i];
 
@@ -298,7 +346,11 @@ export class RecallIndex {
       const turnEnd = i;
       const chunkText = parts.join("\n");
 
-      // Extract timestamp from message metadata (e.g. "[via web, ..., time: 2026-03-30T...]")
+      // Absolute indices
+      const absTurnStart = absoluteOffset + turnStart;
+      const absTurnEnd = absoluteOffset + turnEnd;
+
+      // Extract timestamp from message metadata
       let timestamp = "";
       for (let j = turnStart; j < turnEnd && !timestamp; j++) {
         const content = typeof messages[j].content === "string" ? messages[j].content as string : "";
@@ -307,15 +359,15 @@ export class RecallIndex {
       }
       // Fallback: interpolate from position in session
       if (!timestamp) {
-        const progress = messages.length > 1 ? turnStart / (messages.length - 1) : 0;
+        const progress = totalMessages > 1 ? absTurnStart / (totalMessages - 1) : 0;
         const estimated = sessionCreated + progress * (sessionUpdated - sessionCreated);
         timestamp = new Date(estimated).toISOString();
       }
 
       chunks.push({
         session_id: sessionId,
-        msg_start: turnStart,
-        msg_end: turnEnd,
+        msg_start: absTurnStart,
+        msg_end: absTurnEnd,
         text: chunkText,
         timestamp,
         token_count: Math.ceil(chunkText.length / 4),
@@ -341,10 +393,11 @@ export class RecallIndex {
     return JSON.stringify(msg.content);
   }
 
-  getStats(): { chunks: number; sessions: number } {
+  getStats(): { chunks: number; sessions: number; messages: number } {
     const chunks = (this.db.prepare("SELECT COUNT(*) as count FROM chunks").get() as any).count;
     const sessions = (this.db.prepare("SELECT COUNT(*) as count FROM index_state").get() as any).count;
-    return { chunks, sessions };
+    const messages = (this.db.prepare("SELECT COUNT(*) as count FROM messages").get() as any).count;
+    return { chunks, sessions, messages };
   }
 
   close(): void {
