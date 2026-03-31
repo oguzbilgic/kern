@@ -122,7 +122,16 @@ class MainActivity : AppCompatActivity() {
                     KernNative.switchAgent(baseUrl, token || '');
                 }
             }
-            return { close: function(){} };
+            // Return stub with connectionId property (set by native SSE)
+            var stub = {
+                close: function(){},
+                connectionId: null
+            };
+            // Store stub so native SSE can populate connectionId
+            if (window._kern) {
+                window._kern.connection = stub;
+            }
+            return stub;
         };
 
         // Allow init() once per agent, skip reconnect loops
@@ -335,6 +344,10 @@ class MainActivity : AppCompatActivity() {
                     "var ev=JSON.parse(json);" +
                     "if (ev.type === '__sse_connected') { if (window._kernNativeSseReady) window._kernNativeSseReady(); }" +
                     " else if (ev.type === '__sse_disconnected') { if (window._kernNativeSseDisconnected) window._kernNativeSseDisconnected(); }" +
+                    " else if (ev.type === 'connection' && ev.connectionId) { " +
+                    "  console.log('[kern-native] connectionId: ' + ev.connectionId); " +
+                    "  if (window._kern && window._kern.connection) { window._kern.connection.connectionId = ev.connectionId; } " +
+                    " } " +
                     " else { if (window.handleEvent) window.handleEvent(ev); }" +
                     " } catch(e) { console.log('SSE inject error: ' + e); } })();",
                     null
