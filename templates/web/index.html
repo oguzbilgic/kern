@@ -869,6 +869,17 @@
 
 </div>
 
+<div class="modal-overlay" id="auth-modal">
+  <div class="modal">
+    <div class="modal-title">Connect</div>
+    <input id="auth-token" type="password" placeholder="Web token" />
+    <div style="color:var(--text-muted);font-size:11px;margin-top:-4px;">~/.kern/.env → KERN_WEB_TOKEN</div>
+    <div class="modal-actions">
+      <button class="btn-add" id="auth-submit">Connect</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="add-modal">
   <div class="modal">
     <div class="modal-title">Add server</div>
@@ -1896,37 +1907,11 @@ async function init() {
     if (res.status === 401) {
       authFailed = true;
       setConnected('disconnected');
-      agentNameEl.textContent = 'kern';
-      // Show token input prompt
-      messagesEl.innerHTML = '';
-      const prompt = document.createElement('div');
-      prompt.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;';
-      prompt.innerHTML = `
-        <div style="color:var(--text-dim);font-size:14px;">Enter web token</div>
-        <input id="token-input" type="password" placeholder="KERN_WEB_TOKEN"
-          style="background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;width:280px;outline:none;font-family:var(--font-sans);" />
-        <button id="token-submit"
-          style="background:var(--accent-dim);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;">Connect</button>
-      `;
-      messagesEl.appendChild(prompt);
-      const tokenInput = $('token-input');
-      const tokenSubmit = $('token-submit');
-      tokenInput.focus();
-      function submitToken() {
-        const val = tokenInput.value.trim();
-        if (!val) return;
-        setLocalToken(val);
-        AUTH_TOKEN = val;
-        authFailed = false;
-        messagesEl.innerHTML = '';
-        inputEl.disabled = false;
-        sendBtn.disabled = false;
-        init();
-      }
-      tokenSubmit.addEventListener('click', submitToken);
-      tokenInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitToken(); });
-      inputEl.disabled = true;
-      sendBtn.disabled = true;
+      // Re-prompt for token
+      await showTokenPrompt();
+      AUTH_TOKEN = getServerToken(location.origin);
+      authFailed = false;
+      init();
       return;
     }
     const status = await res.json();
@@ -2091,34 +2076,24 @@ document.addEventListener('click', () => {
 
 applyFilters();
 
-// Show token prompt — resolves when user submits
+// Show token prompt using modal — resolves when user submits valid token
 function showTokenPrompt() {
   return new Promise(resolve => {
-    setConnected('disconnected');
-    agentNameEl.textContent = 'kern';
-    messagesEl.innerHTML = '';
-    const prompt = document.createElement('div');
-    prompt.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;';
-    prompt.innerHTML = `
-      <div style="color:var(--text-dim);font-size:14px;">Enter web token</div>
-      <div style="color:var(--text-muted);font-size:12px;">Found in ~/.kern/.env as KERN_WEB_TOKEN</div>
-      <input id="token-input" type="password" placeholder="KERN_WEB_TOKEN"
-        style="background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;width:280px;outline:none;font-family:var(--font-sans);" />
-      <button id="token-submit"
-        style="background:var(--accent-dim);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;">Connect</button>
-    `;
-    messagesEl.appendChild(prompt);
-    const tokenInput = $('token-input');
-    tokenInput.focus();
+    const modal = $('auth-modal');
+    const input = $('auth-token');
+    const btn = $('auth-submit');
+    input.value = '';
+    modal.classList.add('open');
+    input.focus();
     function submit() {
-      const val = tokenInput.value.trim();
+      const val = input.value.trim();
       if (!val) return;
       setLocalToken(val);
-      messagesEl.innerHTML = '';
+      modal.classList.remove('open');
       resolve(val);
     }
-    $('token-submit').addEventListener('click', submit);
-    tokenInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+    btn.onclick = submit;
+    input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
   });
 }
 
