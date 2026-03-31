@@ -1357,11 +1357,10 @@ async function discoverAgents() {
     if (!res.ok) return;
     const agents = await res.json();
     if (!Array.isArray(agents)) return;
-    const hostname = location.hostname;
     discoveredAgents = agents.map(a => ({
       name: a.name,
-      url: a.running && a.port ? `${location.protocol}//${hostname}:${a.port}` : null,
-      token: a.token || null,
+      url: a.running ? `${location.origin}/api/agents/${a.name}` : null,
+      token: null,
       running: a.running,
       source: 'discovered',
     }));
