@@ -1918,13 +1918,19 @@ cmdPopup.addEventListener('click', (e) => {
 
 // --- Input ---
 
+let _resizeRaf = 0;
 inputEl.addEventListener('input', () => {
-  // Auto-resize
-  inputEl.style.height = 'auto';
-  inputEl.style.height = inputEl.scrollHeight + 'px';
-  inputEl.style.overflowY = inputEl.scrollHeight > inputEl.offsetHeight ? 'auto' : 'hidden';
   sendBtn.disabled = !inputEl.value.trim();
   updateCmdPopup();
+  // Debounce auto-resize to next frame to avoid per-keystroke reflow
+  if (!_resizeRaf) {
+    _resizeRaf = requestAnimationFrame(() => {
+      _resizeRaf = 0;
+      inputEl.style.height = 'auto';
+      inputEl.style.height = inputEl.scrollHeight + 'px';
+      inputEl.style.overflowY = inputEl.scrollHeight > inputEl.offsetHeight ? 'auto' : 'hidden';
+    });
+  }
 });
 
 inputEl.addEventListener('keydown', (e) => {
