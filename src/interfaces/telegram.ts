@@ -47,11 +47,16 @@ function stripMarkdown(text: string): string {
 export class TelegramInterface implements Interface {
   private bot: Bot;
   private pairing: PairingManager | null;
+  private _status: "connected" | "disconnected" | "error" = "disconnected";
+  private _statusDetail?: string;
 
   constructor(token: string, pairing?: PairingManager) {
     this.bot = new Bot(token);
     this.pairing = pairing || null;
   }
+
+  get status() { return this._status; }
+  get statusDetail() { return this._statusDetail; }
 
   async start({ onMessage }: StartOptions): Promise<void> {
     // Register bot commands with Telegram
@@ -172,14 +177,21 @@ export class TelegramInterface implements Interface {
 
   private startPolling(): void {
     this.bot.start({
-      onStart: () => log("telegram", "polling started"),
+      onStart: () => {
+        this._status = "connected";
+        this._statusDetail = undefined;
+        log("telegram", "polling started");
+      },
     }).catch((err) => {
       const msg = err?.message || String(err);
       if (msg.includes("409") || msg.includes("Conflict")) {
-        // Old poll still active — retry after a delay
+        this._status = "error";
+        this._statusDetail = "409 conflict, retrying";
         log("telegram", "409 conflict — retrying in 5s");
         setTimeout(() => this.startPolling(), 5000);
       } else {
+        this._status = "error";
+        this._statusDetail = msg;
         log("telegram", `polling failed: ${msg}`);
       }
     });

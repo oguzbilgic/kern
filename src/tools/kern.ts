@@ -17,9 +17,14 @@ let _getSessionStats: (() => { totalMessages: number; estimatedTokens: number; w
 let _reloadFn: (() => Promise<void>) | null = null;
 let _pairingManager: any = null;
 let _getQueueStatus: (() => { processing: boolean; pending: number; activeChannel: string | null }) | null = null;
+let _getInterfaceStatuses: (() => InterfaceStatus[]) | null = null;
 
 export function setQueueStatusFn(fn: () => { processing: boolean; pending: number; activeChannel: string | null }) {
   _getQueueStatus = fn;
+}
+
+export function setInterfaceStatusFn(fn: () => InterfaceStatus[]) {
+  _getInterfaceStatuses = fn;
 }
 
 export async function initKernTool(opts: {
@@ -74,6 +79,12 @@ export async function addTokenUsage(promptTokens: number, completionTokens: numb
   } catch {}
 }
 
+export interface InterfaceStatus {
+  name: string;
+  status: "connected" | "disconnected" | "error";
+  detail?: string;
+}
+
 export interface StatusData {
   version: string;
   agent: string;
@@ -87,6 +98,7 @@ export interface StatusData {
   promptTokens: number;
   completionTokens: number;
   queue: string;
+  interfaces: InterfaceStatus[];
 }
 
 export function getStatusData(): StatusData {
@@ -116,6 +128,8 @@ export function getStatusData(): StatusData {
     ? qs.processing ? `busy (${qs.pending} pending)` : `idle (${qs.pending} pending)`
     : "unknown";
 
+  const interfaces = _getInterfaceStatuses ? _getInterfaceStatuses() : [];
+
   return {
     version: _version,
     agent: _agentDir,
@@ -129,15 +143,20 @@ export function getStatusData(): StatusData {
     promptTokens: _totalPromptTokens,
     completionTokens: _totalCompletionTokens,
     queue: queueStr,
+    interfaces,
   };
 }
 
 export function formatStatus(data: StatusData): string {
+  const ifaceStr = data.interfaces.length > 0
+    ? data.interfaces.map(i => `${i.name}: ${i.status}${i.detail ? ` (${i.detail})` : ""}`).join(", ")
+    : "none";
   return [
     `kern: ${data.version}`,
     `agent: ${data.agent}`,
     `model: ${data.provider}/${data.model}`,
     `toolScope: ${data.toolScope}`,
+    `interfaces: ${ifaceStr}`,
     `session: ${data.session}`,
     data.context ? `context: ${data.context}` : "",
     `api usage: ${data.apiUsage}`,
