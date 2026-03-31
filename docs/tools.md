@@ -143,6 +143,21 @@ Check indexing status via `kern({ action: "status" })` — the `recall` field sh
 
 Requires an API key for the configured provider (used for embeddings). Uses `text-embedding-3-small` (1536 dimensions).
 
+### Auto-recall
+
+When `"autoRecall": true` is set in config, kern automatically injects relevant old context before each turn:
+
+- Embeds the user's message and searches the recall index (top 3 results, distance < 0.95)
+- Skips chunks already visible in the current context window
+- Injects a `<recall>` block at the top of the context (ephemeral — not persisted to session)
+- Capped at ~2000 tokens to avoid bloating context
+
+The web UI shows a collapsible `📎 N memories recalled` block with the search query and chunk details.
+
+Auto-recall only fires when messages have been trimmed from context (long sessions). Short sessions with everything in context don't trigger it.
+
 ### Opt-out
 
-Set `"recall": false` in `.kern/config.json` to disable.
+Set `"recall": false` in `.kern/config.json` to disable recall entirely.
+
+Set `"autoRecall": false` (or omit it) to disable auto-injection while keeping the recall search tool available.

@@ -14,6 +14,13 @@
   - **Recall in status** — `kern({ action: "status" })` and web UI show message/chunk counts and build state.
   - **Opt-out** — set `"recall": false` in config to disable.
   - 11 built-in tools (was 10).
+- **Auto-recall** — before each turn, relevant old context is automatically injected into the sliding window.
+  - Embeds user message, searches recall index (top 3, distance < 0.95).
+  - Skips chunks already visible in context window (dedup by message index).
+  - Injects `<recall>` block at top of context (ephemeral, not persisted to session).
+  - Capped at ~2000 tokens.
+  - Web UI shows collapsible `📎 N memories recalled` with query and chunk details.
+  - **Opt-in** — set `"autoRecall": true` in config to enable.
 - **KNOWLEDGE.md in system prompt** — memory index file is now loaded into the system prompt automatically, so agents know what state files exist without being told.
 
 ## v0.12.0
