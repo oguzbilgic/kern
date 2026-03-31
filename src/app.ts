@@ -15,7 +15,7 @@ import { setMessageSender } from "./tools/message.js";
 import { setRecallIndex } from "./tools/recall.js";
 import { RecallIndex } from "./recall.js";
 import { MessageQueue } from "./queue.js";
-import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, type InterfaceStatus } from "./tools/kern.js";
+import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, type InterfaceStatus } from "./tools/kern.js";
 import { log } from "./log.js";
 
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
@@ -91,6 +91,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
           log("kern", `recall: backfilled ${indexed} chunks`);
         }
       }
+      setRecallStatsFn(() => recallIndex ? recallIndex.getStats() : null);
     } catch (err: any) {
       log("kern", `recall: init failed: ${err.message} — recall disabled`);
     }
