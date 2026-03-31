@@ -1,6 +1,6 @@
 # Changelog
 
-## Next
+## v0.14.0
 
 ### Features
 - **Web proxy** — `kern web` now proxies all agent API requests. Browser never talks to agents directly.
