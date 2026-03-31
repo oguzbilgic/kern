@@ -177,6 +177,7 @@ export class Runtime {
       }
 
       const pendingInjections = this.pendingInjections;
+      let persistedCount = 0;
 
       const result = streamText({
         model,
@@ -187,6 +188,16 @@ export class Runtime {
         onError: ({ error }) => {
           streamError = error;
           log("runtime", `streamText error: ${error}`);
+        },
+        onStepFinish: async (step) => {
+          // Persist only new messages from this step (response.messages is cumulative)
+          const allMsgs = step.response.messages as ModelMessage[];
+          const newMsgs = allMsgs.slice(persistedCount);
+          if (newMsgs.length > 0) {
+            await this.session.append(newMsgs);
+            persistedCount = allMsgs.length;
+            log("runtime", `step ${step.stepNumber} persisted ${newMsgs.length} new message(s)`);
+          }
         },
         prepareStep: ({ messages, stepNumber }) => {
           if (stepNumber === 0 || !pendingInjections) return {};
@@ -230,9 +241,6 @@ export class Runtime {
       }
 
       log("runtime", `stream finished, text length: ${fullText.length}`);
-
-      const response = await result.response;
-      await this.session.append(response.messages as ModelMessage[]);
 
       try {
         const usage = await result.totalUsage;

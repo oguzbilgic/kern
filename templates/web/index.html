@@ -1569,6 +1569,7 @@ function handleEvent(event) {
       const detail = event.toolDetail ? ` ${event.toolDetail}` : '';
       addMessage('tool', `${event.toolName}${detail}`, null, event.toolInput);
       setBusy(true);
+      showThinking();
       break;
     }
 
@@ -1874,6 +1875,15 @@ async function init() {
           addMessage('assistant', msg.content);
         }
       }
+    }
+  } catch {}
+
+  // If agent is mid-turn, show thinking indicator
+  try {
+    const status = await AgentClient.getStatus(BASE_URL, AUTH_TOKEN);
+    if (status.queue && status.queue.startsWith('busy')) {
+      setBusy(true);
+      showThinking();
     }
   } catch {}
 

@@ -3,6 +3,8 @@
 ## v0.12.0
 
 ### Features
+- **Incremental session persistence** — session is saved after each step via `onStepFinish`, not just at end of turn. Crash mid-turn no longer loses the entire turn's work. History is available on page refresh mid-turn.
+- **Mid-turn thinking indicator** — web UI checks `/status` on load and shows thinking dots if the agent is mid-turn. Dots also show during tool execution.
 - **Mid-turn messaging** — send messages while the agent is working. Input stays enabled in both Web UI and TUI. Messages are injected between tool steps via `prepareStep` and the agent addresses them inline.
 - **Interface status** — `/status` API and slash command now report `telegram` and `slack` connection state (connected/disconnected/error). Web UI info panel shows them.
 - **Queue status in `/status`** — shows busy/idle and pending message count.
