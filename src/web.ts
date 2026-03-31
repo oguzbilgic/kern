@@ -173,27 +173,28 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (url.startsWith("/api/hub") && req.method === "GET") {
     // Check if local hub is running
     const hubPidFile = join(homedir(), ".kern", "hub", "hub.pid");
+    const hubRegistryFile = join(homedir(), ".kern", "hub", "agents.json");
     let hubRunning = false;
     let hubPort = 4000;
     try {
+      const config = await loadGlobalConfig();
+      hubPort = config.hub_port;
       if (existsSync(hubPidFile)) {
         const pid = parseInt(await readFile(hubPidFile, "utf-8"), 10);
         if (pid && isProcessRunning(pid)) {
           hubRunning = true;
-          const config = await loadGlobalConfig();
-          hubPort = config.hub_port;
         }
       }
     } catch {}
 
     // /api/hub — hub status
     if (url === "/api/hub") {
-      const configured = existsSync(hubPidFile);
+      const configured = existsSync(hubRegistryFile);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         configured,
         running: hubRunning,
-        port: hubRunning ? hubPort : undefined,
+        port: hubPort,
       }));
       return;
     }

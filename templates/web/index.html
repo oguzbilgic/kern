@@ -1541,28 +1541,30 @@ function renderSwitcher() {
 
       // Hub — expandable item in the list
       const serverHub = allHubs.find(h => h.server === serverUrl);
-      if (serverHub && serverHub.agents) {
-        const onlineCount = serverHub.agents.filter(a => a.online).length;
-        const totalCount = serverHub.agents.length;
+      if (serverHub) {
         const item = document.createElement('div');
         item.className = 'switcher-hub-item';
-        item.innerHTML = `
-          <div class="hub-icon">◆</div>
-          <div class="hub-info">
-            <div class="hub-name">Hub</div>
-            <div class="hub-meta">${onlineCount}/${totalCount} agents online</div>
-          </div>
-
-        `;
-        const agentList = document.createElement('div');
-        agentList.className = 'hub-agent-list';
-        agentList.innerHTML = serverHub.agents
-          .sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0) || a.name.localeCompare(b.name))
-          .map(ha => `<div class="hub-agent${ha.online ? '' : ' offline'}"><span class="hub-agent-dot"></span>${escapeHtml(ha.name)}</div>`)
-          .join('');
-        item.addEventListener('click', () => {
-          showHubModal(serverHub, serverUrl);
-        });
+        if (serverHub.running) {
+          const onlineCount = serverHub.agents.filter(a => a.online).length;
+          const totalCount = serverHub.agents.length;
+          item.innerHTML = `
+            <div class="hub-icon">◆</div>
+            <div class="hub-info">
+              <div class="hub-name">Hub</div>
+              <div class="hub-meta">${onlineCount}/${totalCount} agents online</div>
+            </div>
+          `;
+          item.addEventListener('click', () => showHubModal(serverHub, serverUrl));
+        } else {
+          item.style.cursor = 'default';
+          item.innerHTML = `
+            <div class="hub-icon" style="background:rgba(255,255,255,0.06);color:var(--text-muted)">◆</div>
+            <div class="hub-info">
+              <div class="hub-name">Hub</div>
+              <div class="hub-meta">Offline</div>
+            </div>
+          `;
+        }
         list.appendChild(item);
       }
     }
@@ -1649,10 +1651,11 @@ async function fetchServerAgents(serverUrl) {
       const hubRes = await fetch(`${serverUrl}/api/hub`, { headers });
       if (hubRes.ok) {
         const hubData = await hubRes.json();
-        if (hubData.running) {
-          const hubAgentsRes = await fetch(`${serverUrl}/api/hub/agents`, { headers });
-          if (hubAgentsRes.ok) {
-            hub = { agents: await hubAgentsRes.json(), server: serverUrl };
+        if (hubData.configured) {
+          hub = { running: hubData.running, port: hubData.port, agents: [], server: serverUrl };
+          if (hubData.running) {
+            const hubAgentsRes = await fetch(`${serverUrl}/api/hub/agents`, { headers });
+            if (hubAgentsRes.ok) hub.agents = await hubAgentsRes.json();
           }
         }
       }
