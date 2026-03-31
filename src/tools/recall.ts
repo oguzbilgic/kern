@@ -34,6 +34,14 @@ export const recallTool = tool({
       .number()
       .optional()
       .describe("End message index (for load mode)"),
+    before: z
+      .string()
+      .optional()
+      .describe("Only return results before this date (ISO 8601 or YYYY-MM-DD)"),
+    after: z
+      .string()
+      .optional()
+      .describe("Only return results after this date (ISO 8601 or YYYY-MM-DD)"),
   }),
   execute: async (args) => {
     if (!_recallIndex) {
@@ -47,7 +55,19 @@ export const recallTool = tool({
 
     // Search mode
     if (args.query) {
-      const results = await _recallIndex.search(args.query, args.limit || 5);
+      let results = await _recallIndex.search(args.query, (args.limit || 5) * 3); // fetch extra for filtering
+      
+      // Apply date filters
+      if (args.after) {
+        const after = new Date(args.after).toISOString();
+        results = results.filter((r) => r.timestamp >= after);
+      }
+      if (args.before) {
+        const before = new Date(args.before).toISOString();
+        results = results.filter((r) => r.timestamp <= before);
+      }
+      
+      results = results.slice(0, args.limit || 5);
       if (results.length === 0) {
         return "No relevant past conversations found.";
       }
