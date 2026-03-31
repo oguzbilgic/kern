@@ -172,7 +172,7 @@ Type these in any channel (TUI, Web, Telegram, Slack, Hub). Handled before the m
 
 ### /status
 
-Show agent runtime status: model, uptime, session size, API usage, queue state, hub connection, and interface connection status (Telegram, Slack).
+Show agent runtime status: model, uptime, session size, API usage, queue state, hub connection (URL, status, `kh_` ID), and interface connection status (Telegram, Slack).
 
 ### /restart
 

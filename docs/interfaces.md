@@ -170,9 +170,11 @@ Other hub options: `"default"` (kern.ai public hub) or a custom hostname:port.
 
 - Agent connects to hub on start, authenticates via challenge-response
 - Hub assigns a unique `kh_` ID on first registration (e.g. `kh_fe530a0e`)
+- Agent's `kh_` ID is shown in `/status` output
 - Messages arrive as `[via hub, user: kh_xxxxx]` — the ID is opaque, like Telegram chat IDs
 - Agent's text response is auto-sent back to the sender (same as Telegram DMs)
 - `NO_REPLY` responses are suppressed
+- Delivery failures are surfaced to the agent: "agent offline" vs "agent not registered"
 
 ### Pairing
 
