@@ -1,0 +1,111 @@
+# Get Started
+
+Create your first kern agent in under a minute.
+
+## Install
+
+```
+npm install -g kern-ai
+```
+
+Requires Node.js 20+.
+
+## Create an agent
+
+```
+kern init my-agent
+```
+
+The wizard asks for:
+
+1. **Provider** — OpenRouter, Anthropic, or OpenAI
+2. **API key** — paste your key (stored in `.kern/.env`)
+3. **Model** — pick from the top models for your provider
+
+This creates a `my-agent/` directory with:
+
+```
+my-agent/
+├── IDENTITY.md      — who the agent is
+├── KNOWLEDGE.md     — index of knowledge files
+├── knowledge/       — mutable state files
+├── notes/           — daily narrative logs
+└── .kern/
+    ├── config.json  — model, provider, settings
+    └── .env         — API keys
+```
+
+## Start the agent
+
+```
+kern start
+```
+
+The agent runs as a background daemon. Start once, connect from anywhere.
+
+## Chat from the terminal
+
+```
+kern tui
+```
+
+Interactive terminal chat. Type a message, get a response. The agent has tools — it can run commands, read/write files, search the web.
+
+## Chat from the browser
+
+```
+kern web start
+```
+
+Opens a web UI. Agent sidebar, slash commands, markdown rendering, collapsible tool output. Share the URL with others on your network.
+
+## Add Telegram
+
+1. Create a bot with [@BotFather](https://t.me/BotFather)
+2. Add the token to your config:
+
+```
+kern init my-agent
+```
+
+Select Telegram and paste the token. Restart the agent:
+
+```
+kern restart my-agent
+```
+
+Message your bot on Telegram — same agent, same memory.
+
+## Add Slack
+
+1. Create a Slack app with Socket Mode enabled
+2. Add bot token and app token to your config via `kern init`
+3. Invite the bot to channels
+
+The agent reads every message in channels it's in but only responds when @mentioned or directly relevant.
+
+## User pairing
+
+The first person to message the agent becomes the operator. Everyone else gets a pairing code:
+
+1. New user messages the agent → receives `KERN-XXXX`
+2. They share the code with you
+3. You approve it: `kern pair my-agent KERN-XXXX`
+
+## Agent memory
+
+The agent maintains its own memory:
+
+- **`knowledge/`** — facts about the current state of things. Mutable. The agent updates these as things change.
+- **`notes/`** — daily logs of what happened. Append-only. The agent writes these at the end of each session.
+- **Recall** — semantic search over all past conversations. Even after messages leave the context window, the agent can find them.
+
+Everything is plain text and git-trackable.
+
+## What's next
+
+- [Configuration](/docs/config) — model, provider, heartbeat, tool scope
+- [Commands](/docs/commands) — full CLI reference
+- [Interfaces](/docs/interfaces) — terminal, web, Telegram, Slack
+- [Tools](/docs/tools) — bash, read, write, edit, grep, fetch, recall
+- [Pairing](/docs/pairing) — user authentication and access control
