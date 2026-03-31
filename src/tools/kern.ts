@@ -19,6 +19,8 @@ let _pairingManager: any = null;
 let _getQueueStatus: (() => { processing: boolean; pending: number; activeChannel: string | null }) | null = null;
 let _getHubStatus: (() => { url: string; connected: boolean } | null) | null = null;
 let _hubPairConfirmFn: ((userId: string) => Promise<boolean>) | null = null;
+let _getInterfaceStatuses: (() => InterfaceStatus[]) | null = null;
+let _getRecallStats: (() => { chunks: number; sessions: number; messages: number; building: boolean } | null) | null = null;
 
 export function setHubPairConfirmFn(fn: (userId: string) => Promise<boolean>) {
   _hubPairConfirmFn = fn;
@@ -30,6 +32,14 @@ export function setQueueStatusFn(fn: () => { processing: boolean; pending: numbe
 
 export function setHubStatusFn(fn: () => { url: string; connected: boolean } | null) {
   _getHubStatus = fn;
+}
+
+export function setInterfaceStatusFn(fn: () => InterfaceStatus[]) {
+  _getInterfaceStatuses = fn;
+}
+
+export function setRecallStatsFn(fn: () => { chunks: number; sessions: number; messages: number; building: boolean } | null) {
+  _getRecallStats = fn;
 }
 
 export async function initKernTool(opts: {
@@ -84,6 +94,12 @@ export async function addTokenUsage(promptTokens: number, completionTokens: numb
   } catch {}
 }
 
+export interface InterfaceStatus {
+  name: string;
+  status: "connected" | "disconnected" | "error";
+  detail?: string;
+}
+
 export interface StatusData {
   version: string;
   agent: string;
@@ -98,6 +114,9 @@ export interface StatusData {
   completionTokens: number;
   queue: string;
   hub: string | null;
+  telegram: string | null;
+  slack: string | null;
+  recall: string | null;
 }
 
 export function getStatusData(): StatusData {
@@ -127,6 +146,10 @@ export function getStatusData(): StatusData {
     ? qs.processing ? `busy (${qs.pending} pending)` : `idle (${qs.pending} pending)`
     : "unknown";
 
+  const ifaces = _getInterfaceStatuses ? _getInterfaceStatuses() : [];
+  const tg = ifaces.find(i => i.name === "telegram");
+  const sl = ifaces.find(i => i.name === "slack");
+
   return {
     version: _version,
     agent: _agentDir,
@@ -141,6 +164,12 @@ export function getStatusData(): StatusData {
     completionTokens: _totalCompletionTokens,
     queue: queueStr,
     hub: _getHubStatus ? (() => { const h = _getHubStatus!(); return h ? `${h.url} (${h.connected ? 'connected' : 'disconnected'})` : null; })() : null,
+    telegram: tg ? (tg.detail ? `${tg.status} (${tg.detail})` : tg.status) : null,
+    slack: sl ? (sl.detail ? `${sl.status} (${sl.detail})` : sl.status) : null,
+    recall: _getRecallStats ? (() => {
+      const rs = _getRecallStats!();
+      return rs ? `${rs.messages} messages, ${rs.chunks} chunks${rs.building ? " (building)" : ""}` : "disabled";
+    })() : null,
   };
 }
 
@@ -150,8 +179,11 @@ export function formatStatus(data: StatusData): string {
     `agent: ${data.agent}`,
     `model: ${data.provider}/${data.model}`,
     `toolScope: ${data.toolScope}`,
+    data.telegram ? `telegram: ${data.telegram}` : "",
+    data.slack ? `slack: ${data.slack}` : "",
     `session: ${data.session}`,
     data.context ? `context: ${data.context}` : "",
+    data.recall ? `recall: ${data.recall}` : "",
     `api usage: ${data.apiUsage}`,
     `queue: ${data.queue}`,
     data.hub ? `hub: ${data.hub}` : "",

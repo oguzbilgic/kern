@@ -460,6 +460,7 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
   // .gitignore
   const gitignore = `.kern/.env
 .kern/sessions/
+.kern/recall.db
 .kern/logs/
 node_modules/
 `;

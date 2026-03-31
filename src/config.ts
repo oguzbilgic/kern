@@ -14,6 +14,7 @@ export interface KernConfig {
   heartbeatInterval: number;
   host: string;
   hub?: string;
+  autoRecall?: boolean;
   telegram?: {
     allowedUsers?: number[];
     showTools?: boolean;
@@ -21,9 +22,9 @@ export interface KernConfig {
 }
 
 const TOOL_SCOPES: Record<ToolScope, string[]> = {
-  full: ["bash", "read", "write", "edit", "glob", "grep", "webfetch", "kern", "message"],
-  write: ["read", "write", "edit", "glob", "grep", "webfetch", "kern", "message"],
-  read: ["read", "glob", "grep", "webfetch", "kern"],
+  full: ["bash", "read", "write", "edit", "glob", "grep", "webfetch", "kern", "message", "recall"],
+  write: ["read", "write", "edit", "glob", "grep", "webfetch", "kern", "message", "recall"],
+  read: ["read", "glob", "grep", "webfetch", "kern", "recall"],
 };
 
 const defaults: KernConfig = {
@@ -88,6 +89,12 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig): Pr
     parts.push(await readFile(kernMdPackage, "utf-8"));
   }
 
+  // Load KNOWLEDGE.md (memory index)
+  const knowledgePath = join(agentDir, "KNOWLEDGE.md");
+  if (existsSync(knowledgePath)) {
+    parts.push(await readFile(knowledgePath, "utf-8"));
+  }
+
   // Inject live runtime info
   const tools = getToolsForScope(config.toolScope);
   const toolDescriptions: Record<string, string> = {
@@ -100,6 +107,7 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig): Pr
     webfetch: "fetch URLs",
     kern: "manage your own runtime (status, config, env)",
     message: "send messages proactively",
+    recall: "search long-term memory for old conversations outside current context",
   };
   const toolList = tools.map(t => `- **${t}**: ${toolDescriptions[t] || t}`).join("\n");
 

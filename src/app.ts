@@ -13,8 +13,10 @@ import { registerAgent, setPortAndToken } from "./registry.js";
 import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
+import { setRecallIndex } from "./tools/recall.js";
+import { RecallIndex } from "./recall.js";
 import { MessageQueue } from "./queue.js";
-import { getStatusData as getStatusDataFn, setQueueStatusFn, setHubStatusFn, setHubPairConfirmFn } from "./tools/kern.js";
+import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, setHubStatusFn, setHubPairConfirmFn, type InterfaceStatus } from "./tools/kern.js";
 import { log } from "./log.js";
 
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
@@ -79,6 +81,39 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   const runtime = new Runtime(agentDir);
   await runtime.init();
 
+  // Initialize recall index (opt-out via "recall": false in config)
+  let recallIndex: RecallIndex | null = null;
+  let recallBuilding = false;
+  if ((config as any).recall !== false) {
+    try {
+      recallIndex = new RecallIndex(agentDir, config.provider);
+      setRecallIndex(recallIndex);
+      runtime.setRecallIndex(recallIndex);
+      setRecallStatsFn(() => {
+        if (!recallIndex) return null;
+        const stats = recallIndex.getStats();
+        return { ...stats, building: recallBuilding };
+      });
+
+      // Backfill in background — don't block startup
+      const sessionId = runtime.getSessionId();
+      if (sessionId) {
+        recallBuilding = true;
+        recallIndex.indexSession(sessionId).then((indexed) => {
+          recallBuilding = false;
+          if (indexed > 0) {
+            log("recall", `backfilled ${indexed} chunks`);
+          }
+        }).catch((err) => {
+          recallBuilding = false;
+          log("recall", `backfill failed: ${err.message}`);
+        });
+      }
+    } catch (err: any) {
+      log("recall", `init failed: ${err.message} — recall disabled`);
+    }
+  }
+
   const agentName = basename(agentDir);
   await registerAgent(agentName, agentDir);
   process.chdir(agentDir);
@@ -111,8 +146,12 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     const time = new Date().toISOString();
     const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}, time: ${time}] ${msg.text}`;
 
-    // Broadcast incoming to TUI
-    if (!msg.isHeartbeat) {
+    // Broadcast incoming to other clients.
+    // Messages from /message POST (web, tui) are already broadcast by the server
+    // with sender exclusion. Only broadcast here for adapter interfaces
+    // (Telegram, Slack) which don't go through the HTTP endpoint.
+    const httpInterfaces = ["web", "tui"];
+    if (!msg.isHeartbeat && !httpInterfaces.includes(msg.interface)) {
       server.broadcast({
         type: "incoming" as any,
         text: msg.text,
@@ -131,10 +170,22 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       }));
     });
 
-    return runtime.handleMessage(context, (event: StreamEvent) => {
+    const result = await runtime.handleMessage(context, (event: StreamEvent) => {
       server.broadcast(event);
       msg.onEvent?.(event);
     });
+
+    // Index new messages for recall (async, non-blocking)
+    if (recallIndex) {
+      const sessionId = runtime.getSessionId();
+      if (sessionId) {
+        recallIndex.indexSession(sessionId).catch((err) => {
+          log("recall", `indexing failed: ${err.message}`);
+        });
+      }
+    }
+
+    return result;
   });
 
   let _hubInterface: HubInterface | null = null;
@@ -176,7 +227,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     }));
   });
 
-  const port = await server.start(config.host);
+  const port = await server.start("127.0.0.1");
   await setPortAndToken(agentName, port, process.env.KERN_AUTH_TOKEN || null);
 
   // Start Telegram if configured
@@ -228,6 +279,21 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       return hubInterface!.sendPairConfirmation(userId);
     });
   }
+
+  // Register interface status reporting
+  setInterfaceStatusFn(() => {
+    const statuses: InterfaceStatus[] = [];
+    if (telegramBot) {
+      statuses.push({ name: "telegram", status: telegramBot.status, detail: telegramBot.statusDetail });
+    }
+    if (slackBot) {
+      statuses.push({ name: "slack", status: slackBot.status, detail: slackBot.statusDetail });
+    }
+    if (_hubInterface) {
+      statuses.push({ name: "hub", status: _hubInterface.isConnected() ? "connected" : "disconnected", detail: _hubInterface.getUrl() });
+    }
+    return statuses;
+  });
 
   // Wire message tool — agent can send messages to users
   setMessageSender(async (userId: string, iface: string, text: string) => {
@@ -317,14 +383,14 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   }
 
   // Graceful shutdown
-  process.on("SIGTERM", () => {
-    log("kern", `stopped ${agentName}`);
+  const shutdown = async () => {
+    log("kern", `stopping ${agentName}`);
+    if (telegramBot) await telegramBot.stop().catch(() => {});
+    if (slackBot) await slackBot.stop().catch(() => {});
     server.stop();
-    process.exit(0);
-  });
-  process.on("SIGINT", () => {
     log("kern", `stopped ${agentName}`);
-    server.stop();
     process.exit(0);
-  });
+  };
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 }

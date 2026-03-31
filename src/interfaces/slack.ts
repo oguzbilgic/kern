@@ -21,6 +21,8 @@ export class SlackInterface implements Interface {
   private app: InstanceType<typeof SlackApp>;
   private pairing: PairingManager | null;
   private botUserId: string = "";
+  private _status: "connected" | "disconnected" | "error" = "disconnected";
+  private _statusDetail?: string;
 
   constructor(botToken: string, appToken: string, pairing?: PairingManager) {
     this.app = new SlackApp({
@@ -30,6 +32,9 @@ export class SlackInterface implements Interface {
     });
     this.pairing = pairing || null;
   }
+
+  get status() { return this._status; }
+  get statusDetail() { return this._statusDetail; }
 
   async start({ onMessage }: StartOptions): Promise<void> {
     // Get bot's own user ID so we can detect @mentions and ignore own messages
@@ -129,6 +134,7 @@ export class SlackInterface implements Interface {
     });
 
     await this.app.start();
+    this._status = "connected";
     log("slack", `connected (${this.botUserId})`);
   }
 

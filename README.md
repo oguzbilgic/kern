@@ -68,7 +68,7 @@ kern start [name|path]    # start agents in background
 kern stop [name]          # stop agents
 kern restart [name]       # restart agents
 kern tui [name]           # interactive chat
-kern web <start|stop|status>  # web UI server
+kern web <start|stop|status|token>  # web UI server
 kern hub <start|stop|status>  # agent-to-agent hub
 kern logs [name]          # tail agent logs
 kern list                 # show all agents
@@ -82,17 +82,18 @@ Agents auto-register when you init, start, or run them. `kern list` shows every 
 
 ### Web UI
 
-`kern web start` launches a web UI server (default port 9000). Open it in a browser to chat with any running agent.
+`kern web start` launches a web UI server (default port 9000). It prints a URL with an auth token — click it to connect.
 
 ```bash
-kern web start    # start web UI server
+kern web start    # start web UI, prints URL with token
 kern web stop     # stop it
 kern web status   # check if running
+kern web token    # print the URL with token again
 ```
 
-The web UI auto-discovers running agents and connects directly to their APIs. Each agent binds to `0.0.0.0` by default and auto-generates an auth token on first start — no manual config needed.
+The web UI proxies all agent requests — agents bind to localhost only and are never exposed directly. Auth is handled at the proxy level with a single `KERN_WEB_TOKEN` (auto-generated, stored in `~/.kern/.env`).
 
-Works over Tailscale or LAN. Add remote agents manually in the sidebar.
+Works over Tailscale or LAN. Add remote kern servers in the sidebar.
 
 ### Hub
 
@@ -180,7 +181,7 @@ Structured, colored logs for queue, runtime, interfaces, and server. Logs stored
 
 `host` controls the agent's HTTP bind address. Default `0.0.0.0` (all interfaces). `hub` connects to a hub: `"default"` (kern.ai), `"local"` (localhost:4000), or a custom hostname.
 
-Auth tokens are auto-generated on first start and stored in `.kern/.env`. Ed25519 keypairs generated for hub authentication.
+Auth tokens are auto-generated on first start and stored in `.kern/.env`. Ed25519 keypairs generated for hub authentication. The web proxy injects agent tokens automatically — no manual setup needed.
 
 ### Global: `~/.kern/config.json`
 

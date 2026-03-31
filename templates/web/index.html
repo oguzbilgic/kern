@@ -25,7 +25,7 @@
     --green: #12c905;
     --red: #fc533a;
     --orange: #fcd53a;
-    --tool-bg: #1e1e1e;
+    --tool-bg: #141414;
     --user-bg: #0d419d;
     --magenta: #bc8cff;
     --yellow: #d29922;
@@ -83,6 +83,26 @@
     flex: 1;
     overflow-y: auto;
     padding: 6px;
+  }
+
+  .sidebar-footer {
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+  }
+  .sidebar-footer a {
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+  .sidebar-footer a:hover {
+    color: var(--text);
+  }
+  .sidebar-version {
+    color: var(--text-muted);
+    opacity: 0.6;
+    margin-right: auto;
   }
 
   /* Add agent modal */
@@ -178,6 +198,7 @@
     flex-direction: column;
     overflow: hidden;
     min-width: 0;
+    position: relative;
   }
 
   .hub-footer {
@@ -365,6 +386,7 @@
   .messages.hide-heartbeat .from-heartbeat { display: none; }
   .messages.hide-heartbeat .timestamp.from-heartbeat { display: none; }
   .messages.hide-tools .message.tool { display: none; }
+  .messages.hide-tools .message.recall { display: none; }
   .messages.hide-incoming .from-incoming { display: none; }
   .messages.hide-incoming .timestamp.from-incoming { display: none; }
   .messages.hide-system .message.system { display: none; }
@@ -418,8 +440,21 @@
     align-self: flex-end;
     background: var(--bg-surface);
     color: #d4d4d4;
-    border-right: 3px solid var(--accent);
+    border-radius: 8px;
+  }
+  .message.user-remote {
+    align-self: flex-end;
+    background: var(--bg-surface);
+    color: #d4d4d4;
+    border-right: 3px solid var(--orange);
     border-radius: 8px 0 0 8px;
+    opacity: 0.85;
+  }
+  .message.user-remote .label {
+    font-size: 11px;
+    color: var(--orange);
+    display: block;
+    margin-bottom: 2px;
   }
   .message.assistant {
     align-self: flex-start;
@@ -444,8 +479,8 @@
   .message.tool {
     align-self: flex-start;
     background: var(--tool-bg);
-    border-left: 3px solid var(--text-muted);
-    border-radius: 0;
+    border: none;
+    border-radius: 6px;
     font-family: var(--font-mono);
     font-size: 12px;
     color: var(--text-dim);
@@ -457,12 +492,19 @@
   .message.tool .tool-arrow { font-size: 10px; color: var(--text-muted); transition: transform 0.15s; }
   .message.tool.expanded .tool-arrow { transform: rotate(90deg); }
   .message.tool .tool-name { font-weight: 600; }
+  .message.tool.tool-bash-style {
+    background: var(--tool-bg);
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+  }
+  .message.tool .tool-prompt { color: var(--text-muted); user-select: none; }
   .message.tool .tool-detail { color: var(--text-muted); }
   .message.tool .tool-output {
     display: none;
     margin-top: 6px;
     padding: 8px;
-    background: var(--bg);
+    background: var(--tool-bg);
     border-radius: 4px;
     font-size: 11px;
     line-height: 1.4;
@@ -475,6 +517,30 @@
   .message.tool.expanded .tool-output { display: block; }
   .message.tool .diff-line-old { color: var(--red); }
   .message.tool .diff-line-new { color: var(--green); }
+  .message.recall {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 4px 12px;
+    cursor: pointer;
+  }
+  .message.recall .recall-header { display: flex; align-items: center; gap: 6px; }
+  .message.recall .recall-summary { font-weight: 500; }
+  .message.recall .recall-details {
+    display: none;
+    margin-top: 8px;
+    padding: 8px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: pre-wrap;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  .message.recall.expanded .recall-details { display: block; }
+  .message.recall.expanded .tool-arrow { transform: rotate(90deg); }
+  .message.recall .recall-chunk { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .message.recall .recall-chunk:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .message.recall .recall-time { color: var(--text-muted); font-size: 11px; }
   .message.error {
     align-self: flex-start;
     background: rgba(248,81,73,0.1);
@@ -639,6 +705,28 @@
   }
 
   /* --- Input --- */
+  .scroll-down-btn {
+    display: none;
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text);
+    font-size: 20px;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    transition: opacity 0.15s;
+    opacity: 0.85;
+  }
+  .scroll-down-btn:hover { opacity: 1; background: var(--bg-hover); border-color: var(--text-muted); }
+  .scroll-down-btn.visible { display: flex; }
   .input-area {
     padding: 12px 16px;
     padding-bottom: max(12px, env(safe-area-inset-bottom));
@@ -812,6 +900,12 @@
   }
   .switcher-item:hover .switcher-item-remove { display: block; }
   .switcher-item-remove:hover { color: var(--red); }
+  .switcher-server-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px 4px; font-size: 11px; font-weight: 600;
+    color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .switcher-server-header .switcher-item-remove { display: inline; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -820,23 +914,39 @@
 
 <div class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <span>kern<span style="color:#58a6ff">.</span></span>
+    <a href="https://kern-ai.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">kern<span style="color:#58a6ff">.</span></a>
+    <button class="filter-btn" id="logout-btn" title="Logout" style="font-size:14px;">&#x23FB;</button>
   </div>
   <div class="sidebar-list" id="switcher-list"></div>
   <a id="hub-link" href="#" target="_blank" class="hub-footer" style="display:none;">
     <span class="hub-dot">◆</span> Hub
   </a>
+  <div class="sidebar-footer">
+    <span class="sidebar-version" id="sidebar-version"></span>
+    <a href="https://kern-ai.com/docs" target="_blank" rel="noopener">Docs</a>
+    <a href="https://github.com/oguzbilgic/kern-ai" target="_blank" rel="noopener" title="GitHub"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+  </div>
+</div>
+
+<div class="modal-overlay" id="auth-modal">
+  <div class="modal">
+    <div class="modal-title">Connect</div>
+    <input id="auth-token" type="password" placeholder="Web token" />
+    <div style="color:var(--text-muted);font-size:11px;margin-top:-4px;">~/.kern/.env → KERN_WEB_TOKEN</div>
+    <div class="modal-actions">
+      <button class="btn-add" id="auth-submit">Connect</button>
+    </div>
+  </div>
 </div>
 
 <div class="modal-overlay" id="add-modal">
   <div class="modal">
-    <div class="modal-title">Add agent</div>
-    <input id="add-name" type="text" placeholder="Name" />
-    <input id="add-url" type="text" placeholder="URL (http://host:port)" />
-    <input id="add-token" type="password" placeholder="Token" />
+    <div class="modal-title">Add server</div>
+    <input id="add-url" type="text" placeholder="http://host:port" />
+    <input id="add-token" type="password" placeholder="Web token" />
     <div class="modal-actions">
       <button class="btn-cancel" id="add-cancel-btn">Cancel</button>
-      <button class="btn-add" id="add-agent-btn">Add</button>
+      <button class="btn-add" id="add-server-btn">Add</button>
     </div>
   </div>
 </div>
@@ -858,6 +968,7 @@
   <div class="info-panel" id="info-panel"></div>
   <div class="messages" id="messages"></div>
 
+  <button class="scroll-down-btn" id="scroll-down-btn" title="Scroll to bottom">&#8595;</button>
   <div class="input-area">
     <div class="input-row">
       <div class="cmd-popup" id="cmd-popup"></div>
@@ -889,8 +1000,16 @@ const AgentClient = {
     const es = new EventSource(url);
     let connected = false;
     es.onopen = () => { connected = true; onConnect?.(); };
+    let connectionId = null;
     es.onmessage = (e) => {
-      try { onEvent(JSON.parse(e.data)); } catch {}
+      try {
+        const ev = JSON.parse(e.data);
+        if (ev.type === 'connection' && ev.connectionId) {
+          connectionId = ev.connectionId;
+          return; // don't pass connection event to handler
+        }
+        onEvent(ev);
+      } catch {}
     };
     es.onerror = () => {
       es.close();
@@ -903,7 +1022,8 @@ const AgentClient = {
       }
     };
     return {
-      close() { es.close(); onDisconnect?.(); }
+      close() { es.close(); onDisconnect?.(); },
+      get connectionId() { return connectionId; }
     };
   },
 
@@ -935,6 +1055,7 @@ const AgentClient = {
         userId: opts.userId || 'tui',
         interface: opts.interface || 'web',
         channel: opts.channel || 'web',
+        connectionId: opts.connectionId,
       }),
     });
     return res.json();
@@ -1136,6 +1257,9 @@ $('info-btn').addEventListener('click', async () => {
       <div class="info-row"><span class="info-label">kern</span><span class="info-value">v${esc(status.version) || '?'}</span></div>
       <div class="info-row"><span class="info-label">model</span><span class="info-value">${esc(status.provider)}/${esc(status.model)}</span></div>
       <div class="info-row"><span class="info-label">tools</span><span class="info-value">${esc(status.toolScope)}</span></div>
+      ${status.telegram ? `<div class="info-row"><span class="info-label">telegram</span><span class="info-value">${esc(status.telegram)}</span></div>` : ''}
+      ${status.slack ? `<div class="info-row"><span class="info-label">slack</span><span class="info-value">${esc(status.slack)}</span></div>` : ''}
+      ${status.recall ? `<div class="info-row"><span class="info-label">recall</span><span class="info-value">${esc(status.recall)}</span></div>` : ''}
       <div class="info-row"><span class="info-label">uptime</span><span class="info-value">${esc(status.uptime)}</span></div>
       <div class="info-row"><span class="info-label">session</span><span class="info-value">${esc(status.session)}</span></div>
       ${status.context ? `<div class="info-row"><span class="info-label">context</span><span class="info-value">${esc(status.context)}</span></div>` : ''}
@@ -1176,12 +1300,24 @@ $('info-btn').addEventListener('click', async () => {
 // Agent Switcher
 // ==========================================================================
 
-// Manual agents — stored in localStorage (remote agents added by user)
-function getManualAgents() {
-  try { return JSON.parse(localStorage.getItem('kern_manual_agents') || '[]'); } catch { return []; }
+// Servers — stored in localStorage as [{url, token}]
+function getSavedServers() {
+  try { return JSON.parse(localStorage.getItem('kern_servers') || '[]'); } catch { return []; }
 }
-function saveManualAgents(agents) {
-  localStorage.setItem('kern_manual_agents', JSON.stringify(agents));
+function saveServers(servers) {
+  localStorage.setItem('kern_servers', JSON.stringify(servers));
+}
+// Get token for a server URL (local or remote)
+function getServerToken(serverUrl) {
+  if (serverUrl === location.origin) {
+    return localStorage.getItem('kern_web_token') || null;
+  }
+  const servers = getSavedServers();
+  const entry = servers.find(s => s.url === serverUrl);
+  return entry ? entry.token : null;
+}
+function setLocalToken(token) {
+  localStorage.setItem('kern_web_token', token);
 }
 function getActiveAgent() {
   return sessionStorage.getItem('kern_active_agent') || null;
@@ -1190,20 +1326,8 @@ function setActiveAgent(name) {
   sessionStorage.setItem('kern_active_agent', name);
 }
 
-// Discovered agents — fetched from /api/agents, never persisted
-let discoveredAgents = [];
-
-// All agents = discovered + manual
-function getAllAgents() {
-  const manual = getManualAgents();
-  const all = [...discoveredAgents];
-  for (const m of manual) {
-    if (!all.find(a => a.name === m.name)) {
-      all.push({ ...m, source: 'manual' });
-    }
-  }
-  return all;
-}
+// All discovered agents grouped by server — fetched fresh each time
+let allAgents = [];
 
 let BASE_URL = null;
 let AUTH_TOKEN = null;
@@ -1216,7 +1340,7 @@ function avatarColor(name) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-// Render switcher panel
+// Render switcher panel — grouped by server
 function renderSwitcher() {
   const list = $('switcher-list');
   const agents = getAllAgents();
@@ -1224,50 +1348,71 @@ function renderSwitcher() {
   list.innerHTML = '';
   if (agents.length === 0) {
     list.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:12px;">No agents found.</div>';
-    return;
-  }
-  for (const agent of agents) {
-    const isManual = agent.source === 'manual';
-    const item = document.createElement('div');
-    const classes = ['switcher-item'];
-    if (agent.name === activeName) classes.push('active');
-    if (!agent.running) classes.push('offline');
-    item.className = classes.join(' ');
-    const color = avatarColor(agent.name);
-    const initial = agent.name.charAt(0).toUpperCase();
-    const dotClass = agent.running ? 'running' : 'stopped';
-    item.innerHTML = `
-      <div class="switcher-item-avatar" style="background:${color}">
-        ${initial}
-        <span class="online-dot ${dotClass}"></span>
-      </div>
-      <div class="switcher-item-name">${agent.name}</div>
-      ${isManual ? '<button class="switcher-item-remove" title="Remove">&times;</button>' : ''}
-    `;
-    if (agent.running && agent.url) {
-      item.addEventListener('click', (e) => {
-        if (e.target.closest('.switcher-item-remove')) return;
-        switchToAgent(agent);
-      });
+  } else {
+    // Group by server
+    const groups = new Map();
+    for (const agent of agents) {
+      const key = agent.server || location.origin;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(agent);
     }
-    if (isManual) {
-      item.querySelector('.switcher-item-remove').addEventListener('click', (e) => {
-        e.stopPropagation();
-        const updated = getManualAgents().filter(a => a.name !== agent.name);
-        saveManualAgents(updated);
-        renderSwitcher();
-      });
+    const remoteServers = getSavedServers();
+    for (const [serverUrl, serverAgents] of groups) {
+      const isLocal = serverUrl === location.origin;
+      const isRemote = remoteServers.some(s => s.url === serverUrl);
+      // Server header for remote servers
+      if (!isLocal) {
+        const header = document.createElement('div');
+        header.className = 'switcher-server-header';
+        let label;
+        try { label = new URL(serverUrl).hostname; } catch { label = serverUrl; }
+        header.innerHTML = `<span>${escapeHtml(label)}</span>`;
+        if (isRemote) {
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'switcher-item-remove';
+          removeBtn.title = 'Remove server';
+          removeBtn.innerHTML = '&times;';
+          removeBtn.style.display = 'inline';
+          removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            saveServers(remoteServers.filter(s => s.url !== serverUrl));
+            allAgents = allAgents.filter(a => a.server !== serverUrl);
+            renderSwitcher();
+          });
+          header.appendChild(removeBtn);
+        }
+        list.appendChild(header);
+      }
+      for (const agent of serverAgents) {
+        const item = document.createElement('div');
+        const classes = ['switcher-item'];
+        if (agent.name === activeName) classes.push('active');
+        if (!agent.running) classes.push('offline');
+        item.className = classes.join(' ');
+        const color = avatarColor(agent.name);
+        const initial = agent.name.charAt(0).toUpperCase();
+        const dotClass = agent.running ? 'running' : 'stopped';
+        item.innerHTML = `
+          <div class="switcher-item-avatar" style="background:${color}">
+            ${initial}
+            <span class="online-dot ${dotClass}"></span>
+          </div>
+          <div class="switcher-item-name">${agent.name}</div>
+        `;
+        if (agent.running && agent.url) {
+          item.addEventListener('click', () => switchToAgent(agent));
+        }
+        list.appendChild(item);
+      }
     }
-    list.appendChild(item);
   }
-  // Add agent row
+  // Add server row
   const addItem = document.createElement('div');
   addItem.className = 'switcher-add-inline';
-  addItem.id = 'show-add-btn';
-  addItem.innerHTML = '<span>+</span> Add agent';
+  addItem.innerHTML = '<span>+</span> Add server';
   addItem.addEventListener('click', () => {
     $('add-modal').classList.add('open');
-    $('add-name').focus();
+    $('add-url').focus();
   });
   list.appendChild(addItem);
 }
@@ -1275,7 +1420,7 @@ function renderSwitcher() {
 function switchToAgent(agent) {
   setActiveAgent(agent.name);
   BASE_URL = agent.url;
-  AUTH_TOKEN = agent.token;
+  AUTH_TOKEN = getServerToken(agent.server || location.origin);
   authFailed = false;
   intentionalClose = true;
   if (connection) { connection.close(); connection = null; }
@@ -1283,10 +1428,12 @@ function switchToAgent(agent) {
   inputEl.disabled = false;
   sendBtn.disabled = false;
   inputEl.value = '';
+  infoPanel.classList.remove('open');
   // On mobile, close sidebar. On desktop, keep it open and just update active state.
   if (window.innerWidth <= 768) closeSidebar();
   renderSwitcher();
   init();
+  inputEl.focus();
 }
 
 function toggleSidebar() {
@@ -1324,62 +1471,96 @@ if (localStorage.getItem('kern_sidebar_collapsed') === '1' && window.innerWidth 
   $('sidebar').classList.add('collapsed');
 }
 
-// Auto-discover agents from kern web /api/agents endpoint
-async function discoverAgents() {
+// Fetch agents from a server URL, returns { agents, status }
+async function fetchServerAgents(serverUrl) {
   try {
-    const res = await fetch(`${location.origin}/api/agents`);
-    if (!res.ok) return;
-    const agents = await res.json();
-    if (!Array.isArray(agents)) return;
-    const hostname = location.hostname;
-    discoveredAgents = agents.map(a => ({
-      name: a.name,
-      url: a.running && a.port ? `${location.protocol}//${hostname}:${a.port}` : null,
-      token: a.token || null,
-      running: a.running,
-      source: 'discovered',
-    }));
-  } catch {}
+    const token = getServerToken(serverUrl);
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    const res = await fetch(`${serverUrl}/api/agents`, { headers });
+    if (res.status === 401) return { agents: [], status: 'unauthorized' };
+    if (!res.ok) return { agents: [], status: 'error' };
+    const data = await res.json();
+    if (!Array.isArray(data)) return { agents: [], status: 'ok' };
+    return {
+      status: 'ok',
+      agents: data.map(a => ({
+        name: a.name,
+        url: a.running ? `${serverUrl}/api/agents/${a.name}` : null,
+        running: a.running,
+        server: serverUrl,
+      })),
+    };
+  } catch { return { agents: [], status: 'error' }; }
+}
+
+// Discover agents from local server + all saved remote servers
+// Returns 'ok', 'unauthorized' (local server needs token), or 'error'
+async function discoverAllAgents() {
+  const localUrl = location.origin;
+  // Filter out remote servers that match the local URL to prevent duplicates
+  const remoteUrls = getSavedServers().map(s => s.url).filter(u => u !== localUrl);
+  const allUrls = [localUrl, ...remoteUrls];
+  const results = await Promise.all(allUrls.map(url => fetchServerAgents(url)));
+  allAgents = results.flatMap(r => r.agents);
+  // Return local server status
+  return results[0].status;
+}
+
+// Get all agents (use cached results from last discover)
+function getAllAgents() {
+  return allAgents;
 }
 
 function setupSwitcher() {
   $('menu-btn').addEventListener('click', async () => {
-    await discoverAgents();
+    await discoverAllAgents();
     renderSwitcher();
     toggleSidebar();
   });
   $('sidebar-backdrop').addEventListener('click', () => {
     closeSidebar();
   });
-  $('add-agent-btn').addEventListener('click', () => {
-    const name = $('add-name').value.trim();
+  $('add-server-btn').addEventListener('click', async () => {
     const url = $('add-url').value.trim().replace(/\/$/, '');
     const token = $('add-token').value.trim() || null;
-    if (!name || !url) return;
-    const agents = getManualAgents();
-    const existing = agents.findIndex(a => a.name === name);
-    if (existing >= 0) {
-      agents[existing] = { name, url, token, running: true, source: 'manual' };
-    } else {
-      agents.push({ name, url, token, running: true, source: 'manual' });
+    if (!url) return;
+    if (url === location.origin) {
+      $('add-url').style.borderColor = 'var(--red)';
+      setTimeout(() => $('add-url').style.borderColor = '', 2000);
+      return;
     }
-    saveManualAgents(agents);
-    $('add-name').value = '';
+    // Save token first so fetchServerAgents can use it
+    const servers = getSavedServers();
+    const existing = servers.findIndex(s => s.url === url);
+    if (existing >= 0) {
+      servers[existing] = { url, token };
+    } else {
+      servers.push({ url, token });
+    }
+    saveServers(servers);
+    // Validate by fetching agents
+    const result = await fetchServerAgents(url);
+    if (result.agents.length === 0) {
+      // Remove if validation failed
+      saveServers(servers.filter(s => s.url !== url));
+      $('add-url').style.borderColor = 'var(--red)';
+      setTimeout(() => $('add-url').style.borderColor = '', 2000);
+      return;
+    }
     $('add-url').value = '';
     $('add-token').value = '';
     $('add-modal').classList.remove('open');
+    await discoverAllAgents();
     renderSwitcher();
   });
   $('add-cancel-btn').addEventListener('click', () => {
     $('add-modal').classList.remove('open');
-    $('add-name').value = '';
     $('add-url').value = '';
     $('add-token').value = '';
   });
   $('add-modal').addEventListener('click', (e) => {
     if (e.target === $('add-modal')) {
       $('add-modal').classList.remove('open');
-      $('add-name').value = '';
       $('add-url').value = '';
       $('add-token').value = '';
     }
@@ -1393,11 +1574,28 @@ let connection = null;
 let authFailed = false;
 let intentionalClose = false;
 let currentTurnContext = null; // tracks which interface/type triggered the current turn
+let lastToolEl = null; // last tool call element — kept expanded during streaming
+let isLoadingHistory = false; // suppress auto-expand during history load
 
 // --- Render helpers ---
 
-function scrollToBottom() {
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+let userScrolledUp = false;
+
+const scrollDownBtn = $('scroll-down-btn');
+
+messagesEl.addEventListener('scroll', () => {
+  const threshold = 80;
+  const atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < threshold;
+  userScrolledUp = !atBottom;
+  scrollDownBtn.classList.toggle('visible', userScrolledUp);
+});
+
+scrollDownBtn.addEventListener('click', () => scrollToBottom(true));
+
+function scrollToBottom(force) {
+  if (force || !userScrolledUp) {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
 }
 
 const TOOL_COLORS = {
@@ -1431,7 +1629,7 @@ function addMessage(type, content, meta, toolInput, timestamp, iface) {
   const el = document.createElement('div');
   el.className = `message ${type}`;
   // Set turn context on trigger messages
-  if (type === 'user' || type === 'incoming' || type === 'heartbeat') {
+  if (type === 'user' || type === 'user-remote' || type === 'incoming' || type === 'heartbeat') {
     currentTurnContext = iface || type;
   }
   // Tag all messages with the current turn context
@@ -1443,15 +1641,38 @@ function addMessage(type, content, meta, toolInput, timestamp, iface) {
     const toolDetail = spaceIdx > 0 ? content.slice(spaceIdx) : '';
     const color = TOOL_COLORS[toolName] || 'var(--text-dim)';
     el.style.borderLeftColor = color;
-    el.innerHTML = `<div class="tool-header"><span class="tool-arrow">&#9654;</span><span class="tool-name" style="color:${color}">${toolName}</span><span class="tool-detail">${toolDetail}</span></div><div class="tool-output"></div>`;
-    // For edit tools, pre-fill the diff from input
+    if (toolName === 'bash') {
+      el.classList.add('tool-bash-style');
+      el.innerHTML = `<div class="tool-header"><span class="tool-prompt">$</span><span class="tool-detail">${toolDetail}</span></div><div class="tool-output"></div>`;
+    } else {
+      el.innerHTML = `<div class="tool-header"><span class="tool-arrow">&#9654;</span><span class="tool-name" style="color:${color}">${toolName}</span><span class="tool-detail">${toolDetail}</span></div><div class="tool-output"></div>`;
+    }
+    // Pre-fill tool output from input for specific tools
     if (toolName === 'edit' && toolInput) {
       const diff = formatEditDiff(toolInput);
       if (diff) {
         el.querySelector('.tool-output').innerHTML = diff;
       }
+    } else if (toolName === 'write' && toolInput && toolInput.content) {
+      el.querySelector('.tool-output').textContent = toolInput.content;
+    } else if (toolName === 'message' && toolInput && toolInput.text) {
+      el.querySelector('.tool-output').textContent = `→ ${toolInput.interface || 'unknown'}: ${toolInput.text}`;
     }
     el.addEventListener('click', () => el.classList.toggle('expanded'));
+    // Auto-expand last tool call during streaming, collapse previous
+    if (!isLoadingHistory) {
+      if (lastToolEl) lastToolEl.classList.remove('expanded');
+      el.classList.add('expanded');
+      lastToolEl = el;
+    }
+  } else if (type === 'user-remote') {
+    if (meta) {
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = meta;
+      el.appendChild(label);
+    }
+    el.appendChild(document.createTextNode(content));
   } else if (type === 'incoming') {
     if (meta) {
       const label = document.createElement('span');
@@ -1512,7 +1733,7 @@ function flushStreaming() {
 
 function setBusy(b) {
   busy = b;
-  sendBtn.disabled = b || !inputEl.value.trim();
+  sendBtn.disabled = !inputEl.value.trim();
   if (!b) hideThinking();
 }
 
@@ -1542,6 +1763,7 @@ function handleEvent(event) {
     case 'text-delta':
       hideThinking();
       if (!streamingEl) {
+        if (lastToolEl) { lastToolEl.classList.remove('expanded'); lastToolEl = null; }
         streamingEl = addMessage('assistant', '');
         streamingEl.classList.add('streaming-cursor');
       }
@@ -1557,6 +1779,7 @@ function handleEvent(event) {
       const detail = event.toolDetail ? ` ${event.toolDetail}` : '';
       addMessage('tool', `${event.toolName}${detail}`, null, event.toolInput);
       setBusy(true);
+      showThinking();
       break;
     }
 
@@ -1577,7 +1800,31 @@ function handleEvent(event) {
           }
         }
       }
+      scrollToBottom();
       // Agent is thinking about what to do next — show dots
+      showThinking();
+      break;
+    }
+
+    case 'recall': {
+      hideThinking();
+      const r = event.recall;
+      if (r && r.chunks > 0) {
+        const el = document.createElement('div');
+        el.className = 'message recall';
+        el.setAttribute('data-type', 'recall');
+        const queryPreview = r.query ? r.query.replace(/\[via [^\]]+\]\s*/g, '').slice(0, 80) : '';
+        const summary = `📎 ${r.chunks} memor${r.chunks === 1 ? 'y' : 'ies'} recalled (~${r.tokens} tokens)${queryPreview ? ` — "${escapeHtml(queryPreview)}"` : ''}`;
+        const details = r.results.map(res => {
+          const time = res.timestamp ? new Date(res.timestamp).toLocaleString() : '';
+          const text = res.text.length > 300 ? res.text.slice(0, 300) + '...' : res.text;
+          return `<div class="recall-chunk"><span class="recall-time">${escapeHtml(time)}</span>\n${escapeHtml(text)}</div>`;
+        }).join('');
+        el.innerHTML = `<div class="recall-header"><span class="tool-arrow">&#9654;</span><span class="recall-summary">${summary}</span></div><div class="recall-details">${details}</div>`;
+        el.addEventListener('click', () => el.classList.toggle('expanded'));
+        messagesEl.appendChild(el);
+        scrollToBottom();
+      }
       showThinking();
       break;
     }
@@ -1595,14 +1842,15 @@ function handleEvent(event) {
       setBusy(false);
       break;
 
-    case 'incoming':
-      if (event.fromInterface !== 'web') {
-        addMessage('incoming',
-          event.text || '',
-          `[${event.fromInterface} ${event.fromUserId || ''}]`,
-          null, new Date(), 'incoming');
-      }
+    case 'incoming': {
+      const isLocal = event.fromInterface === 'web' || event.fromInterface === 'tui';
+      const source = event.fromInterface === 'tui' ? 'terminal' : event.fromInterface;
+      const label = isLocal ? `via ${source}` : `${event.fromInterface} ${event.fromUserId || ''}`.trim();
+      addMessage(isLocal ? 'user-remote' : 'incoming',
+        event.text || '', label,
+        null, new Date(), isLocal ? 'user-remote' : 'incoming');
       break;
+    }
 
     case 'outgoing':
       addMessage('outgoing',
@@ -1627,21 +1875,24 @@ function handleEvent(event) {
 
 async function send() {
   const text = inputEl.value.trim();
-  if (!text || busy) return;
+  if (!text) return;
 
   inputEl.value = '';
   inputEl.style.height = 'auto';
   sendBtn.disabled = true;
 
   addMessage('user', text, null, null, new Date(), 'web');
-  setBusy(true);
-  showThinking();
+  scrollToBottom(true);
+  if (!busy) {
+    setBusy(true);
+    showThinking();
+  }
 
   try {
-    await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text);
+    await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text, { connectionId: connection?.connectionId });
   } catch (err) {
     addMessage('error', `Failed to send: ${err.message}`);
-    setBusy(false);
+    if (!busy) setBusy(false);
   }
 }
 
@@ -1700,7 +1951,7 @@ inputEl.addEventListener('input', () => {
   inputEl.style.height = 'auto';
   inputEl.style.height = inputEl.scrollHeight + 'px';
   inputEl.style.overflowY = inputEl.scrollHeight > inputEl.offsetHeight ? 'auto' : 'hidden';
-  sendBtn.disabled = busy || !inputEl.value.trim();
+  sendBtn.disabled = !inputEl.value.trim();
   updateCmdPopup();
 });
 
@@ -1757,6 +2008,7 @@ async function init() {
   messagesEl.innerHTML = '';
   streamingText = '';
   streamingEl = null;
+  lastToolEl = null;
   setConnected('connecting');
 
   // Load status — also serves as auth check
@@ -1764,45 +2016,19 @@ async function init() {
     const res = await fetch(`${BASE_URL}/status`, { headers: AgentClient._headers(AUTH_TOKEN) });
     if (res.status === 401) {
       authFailed = true;
-      localStorage.removeItem('kern_auth_token');
       setConnected('disconnected');
-      agentNameEl.textContent = 'kern';
-      // Show token input prompt
-      messagesEl.innerHTML = '';
-      const prompt = document.createElement('div');
-      prompt.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;';
-      prompt.innerHTML = `
-        <div style="color:var(--text-dim);font-size:14px;">Enter auth token</div>
-        <input id="token-input" type="password" placeholder="KERN_AUTH_TOKEN"
-          style="background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;width:280px;outline:none;font-family:var(--font-sans);" />
-        <button id="token-submit"
-          style="background:var(--accent-dim);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;">Connect</button>
-      `;
-      messagesEl.appendChild(prompt);
-      const tokenInput = $('token-input');
-      const tokenSubmit = $('token-submit');
-      tokenInput.focus();
-      function submitToken() {
-        const val = tokenInput.value.trim();
-        if (!val) return;
-        localStorage.setItem('kern_auth_token', val);
-        AUTH_TOKEN = val;
-        authFailed = false;
-        messagesEl.innerHTML = '';
-        inputEl.disabled = false;
-        sendBtn.disabled = false;
-        init();
-      }
-      tokenSubmit.addEventListener('click', submitToken);
-      tokenInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitToken(); });
-      inputEl.disabled = true;
-      sendBtn.disabled = true;
+      // Re-prompt for token
+      await showTokenPrompt();
+      AUTH_TOKEN = getServerToken(location.origin);
+      authFailed = false;
+      init();
       return;
     }
     const status = await res.json();
     const resolvedName = status.agentName || 'kern';
     agentNameEl.textContent = resolvedName;
     setActiveAgent(resolvedName);
+    if (status.version) $('sidebar-version').textContent = 'v' + status.version;
   } catch {
     agentNameEl.textContent = 'kern';
   }
@@ -1810,6 +2036,7 @@ async function init() {
   // Load history
   try {
     const history = await AgentClient.getHistory(BASE_URL, AUTH_TOKEN, 100);
+    isLoadingHistory = true;
     // Build tool result map: toolCallId → output string
     const toolResults = {};
     for (const msg of history) {
@@ -1842,13 +2069,14 @@ async function init() {
               if (result && el) {
                 const outputEl = el.querySelector('.tool-output');
                 if (outputEl) {
-                  if (part.toolName === 'edit' && outputEl.innerHTML) {
-                    // Already has diff, append result below
-                    outputEl.innerHTML += '\n\n' + escapeHtml(result);
+                  const truncated = result.length > 5000
+                    ? result.slice(0, 5000) + '\n... (truncated)'
+                    : result;
+                  if (outputEl.innerHTML) {
+                    // Already has content (edit diff, write content, etc) — append result
+                    outputEl.innerHTML += '\n\n' + escapeHtml(truncated);
                   } else {
-                    outputEl.textContent = result.length > 5000
-                      ? result.slice(0, 5000) + '\n... (truncated)'
-                      : result;
+                    outputEl.textContent = truncated;
                   }
                 }
               }
@@ -1860,27 +2088,30 @@ async function init() {
       }
     }
   } catch {}
+  isLoadingHistory = false;
+  scrollToBottom(true);
+
+  // If agent is mid-turn, show thinking indicator
+  try {
+    const status = await AgentClient.getStatus(BASE_URL, AUTH_TOKEN);
+    if (status.queue && status.queue.startsWith('busy')) {
+      setBusy(true);
+      showThinking();
+    }
+  } catch {}
 
   // Connect SSE
   connection = AgentClient.connect(BASE_URL, AUTH_TOKEN, {
     onEvent: handleEvent,
     onConnect() {
       setConnected('connected');
-      addMessage('system', 'connected');
     },
     async onDisconnect() {
       if (authFailed || intentionalClose) return;
       setConnected('disconnected');
       addMessage('system', 'disconnected — reconnecting...');
-      // Re-discover agents to pick up new port after restart
-      await discoverAgents();
-      const agents = getAllAgents();
-      const activeName = getActiveAgent();
-      const updated = agents.find(a => a.name === activeName && a.running && a.url);
-      if (updated && updated.url !== BASE_URL) {
-        BASE_URL = updated.url;
-        AUTH_TOKEN = updated.token;
-      }
+      // Re-discover agents (proxy URL is stable, but agent may have stopped)
+      await discoverAllAgents();
       reconnectTimer = setTimeout(init, 2000);
     },
   });
@@ -1932,6 +2163,11 @@ function renderFilterDropdown() {
   }).join('');
 }
 
+$('logout-btn').addEventListener('click', () => {
+  localStorage.removeItem('kern_web_token');
+  location.reload();
+});
+
 $('filter-btn').addEventListener('click', (e) => {
   e.stopPropagation();
   const dd = $('filter-dropdown');
@@ -1976,9 +2212,47 @@ async function discoverHub() {
   } catch {}
 }
 
+// Show token prompt using modal — resolves when user submits valid token
+function showTokenPrompt() {
+  return new Promise(resolve => {
+    const modal = $('auth-modal');
+    const input = $('auth-token');
+    const btn = $('auth-submit');
+    input.value = '';
+    modal.classList.add('open');
+    input.focus();
+    function submit() {
+      const val = input.value.trim();
+      if (!val) return;
+      setLocalToken(val);
+      modal.classList.remove('open');
+      resolve(val);
+    }
+    btn.onclick = submit;
+    input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+  });
+}
+
+// On load: check URL for token param, save and clean URL
+(function checkUrlToken() {
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token');
+  if (token) {
+    setLocalToken(token);
+    history.replaceState(null, '', location.pathname);
+  }
+})();
+
 // On load: discover agents, auto-connect or show switcher
 (async () => {
-  await discoverAgents();
+  let localStatus = await discoverAllAgents();
+
+  // If local server needs auth, prompt for token
+  while (localStatus === 'unauthorized') {
+    await showTokenPrompt();
+    localStatus = await discoverAllAgents();
+  }
+
   await discoverHub();
   renderSwitcher();
 
@@ -1990,13 +2264,13 @@ async function discoverHub() {
   if (activeAgent) {
     // Resume previous agent
     BASE_URL = activeAgent.url;
-    AUTH_TOKEN = activeAgent.token;
+    AUTH_TOKEN = getServerToken(activeAgent.server || location.origin);
     init();
   } else if (runningAgents.length === 1) {
     // Only one running agent — auto-connect
     switchToAgent(runningAgents[0]);
   } else if (runningAgents.length > 1) {
-    // Multiple running agents — show switcher on mobile
+    // Multiple running agents — show switcher
     setConnected('disconnected');
     agentNameEl.textContent = 'kern';
     renderSwitcher();
@@ -2005,7 +2279,7 @@ async function discoverHub() {
     // No running agents
     setConnected('disconnected');
     agentNameEl.textContent = 'kern';
-    addMessage('system', 'No running agents found. Start an agent with `kern start` or add one manually.');
+    addMessage('system', 'No running agents found. Start an agent with `kern start` or add a server.');
   }
 })();
 
