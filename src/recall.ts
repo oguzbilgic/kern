@@ -57,7 +57,8 @@ export class RecallIndex {
       baseURL: provider === "openai" ? undefined : "https://openrouter.ai/api/v1",
       apiKey,
     });
-    this.embeddingModel = client.embeddingModel(EMBEDDING_MODEL);
+    const modelId = provider === "openai" ? "text-embedding-3-small" : EMBEDDING_MODEL;
+    this.embeddingModel = client.embeddingModel(modelId);
 
     this.initSchema();
   }
