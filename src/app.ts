@@ -12,6 +12,8 @@ import { registerAgent, setPortAndToken } from "./registry.js";
 import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
+import { setRecallIndex } from "./tools/recall.js";
+import { RecallIndex } from "./recall.js";
 import { MessageQueue } from "./queue.js";
 import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, type InterfaceStatus } from "./tools/kern.js";
 import { log } from "./log.js";
@@ -74,6 +76,26 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   const runtime = new Runtime(agentDir);
   await runtime.init();
 
+  // Initialize recall index (opt-out via "recall": false in config)
+  let recallIndex: RecallIndex | null = null;
+  if ((config as any).recall !== false) {
+    try {
+      recallIndex = new RecallIndex(agentDir, config.provider);
+      setRecallIndex(recallIndex);
+
+      // Backfill: index existing session
+      const sessionId = runtime.getSessionId();
+      if (sessionId) {
+        const indexed = await recallIndex.indexSession(sessionId);
+        if (indexed > 0) {
+          log("kern", `recall: backfilled ${indexed} chunks`);
+        }
+      }
+    } catch (err: any) {
+      log("kern", `recall: init failed: ${err.message} — recall disabled`);
+    }
+  }
+
   const agentName = basename(agentDir);
   await registerAgent(agentName, agentDir);
   process.chdir(agentDir);
@@ -130,10 +152,22 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       }));
     });
 
-    return runtime.handleMessage(context, (event: StreamEvent) => {
+    const result = await runtime.handleMessage(context, (event: StreamEvent) => {
       server.broadcast(event);
       msg.onEvent?.(event);
     });
+
+    // Index new messages for recall (async, non-blocking)
+    if (recallIndex) {
+      const sessionId = runtime.getSessionId();
+      if (sessionId) {
+        recallIndex.indexSession(sessionId).catch((err) => {
+          log("kern", `recall: indexing failed: ${err.message}`);
+        });
+      }
+    }
+
+    return result;
   });
 
   // Helper to enqueue from any interface
