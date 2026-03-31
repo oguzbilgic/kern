@@ -1485,6 +1485,8 @@ let connection = null;
 let authFailed = false;
 let intentionalClose = false;
 let currentTurnContext = null; // tracks which interface/type triggered the current turn
+let lastToolEl = null; // last tool call element — kept expanded during streaming
+let isLoadingHistory = false; // suppress auto-expand during history load
 
 // --- Render helpers ---
 
@@ -1548,6 +1550,12 @@ function addMessage(type, content, meta, toolInput, timestamp, iface) {
       el.querySelector('.tool-output').textContent = `→ ${toolInput.interface || 'unknown'}: ${toolInput.text}`;
     }
     el.addEventListener('click', () => el.classList.toggle('expanded'));
+    // Auto-expand last tool call during streaming, collapse previous
+    if (!isLoadingHistory) {
+      if (lastToolEl) lastToolEl.classList.remove('expanded');
+      el.classList.add('expanded');
+      lastToolEl = el;
+    }
   } else if (type === 'user-remote') {
     if (meta) {
       const label = document.createElement('span');
@@ -1646,6 +1654,7 @@ function handleEvent(event) {
     case 'text-delta':
       hideThinking();
       if (!streamingEl) {
+        if (lastToolEl) { lastToolEl.classList.remove('expanded'); lastToolEl = null; }
         streamingEl = addMessage('assistant', '');
         streamingEl.classList.add('streaming-cursor');
       }
@@ -1888,6 +1897,7 @@ async function init() {
   messagesEl.innerHTML = '';
   streamingText = '';
   streamingEl = null;
+  lastToolEl = null;
   setConnected('connecting');
 
   // Load status — also serves as auth check
@@ -1914,6 +1924,7 @@ async function init() {
   // Load history
   try {
     const history = await AgentClient.getHistory(BASE_URL, AUTH_TOKEN, 100);
+    isLoadingHistory = true;
     // Build tool result map: toolCallId → output string
     const toolResults = {};
     for (const msg of history) {
@@ -1965,6 +1976,7 @@ async function init() {
       }
     }
   } catch {}
+  isLoadingHistory = false;
 
   // If agent is mid-turn, show thinking indicator
   try {
