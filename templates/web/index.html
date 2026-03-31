@@ -910,17 +910,36 @@
     display: flex; align-items: center; gap: 8px;
     padding: 8px 12px;
     font-size: 13px; color: var(--text-dim);
-    cursor: default;
+    cursor: pointer;
+    transition: background 0.1s;
   }
+  .switcher-hub-item:hover { background: rgba(255,255,255,0.04); }
   .switcher-hub-item .hub-icon {
     width: 32px; height: 32px; border-radius: 8px;
-    background: rgba(255,255,255,0.06);
+    background: rgba(99,102,241,0.12);
     display: flex; align-items: center; justify-content: center;
-    font-size: 14px; color: var(--text-muted); flex-shrink: 0;
+    font-size: 14px; color: var(--accent); flex-shrink: 0;
   }
-  .switcher-hub-item .hub-info { display: flex; flex-direction: column; gap: 1px; }
+  .switcher-hub-item .hub-info { display: flex; flex-direction: column; gap: 1px; flex: 1; }
   .switcher-hub-item .hub-name { font-size: 13px; color: var(--text-dim); }
   .switcher-hub-item .hub-meta { font-size: 11px; color: var(--text-muted); }
+
+  .hub-agent-list {
+    overflow: hidden; max-height: 0;
+    transition: max-height 0.2s ease;
+  }
+  .hub-agent-list.open { max-height: 500px; }
+  .hub-agent-list .hub-agent {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 12px 5px 52px;
+    font-size: 12px; color: var(--text-dim);
+  }
+  .hub-agent.offline { opacity: 0.4; }
+  .hub-agent .hub-agent-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green); flex-shrink: 0;
+  }
+  .hub-agent.offline .hub-agent-dot { background: var(--text-muted); }
 </style>
 </head>
 <body>
@@ -1421,7 +1440,7 @@ function renderSwitcher() {
         list.appendChild(item);
       }
 
-      // Hub — shown as an item in the list, same level as agents
+      // Hub — expandable item in the list
       const serverHub = allHubs.find(h => h.server === serverUrl);
       if (serverHub && serverHub.agents) {
         const onlineCount = serverHub.agents.filter(a => a.online).length;
@@ -1434,8 +1453,19 @@ function renderSwitcher() {
             <div class="hub-name">Hub</div>
             <div class="hub-meta">${onlineCount}/${totalCount} agents online</div>
           </div>
+
         `;
+        const agentList = document.createElement('div');
+        agentList.className = 'hub-agent-list';
+        agentList.innerHTML = serverHub.agents
+          .sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0) || a.name.localeCompare(b.name))
+          .map(ha => `<div class="hub-agent${ha.online ? '' : ' offline'}"><span class="hub-agent-dot"></span>${escapeHtml(ha.name)}</div>`)
+          .join('');
+        item.addEventListener('click', () => {
+          agentList.classList.toggle('open');
+        });
         list.appendChild(item);
+        list.appendChild(agentList);
       }
     }
   }
