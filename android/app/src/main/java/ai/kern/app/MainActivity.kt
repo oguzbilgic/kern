@@ -328,6 +328,8 @@ class MainActivity : AppCompatActivity() {
     private fun disconnect() {
         sseClient.close()
         webView.loadUrl("about:blank")
+        webView.clearHistory()
+        webView.clearCache(true)
         ConnectionConfig.clear(this)
         showSetup()
     }
