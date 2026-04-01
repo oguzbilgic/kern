@@ -146,12 +146,13 @@ export class Runtime {
         const allMessages = session.getMessages();
         const totalTokens = estimateTokens(allMessages);
         const truncated = truncateLargeToolResults(allMessages, config.maxToolResultChars);
-        const windowMessages = trimToTokenBudget(truncated, config.maxContextTokens);
-        const windowTokens = estimateTokens(windowMessages);
+        const windowMsgs = trimToTokenBudget(truncated, config.maxContextTokens);
+        const windowTokens = estimateTokens(windowMsgs);
         return {
           totalMessages: allMessages.length,
           estimatedTokens: totalTokens,
           windowTokens,
+          windowMessages: windowMsgs.length,
         };
       },
       pairingManager: pairing,
@@ -175,12 +176,13 @@ export class Runtime {
         const allMessages = session.getMessages();
         const totalTokens = estimateTokens(allMessages);
         const truncated = truncateLargeToolResults(allMessages, config.maxToolResultChars);
-        const windowMessages = trimToTokenBudget(truncated, config.maxContextTokens);
-        const windowTokens = estimateTokens(windowMessages);
+        const windowMsgs = trimToTokenBudget(truncated, config.maxContextTokens);
+        const windowTokens = estimateTokens(windowMsgs);
         return {
           totalMessages: allMessages.length,
           estimatedTokens: totalTokens,
           windowTokens,
+          windowMessages: windowMsgs.length,
         };
       },
     });
