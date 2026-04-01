@@ -76,21 +76,6 @@ function truncateLargeToolResults(messages: ModelMessage[], maxChars: number): {
   return { messages: changed ? result : messages, truncatedCount };
 }
 
-// Count truncated tool results within the context window
-function countTruncatedInWindow(messages: ModelMessage[]): number {
-  let count = 0;
-  for (const msg of messages) {
-    if (msg.role !== "tool" || !Array.isArray(msg.content)) continue;
-    for (const part of msg.content as any[]) {
-      if (part.type === "tool-result" && part.output?.type === "text" &&
-          typeof part.output.value === "string" &&
-          part.output.value.includes("[truncated from ")) {
-        count++;
-      }
-    }
-  }
-  return count;
-}
 
 function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): ModelMessage[] {
   if (maxTokens <= 0) return messages;
@@ -163,10 +148,9 @@ export class Runtime {
       getSessionStats: () => {
         const allMessages = session.getMessages();
         const totalTokens = estimateTokens(allMessages);
-        const { messages: truncatedMsgs } = truncateLargeToolResults(allMessages, config.maxToolResultChars);
-        const windowMsgs = trimToTokenBudget(truncatedMsgs, config.maxContextTokens);
-        const windowTokens = estimateTokens(windowMsgs);
-        const truncatedCount = countTruncatedInWindow(windowMsgs);
+        const windowMsgs = trimToTokenBudget(allMessages, config.maxContextTokens);
+        const { messages: truncatedMsgs, truncatedCount } = truncateLargeToolResults(windowMsgs, config.maxToolResultChars);
+        const windowTokens = estimateTokens(truncatedMsgs);
         return {
           totalMessages: allMessages.length,
           estimatedTokens: totalTokens,
@@ -195,10 +179,9 @@ export class Runtime {
       getSessionStats: () => {
         const allMessages = session.getMessages();
         const totalTokens = estimateTokens(allMessages);
-        const { messages: truncatedMsgs } = truncateLargeToolResults(allMessages, config.maxToolResultChars);
-        const windowMsgs = trimToTokenBudget(truncatedMsgs, config.maxContextTokens);
-        const windowTokens = estimateTokens(windowMsgs);
-        const truncatedCount = countTruncatedInWindow(windowMsgs);
+        const windowMsgs = trimToTokenBudget(allMessages, config.maxContextTokens);
+        const { messages: truncatedMsgs, truncatedCount } = truncateLargeToolResults(windowMsgs, config.maxToolResultChars);
+        const windowTokens = estimateTokens(truncatedMsgs);
         return {
           totalMessages: allMessages.length,
           estimatedTokens: totalTokens,
@@ -242,11 +225,12 @@ export class Runtime {
     try {
       let fullText = "";
 
-      // Truncate oversized tool results, then trim to fit context window
+      // Trim to context window, then truncate oversized tool results within it
       const allMessages = this.session.getMessages();
-      const { messages: truncatedMessages } = truncateLargeToolResults(allMessages, this.config.maxToolResultChars);
-      let contextMessages = trimToTokenBudget(truncatedMessages, this.config.maxContextTokens);
-      const trimmedCount = truncatedMessages.length - contextMessages.length;
+      const trimmedMessages = trimToTokenBudget(allMessages, this.config.maxContextTokens);
+      const trimmedCount = allMessages.length - trimmedMessages.length;
+      const { messages: truncatedMessages } = truncateLargeToolResults(trimmedMessages, this.config.maxToolResultChars);
+      let contextMessages = truncatedMessages;
       if (trimmedCount > 0) {
         log("runtime", `context trimmed: ${trimmedCount} old messages excluded`);
       }
