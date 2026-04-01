@@ -13,7 +13,7 @@ let _version = "unknown";
 let _totalPromptTokens = 0;
 let _totalCompletionTokens = 0;
 let _usageFile = "";
-let _getSessionStats: (() => { totalMessages: number; estimatedTokens: number; windowTokens: number; windowMessages: number }) | null = null;
+let _getSessionStats: (() => { totalMessages: number; estimatedTokens: number; windowTokens: number; windowMessages: number; truncatedCount: number }) | null = null;
 let _reloadFn: (() => Promise<void>) | null = null;
 let _pairingManager: any = null;
 let _getQueueStatus: (() => { processing: boolean; pending: number; activeChannel: string | null }) | null = null;
@@ -36,7 +36,7 @@ export async function initKernTool(opts: {
   agentDir: string;
   config: any;
   sessionId: string;
-  getSessionStats?: () => { totalMessages: number; estimatedTokens: number; windowTokens: number; windowMessages: number };
+  getSessionStats?: () => { totalMessages: number; estimatedTokens: number; windowTokens: number; windowMessages: number; truncatedCount: number };
   reload?: () => Promise<void>;
   pairingManager?: any;
 }) {
@@ -125,7 +125,7 @@ export function getStatusData(): StatusData {
     ? `~${stats.estimatedTokens} tokens (${stats.totalMessages} messages)`
     : `${_messageCount} messages`;
   const context = stats
-    ? `~${stats.windowTokens} tokens (${stats.windowMessages} messages)`
+    ? `~${stats.windowTokens} tokens (${stats.windowMessages} messages${stats.truncatedCount > 0 ? `, ${stats.truncatedCount} truncated` : ""})`
     : null;
   const totalTokens = _totalPromptTokens + _totalCompletionTokens;
   const apiUsage = `${totalTokens} tokens (in: ${_totalPromptTokens}, out: ${_totalCompletionTokens})`;

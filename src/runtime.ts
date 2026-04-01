@@ -29,10 +29,11 @@ function getMsgSize(msg: ModelMessage): number {
 
 // Truncate oversized tool results to keep context window usable.
 // Full results remain in session JSONL (and recall index) — only the context copy is truncated.
-function truncateLargeToolResults(messages: ModelMessage[], maxChars: number): ModelMessage[] {
-  if (maxChars <= 0) return messages;
+function truncateLargeToolResults(messages: ModelMessage[], maxChars: number): { messages: ModelMessage[]; truncatedCount: number } {
+  if (maxChars <= 0) return { messages, truncatedCount: 0 };
 
   let changed = false;
+  let truncatedCount = 0;
   const result: ModelMessage[] = [];
 
   for (const msg of messages) {
@@ -57,6 +58,7 @@ function truncateLargeToolResults(messages: ModelMessage[], maxChars: number): M
           });
           log("runtime", `truncated ${part.toolName} result: ${valueStr.length} → ${maxChars} chars`);
           partChanged = true;
+          truncatedCount++;
           continue;
         }
       }
@@ -71,7 +73,7 @@ function truncateLargeToolResults(messages: ModelMessage[], maxChars: number): M
     }
   }
 
-  return changed ? result : messages;
+  return { messages: changed ? result : messages, truncatedCount };
 }
 
 function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): ModelMessage[] {
@@ -145,14 +147,15 @@ export class Runtime {
       getSessionStats: () => {
         const allMessages = session.getMessages();
         const totalTokens = estimateTokens(allMessages);
-        const truncated = truncateLargeToolResults(allMessages, config.maxToolResultChars);
-        const windowMsgs = trimToTokenBudget(truncated, config.maxContextTokens);
+        const { messages: truncatedMsgs, truncatedCount } = truncateLargeToolResults(allMessages, config.maxToolResultChars);
+        const windowMsgs = trimToTokenBudget(truncatedMsgs, config.maxContextTokens);
         const windowTokens = estimateTokens(windowMsgs);
         return {
           totalMessages: allMessages.length,
           estimatedTokens: totalTokens,
           windowTokens,
           windowMessages: windowMsgs.length,
+          truncatedCount,
         };
       },
       pairingManager: pairing,
@@ -175,14 +178,15 @@ export class Runtime {
       getSessionStats: () => {
         const allMessages = session.getMessages();
         const totalTokens = estimateTokens(allMessages);
-        const truncated = truncateLargeToolResults(allMessages, config.maxToolResultChars);
-        const windowMsgs = trimToTokenBudget(truncated, config.maxContextTokens);
+        const { messages: truncatedMsgs, truncatedCount } = truncateLargeToolResults(allMessages, config.maxToolResultChars);
+        const windowMsgs = trimToTokenBudget(truncatedMsgs, config.maxContextTokens);
         const windowTokens = estimateTokens(windowMsgs);
         return {
           totalMessages: allMessages.length,
           estimatedTokens: totalTokens,
           windowTokens,
           windowMessages: windowMsgs.length,
+          truncatedCount,
         };
       },
     });
@@ -222,7 +226,7 @@ export class Runtime {
 
       // Truncate oversized tool results, then trim to fit context window
       const allMessages = this.session.getMessages();
-      const truncatedMessages = truncateLargeToolResults(allMessages, this.config.maxToolResultChars);
+      const { messages: truncatedMessages } = truncateLargeToolResults(allMessages, this.config.maxToolResultChars);
       let contextMessages = trimToTokenBudget(truncatedMessages, this.config.maxContextTokens);
       const trimmedCount = truncatedMessages.length - contextMessages.length;
       if (trimmedCount > 0) {
