@@ -50,8 +50,13 @@ class MainActivity : AppCompatActivity() {
         // Deep link: kern://connect?url=https://...
         intent?.data?.let { uri ->
             uri.getQueryParameter("url")?.let { url ->
-                ConnectionConfig.save(this, url)
-                connect(url)
+                if (isValidUrl(url)) {
+                    ConnectionConfig.save(this, url)
+                    connect(url)
+                } else {
+                    android.widget.Toast.makeText(this, "Invalid URL: must be http:// or https://", android.widget.Toast.LENGTH_LONG).show()
+                    showSetup()
+                }
             } ?: showSetup()
         } ?: run {
             // Auto-reconnect to saved URL
@@ -62,9 +67,17 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.connectBtn).setOnClickListener {
             val url = findViewById<TextInputEditText>(R.id.serverUrlInput).text?.toString()?.trim() ?: return@setOnClickListener
             if (url.isEmpty()) return@setOnClickListener
+            if (!isValidUrl(url)) {
+                android.widget.Toast.makeText(this, "Invalid URL: must be http:// or https://", android.widget.Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
             ConnectionConfig.save(this, url)
             connect(url)
         }
+    }
+
+    private fun isValidUrl(url: String): Boolean {
+        return url.startsWith("http://", ignoreCase = true) || url.startsWith("https://", ignoreCase = true)
     }
 
     private fun showSetup() {
