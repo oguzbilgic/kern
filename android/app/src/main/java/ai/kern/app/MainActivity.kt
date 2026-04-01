@@ -24,7 +24,7 @@ import com.google.android.material.textfield.TextInputEditText
 class MainActivity : AppCompatActivity() {
 
     companion object {
-        const val BUILD = 36
+        const val BUILD = 37
     }
 
     private lateinit var webView: WebView
@@ -288,11 +288,16 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = false
 
+            override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                if (url == "about:blank") return
+                Log.d("KernWebView", "onPageStarted: $url - injecting bridge")
+                view.evaluateJavascript(bridgeScript(), null)
+            }
+
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                if (url == "about:blank") return
                 Log.d("KernWebView", "onPageFinished: $url")
-                view.evaluateJavascript(bridgeScript(), null)
             }
 
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
