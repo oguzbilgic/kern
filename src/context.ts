@@ -1,10 +1,11 @@
 import type { ModelMessage, ToolResultPart } from "ai";
-import { readFile, readdir } from "fs/promises";
+import { readFile } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 import { log } from "./log.js";
 import { getToolsForScope, type KernConfig } from "./config.js";
 import type { RecallIndex } from "./recall.js";
+import { loadNotesContext } from "./notes.js";
 
 // Build the system prompt from agent markdown files + runtime info.
 export async function loadSystemPrompt(agentDir: string, config: KernConfig): Promise<string> {
@@ -37,22 +38,17 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig): Pr
     parts.push(await readFile(knowledgePath, "utf-8"));
   }
 
-  // Inject latest daily note from notes/ directory
-  const notesDir = join(agentDir, "notes");
-  if (existsSync(notesDir)) {
-    try {
-      const files = await readdir(notesDir);
-      const mdFiles = files.filter(f => f.endsWith(".md")).sort();
-      if (mdFiles.length > 0) {
-        const latest = mdFiles[mdFiles.length - 1];
-        const content = await readFile(join(notesDir, latest), "utf-8");
-        if (content.trim()) {
-          parts.push(`# Latest Daily Note\n\n${content.trim()}`);
-        }
-      }
-    } catch (err: any) {
-      log("context", `failed to read daily notes: ${err.message}`);
+  // Inject notes context: summary of recent days + latest daily note
+  try {
+    const { latest, summary } = await loadNotesContext(agentDir, config);
+    if (summary) {
+      parts.push(`# Recent Notes Summary\n\n${summary}`);
     }
+    if (latest) {
+      parts.push(`# Latest Daily Note\n\n${latest}`);
+    }
+  } catch (err: any) {
+    log("context", `failed to load notes context: ${err.message}`);
   }
 
   // Inject live runtime info
