@@ -1012,9 +1012,128 @@
     color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;
   }
   .switcher-server-header .switcher-item-remove { display: inline; font-size: 12px; }
+
+  /* --- Segments Overlay --- */
+  .segments-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 2000;
+    overflow-y: auto;
+    padding: 24px;
+  }
+  .segments-overlay.open { display: block; }
+  .segments-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    position: sticky;
+    top: 0;
+    background: rgba(0,0,0,0.9);
+    padding: 8px 0;
+    z-index: 1;
+  }
+  .segments-header h2 {
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 600;
+    font-family: var(--font-sans);
+  }
+  .segments-header .stats {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: var(--font-mono);
+  }
+  .segments-close {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+  .segments-close:hover { color: var(--text); border-color: var(--text-muted); }
+  .segments-timeline {
+    position: relative;
+    min-height: 100px;
+  }
+  .segments-level {
+    margin-bottom: 16px;
+  }
+  .segments-level-label {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .segments-row {
+    display: flex;
+    gap: 2px;
+    flex-wrap: wrap;
+  }
+  .seg-block {
+    height: 32px;
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+    transition: opacity 0.15s;
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    overflow: hidden;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: rgba(255,255,255,0.7);
+    white-space: nowrap;
+    min-width: 24px;
+  }
+  .seg-block:hover { opacity: 0.8; }
+  .seg-block.unsummarized { opacity: 0.5; border: 1px dashed rgba(255,255,255,0.3); }
+  .seg-tooltip {
+    display: none;
+    position: fixed;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    max-width: 400px;
+    z-index: 2100;
+    font-size: 12px;
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+  .seg-tooltip.open { display: block; }
+  .seg-tooltip .seg-meta {
+    color: var(--text-muted);
+    font-size: 10px;
+    font-family: var(--font-mono);
+    margin-bottom: 6px;
+  }
+  .seg-tooltip .seg-summary {
+    color: var(--text);
+  }
 </style>
 </head>
 <body>
+
+<div class="segments-overlay" id="segments-overlay">
+  <div class="segments-header">
+    <h2>Semantic Segments</h2>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="stats" id="segments-stats"></span>
+      <button class="segments-close" id="segments-close">&times;</button>
+    </div>
+  </div>
+  <div class="segments-timeline" id="segments-timeline"></div>
+  <div class="seg-tooltip" id="seg-tooltip"></div>
+</div>
 
 <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
@@ -1064,6 +1183,7 @@
     <div style="display:flex;align-items:center;gap:4px;position:relative;">
       <button class="filter-btn" id="filter-btn" title="Filter messages">&#9881;</button>
       <div class="filter-dropdown" id="filter-dropdown"></div>
+      <button class="info-btn" id="segments-btn" title="Segments">&#9707;</button>
       <button class="info-btn" id="info-btn" title="Agent info">&#8942;</button>
     </div>
   </div>
@@ -1393,6 +1513,152 @@ $('info-btn').addEventListener('click', async () => {
     });
   } catch {}
 });
+
+// ==========================================================================
+// Segments Visualization
+// ==========================================================================
+
+const segOverlay = $('segments-overlay');
+const segTimeline = $('segments-timeline');
+const segStats = $('segments-stats');
+const segTooltip = $('seg-tooltip');
+
+// Color palette for segments — hashed from segment id
+const SEG_COLORS = [
+  '#1f6feb', '#238636', '#8957e5', '#d29922', '#f85149',
+  '#56d4dd', '#bc8cff', '#3fb950', '#58a6ff', '#e6edf3',
+  '#da3633', '#6e7681', '#f0883e', '#a5d6ff', '#7ee787',
+];
+
+function segColor(id) {
+  return SEG_COLORS[id % SEG_COLORS.length];
+}
+
+$('segments-btn').addEventListener('click', async () => {
+  if (segOverlay.classList.contains('open')) {
+    segOverlay.classList.remove('open');
+    return;
+  }
+  if (!BASE_URL) return;
+  try {
+    const res = await fetch(`${BASE_URL}/segments`, { headers: AgentClient._headers(AUTH_TOKEN) });
+    if (!res.ok) return;
+    const data = await res.json();
+    renderSegments(data);
+    segOverlay.classList.add('open');
+  } catch (e) {
+    console.error('segments fetch failed:', e);
+  }
+});
+
+$('segments-close').addEventListener('click', () => {
+  segOverlay.classList.remove('open');
+  segTooltip.classList.remove('open');
+});
+
+segOverlay.addEventListener('click', (e) => {
+  if (e.target === segOverlay) {
+    segOverlay.classList.remove('open');
+    segTooltip.classList.remove('open');
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && segOverlay.classList.contains('open')) {
+    segOverlay.classList.remove('open');
+    segTooltip.classList.remove('open');
+  }
+});
+
+function renderSegments(data) {
+  const { segments, stats } = data;
+  segStats.textContent = `${stats.segments || 0} segments · ${stats.level0 || 0} level-0`;
+
+  if (!segments || segments.length === 0) {
+    segTimeline.innerHTML = '<div style="color:var(--text-muted);padding:20px;">No segments yet. Segments are built after messages are indexed.</div>';
+    return;
+  }
+
+  // Group by level
+  const levels = {};
+  let maxMsgEnd = 0;
+  for (const seg of segments) {
+    const lvl = seg.level || 0;
+    if (!levels[lvl]) levels[lvl] = [];
+    levels[lvl].push(seg);
+    if (seg.msg_end > maxMsgEnd) maxMsgEnd = seg.msg_end;
+  }
+
+  let html = '';
+  const sortedLevels = Object.keys(levels).map(Number).sort();
+
+  for (const lvl of sortedLevels) {
+    const segs = levels[lvl];
+    html += `<div class="segments-level">`;
+    html += `<div class="segments-level-label">Level ${lvl} · ${segs.length} segments</div>`;
+    html += `<div class="segments-row">`;
+
+    for (const seg of segs) {
+      // Width proportional to message span
+      const span = seg.msg_end - seg.msg_start;
+      const widthPct = Math.max(1.5, (span / maxMsgEnd) * 100);
+      const color = segColor(seg.id);
+      const cls = seg.summarized ? '' : ' unsummarized';
+      const label = span > 3 ? `${seg.msg_start}–${seg.msg_end}` : `${seg.msg_start}`;
+
+      html += `<div class="seg-block${cls}" style="width:${widthPct}%;background:${color};"
+        data-seg-id="${seg.id}"
+        data-seg-start="${seg.msg_start}"
+        data-seg-end="${seg.msg_end}"
+        data-seg-tokens="${seg.token_count}"
+        data-seg-summarized="${seg.summarized}"
+        data-seg-summary="${escAttr(seg.summary || '')}"
+        data-seg-created="${seg.created_at || ''}"
+      >${label}</div>`;
+    }
+
+    html += '</div></div>';
+  }
+
+  segTimeline.innerHTML = html;
+
+  // Attach hover/click handlers
+  segTimeline.querySelectorAll('.seg-block').forEach(el => {
+    el.addEventListener('mouseenter', showSegTooltip);
+    el.addEventListener('mouseleave', () => segTooltip.classList.remove('open'));
+    el.addEventListener('click', showSegTooltip);
+  });
+}
+
+function showSegTooltip(e) {
+  const el = e.currentTarget;
+  const start = el.dataset.segStart;
+  const end = el.dataset.segEnd;
+  const tokens = el.dataset.segTokens;
+  const summarized = el.dataset.segSummarized === '1';
+  const summary = el.dataset.segSummary;
+  const created = el.dataset.segCreated;
+
+  const summaryHtml = summarized
+    ? `<div class="seg-summary">${escAttr(summary)}</div>`
+    : `<div class="seg-summary" style="color:var(--text-muted);font-style:italic;">${escAttr(summary.slice(0, 200))}${summary.length > 200 ? '...' : ''}</div>
+       <div style="color:var(--orange);font-size:10px;margin-top:4px;">⏳ not yet summarized</div>`;
+
+  segTooltip.innerHTML = `
+    <div class="seg-meta">msgs ${start}–${end} · ${tokens} tokens · ${created ? new Date(created).toLocaleString() : ''}</div>
+    ${summaryHtml}
+  `;
+
+  // Position near the element
+  const rect = el.getBoundingClientRect();
+  segTooltip.style.left = Math.min(rect.left, window.innerWidth - 420) + 'px';
+  segTooltip.style.top = (rect.bottom + 8) + 'px';
+  segTooltip.classList.add('open');
+}
+
+function escAttr(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 // ==========================================================================
 // Agent Switcher

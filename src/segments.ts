@@ -362,6 +362,23 @@ export class SegmentIndex {
     const l0 = (this.db.prepare("SELECT COUNT(*) as n FROM semantic_segments WHERE level = 0").get() as any).n;
     return { segments: total, level0: l0 };
   }
+
+  /**
+   * Get all segments for visualization.
+   */
+  getSegments(sessionId?: string): { segments: any[]; stats: any } {
+    const where = sessionId ? "WHERE session_id = ?" : "";
+    const params = sessionId ? [sessionId] : [];
+
+    const segments = this.db.prepare(
+      `SELECT id, session_id, msg_start, msg_end, parent_id, level, summary, token_count, summarized, created_at
+       FROM semantic_segments ${where} ORDER BY level, msg_start`
+    ).all(...params) as any[];
+
+    const stats = this.getStats();
+
+    return { segments, stats };
+  }
 }
 
 // --- Vector math ---

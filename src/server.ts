@@ -22,6 +22,7 @@ export class AgentServer {
   private onMessage: ((text: string, userId: string, iface: string, channel: string) => Promise<void>) | null = null;
   private statusFn: (() => any | Promise<any>) | null = null;
   private historyFn: ((limit: number, before?: number) => any[]) | null = null;
+  private segmentsFn: ((sessionId?: string) => any) | null = null;
   private port = 0;
 
   constructor() {
@@ -38,6 +39,10 @@ export class AgentServer {
 
   setHistoryFn(fn: (limit: number, before?: number) => any[]) {
     this.historyFn = fn;
+  }
+
+  setSegmentsFn(fn: (sessionId?: string) => any) {
+    this.segmentsFn = fn;
   }
 
   async start(host: string = "127.0.0.1"): Promise<number> {
@@ -211,6 +216,14 @@ export class AgentServer {
       const history = this.historyFn ? this.historyFn(limit, before) : [];
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(history));
+      return;
+    }
+
+    // Segments — semantic segment DAG data
+    if (url === "/segments" && req.method === "GET") {
+      const data = this.segmentsFn ? this.segmentsFn() : { segments: [], stats: {} };
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
       return;
     }
 
