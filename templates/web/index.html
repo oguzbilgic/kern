@@ -502,8 +502,84 @@
     color: var(--text-dim);
   }
   .message.tool.expanded .tool-output { display: block; }
-  .message.tool .diff-line-old { color: var(--red); }
-  .message.tool .diff-line-new { color: var(--green); }
+  .diff-line-old, .diff-line-new { display: flex; gap: 0; }
+  .diff-line-old { opacity: 0.4; }
+  .diff-gutter { user-select: none; width: 16px; flex-shrink: 0; text-align: center; }
+  .diff-line-old .diff-gutter { color: var(--red); }
+  .diff-line-new .diff-gutter { color: var(--green); }
+  .diff-code { flex: 1; min-width: 0; }
+  .diff-separator { height: 6px; }
+  .tool-result-text { margin-top: 8px; }
+
+  /* Fullscreen expand button — on header line, visible only when expanded */
+  .tool-expand-btn {
+    display: none;
+    width: 20px;
+    height: 20px;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 12px;
+    margin-left: auto;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .tool-expand-btn:hover { color: var(--text); }
+  .message.tool.expanded .tool-expand-btn.has-overflow { display: flex; }
+
+  /* Fullscreen overlay */
+  .fullscreen-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .fullscreen-content {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 100%;
+    max-width: 1000px;
+    height: 100%;
+    max-height: 100%;
+    overflow-y: auto;
+    padding: 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    word-break: break-all;
+    position: relative;
+  }
+  .fullscreen-close {
+    position: sticky;
+    top: 0;
+    float: right;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    z-index: 1;
+  }
+  .fullscreen-close:hover { color: var(--text); background: var(--border); }
+  .fullscreen-content .read-output { min-height: 0; }
+  .fullscreen-content .read-code { white-space: pre-wrap; word-break: break-all; }
+
 
   /* Syntax-highlighted read output */
   .read-output { display: flex; gap: 0; }
@@ -1724,9 +1800,24 @@ function formatReadOutput(text, filePath) {
 
 function formatEditDiff(input) {
   if (!input || !input.oldString || !input.newString) return null;
-  const oldLines = input.oldString.split('\n').map(l => `<span class="diff-line-old">- ${escapeHtml(l)}</span>`);
-  const newLines = input.newString.split('\n').map(l => `<span class="diff-line-new">+ ${escapeHtml(l)}</span>`);
-  return oldLines.join('\n') + '\n' + newLines.join('\n');
+  const lang = getLanguageFromPath(input.path);
+
+  function highlightLines(text) {
+    if (typeof hljs !== 'undefined' && lang) {
+      try {
+        const highlighted = hljs.highlight(text, { language: lang, ignoreIllegals: true }).value;
+        return highlighted.split('\n');
+      } catch {}
+    }
+    return text.split('\n').map(l => escapeHtml(l));
+  }
+
+  const oldHL = highlightLines(input.oldString);
+  const newHL = highlightLines(input.newString);
+
+  const oldLines = oldHL.map(l => `<div class="diff-line-old"><span class="diff-gutter">−</span><span class="diff-code">${l || ' '}</span></div>`);
+  const newLines = newHL.map(l => `<div class="diff-line-new"><span class="diff-gutter">+</span><span class="diff-code">${l || ' '}</span></div>`);
+  return oldLines.join('') + '<div class="diff-separator"></div>' + newLines.join('');
 }
 
 function formatTime(date) {
@@ -1737,6 +1828,57 @@ function formatTime(date) {
   const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   if (d.toDateString() === now.toDateString()) return time;
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + time;
+}
+
+// Add expand-to-fullscreen button to a tool message's header (only shows if output overflows)
+function addExpandBtn(toolEl) {
+  const header = toolEl.querySelector('.tool-header');
+  const outputEl = toolEl.querySelector('.tool-output');
+  if (!header || !outputEl || header.querySelector('.tool-expand-btn')) return;
+  const btn = document.createElement('button');
+  btn.className = 'tool-expand-btn';
+  btn.innerHTML = '⛶';
+  btn.title = 'Fullscreen';
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openFullscreen(outputEl);
+  });
+  header.appendChild(btn);
+  // Check overflow after render (needs to be visible)
+  checkExpandOverflow(toolEl);
+}
+
+function checkExpandOverflow(toolEl) {
+  const btn = toolEl.querySelector('.tool-expand-btn');
+  const outputEl = toolEl.querySelector('.tool-output');
+  if (!btn || !outputEl) return;
+  requestAnimationFrame(() => {
+    if (outputEl.scrollHeight > outputEl.clientHeight + 2) {
+      btn.classList.add('has-overflow');
+    } else {
+      btn.classList.remove('has-overflow');
+    }
+  });
+}
+
+function openFullscreen(outputEl) {
+  const overlay = document.createElement('div');
+  overlay.className = 'fullscreen-overlay';
+  const content = document.createElement('div');
+  content.className = 'fullscreen-content';
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'fullscreen-close';
+  closeBtn.innerHTML = '✕';
+  closeBtn.addEventListener('click', () => overlay.remove());
+  content.appendChild(closeBtn);
+  const inner = document.createElement('div');
+  inner.innerHTML = outputEl.innerHTML;
+  content.appendChild(inner);
+  overlay.appendChild(content);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+  const onKey = (e) => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onKey); } };
+  document.addEventListener('keydown', onKey);
 }
 
 function addMessage(type, content, meta, toolInput, timestamp, iface) {
@@ -1770,11 +1912,20 @@ function addMessage(type, content, meta, toolInput, timestamp, iface) {
         el.querySelector('.tool-output').innerHTML = diff;
       }
     } else if (toolName === 'write' && toolInput && toolInput.content) {
-      el.querySelector('.tool-output').textContent = toolInput.content;
+      const writeLang = getLanguageFromPath(toolInput.path);
+      if (typeof hljs !== 'undefined' && writeLang) {
+        try {
+          el.querySelector('.tool-output').innerHTML = hljs.highlight(toolInput.content, { language: writeLang, ignoreIllegals: true }).value;
+        } catch {
+          el.querySelector('.tool-output').textContent = toolInput.content;
+        }
+      } else {
+        el.querySelector('.tool-output').textContent = toolInput.content;
+      }
     } else if (toolName === 'message' && toolInput && toolInput.text) {
       el.querySelector('.tool-output').textContent = `→ ${toolInput.interface || 'unknown'}: ${toolInput.text}`;
     }
-    el.addEventListener('click', () => el.classList.toggle('expanded'));
+    el.addEventListener('click', () => { el.classList.toggle('expanded'); checkExpandOverflow(el); });
     // Auto-expand last tool call during streaming, collapse previous
     if (!isLoadingHistory) {
       if (lastToolEl) lastToolEl.classList.remove('expanded');
@@ -1927,10 +2078,11 @@ function handleEvent(event) {
               outputEl.innerHTML = ansiToHtml(text);
             }
           } else if (outputEl.innerHTML) {
-            outputEl.innerHTML += '\n\n' + ansiToHtml(text);
+            outputEl.innerHTML += `<div class="tool-result-text">${ansiToHtml(text)}</div>`;
           } else {
             outputEl.innerHTML = ansiToHtml(text);
           }
+          addExpandBtn(lastTool);
         }
       }
       scrollToBottom();
@@ -2225,10 +2377,11 @@ async function init() {
                     }
                   } else if (outputEl.innerHTML) {
                     // Already has content (edit diff, write content, etc) — append result
-                    outputEl.innerHTML += '\n\n' + ansiToHtml(truncated);
+                    outputEl.innerHTML += `<div class="tool-result-text">${ansiToHtml(truncated)}</div>`;
                   } else {
                     outputEl.innerHTML = ansiToHtml(truncated);
                   }
+                  addExpandBtn(el);
                 }
               }
             }
