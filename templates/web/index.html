@@ -1128,6 +1128,7 @@
     <h2>Semantic Segments</h2>
     <div style="display:flex;align-items:center;gap:12px;">
       <span class="stats" id="segments-stats"></span>
+      <button class="segments-close" id="segments-rebuild" style="font-size:12px;">↻ Rebuild</button>
       <button class="segments-close" id="segments-close">&times;</button>
     </div>
   </div>
@@ -1548,6 +1549,26 @@ $('segments-btn').addEventListener('click', async () => {
     segOverlay.classList.add('open');
   } catch (e) {
     console.error('segments fetch failed:', e);
+  }
+});
+
+$('segments-rebuild').addEventListener('click', async () => {
+  if (!BASE_URL) return;
+  const btn = $('segments-rebuild');
+  btn.textContent = '↻ Rebuilding...';
+  btn.disabled = true;
+  try {
+    await fetch(`${BASE_URL}/segments/rebuild`, {
+      method: 'POST',
+      headers: AgentClient._headers(AUTH_TOKEN),
+    });
+    segStats.textContent = 'rebuilding in background...';
+    segTimeline.innerHTML = '<div style="color:var(--text-muted);padding:20px;">Rebuild started. Refresh in a minute to see results.</div>';
+  } catch (e) {
+    console.error('rebuild failed:', e);
+  } finally {
+    btn.textContent = '↻ Rebuild';
+    btn.disabled = false;
   }
 });
 

@@ -116,21 +116,10 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   // Initialize semantic segments (uses same embedding infra as recall)
   let segmentIndex: SegmentIndex | null = null;
+  let segmentRunning = false;
   if ((config as any).recall !== false) {
     try {
       segmentIndex = new SegmentIndex(memoryDB, config.provider);
-
-      // Backfill segments in background
-      const sessionId = runtime.getSessionId();
-      if (sessionId) {
-        segmentIndex.indexSession(sessionId).then((created) => {
-          if (created > 0) {
-            log("segments", `backfilled ${created} segments`);
-          }
-        }).catch((err) => {
-          log("segments", `backfill failed: ${err.message}`);
-        });
-      }
     } catch (err: any) {
       log("segments", `init failed: ${err.message} — segments disabled`);
     }
@@ -255,6 +244,28 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   server.setSegmentsFn((sessionId?: string) => {
     if (!segmentIndex) return { segments: [], stats: { segments: 0, level0: 0 } };
     return segmentIndex.getSegments(sessionId);
+  });
+
+  server.setSegmentsRebuildFn(async () => {
+    if (!segmentIndex) throw new Error("segments not enabled");
+    if (segmentRunning) {
+      log("segments", "rebuild already running");
+      return { status: "already running" };
+    }
+    const sessionId = runtime.getSessionId();
+    if (!sessionId) throw new Error("no session");
+
+    segmentRunning = true;
+    try {
+      // Clear existing segments
+      segmentIndex.clear();
+      log("segments", "cleared — starting rebuild");
+      const created = await segmentIndex.indexSession(sessionId);
+      log("segments", `rebuild complete: ${created} segments`);
+      return { status: "done", segments: created };
+    } finally {
+      segmentRunning = false;
+    }
   });
 
   const port = await server.start("127.0.0.1");

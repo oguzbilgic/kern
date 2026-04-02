@@ -12,6 +12,7 @@
  *   GET  /api/agents/:name/history      → proxy to agent
  *   GET  /api/agents/:name/health       → proxy to agent
  *   GET  /api/agents/:name/segments     → proxy to agent (semantic segment DAG)
+ *   POST /api/agents/:name/segments/rebuild → proxy to agent (clear + re-index)
  *   GET  /manifest.json                 → PWA manifest
  *   GET  /sw.js                         → service worker
  *   GET  /icon.svg                      → app icon

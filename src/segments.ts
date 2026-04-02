@@ -389,6 +389,16 @@ export class SegmentIndex {
     return embeddings;
   }
 
+  /**
+   * Clear all segments and state. Used before a full rebuild.
+   */
+  clear() {
+    this.db.exec("DELETE FROM semantic_segments");
+    this.db.exec("DELETE FROM segment_state");
+    try { this.db.exec("DELETE FROM vec_segments"); } catch {}
+    log("segments", "all segments cleared");
+  }
+
   getStats(): { segments: number; level0: number } {
     const total = (this.db.prepare("SELECT COUNT(*) as n FROM semantic_segments").get() as any).n;
     const l0 = (this.db.prepare("SELECT COUNT(*) as n FROM semantic_segments WHERE level = 0").get() as any).n;
