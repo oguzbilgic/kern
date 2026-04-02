@@ -1067,7 +1067,7 @@
     overflow-y: auto;
   }
   .segments-detail {
-    width: 480px;
+    width: 540px;
     flex-shrink: 0;
     border-left: 1px solid var(--border);
     padding: 16px;
@@ -1113,26 +1113,28 @@
     display: flex;
     gap: 2px;
     flex-wrap: wrap;
+    align-items: flex-end;
   }
   .seg-block {
-    height: 32px;
     border-radius: 3px;
     cursor: pointer;
     position: relative;
     transition: opacity 0.15s;
     display: flex;
-    align-items: center;
-    padding: 0 6px;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0 2px 2px;
     overflow: hidden;
-    font-size: 11px;
+    font-size: 10px;
     font-family: var(--font-mono);
-    color: rgba(255,255,255,0.7);
+    color: rgba(255,255,255,0.6);
     white-space: nowrap;
-    min-width: 24px;
+    min-width: 20px;
   }
   .seg-block:hover { opacity: 0.8; }
   .seg-block.active { outline: 2px solid #fff; outline-offset: -2px; }
   .seg-block.unsummarized { opacity: 0.5; border: 1px dashed rgba(255,255,255,0.3); }
+
 </style>
 </head>
 <body>
@@ -1543,15 +1545,13 @@ const segTimeline = $('segments-timeline');
 const segStats = $('segments-stats');
 
 
-// Color palette for segments — hashed from segment id
-const SEG_COLORS = [
-  '#1f6feb', '#238636', '#8957e5', '#d29922', '#f85149',
-  '#56d4dd', '#bc8cff', '#3fb950', '#58a6ff', '#e6edf3',
-  '#da3633', '#6e7681', '#f0883e', '#a5d6ff', '#7ee787',
-];
-
-function segColor(id) {
-  return SEG_COLORS[id % SEG_COLORS.length];
+// Color encodes token density (tokens/message) — cool to warm
+function segColor(tokens, span) {
+  const density = span > 0 ? tokens / span : 0;
+  // Clamp density to 0-1000 range, map to hue 210 (blue) → 0 (red)
+  const t = Math.min(1, density / 1000);
+  const hue = 210 - t * 210;
+  return `hsl(${hue}, 60%, 45%)`;
 }
 
 $('segments-btn').addEventListener('click', async () => {
@@ -1686,11 +1686,12 @@ function renderSegments(data) {
     for (const seg of segs) {
       const span = seg.msg_end - seg.msg_start;
       const widthPct = Math.max(2, (span / maxMsgEnd) * 100);
-      const color = segColor(seg.id);
+      const color = segColor(seg.token_count || 0, span);
+      const height = Math.max(24, Math.min(64, Math.round(Math.sqrt(seg.token_count || 0) / 2)));
       const cls = seg.summarized ? '' : ' unsummarized';
       const label = `${span}`;
 
-      html += `<div class="seg-block${cls}" style="width:${widthPct}%;background:${color};"
+      html += `<div class="seg-block${cls}" style="width:${widthPct}%;height:${height}px;background:${color};"
         data-seg-id="${seg.id}"
         data-seg-start="${seg.msg_start}"
         data-seg-end="${seg.msg_end}"
