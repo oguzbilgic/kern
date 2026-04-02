@@ -1734,7 +1734,7 @@ function showSegDetail(el) {
     <div class="seg-detail-meta">
       msgs ${seg.msg_start}–${seg.msg_end} (${span} messages)<br>
       ${tokens} tokens → ${summaryTokens} summary tokens (${summaryTokens > 0 ? Math.round(seg.token_count / summaryTokens) : '?'}:1)<br>
-      ${seg.created_at ? new Date(seg.created_at).toLocaleString() : ''}
+      ${seg.start_time ? new Date(seg.start_time).toLocaleString() : ''}${seg.start_time && seg.end_time ? ' – ' : ''}${seg.end_time ? new Date(seg.end_time).toLocaleString() : ''}
       ${!seg.summarized ? '<br><span style="color:var(--orange);">⏳ not yet summarized</span>' : ''}
     </div>
     <div class="seg-detail-summary">${escHtml(seg.summary || '') || '<span style="color:var(--text-muted);font-style:italic;">no summary</span>'}</div>
