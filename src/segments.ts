@@ -211,17 +211,14 @@ export class SegmentIndex {
       "UPDATE semantic_segments SET summary = ?, summarized = 1, summary_token_count = ? WHERE id = ?"
     );
 
+    const CONCURRENCY = 5;
     let summarized = 0;
-    for (const row of rows) {
-      if (this.abortController?.signal.aborted) {
-        log("segments", "summarization aborted");
-        break;
-      }
+
+    const summarizeOne = async (row: { id: number; summary: string; token_count: number }) => {
+      if (this.abortController?.signal.aborted) return;
       try {
-        // Build a summary-friendly version: truncate tool results to keep focus on narrative
         const summaryInput = row.summary.replace(/^tool: .{500,}$/gm, (m) => m.slice(0, 300) + '... [truncated]');
         const inputText = summaryInput.slice(0, 60000);
-        // Target ~10:1 compression ratio
         const targetTokens = Math.max(200, Math.min(1500, Math.round(row.token_count / 10)));
 
         const result = await generateText({
@@ -238,8 +235,17 @@ export class SegmentIndex {
         }
       } catch (err: any) {
         log("segments", `failed to summarize segment ${row.id}: ${err.message}`);
-        // Leave it unsummarized — next run will retry
       }
+    };
+
+    // Process in batches of CONCURRENCY
+    for (let i = 0; i < rows.length; i += CONCURRENCY) {
+      if (this.abortController?.signal.aborted) {
+        log("segments", "summarization aborted");
+        break;
+      }
+      const batch = rows.slice(i, i + CONCURRENCY);
+      await Promise.all(batch.map(summarizeOne));
     }
 
     if (summarized > 0) {
