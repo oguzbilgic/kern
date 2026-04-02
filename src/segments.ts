@@ -15,6 +15,7 @@ const MERGE_THRESHOLD = 0.7;    // merge small segments if closer than this
 const WINDOW_SIZE = 5;          // embed windows of N messages for smoother distances
 
 // Batch size for embedding API calls
+const MIN_MESSAGES = 10;        // minimum messages per segment — merge if fewer
 const EMBED_BATCH_SIZE = 100;
 
 // Max messages to process per indexSession call (prevents OOM on large backfills)
@@ -314,7 +315,8 @@ export class SegmentIndex {
     while (i < segments.length) {
       const seg = segments[i];
 
-      if (seg.token_count >= MIN_TOKENS || segments.length <= 1) {
+      const msgCount = seg.msg_end - seg.msg_start;
+      if ((seg.token_count >= MIN_TOKENS && msgCount >= MIN_MESSAGES) || segments.length <= 1) {
         result.push(seg);
         i++;
         continue;
@@ -328,8 +330,8 @@ export class SegmentIndex {
       const distNext = next ? cosineDistance(seg.embedding, next.embedding) : Infinity;
       const minDist = Math.min(distPrev, distNext);
 
-      if (minDist > MERGE_THRESHOLD) {
-        // Genuinely distinct, keep it
+      // Force merge if very few messages, otherwise respect distance threshold
+      if (minDist > MERGE_THRESHOLD && msgCount >= MIN_MESSAGES) {
         result.push(seg);
         i++;
         continue;
