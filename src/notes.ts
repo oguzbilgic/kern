@@ -2,9 +2,8 @@ import { readFile, readdir, writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 import { generateText } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
-import { createAnthropic } from "@ai-sdk/anthropic";
 import { log } from "./log.js";
+import { createModel } from "./model.js";
 import type { KernConfig } from "./config.js";
 
 interface NotesCache {
@@ -13,33 +12,6 @@ interface NotesCache {
 }
 
 const SUMMARY_PROMPT = `Summarize the following daily notes into a brief context summary. Include: key events, decisions made, what changed, and anything unresolved. Be concise — this will be injected as context for an AI agent.`;
-
-function createModel(config: KernConfig) {
-  switch (config.provider) {
-    case "anthropic": {
-      const anthropic = createAnthropic();
-      return anthropic(config.model);
-    }
-    case "openrouter": {
-      const openrouter = createOpenAI({
-        baseURL: "https://openrouter.ai/api/v1",
-        apiKey: process.env.OPENROUTER_API_KEY,
-        headers: {
-          "HTTP-Referer": "https://github.com/oguzbilgic/kern-ai",
-          "X-Title": "kern-ai",
-          "X-OpenRouter-Categories": "cli-agent,personal-agent",
-        },
-      });
-      return openrouter.chat(config.model);
-    }
-    case "openai": {
-      const openai = createOpenAI();
-      return openai(config.model);
-    }
-    default:
-      throw new Error(`Unknown provider: ${config.provider}`);
-  }
-}
 
 // Read sorted .md files from notes/ directory
 async function listNotes(notesDir: string): Promise<string[]> {

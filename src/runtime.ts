@@ -1,7 +1,6 @@
 import { streamText, type ModelMessage, stepCountIs } from "ai";
 import { log } from "./log.js";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createOpenAI } from "@ai-sdk/openai";
+import { createModel } from "./model.js";
 import { allTools, type ToolName } from "./tools/index.js";
 import { SessionManager } from "./session.js";
 import { loadConfig, getToolsForScope, type KernConfig } from "./config.js";
@@ -92,7 +91,7 @@ export class Runtime {
       }
     }
 
-    const model = this.createModel();
+    const model = createModel(this.config);
     let streamError: any = null;
 
     try {
@@ -246,32 +245,7 @@ export class Runtime {
     }
   }
 
-  private createModel() {
-    switch (this.config.provider) {
-      case "anthropic": {
-        const anthropic = createAnthropic();
-        return anthropic(this.config.model);
-      }
-      case "openrouter": {
-        const openrouter = createOpenAI({
-          baseURL: "https://openrouter.ai/api/v1",
-          apiKey: process.env.OPENROUTER_API_KEY,
-          headers: {
-            "HTTP-Referer": "https://github.com/oguzbilgic/kern-ai",
-            "X-Title": "kern-ai",
-            "X-OpenRouter-Categories": "cli-agent,personal-agent",
-          },
-        });
-        return openrouter.chat(this.config.model);
-      }
-      case "openai": {
-        const openai = createOpenAI();
-        return openai(this.config.model);
-      }
-      default:
-        throw new Error(`Unknown provider: ${this.config.provider}`);
-    }
-  }
+
 
   getSessionId(): string | null {
     return this.session.getSessionId();
