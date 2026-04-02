@@ -77,14 +77,14 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   const runtime = new Runtime(agentDir);
   await runtime.init();
 
-  // Initialize memory DB and recall index (opt-out via "recall": false in config)
-  let memoryDB: MemoryDB | null = null;
+  // Initialize memory DB (always) and recall index (opt-out via "recall": false)
+  const memoryDB = new MemoryDB(agentDir);
+  runtime.setMemoryDB(memoryDB);
+
   let recallIndex: RecallIndex | null = null;
   let recallBuilding = false;
   if ((config as any).recall !== false) {
     try {
-      memoryDB = new MemoryDB(agentDir);
-      runtime.setMemoryDB(memoryDB);
       recallIndex = new RecallIndex(memoryDB, agentDir, config.provider);
       setRecallIndex(recallIndex);
       runtime.setRecallIndex(recallIndex);
@@ -340,7 +340,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     if (telegramBot) await telegramBot.stop().catch(() => {});
     if (slackBot) await slackBot.stop().catch(() => {});
     server.stop();
-    if (memoryDB) memoryDB.close();
+    memoryDB.close();
     log("kern", `stopped ${agentName}`);
     process.exit(0);
   };
