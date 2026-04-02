@@ -8,13 +8,17 @@ const EMBEDDING_MODEL = "openai/text-embedding-3-small";
 const SUMMARY_MODEL = "openai/gpt-4.1-nano";
 
 // Segmentation parameters
-const TOPIC_THRESHOLD = 0.65;   // cosine distance — hard cut at topic shift
+const TOPIC_THRESHOLD = 0.75;   // cosine distance — hard cut at topic shift
 const TARGET_TOKENS = 3000;     // soft target per segment
-const MIN_TOKENS = 200;         // floor — don't create tiny fragments
-const MERGE_THRESHOLD = 0.4;    // merge tiny segments if closer than this
+const MIN_TOKENS = 500;         // floor — don't create tiny fragments
+const MERGE_THRESHOLD = 0.6;    // merge tiny segments if closer than this
+const WINDOW_SIZE = 5;          // embed windows of N messages for smoother distances
 
 // Batch size for embedding API calls
 const EMBED_BATCH_SIZE = 100;
+
+// Max messages to process per indexSession call (prevents OOM on large backfills)
+const MAX_CHUNK_SIZE = 500;
 
 interface MessageRow {
   id: number;
@@ -77,73 +81,101 @@ export class SegmentIndex {
     ).get(sessionId) as { last_segmented_msg: number } | undefined;
     const lastSegmented = state?.last_segmented_msg ?? 0;
 
-    // Load new messages from the messages table
-    const messages = this.db.prepare(
+    // Load new messages from the messages table — chunked to prevent OOM
+    const allMessages = this.db.prepare(
       "SELECT id, msg_index, role, content, timestamp FROM messages WHERE session_id = ? AND msg_index >= ? ORDER BY msg_index"
     ).all(sessionId, lastSegmented) as MessageRow[];
 
-    if (messages.length < 3) return 0; // need enough messages to segment
+    if (allMessages.length < 3) return 0;
 
-    // Build text representation for each message (for embedding)
-    const msgTexts = messages.map((m) => this.messageText(m));
+    let totalCreated = 0;
 
-    // Embed all messages
-    const embeddings = await this.embedTexts(msgTexts);
-    if (embeddings.length !== messages.length) {
-      log("segments", `embedding count mismatch: ${embeddings.length} vs ${messages.length}`);
-      return 0;
-    }
+    // Process in chunks
+    for (let chunkStart = 0; chunkStart < allMessages.length; chunkStart += MAX_CHUNK_SIZE) {
+      const messages = allMessages.slice(chunkStart, chunkStart + MAX_CHUNK_SIZE);
+      if (messages.length < 3) break;
 
-    // Compute pairwise cosine distances between consecutive messages
-    const distances: number[] = [0]; // first message has no predecessor
-    for (let i = 1; i < embeddings.length; i++) {
-      distances.push(cosineDistance(embeddings[i - 1], embeddings[i]));
-    }
+      log("segments", `processing chunk ${Math.floor(chunkStart / MAX_CHUNK_SIZE) + 1}/${Math.ceil(allMessages.length / MAX_CHUNK_SIZE)} (${messages.length} messages)`);
 
-    // Segment: walk through messages, split at topic boundaries or token targets
-    const rawSegments = this.buildSegments(messages, embeddings, distances, sessionId);
+      // Build windowed text for embedding — smooths out per-message noise
+      const windowTexts = this.buildWindowTexts(messages);
 
-    // Merge tiny segments into neighbors
-    const merged = this.mergeSmallSegments(rawSegments);
-
-    if (merged.length === 0) return 0;
-
-    // Store segments
-    const insertSeg = this.db.prepare(
-      "INSERT OR IGNORE INTO semantic_segments (session_id, msg_start, msg_end, level, summary, token_count) VALUES (?, ?, ?, 0, ?, ?)"
-    );
-    const insertVec = this.db.prepare(
-      "INSERT INTO vec_segments (rowid, embedding) VALUES (?, ?)"
-    );
-    const upsertState = this.db.prepare(
-      "INSERT OR REPLACE INTO segment_state (session_id, last_segmented_msg) VALUES (?, ?)"
-    );
-
-    let created = 0;
-    const lastMsgIndex = messages[messages.length - 1].msg_index;
-
-    const tx = this.db.transaction(() => {
-      for (const seg of merged) {
-        const info = insertSeg.run(seg.session_id, seg.msg_start, seg.msg_end, seg.text, seg.token_count);
-        if (info.changes === 0) continue; // duplicate
-        const segId = typeof info.lastInsertRowid === "bigint" ? info.lastInsertRowid : BigInt(info.lastInsertRowid);
-        insertVec.run(segId, new Float32Array(seg.embedding));
-        created++;
+      // Embed windows
+      const embeddings = await this.embedTexts(windowTexts);
+      if (embeddings.length !== messages.length) {
+        log("segments", `embedding count mismatch: ${embeddings.length} vs ${messages.length}`);
+        continue;
       }
-      upsertState.run(sessionId, lastMsgIndex);
-    });
-    tx();
 
-    if (created > 0) {
-      log("segments", `created ${created} segments for session ${sessionId.slice(0, 8)}...`);
+      // Compute pairwise cosine distances between consecutive windows
+      const distances: number[] = [0];
+      for (let i = 1; i < embeddings.length; i++) {
+        distances.push(cosineDistance(embeddings[i - 1], embeddings[i]));
+      }
+
+      // Segment: walk through messages, split at topic boundaries or token targets
+      const rawSegments = this.buildSegments(messages, embeddings, distances, sessionId);
+
+      // Merge tiny segments into neighbors
+      const merged = this.mergeSmallSegments(rawSegments);
+
+      if (merged.length === 0) continue;
+
+      // Store segments
+      const insertSeg = this.db.prepare(
+        "INSERT OR IGNORE INTO semantic_segments (session_id, msg_start, msg_end, level, summary, token_count) VALUES (?, ?, ?, 0, ?, ?)"
+      );
+      const insertVec = this.db.prepare(
+        "INSERT INTO vec_segments (rowid, embedding) VALUES (?, ?)"
+      );
+      const upsertState = this.db.prepare(
+        "INSERT OR REPLACE INTO segment_state (session_id, last_segmented_msg) VALUES (?, ?)"
+      );
+
+      let created = 0;
+      const lastMsgIndex = messages[messages.length - 1].msg_index;
+
+      const tx = this.db.transaction(() => {
+        for (const seg of merged) {
+          const info = insertSeg.run(seg.session_id, seg.msg_start, seg.msg_end, seg.text, seg.token_count);
+          if (info.changes === 0) continue;
+          const segId = typeof info.lastInsertRowid === "bigint" ? info.lastInsertRowid : BigInt(info.lastInsertRowid);
+          insertVec.run(segId, new Float32Array(seg.embedding));
+          created++;
+        }
+        upsertState.run(sessionId, lastMsgIndex);
+      });
+      tx();
+
+      totalCreated += created;
+
+      if (created > 0) {
+        log("segments", `created ${created} segments from chunk`);
+      }
     }
 
-    // Summarize any unsummarized segments (background, non-blocking for caller)
-    this.summarizeUnsummarized().catch((err) => {
-      log("segments", `summarization failed: ${err.message}`);
-    });
+    if (totalCreated > 0) {
+      log("segments", `total ${totalCreated} segments for session ${sessionId.slice(0, 8)}...`);
+      // Summarize in background
+      this.summarizeUnsummarized().catch((err) => {
+        log("segments", `summarization failed: ${err.message}`);
+      });
+    }
 
-    return created;
+    return totalCreated;
+  }
+
+  /**
+   * Build windowed text for embedding — each entry is the concatenation of
+   * WINDOW_SIZE messages centered on that position. Smooths out per-message noise.
+   */
+  private buildWindowTexts(messages: MessageRow[]): string[] {
+    const half = Math.floor(WINDOW_SIZE / 2);
+    return messages.map((_, i) => {
+      const start = Math.max(0, i - half);
+      const end = Math.min(messages.length, i + half + 1);
+      return messages.slice(start, end).map(m => `${m.role}: ${this.messageText(m)}`).join("\n");
+    });
   }
 
   /**
