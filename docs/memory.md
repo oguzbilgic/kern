@@ -18,13 +18,15 @@ The runtime injects memory into the system prompt automatically. The agent boots
 - **Recent notes summary** — an LLM-generated summary of the previous 5 daily notes
 - **Latest daily note** — the most recent file from `notes/`, full content
 
+The system prompt is reloaded on every message, so changes to notes and knowledge are picked up immediately.
+
 The agent still reads specific `knowledge/` and `notes/` files when it needs detail beyond what's injected.
 
 ## Notes summary
 
-The previous 5 daily notes are summarized into a short context block and cached in `.kern/notes-context.json`. The summary regenerates when the latest note filename changes (typically once per day, when the agent creates a new daily note).
+The previous 5 daily notes are summarized into a short context block and cached in the memory database (`.kern/recall.db`). The summary regenerates when the latest note filename changes (typically once per day, when the agent creates a new daily note).
 
-Summary generation uses the same model as the agent. It runs synchronously on cache miss — the first message of a new day pays a small latency cost, every subsequent message reads from cache.
+Summary generation uses the same model as the agent. On cache miss (new day), the stale summary is served immediately and regeneration runs in the background — the first message of the day is never blocked. The fresh summary is picked up on the next message.
 
 ## Heartbeat
 
@@ -48,6 +50,12 @@ Past conversations are indexed with embeddings and stored in a local vector data
 
 With `autoRecall` enabled, relevant old context is automatically injected before each turn — no tool call needed. See [Tools](/docs/tools#recall) for details.
 
+## Memory database
+
+All non-git memory is stored in a single SQLite database (`.kern/recall.db`). This includes conversation indexes, embeddings, and cached summaries. The database is always created on startup — summaries work even with `recall: false`.
+
+The database is safe to delete — it rebuilds from session JSONL files on next start. Summaries regenerate on the next cache miss.
+
 ## What gets persisted
 
 | What | Where | Committed to git |
@@ -56,8 +64,7 @@ With `autoRecall` enabled, relevant old context is automatically injected before
 | Daily notes | `notes/` | ✓ |
 | KNOWLEDGE.md index | `KNOWLEDGE.md` | ✓ |
 | Session messages | `.kern/sessions/` | ✗ |
-| Recall database | `.kern/recall.db` | ✗ |
-| Notes summary cache | `.kern/notes-context.json` | ✗ |
+| Memory database | `.kern/recall.db` | ✗ |
 | API usage stats | `.kern/usage.json` | ✗ |
 
-The committed files are the agent's portable memory — clone the repo and the agent picks up where it left off. Session files and recall databases are local caches that rebuild automatically.
+The committed files are the agent's portable memory — clone the repo and the agent picks up where it left off. Session files and the memory database are local caches that rebuild automatically.
