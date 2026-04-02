@@ -6,6 +6,7 @@ import { log } from "./log.js";
 import { getToolsForScope, type KernConfig } from "./config.js";
 import type { RecallIndex } from "./recall.js";
 import type { MemoryDB } from "./memory.js";
+import type { SegmentIndex } from "./segments.js";
 import { loadNotesContext } from "./notes.js";
 
 // Build the system prompt from agent markdown files + runtime info.
@@ -166,15 +167,15 @@ function truncateLargeToolResults(messages: ModelMessage[], maxChars: number, to
   return { messages: changed ? result : messages, truncatedCount };
 }
 
-function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): ModelMessage[] {
-  if (maxTokens <= 0) return messages;
+function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): { messages: ModelMessage[]; trimmedCount: number } {
+  if (maxTokens <= 0) return { messages, trimmedCount: 0 };
 
   // Compute total using cached per-message sizes
   let total = 0;
   for (const msg of messages) {
     total += getMsgSize(msg);
   }
-  if (total <= maxTokens) return messages;
+  if (total <= maxTokens) return { messages, trimmedCount: 0 };
 
   // Find cut point from the front
   let cutTotal = total;
@@ -193,7 +194,7 @@ function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): ModelMe
     cutIndex++;
   }
 
-  return messages.slice(cutIndex);
+  return { messages: messages.slice(cutIndex), trimmedCount: cutIndex };
 }
 
 export interface SessionStats {
@@ -202,18 +203,43 @@ export interface SessionStats {
   windowTokens: number;
   windowMessages: number;
   truncatedCount: number;
+  historyTokens: number;
 }
 
-// Unified pipeline: truncate → trim → stats. Single call, all numbers out.
-export function prepareContext(messages: ModelMessage[], config: KernConfig): { messages: ModelMessage[]; stats: SessionStats } {
+interface PrepareContextOptions {
+  messages: ModelMessage[];
+  config: KernConfig;
+  sessionId?: string;
+  segmentIndex?: SegmentIndex | null;
+}
+
+// Unified pipeline: truncate → trim → inject history → stats.
+export function prepareContext({ messages, config, sessionId, segmentIndex }: PrepareContextOptions): { messages: ModelMessage[]; stats: SessionStats } {
   const totalTokens = estimateTokens(messages);
   const { messages: truncated, truncatedCount } = truncateLargeToolResults(messages, config.maxToolResultChars, config.maxContextTokens);
-  const window = trimToTokenBudget(truncated, config.maxContextTokens);
+  const { messages: window, trimmedCount } = trimToTokenBudget(truncated, config.maxContextTokens);
+
+  // Inject compressed history at trim boundary
+  let historyTokens = 0;
+  let finalMessages = window;
+  if (trimmedCount > 0 && segmentIndex && sessionId && config.historyBudget > 0) {
+    const budgetTokens = Math.round(config.maxContextTokens * config.historyBudget);
+    const history = segmentIndex.composeHistory(sessionId, trimmedCount, budgetTokens);
+    if (history) {
+      historyTokens = Math.ceil(history.length / 4);
+      const historyMessage: ModelMessage = {
+        role: "user",
+        content: `<history>\nCompressed conversation history (oldest → newest). Use recall tool to load full messages by range.\n\n${history}\n</history>`,
+      };
+      finalMessages = [historyMessage, ...window];
+    }
+  }
+
   // Only count truncations that survived trimming
   // FRAGILE: matches suffix appended by truncateLargeToolResults — keep in sync
   const truncationSuffix = "use recall tool to search full content]";
   const trimmedTruncated = truncatedCount > 0
-    ? window.reduce((n, msg) => {
+    ? finalMessages.reduce((n, msg) => {
         if (msg.role !== "tool" || !Array.isArray(msg.content)) return n;
         return n + (msg.content as ToolResultPart[]).filter(p =>
           p.type === "tool-result" && p.output?.type === "text" && p.output.value.endsWith(truncationSuffix)
@@ -221,13 +247,14 @@ export function prepareContext(messages: ModelMessage[], config: KernConfig): { 
       }, 0)
     : 0;
   return {
-    messages: window,
+    messages: finalMessages,
     stats: {
       totalMessages: messages.length,
       estimatedTokens: totalTokens,
-      windowTokens: estimateTokens(window),
-      windowMessages: window.length,
+      windowTokens: estimateTokens(finalMessages),
+      windowMessages: finalMessages.length,
       truncatedCount: trimmedTruncated,
+      historyTokens,
     },
   };
 }

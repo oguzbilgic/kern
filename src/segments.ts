@@ -549,6 +549,90 @@ export class SegmentIndex {
     log("segments", "all segments cleared");
   }
 
+  /**
+   * Compose compressed history for context injection.
+   * Fills a token budget with segment summaries from the trimmed region.
+   * Recency bias: expands most recent segments to lower (more detailed) levels first.
+   */
+  composeHistory(sessionId: string, trimmedBeforeMsg: number, budgetTokens: number): string | null {
+    // Get all summarized segments for this session
+    const allSegments = this.db.prepare(
+      `SELECT id, msg_start, msg_end, start_time, end_time, parent_id, level, summary, token_count, summary_token_count
+       FROM semantic_segments
+       WHERE session_id = ? AND summarized = 1
+       ORDER BY level DESC, msg_start ASC`
+    ).all(sessionId) as Array<{
+      id: number; msg_start: number; msg_end: number;
+      start_time: string | null; end_time: string | null;
+      parent_id: number | null; level: number;
+      summary: string; token_count: number; summary_token_count: number;
+    }>;
+
+    if (allSegments.length === 0) return null;
+
+    // Only segments covering the trimmed region (before trim boundary)
+    const trimmedSegments = allSegments.filter(s => s.msg_start < trimmedBeforeMsg);
+    if (trimmedSegments.length === 0) return null;
+
+    // Build a map of parent → children for expansion
+    const childrenOf = new Map<number, typeof allSegments>();
+    for (const seg of allSegments) {
+      if (seg.parent_id != null) {
+        const existing = childrenOf.get(seg.parent_id) || [];
+        existing.push(seg);
+        childrenOf.set(seg.parent_id, existing);
+      }
+    }
+
+    // Start with top-level segments (no parent) covering trimmed region, sorted by msg_start
+    let selected = trimmedSegments
+      .filter(s => s.parent_id == null)
+      .sort((a, b) => a.msg_start - b.msg_start);
+
+    if (selected.length === 0) return null;
+
+    let usedTokens = selected.reduce((s, seg) => s + seg.summary_token_count, 0);
+
+    // Expand most recent segments to lower levels if budget allows
+    // Work from the end (nearest to trim boundary) backward
+    let expanded = true;
+    while (expanded && usedTokens < budgetTokens) {
+      expanded = false;
+      // Find the rightmost (most recent) segment that has children
+      for (let i = selected.length - 1; i >= 0; i--) {
+        const seg = selected[i];
+        const children = childrenOf.get(seg.id);
+        if (!children || children.length === 0) continue;
+
+        // Cost of expansion: remove parent summary, add all children summaries
+        const parentCost = seg.summary_token_count;
+        const childCost = children.reduce((s, c) => s + c.summary_token_count, 0);
+        const delta = childCost - parentCost;
+
+        if (usedTokens + delta <= budgetTokens) {
+          // Replace parent with children
+          const sortedChildren = [...children].sort((a, b) => a.msg_start - b.msg_start);
+          selected.splice(i, 1, ...sortedChildren);
+          usedTokens += delta;
+          expanded = true;
+          break; // restart from the end
+        }
+      }
+    }
+
+    // Format output
+    const lines: string[] = [];
+    for (const seg of selected) {
+      const timeRange = seg.start_time && seg.end_time
+        ? `${seg.start_time.slice(0, 16)} – ${seg.end_time.slice(0, 16)}`
+        : '';
+      const header = `[L${seg.level} · msgs ${seg.msg_start}-${seg.msg_end}${timeRange ? ' · ' + timeRange : ''}]`;
+      lines.push(`${header}\n${seg.summary}`);
+    }
+
+    return lines.join('\n\n');
+  }
+
   getStats(): { segments: number; level0: number } {
     const total = (this.db.prepare("SELECT COUNT(*) as n FROM semantic_segments").get() as any).n;
     const l0 = (this.db.prepare("SELECT COUNT(*) as n FROM semantic_segments WHERE level = 0").get() as any).n;

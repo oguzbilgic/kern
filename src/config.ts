@@ -13,6 +13,7 @@ export interface KernConfig {
   maxContextTokens: number;
   maxToolResultChars: number;
   heartbeatInterval: number;
+  historyBudget: number;
   autoRecall?: boolean;
   telegram?: {
     allowedUsers?: number[];
@@ -34,6 +35,7 @@ const defaults: KernConfig = {
   maxContextTokens: 50000,
   maxToolResultChars: 20000,
   heartbeatInterval: 60,
+  historyBudget: 0.2,
 };
 
 export function getToolsForScope(scope: ToolScope): string[] {

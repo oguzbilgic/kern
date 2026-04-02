@@ -120,6 +120,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   if ((config as any).recall !== false) {
     try {
       segmentIndex = new SegmentIndex(memoryDB, config.provider);
+      runtime.setSegmentIndex(segmentIndex);
     } catch (err: any) {
       log("segments", `init failed: ${err.message} — segments disabled`);
     }
