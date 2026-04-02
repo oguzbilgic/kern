@@ -68,6 +68,7 @@ export class MemoryDB {
         level INTEGER NOT NULL DEFAULT 0,
         summary TEXT NOT NULL,
         token_count INTEGER NOT NULL,
+        summarized INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
 

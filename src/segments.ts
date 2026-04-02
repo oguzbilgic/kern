@@ -1,10 +1,11 @@
-import { embed, embedMany } from "ai";
+import { embed, embedMany, generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { log } from "./log.js";
 import type { MemoryDB } from "./memory.js";
 import type Database from "better-sqlite3";
 
 const EMBEDDING_MODEL = "openai/text-embedding-3-small";
+const SUMMARY_MODEL = "openai/gpt-4.1-nano";
 
 // Segmentation parameters
 const TOPIC_THRESHOLD = 0.65;   // cosine distance — hard cut at topic shift
@@ -35,6 +36,7 @@ interface Segment {
 export class SegmentIndex {
   private db: Database.Database;
   private embeddingModel: ReturnType<ReturnType<typeof createOpenAI>["embeddingModel"]>;
+  private summaryModel: ReturnType<ReturnType<typeof createOpenAI>["chat"]>;
 
   constructor(memoryDB: MemoryDB, provider: string) {
     this.db = memoryDB.db;
@@ -59,6 +61,8 @@ export class SegmentIndex {
     });
     const modelId = provider === "openai" ? "text-embedding-3-small" : EMBEDDING_MODEL;
     this.embeddingModel = client.embeddingModel(modelId);
+    const summaryModelId = provider === "openai" ? "gpt-4.1-nano" : SUMMARY_MODEL;
+    this.summaryModel = client.chat(summaryModelId);
   }
 
   /**
@@ -133,7 +137,57 @@ export class SegmentIndex {
     if (created > 0) {
       log("segments", `created ${created} segments for session ${sessionId.slice(0, 8)}...`);
     }
+
+    // Summarize any unsummarized segments (background, non-blocking for caller)
+    this.summarizeUnsummarized().catch((err) => {
+      log("segments", `summarization failed: ${err.message}`);
+    });
+
     return created;
+  }
+
+  /**
+   * Summarize all unsummarized segments.
+   * Idempotent — safe to call repeatedly. Picks up segments from any session
+   * that have summarized=0, including ones from crashed/interrupted runs.
+   */
+  async summarizeUnsummarized(): Promise<number> {
+    const rows = this.db.prepare(
+      "SELECT id, summary FROM semantic_segments WHERE summarized = 0 ORDER BY id"
+    ).all() as Array<{ id: number; summary: string }>;
+
+    if (rows.length === 0) return 0;
+
+    log("segments", `summarizing ${rows.length} segments...`);
+
+    const update = this.db.prepare(
+      "UPDATE semantic_segments SET summary = ?, token_count = ?, summarized = 1 WHERE id = ?"
+    );
+
+    let summarized = 0;
+    for (const row of rows) {
+      try {
+        const result = await generateText({
+          model: this.summaryModel,
+          prompt: `Summarize this conversation segment concisely in 2-3 sentences. Focus on what was discussed, decided, or done.\n\n${row.summary.slice(0, 8000)}`,
+          maxOutputTokens: 200,
+        });
+
+        const summaryText = result.text.trim();
+        if (summaryText) {
+          update.run(summaryText, Math.ceil(summaryText.length / 4), row.id);
+          summarized++;
+        }
+      } catch (err: any) {
+        log("segments", `failed to summarize segment ${row.id}: ${err.message}`);
+        // Leave it unsummarized — next run will retry
+      }
+    }
+
+    if (summarized > 0) {
+      log("segments", `summarized ${summarized} segments`);
+    }
+    return summarized;
   }
 
   /**
