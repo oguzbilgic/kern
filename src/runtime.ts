@@ -57,7 +57,7 @@ export class Runtime {
       agentDir: this.agentDir,
       config: this.config,
       sessionId: this.session.getSessionId() || "unknown",
-      getSessionStats: () => prepareContext({ messages: this.session.getMessages(), config: this.config }).stats,
+      getSessionStats: () => prepareContext({ messages: this.session.getMessages(), config: this.config, sessionId: this.session.getSessionId() || undefined, segmentIndex: this.segmentIndex }).stats,
       pairingManager: pairing,
     });
   }
@@ -73,7 +73,7 @@ export class Runtime {
       agentDir: this.agentDir,
       config: this.config,
       sessionId: this.session.getSessionId() || "unknown",
-      getSessionStats: () => prepareContext({ messages: this.session.getMessages(), config: this.config }).stats,
+      getSessionStats: () => prepareContext({ messages: this.session.getMessages(), config: this.config, sessionId: this.session.getSessionId() || undefined, segmentIndex: this.segmentIndex }).stats,
     });
   }
 
