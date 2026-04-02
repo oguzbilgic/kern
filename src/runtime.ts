@@ -4,10 +4,10 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import { allTools, type ToolName } from "./tools/index.js";
 import { SessionManager } from "./session.js";
-import { loadConfig, loadSystemPrompt, getToolsForScope, type KernConfig } from "./config.js";
+import { loadConfig, getToolsForScope, type KernConfig } from "./config.js";
 import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern.js";
 import type { RecallIndex } from "./recall.js";
-import { estimateTokens, getMsgSize, prepareContext, injectRecall } from "./context.js";
+import { estimateTokens, getMsgSize, prepareContext, injectRecall, loadSystemPrompt } from "./context.js";
 export type { SessionStats } from "./context.js";
 
 

@@ -1,7 +1,66 @@
 import type { ModelMessage, ToolResultPart } from "ai";
+import { readFile } from "fs/promises";
+import { join } from "path";
+import { existsSync } from "fs";
 import { log } from "./log.js";
-import type { KernConfig } from "./config.js";
+import { getToolsForScope, type KernConfig } from "./config.js";
 import type { RecallIndex } from "./recall.js";
+
+// Build the system prompt from agent markdown files + runtime info.
+export async function loadSystemPrompt(agentDir: string, config: KernConfig): Promise<string> {
+  const parts: string[] = [];
+
+  // Load AGENTS.md (kernel)
+  const agentsPath = join(agentDir, "AGENTS.md");
+  if (existsSync(agentsPath)) {
+    parts.push(await readFile(agentsPath, "utf-8"));
+  }
+
+  // Load IDENTITY.md
+  const identityPath = join(agentDir, "IDENTITY.md");
+  if (existsSync(identityPath)) {
+    parts.push(await readFile(identityPath, "utf-8"));
+  }
+
+  // Load KERN.md (runtime context) — from agent dir first, fall back to kern package
+  const kernMdAgent = join(agentDir, "KERN.md");
+  const kernMdPackage = join(import.meta.dirname, "..", "templates", "KERN.md");
+  if (existsSync(kernMdAgent)) {
+    parts.push(await readFile(kernMdAgent, "utf-8"));
+  } else if (existsSync(kernMdPackage)) {
+    parts.push(await readFile(kernMdPackage, "utf-8"));
+  }
+
+  // Load KNOWLEDGE.md (memory index)
+  const knowledgePath = join(agentDir, "KNOWLEDGE.md");
+  if (existsSync(knowledgePath)) {
+    parts.push(await readFile(knowledgePath, "utf-8"));
+  }
+
+  // Inject live runtime info
+  const tools = getToolsForScope(config.toolScope);
+  const toolDescriptions: Record<string, string> = {
+    bash: "run shell commands",
+    read: "read files and directories",
+    write: "create or overwrite files",
+    edit: "find and replace in files",
+    glob: "find files by pattern",
+    grep: "search file contents",
+    webfetch: "fetch URLs",
+    kern: "manage your own runtime (status, config, env)",
+    message: "send messages proactively",
+    recall: "search long-term memory for old conversations outside current context",
+  };
+  const toolList = tools.map(t => `- **${t}**: ${toolDescriptions[t] || t}`).join("\n");
+
+  parts.push(`### Your tools\n${toolList}`);
+
+  if (parts.length === 0) {
+    return "You are a helpful AI assistant.";
+  }
+
+  return parts.join("\n\n---\n\n");
+}
 
 // Token estimate: stringify everything, ~4 chars per token
 export function estimateTokens(messages: ModelMessage[]): number {
