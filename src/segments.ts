@@ -8,10 +8,10 @@ const EMBEDDING_MODEL = "openai/text-embedding-3-small";
 const SUMMARY_MODEL = "openai/gpt-4.1-nano";
 
 // Segmentation parameters
-const TOPIC_THRESHOLD = 0.75;   // cosine distance — hard cut at topic shift
-const TARGET_TOKENS = 3000;     // soft target per segment
-const MIN_TOKENS = 500;         // floor — don't create tiny fragments
-const MERGE_THRESHOLD = 0.6;    // merge tiny segments if closer than this
+const TOPIC_THRESHOLD = 0.80;   // cosine distance — hard cut at topic shift
+const TARGET_TOKENS = 15000;    // soft target per segment (~10-20k range)
+const MIN_TOKENS = 5000;        // floor — don't create small fragments
+const MERGE_THRESHOLD = 0.7;    // merge small segments if closer than this
 const WINDOW_SIZE = 5;          // embed windows of N messages for smoother distances
 
 // Batch size for embedding API calls
