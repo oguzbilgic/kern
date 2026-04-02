@@ -273,6 +273,11 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     segmentRunning = false;
   });
 
+  server.setSegmentsCleanFn(() => {
+    if (!segmentIndex) return;
+    segmentIndex.clear();
+  });
+
   const port = await server.start("127.0.0.1");
   await setPortAndToken(agentName, port, process.env.KERN_AUTH_TOKEN || null);
 

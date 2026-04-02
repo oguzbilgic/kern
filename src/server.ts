@@ -25,6 +25,7 @@ export class AgentServer {
   private segmentsFn: ((sessionId?: string) => any) | null = null;
   private segmentsRebuildFn: (() => Promise<any>) | null = null;
   private segmentsStopFn: (() => void) | null = null;
+  private segmentsCleanFn: (() => void) | null = null;
   private port = 0;
 
   constructor() {
@@ -53,6 +54,10 @@ export class AgentServer {
 
   setSegmentsStopFn(fn: () => void) {
     this.segmentsStopFn = fn;
+  }
+
+  setSegmentsCleanFn(fn: () => void) {
+    this.segmentsCleanFn = fn;
   }
 
   async start(host: string = "127.0.0.1"): Promise<number> {
@@ -257,6 +262,20 @@ export class AgentServer {
         this.segmentsStopFn();
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ status: "stopped" }));
+      } else {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "segments not enabled" }));
+      }
+      return;
+    }
+
+    // Segments clean — stop + clear all segments
+    if (url === "/segments/clean" && req.method === "POST") {
+      if (this.segmentsStopFn && this.segmentsCleanFn) {
+        this.segmentsStopFn();
+        this.segmentsCleanFn();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ status: "cleaned" }));
       } else {
         res.writeHead(404, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "segments not enabled" }));
