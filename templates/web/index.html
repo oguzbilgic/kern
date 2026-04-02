@@ -1660,11 +1660,14 @@ let segDataMap = {};
 function renderSegments(data) {
   const { segments, stats } = data;
 
-  const totalTokens = segments ? segments.reduce((s, seg) => s + (seg.token_count || 0), 0) : 0;
-  const totalSummaryTokens = segments ? segments.reduce((s, seg) => s + (seg.summary_token_count || Math.ceil((seg.summary || '').length / 4)), 0) : 0;
+  // Stats: compute from top-level only (no parent)
+  const topLevel = segments ? segments.filter(s => !s.parent_id) : [];
+  const totalTokens = topLevel.reduce((s, seg) => s + (seg.token_count || 0), 0);
+  const totalSummaryTokens = topLevel.reduce((s, seg) => s + (seg.summary_token_count || Math.ceil((seg.summary || '').length / 4)), 0);
   const ratio = totalSummaryTokens > 0 ? Math.round(totalTokens / totalSummaryTokens) : 0;
-  segStats.textContent = segments && segments.length > 0
-    ? `${stats.segments || 0} segments · ${(totalTokens / 1000).toFixed(0)}k tokens · ${(totalSummaryTokens / 1000).toFixed(1)}k summary · ${ratio}:1`
+  const levelCount = new Set(topLevel.map(s => s.level || 0)).size;
+  segStats.textContent = topLevel.length > 0
+    ? `${topLevel.length} segments · ${levelCount} level${levelCount > 1 ? 's' : ''} · ${(totalTokens / 1000).toFixed(0)}k tokens · ${(totalSummaryTokens / 1000).toFixed(1)}k summary · ${ratio}:1`
     : `${stats.segments || 0} segments`;
 
   if (!segments || segments.length === 0) {
@@ -1672,10 +1675,11 @@ function renderSegments(data) {
     return;
   }
 
-  // Group by level
+  // Group by level — only show top-level segments (no parent) per level
   const levels = {};
   let maxMsgEnd = 0;
   for (const seg of segments) {
+    if (seg.parent_id) continue; // child of a higher-level segment, hide
     const lvl = seg.level || 0;
     if (!levels[lvl]) levels[lvl] = [];
     levels[lvl].push(seg);
