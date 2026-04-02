@@ -978,9 +978,15 @@ const AgentClient = {
    * @returns {{ close: function }} - Call close() to disconnect
    */
   connect(baseUrl, token, { onEvent, onConnect, onDisconnect }) {
+    // Close any existing EventSource to prevent duplicates
+    if (activeEventSource) {
+      activeEventSource.close();
+      activeEventSource = null;
+    }
     // EventSource can't set headers — pass token as query param
     const url = token ? `${baseUrl}/events?token=${encodeURIComponent(token)}` : `${baseUrl}/events`;
     const es = new EventSource(url);
+    activeEventSource = es;
     let connected = false;
     es.onopen = () => { connected = true; onConnect?.(); };
     let connectionId = null;
@@ -1546,6 +1552,7 @@ let _streamRaf = 0;
 let connection = null;
 let authFailed = false;
 let intentionalClose = false;
+let activeEventSource = null;
 let currentTurnContext = null; // tracks which interface/type triggered the current turn
 let lastToolEl = null; // last tool call element — kept expanded during streaming
 let isLoadingHistory = false; // suppress auto-expand during history load
@@ -1989,6 +1996,11 @@ async function init() {
   // Close existing connection
   intentionalClose = true;
   if (connection) { connection.close(); connection = null; }
+  // Safety close for orphaned EventSource
+  if (activeEventSource) {
+    activeEventSource.close();
+    activeEventSource = null;
+  }
   intentionalClose = false;
   // Clear previous messages to avoid duplicates on reconnect
   messagesEl.innerHTML = '';
