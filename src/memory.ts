@@ -58,12 +58,39 @@ export class MemoryDB {
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         UNIQUE(type, source_key)
       );
+
+      CREATE TABLE IF NOT EXISTS semantic_segments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        msg_start INTEGER NOT NULL,
+        msg_end INTEGER NOT NULL,
+        parent_id INTEGER REFERENCES semantic_segments(id),
+        level INTEGER NOT NULL DEFAULT 0,
+        summary TEXT NOT NULL,
+        token_count INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS segment_state (
+        session_id TEXT PRIMARY KEY,
+        last_segmented_msg INTEGER NOT NULL
+      );
     `);
 
-    // Create vec table separately (virtual tables don't support IF NOT EXISTS in all versions)
+    // Create vec tables separately (virtual tables don't support IF NOT EXISTS in all versions)
     try {
       this.db.exec(`
         CREATE VIRTUAL TABLE vec_chunks USING vec0(
+          embedding FLOAT[${EMBEDDING_DIMENSIONS}]
+        );
+      `);
+    } catch {
+      // Already exists — fine
+    }
+
+    try {
+      this.db.exec(`
+        CREATE VIRTUAL TABLE vec_segments USING vec0(
           embedding FLOAT[${EMBEDDING_DIMENSIONS}]
         );
       `);

@@ -14,6 +14,7 @@ import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
 import { setRecallIndex } from "./tools/recall.js";
 import { RecallIndex } from "./recall.js";
+import { SegmentIndex } from "./segments.js";
 import { MemoryDB } from "./memory.js";
 import { MessageQueue } from "./queue.js";
 import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, type InterfaceStatus } from "./tools/kern.js";
@@ -113,6 +114,28 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     }
   }
 
+  // Initialize semantic segments (uses same embedding infra as recall)
+  let segmentIndex: SegmentIndex | null = null;
+  if ((config as any).recall !== false) {
+    try {
+      segmentIndex = new SegmentIndex(memoryDB, config.provider);
+
+      // Backfill segments in background
+      const sessionId = runtime.getSessionId();
+      if (sessionId) {
+        segmentIndex.indexSession(sessionId).then((created) => {
+          if (created > 0) {
+            log("segments", `backfilled ${created} segments`);
+          }
+        }).catch((err) => {
+          log("segments", `backfill failed: ${err.message}`);
+        });
+      }
+    } catch (err: any) {
+      log("segments", `init failed: ${err.message} — segments disabled`);
+    }
+  }
+
   const agentName = basename(agentDir);
   await registerAgent(agentName, agentDir);
   process.chdir(agentDir);
@@ -174,12 +197,17 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       msg.onEvent?.(event);
     });
 
-    // Index new messages for recall (async, non-blocking)
-    if (recallIndex) {
-      const sessionId = runtime.getSessionId();
-      if (sessionId) {
+    // Index new messages for recall + segments (async, non-blocking)
+    const sessionId = runtime.getSessionId();
+    if (sessionId) {
+      if (recallIndex) {
         recallIndex.indexSession(sessionId).catch((err) => {
           log("recall", `indexing failed: ${err.message}`);
+        });
+      }
+      if (segmentIndex) {
+        segmentIndex.indexSession(sessionId).catch((err) => {
+          log("segments", `indexing failed: ${err.message}`);
         });
       }
     }
