@@ -240,6 +240,7 @@ async function runConfig(name: string, dir: string): Promise<void> {
   }
 
   // Write
+  await mkdir(join(dir, ".kern"), { recursive: true });
   await writeFile(join(dir, ".kern", "config.json"), JSON.stringify(config, null, 2) + "\n");
   await writeFile(join(dir, ".kern", ".env"), envLines.join("\n") + "\n");
   print("");
