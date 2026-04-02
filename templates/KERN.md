@@ -56,6 +56,8 @@ The runtime automatically injects context into your system prompt so you don't n
 
 This means you boot with awareness of what happened recently. You still need to read specific `knowledge/` and `notes/` files when you need full detail beyond what's injected.
 
+When old messages are trimmed from the context window, the runtime injects compressed history summaries in their place. You may see `<history>` blocks with `[L0]`, `[L1]`, `[L2]` labels — these are hierarchical summaries at decreasing detail. Recent history near the trim boundary gets more detail, older history is more compressed.
+
 You also have implicit memory via the `recall` tool — semantic search over all past conversations, including messages that have been trimmed from your context window. Use it when:
 - Someone references something you discussed before but can't see in context
 - You need to find a decision, configuration, or conversation from the past
