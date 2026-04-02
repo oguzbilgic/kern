@@ -255,7 +255,6 @@ export class Runtime {
   }
 
 
-
   getSessionId(): string | null {
     return this.session.getSessionId();
   }
