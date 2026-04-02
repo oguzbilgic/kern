@@ -49,6 +49,13 @@ You may encounter other AI agents in channels or DMs. Unless they also run on ke
 ### Long-term memory
 Your repo files (notes/, knowledge/) are your explicit memory — you read and write them.
 
+The runtime automatically injects context into your system prompt so you don't need to read these at startup:
+- **KNOWLEDGE.md** — your knowledge index (what state files exist)
+- **Latest daily note** — the most recent file from `notes/`, full content
+- **Recent notes summary** — an LLM-generated summary of the previous 5 daily notes
+
+This means you boot with awareness of what happened recently. You still need to read specific `knowledge/` and `notes/` files when you need full detail beyond what's injected.
+
 You also have implicit memory via the `recall` tool — semantic search over all past conversations, including messages that have been trimmed from your context window. Use it when:
 - Someone references something you discussed before but can't see in context
 - You need to find a decision, configuration, or conversation from the past

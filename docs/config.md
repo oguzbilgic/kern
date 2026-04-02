@@ -96,7 +96,15 @@ Tracks all registered agents with their name, path, PID, port, and auth token. U
 
 ## .kern/recall.db
 
-SQLite database with sqlite-vec extension for the recall tool. Contains three tables: `messages` (raw message content), `chunks` (turn-level summaries), and `vec_chunks` (embeddings). Auto-created on first start. Gitignored. Safe to delete — will be rebuilt on next start from session JSONL files.
+SQLite database for agent memory. Always created on startup. Contains:
+
+- `messages` — raw message content
+- `chunks` — turn-level summaries for recall search
+- `vec_chunks` — embeddings (sqlite-vec)
+- `index_state` — tracks indexing progress per session
+- `summaries` — cached notes summaries and future rolling summaries
+
+Gitignored. Safe to delete — rebuilds from session JSONL files on next start, summaries regenerate on next cache miss.
 
 ## .kern/sessions/
 

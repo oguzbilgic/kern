@@ -1,12 +1,12 @@
 import { streamText, type ModelMessage, stepCountIs } from "ai";
 import { log } from "./log.js";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createOpenAI } from "@ai-sdk/openai";
+import { createModel } from "./model.js";
 import { allTools, type ToolName } from "./tools/index.js";
 import { SessionManager } from "./session.js";
 import { loadConfig, getToolsForScope, type KernConfig } from "./config.js";
 import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern.js";
 import type { RecallIndex } from "./recall.js";
+import type { MemoryDB } from "./memory.js";
 import { prepareContext, injectRecall, loadSystemPrompt } from "./context.js";
 export type { SessionStats } from "./context.js";
 
@@ -31,6 +31,7 @@ export class Runtime {
   private session!: SessionManager;
   private agentDir: string;
   private recallIndex: RecallIndex | null = null;
+  private memoryDB: MemoryDB | null = null;
 
   constructor(agentDir: string) {
     this.agentDir = agentDir;
@@ -38,6 +39,10 @@ export class Runtime {
 
   setRecallIndex(index: RecallIndex) {
     this.recallIndex = index;
+  }
+
+  setMemoryDB(db: MemoryDB) {
+    this.memoryDB = db;
   }
 
   async setPairingManager(pairing: any): Promise<void> {
@@ -53,7 +58,7 @@ export class Runtime {
 
   async init(): Promise<void> {
     this.config = await loadConfig(this.agentDir);
-    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config);
+    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.memoryDB);
     this.session = new SessionManager(this.agentDir);
     await this.session.init();
     await this.session.load();
@@ -77,6 +82,9 @@ export class Runtime {
     userMessage: string,
     onEvent: StreamHandler,
   ): Promise<string> {
+    // Reload system prompt (picks up new daily notes, summaries, knowledge changes)
+    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.memoryDB);
+
     // Add user message to session
     const preview = userMessage.slice(0, 80).replace(/\n/g, " ");
     log("runtime", `handleMessage: ${preview}${userMessage.length > 80 ? "..." : ""}`);
@@ -92,7 +100,7 @@ export class Runtime {
       }
     }
 
-    const model = this.createModel();
+    const model = createModel(this.config);
     let streamError: any = null;
 
     try {
@@ -246,32 +254,6 @@ export class Runtime {
     }
   }
 
-  private createModel() {
-    switch (this.config.provider) {
-      case "anthropic": {
-        const anthropic = createAnthropic();
-        return anthropic(this.config.model);
-      }
-      case "openrouter": {
-        const openrouter = createOpenAI({
-          baseURL: "https://openrouter.ai/api/v1",
-          apiKey: process.env.OPENROUTER_API_KEY,
-          headers: {
-            "HTTP-Referer": "https://github.com/oguzbilgic/kern-ai",
-            "X-Title": "kern-ai",
-            "X-OpenRouter-Categories": "cli-agent,personal-agent",
-          },
-        });
-        return openrouter.chat(this.config.model);
-      }
-      case "openai": {
-        const openai = createOpenAI();
-        return openai(this.config.model);
-      }
-      default:
-        throw new Error(`Unknown provider: ${this.config.provider}`);
-    }
-  }
 
   getSessionId(): string | null {
     return this.session.getSessionId();
