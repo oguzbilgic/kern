@@ -1,5 +1,46 @@
 # Changelog
 
+## v0.15.0
+
+### Features
+- **Notes injection** — agent system prompt now includes latest daily note (full content) and an LLM-generated summary of the previous 5 daily notes. Agents boot with recent context automatically.
+  - Summary cached in SQLite `summaries` table. Non-blocking regeneration on day rollover.
+  - System prompt reloaded per message — picks up new notes/knowledge/summaries without restart.
+- **MemoryDB** (`memory.ts`) — new module owns SQLite database, schema, and summaries table. Always created on startup (works even with `recall: false`).
+  - RecallIndex now takes MemoryDB instead of managing its own connection.
+- **Tool result truncation** — `maxToolResultChars` config (default 20,000) caps oversized tool results in context only. Full results preserved in session JSONL and recall.
+- **Context pipeline** (`context.ts`) — extracted from runtime.ts. Owns truncate → trim → stats. Single `prepareContext()` entry point.
+
+### Web UI
+- **Syntax highlighting** — highlight.js via CDN for tool output rendering.
+  - **Read**: line number gutter + language-detected highlighting (TS, JS, Python, Go, Rust, SQL, YAML, Bash, etc.)
+  - **Edit**: syntax-highlighted unified diff. Old lines dimmed (40% opacity), new lines full brightness. `−`/`+` gutter markers.
+  - **Write**: syntax-highlighted content based on file extension.
+  - **Grep**: ANSI color passthrough — file paths magenta, line numbers green, matches bold red.
+- **Fullscreen expand** — `⛶` button on tool header line. Only visible when expanded and content overflows. Dark overlay, Escape/click-outside to dismiss.
+- ANSI color support in all tool output (`ansiToHtml` renderer).
+- Consistent spacing for tool results (`tool-result-text` div replaces `\n\n` whitespace).
+- Fix SSE duplicate stream bug by tracking active EventSource.
+- Debounced streaming render + textarea auto-resize to reduce input lag on mobile.
+- Disable autocorrect/spellcheck on input textarea.
+- Prevent duplicate agents when local URL added as remote server.
+
+### Tools
+- **grep** — new `options` param for raw grep flags (`-C 3 -i -l`, etc.). Auto-excludes `node_modules`, `.git`, `dist`. `--color=always` for colored output. Single-file mode drops `-r` for clean line-only output.
+
+### Architecture
+- `model.ts` — extracted shared `createModel()` from runtime.ts. Used by runtime + notes.
+- `notes.ts` — new module: `loadNotesContext()` returns latest note + summary.
+- Default `maxContextTokens` increased from 40k to 50k.
+- OpenRouter: added `X-OpenRouter-Categories` header for attribution.
+
+### Docs
+- New `memory.md` page covering all memory layers, auto-injection, and persistence.
+- Updated `config.md` with `maxToolResultChars` and `maxContextTokens` defaults.
+- Updated `KERN.md` template with auto-injected context details.
+
+---
+
 ## v0.14.2
 
 ### Fixes
