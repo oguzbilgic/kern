@@ -103,7 +103,10 @@ function getMsgSize(msg: ModelMessage): number {
 function truncateLargeToolResults(messages: ModelMessage[], maxChars: number, tokenBudget: number = 0): { messages: ModelMessage[]; truncatedCount: number } {
   if (maxChars <= 0) return { messages, truncatedCount: 0 };
 
-  // Only process messages within 2x the token budget from the end — older ones get trimmed anyway
+  // Only process messages within 2x the token budget from the end — older ones get trimmed anyway.
+  // Exception: any single message larger than maxChars (as tokens) is always truncated,
+  // even if it falls outside the 2x window — otherwise it poisons trimToTokenBudget().
+  const maxCharsTokens = Math.ceil(maxChars / 4);
   let startIndex = 0;
   if (tokenBudget > 0) {
     const tokenLimit = tokenBudget * 2; // 2x budget
@@ -116,11 +119,16 @@ function truncateLargeToolResults(messages: ModelMessage[], maxChars: number, to
 
   let changed = false;
   let truncatedCount = 0;
-  const result: ModelMessage[] = startIndex > 0 ? messages.slice(0, startIndex) : [];
+  const result: ModelMessage[] = [];
 
-  for (let idx = startIndex; idx < messages.length; idx++) {
+  for (let idx = 0; idx < messages.length; idx++) {
     const msg = messages[idx];
+    // Skip non-tool messages, and skip tool messages before startIndex unless they're oversized
     if (msg.role !== "tool" || !Array.isArray(msg.content)) {
+      result.push(msg);
+      continue;
+    }
+    if (idx < startIndex && getMsgSize(msg) <= maxCharsTokens) {
       result.push(msg);
       continue;
     }
