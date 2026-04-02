@@ -211,9 +211,14 @@ export class SegmentIndex {
         break;
       }
       try {
+        // Build a summary-friendly version: truncate tool results to keep focus on narrative
+        const summaryInput = row.summary.replace(/^tool: .{500,}$/gm, (m) => m.slice(0, 300) + '... [truncated]');
+        const inputText = summaryInput.slice(0, 60000);
+        const targetWords = Math.max(200, Math.min(800, Math.round(inputText.length / 60)));
+
         const result = await generateText({
           model: this.summaryModel,
-          prompt: `You are an AI agent writing notes for your future self about what happened in this conversation segment. Write in first person ("I did X", "User asked Y"). Be factual and specific — include exact names, values, commands, errors, and outcomes. No filler, no hedging, no "the conversation involved". Structure as bullet points if multiple topics were covered. Target ~${Math.max(200, Math.min(800, Math.round(row.summary.length / 60)))} words.\n\n${row.summary.slice(0, 60000)}`,
+          prompt: `You are an AI agent writing notes for your future self. Summarize what happened in this conversation: what the user wanted, what you did, what the results and outcomes were, and what's still unresolved. Write in first person ("I did X", "User asked Y"). Focus on intent and outcomes, not individual commands. Be specific — include names, values, and key results. No filler. Bullet points if multiple topics. Target ~${targetWords} words.\n\n${inputText}`,
           maxOutputTokens: 2000,
         });
 
