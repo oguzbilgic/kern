@@ -554,7 +554,7 @@ export class SegmentIndex {
    * Fills a token budget with segment summaries from the trimmed region.
    * Recency bias: expands most recent segments to lower (more detailed) levels first.
    */
-  composeHistory(sessionId: string, trimmedBeforeMsg: number, budgetTokens: number): string | null {
+  composeHistory(sessionId: string, trimmedBeforeMsg: number, budgetTokens: number): { text: string; levelCounts: Record<number, number>; tokens: number } | null {
     // Get all summarized segments for this session
     const allSegments = this.db.prepare(
       `SELECT id, msg_start, msg_end, start_time, end_time, parent_id, level, summary, token_count, summary_token_count
@@ -620,6 +620,12 @@ export class SegmentIndex {
       }
     }
 
+    // Count per level
+    const levelCounts: Record<number, number> = {};
+    for (const seg of selected) {
+      levelCounts[seg.level] = (levelCounts[seg.level] || 0) + 1;
+    }
+
     // Format output
     const lines: string[] = [];
     for (const seg of selected) {
@@ -630,13 +636,16 @@ export class SegmentIndex {
       lines.push(`${header}\n${seg.summary}`);
     }
 
-    return lines.join('\n\n');
+    return { text: lines.join('\n\n'), levelCounts, tokens: usedTokens };
   }
 
-  getStats(): { segments: number; level0: number } {
+  getStats(): { segments: number; level0: number; levels: Record<number, number> } {
     const total = (this.db.prepare("SELECT COUNT(*) as n FROM semantic_segments").get() as any).n;
     const l0 = (this.db.prepare("SELECT COUNT(*) as n FROM semantic_segments WHERE level = 0").get() as any).n;
-    return { segments: total, level0: l0 };
+    const rows = this.db.prepare("SELECT level, COUNT(*) as n FROM semantic_segments GROUP BY level ORDER BY level").all() as Array<{ level: number; n: number }>;
+    const levels: Record<number, number> = {};
+    for (const row of rows) levels[row.level] = row.n;
+    return { segments: total, level0: l0, levels };
   }
 
   /**

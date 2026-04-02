@@ -20,6 +20,7 @@ let _pairingManager: any = null;
 let _getQueueStatus: (() => { processing: boolean; pending: number; activeChannel: string | null }) | null = null;
 let _getInterfaceStatuses: (() => InterfaceStatus[]) | null = null;
 let _getRecallStats: (() => { chunks: number; sessions: number; messages: number; building: boolean } | null) | null = null;
+let _getSegmentStats: (() => { segments: number; level0: number; levels: Record<number, number> } | null) | null = null;
 
 export function setQueueStatusFn(fn: () => { processing: boolean; pending: number; activeChannel: string | null }) {
   _getQueueStatus = fn;
@@ -31,6 +32,10 @@ export function setInterfaceStatusFn(fn: () => InterfaceStatus[]) {
 
 export function setRecallStatsFn(fn: () => { chunks: number; sessions: number; messages: number; building: boolean } | null) {
   _getRecallStats = fn;
+}
+
+export function setSegmentStatsFn(fn: () => { segments: number; level0: number; levels: Record<number, number> } | null) {
+  _getSegmentStats = fn;
 }
 
 export async function initKernTool(opts: {
@@ -100,6 +105,7 @@ export interface StatusData {
   uptime: string;
   session: string;
   context: string | null;
+  history: string | null;
   apiUsage: string;
   promptTokens: number;
   completionTokens: number;
@@ -107,6 +113,7 @@ export interface StatusData {
   telegram: string | null;
   slack: string | null;
   recall: string | null;
+  segments: string | null;
 }
 
 export function getStatusData(): StatusData {
@@ -123,10 +130,20 @@ export function getStatusData(): StatusData {
 
   const stats = _getSessionStats ? _getSessionStats() : null;
   const session = stats
-    ? `~${stats.estimatedTokens} tokens (${stats.totalMessages} messages)`
+    ? `${stats.totalMessages} messages (~${Math.round(stats.estimatedTokens / 1000)}k tokens)`
     : `${_messageCount} messages`;
+  const trimmed = stats ? stats.totalMessages - stats.windowMessages + (stats.historyTokens > 0 ? 1 : 0) : 0;
   const context = stats
-    ? `~${stats.windowTokens} tokens (${stats.windowMessages} messages${stats.truncatedCount > 0 ? `, ${stats.truncatedCount} truncated` : ""})`
+    ? `~${Math.round(stats.windowTokens / 1000)}k / ${Math.round(_config.maxContextTokens / 1000)}k tokens (${stats.windowMessages} messages${trimmed > 0 ? `, ${trimmed} trimmed` : ""}${stats.truncatedCount > 0 ? `, ${stats.truncatedCount} truncated` : ""})`
+    : null;
+  const history = stats && stats.historyTokens > 0
+    ? (() => {
+        const lvlStr = Object.entries(stats.historyLevelCounts)
+          .sort(([a], [b]) => Number(a) - Number(b))
+          .map(([l, n]) => `${n}×L${l}`)
+          .join(", ");
+        return `~${Math.round(stats.historyTokens / 1000)}k tokens (${lvlStr})`;
+      })()
     : null;
   const totalTokens = _totalPromptTokens + _totalCompletionTokens;
   const apiUsage = `${totalTokens} tokens (in: ${_totalPromptTokens}, out: ${_totalCompletionTokens})`;
@@ -149,6 +166,7 @@ export function getStatusData(): StatusData {
     uptime: uptimeStr,
     session,
     context,
+    history,
     apiUsage,
     promptTokens: _totalPromptTokens,
     completionTokens: _totalCompletionTokens,
@@ -158,6 +176,15 @@ export function getStatusData(): StatusData {
     recall: _getRecallStats ? (() => {
       const rs = _getRecallStats!();
       return rs ? `${rs.messages} messages, ${rs.chunks} chunks${rs.building ? " (building)" : ""}` : "disabled";
+    })() : null,
+    segments: _getSegmentStats ? (() => {
+      const ss = _getSegmentStats!();
+      if (!ss) return "disabled";
+      const lvlStr = Object.entries(ss.levels)
+        .sort(([a], [b]) => Number(a) - Number(b))
+        .map(([l, n]) => `${n} L${l}`)
+        .join(", ");
+      return lvlStr || "0 segments";
     })() : null,
   };
 }
@@ -172,7 +199,9 @@ export function formatStatus(data: StatusData): string {
     data.slack ? `slack: ${data.slack}` : "",
     `session: ${data.session}`,
     data.context ? `context: ${data.context}` : "",
+    data.history ? `  history: ${data.history}` : "",
     data.recall ? `recall: ${data.recall}` : "",
+    data.segments ? `segments: ${data.segments}` : "",
     `api usage: ${data.apiUsage}`,
     `queue: ${data.queue}`,
     `uptime: ${data.uptime}`,

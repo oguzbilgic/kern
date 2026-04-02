@@ -204,6 +204,7 @@ export interface SessionStats {
   windowMessages: number;
   truncatedCount: number;
   historyTokens: number;
+  historyLevelCounts: Record<number, number>;
 }
 
 interface PrepareContextOptions {
@@ -221,15 +222,17 @@ export function prepareContext({ messages, config, sessionId, segmentIndex }: Pr
 
   // Inject compressed history at trim boundary
   let historyTokens = 0;
+  let historyLevelCounts: Record<number, number> = {};
   let finalMessages = window;
   if (trimmedCount > 0 && segmentIndex && sessionId && config.historyBudget > 0) {
     const budgetTokens = Math.round(config.maxContextTokens * config.historyBudget);
     const history = segmentIndex.composeHistory(sessionId, trimmedCount, budgetTokens);
     if (history) {
-      historyTokens = Math.ceil(history.length / 4);
+      historyTokens = history.tokens;
+      historyLevelCounts = history.levelCounts;
       const historyMessage: ModelMessage = {
         role: "user",
-        content: `<history>\nCompressed conversation history (oldest → newest). Use recall tool to load full messages by range.\n\n${history}\n</history>`,
+        content: `<history>\nCompressed conversation history (oldest → newest). Use recall tool to load full messages by range.\n\n${history.text}\n</history>`,
       };
       finalMessages = [historyMessage, ...window];
     }
@@ -255,6 +258,7 @@ export function prepareContext({ messages, config, sessionId, segmentIndex }: Pr
       windowMessages: finalMessages.length,
       truncatedCount: trimmedTruncated,
       historyTokens,
+      historyLevelCounts,
     },
   };
 }

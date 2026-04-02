@@ -17,7 +17,7 @@ import { RecallIndex } from "./recall.js";
 import { SegmentIndex } from "./segments.js";
 import { MemoryDB } from "./memory.js";
 import { MessageQueue } from "./queue.js";
-import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, type InterfaceStatus } from "./tools/kern.js";
+import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, setSegmentStatsFn, type InterfaceStatus } from "./tools/kern.js";
 import { log } from "./log.js";
 
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
@@ -121,6 +121,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     try {
       segmentIndex = new SegmentIndex(memoryDB, config.provider);
       runtime.setSegmentIndex(segmentIndex);
+      setSegmentStatsFn(() => segmentIndex ? segmentIndex.getStats() : null);
     } catch (err: any) {
       log("segments", `init failed: ${err.message} — segments disabled`);
     }
