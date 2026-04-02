@@ -201,8 +201,8 @@ export class SegmentIndex {
       try {
         const result = await generateText({
           model: this.summaryModel,
-          prompt: `Summarize this conversation segment in a detailed paragraph (~200-300 words). Include: topics discussed, decisions made, actions taken, problems encountered, and unresolved items. Be direct — start with the subject matter. Preserve specific names, values, and details that would help someone pick up where this left off.\n\n${row.summary.slice(0, 16000)}`,
-          maxOutputTokens: 1000,
+          prompt: `Summarize this conversation segment. Include: topics discussed, decisions made, actions taken, problems encountered, and unresolved items. Be direct — start with the subject matter. Preserve specific names, values, and details that would help someone pick up where this left off. Target length: ~${Math.max(200, Math.min(800, Math.round(row.summary.length / 60)))} words.\n\n${row.summary.slice(0, 60000)}`,
+          maxOutputTokens: 2000,
         });
 
         const summaryText = result.text.trim();
