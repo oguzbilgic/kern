@@ -24,6 +24,7 @@ export class AgentServer {
   private historyFn: ((limit: number, before?: number) => any[]) | null = null;
   private segmentsFn: ((sessionId?: string) => any) | null = null;
   private segmentsRebuildFn: (() => Promise<any>) | null = null;
+  private segmentsStopFn: (() => void) | null = null;
   private port = 0;
 
   constructor() {
@@ -48,6 +49,10 @@ export class AgentServer {
 
   setSegmentsRebuildFn(fn: () => Promise<any>) {
     this.segmentsRebuildFn = fn;
+  }
+
+  setSegmentsStopFn(fn: () => void) {
+    this.segmentsStopFn = fn;
   }
 
   async start(host: string = "127.0.0.1"): Promise<number> {
@@ -243,6 +248,19 @@ export class AgentServer {
       this.segmentsRebuildFn().catch(() => {});
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ status: "rebuilding" }));
+      return;
+    }
+
+    // Segments stop — abort running rebuild/summarization
+    if (url === "/segments/stop" && req.method === "POST") {
+      if (this.segmentsStopFn) {
+        this.segmentsStopFn();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ status: "stopped" }));
+      } else {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "segments not enabled" }));
+      }
       return;
     }
 

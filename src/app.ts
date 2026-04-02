@@ -257,7 +257,6 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
     segmentRunning = true;
     try {
-      // Clear existing segments
       segmentIndex.clear();
       log("segments", "cleared — starting rebuild");
       const created = await segmentIndex.indexSession(sessionId);
@@ -266,6 +265,12 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     } finally {
       segmentRunning = false;
     }
+  });
+
+  server.setSegmentsStopFn(() => {
+    if (!segmentIndex) return;
+    segmentIndex.stop();
+    segmentRunning = false;
   });
 
   const port = await server.start("127.0.0.1");

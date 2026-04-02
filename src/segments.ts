@@ -41,6 +41,7 @@ export class SegmentIndex {
   private db: Database.Database;
   private embeddingModel: ReturnType<ReturnType<typeof createOpenAI>["embeddingModel"]>;
   private summaryModel: ReturnType<ReturnType<typeof createOpenAI>["chat"]>;
+  private abortController: AbortController | null = null;
 
   constructor(memoryDB: MemoryDB, provider: string) {
     this.db = memoryDB.db;
@@ -88,10 +89,16 @@ export class SegmentIndex {
 
     if (allMessages.length < 3) return 0;
 
+    this.abortController = new AbortController();
+    const signal = this.abortController.signal;
     let totalCreated = 0;
 
     // Process in chunks
     for (let chunkStart = 0; chunkStart < allMessages.length; chunkStart += MAX_CHUNK_SIZE) {
+      if (signal.aborted) {
+        log("segments", "aborted");
+        break;
+      }
       const messages = allMessages.slice(chunkStart, chunkStart + MAX_CHUNK_SIZE);
       if (messages.length < 3) break;
 
@@ -198,6 +205,10 @@ export class SegmentIndex {
 
     let summarized = 0;
     for (const row of rows) {
+      if (this.abortController?.signal.aborted) {
+        log("segments", "summarization aborted");
+        break;
+      }
       try {
         const result = await generateText({
           model: this.summaryModel,
@@ -387,6 +398,17 @@ export class SegmentIndex {
       }
     }
     return embeddings;
+  }
+
+  /**
+   * Stop any running indexSession/summarization.
+   */
+  stop() {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+      log("segments", "stopped");
+    }
   }
 
   /**
