@@ -1064,7 +1064,7 @@
   .segments-timeline {
     flex: 1;
     min-width: 0;
-    overflow-y: auto;
+    overflow: auto;
   }
   .segments-detail {
     width: 540px;
@@ -1114,6 +1114,7 @@
     gap: 2px;
     flex-wrap: wrap;
     align-items: flex-end;
+    min-width: max-content;
   }
   .seg-block {
     border-radius: 3px;
@@ -1695,13 +1696,13 @@ function renderSegments(data) {
     for (const seg of segs) {
       segDataMap[seg.id] = seg;
       const span = seg.msg_end - seg.msg_start;
-      const widthPct = Math.max(2, (span / maxMsgEnd) * 100);
+      const widthPx = Math.max(40, Math.round(span * 0.5));
       const color = segColor(seg.token_count || 0, span);
       const height = Math.max(24, Math.min(64, Math.round(Math.sqrt(seg.token_count || 0) / 2)));
       const cls = seg.summarized ? '' : ' unsummarized';
       const label = `${span}`;
 
-      html += `<div class="seg-block${cls}" style="width:${widthPct}%;height:${height}px;background:${color};"
+      html += `<div class="seg-block${cls}" style="width:${widthPx}px;height:${height}px;background:${color};"
         data-seg-id="${seg.id}"
       >${label}</div>`;
     }
