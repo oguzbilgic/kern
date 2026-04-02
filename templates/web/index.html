@@ -1690,8 +1690,17 @@ function renderSegments(data) {
   let html = '';
   const sortedLevels = Object.keys(levels).map(Number).sort();
 
+  const MIN_BLOCK_PX = 40;
+  const MAX_BLOCK_PX = 200;
+
   for (const lvl of sortedLevels) {
     const segs = levels[lvl];
+    // Scale widths within this level: smallest → MIN, largest → MAX
+    const spans = segs.map(s => s.msg_end - s.msg_start);
+    const minSpan = Math.min(...spans);
+    const maxSpan = Math.max(...spans);
+    const spanRange = maxSpan - minSpan || 1;
+
     html += `<div class="segments-level">`;
     html += `<div class="segments-level-label">Level ${lvl} · ${segs.length} segments</div>`;
     html += `<div class="segments-row">`;
@@ -1699,7 +1708,8 @@ function renderSegments(data) {
     for (const seg of segs) {
       segDataMap[seg.id] = seg;
       const span = seg.msg_end - seg.msg_start;
-      const widthPx = Math.max(40, Math.round(span * 0.5));
+      const t = (span - minSpan) / spanRange;
+      const widthPx = Math.round(MIN_BLOCK_PX + t * (MAX_BLOCK_PX - MIN_BLOCK_PX));
       const color = segColor(seg.token_count || 0, span);
       const height = Math.max(24, Math.min(64, Math.round(Math.sqrt(seg.token_count || 0) / 2)));
       const cls = seg.summarized ? '' : ' unsummarized';
