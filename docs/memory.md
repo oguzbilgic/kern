@@ -4,11 +4,12 @@ kern agents remember things between sessions. Memory is plain text files in a gi
 
 ## How it works
 
-Agents have three layers of memory:
+Agents have four layers of memory:
 
 1. **Knowledge** (`knowledge/`) — facts about how things are right now. Mutable. The agent updates these as things change.
 2. **Notes** (`notes/`) — daily logs of what happened, what was decided, and what's still open. Append-only. One file per day.
 3. **Recall** — semantic search over all past conversations. Even after messages leave the context window, the agent can find them with the `recall` tool.
+4. **Segments** — automatic hierarchical summaries of conversation history. Messages are grouped into semantic segments, summarized, and rolled up into a multi-level tree. Compressed history is injected into the context window when old messages are trimmed.
 
 ## Auto-injected context
 
@@ -43,6 +44,25 @@ This is how memory stays current during long sessions.
 kern uses a sliding window to manage context size. `maxContextTokens` (default 50000) sets the budget. When messages exceed this, the oldest are trimmed from the front. Full history is preserved in session JSONL files — nothing is lost.
 
 Tool results can be large (command output, file contents, web pages). `maxToolResultChars` (default 20000) truncates oversized results in context while keeping the full output in session storage and the recall index.
+
+## Segments and history injection
+
+When messages are trimmed from the context window, the agent loses direct access to that conversation history. Segments solve this by injecting compressed summaries of the trimmed region.
+
+**How it works:**
+
+1. **Segmentation** — messages are grouped into semantic segments (L0) based on embedding similarity. Topic shifts create segment boundaries.
+2. **Summarization** — each segment is summarized by an LLM (~10-44:1 compression ratio).
+3. **Rollup** — every 10 L0 segments are summarized into an L1 parent. 10 L1s → L2, etc. This builds a hierarchical tree.
+4. **Injection** — when messages are trimmed, `composeHistory` fills a token budget (`historyBudget`, default 20% of context) with summaries from the tree. Highest-level summaries cover old history cheaply, recent segments near the trim boundary are expanded to lower (more detailed) levels.
+
+The result: the agent sees `[compressed history] → [raw messages]` instead of just raw messages. Old conversations are represented at decreasing resolution, recent history at full detail.
+
+The agent can drill deeper into any segment using the `recall` tool with message range parameters.
+
+**Segmentation thresholds:**
+- New segments are created incrementally when 10+ unsegmented messages AND 10k+ unsegmented tokens accumulate.
+- Segments target ~15k tokens with a minimum of 5k tokens and 10 messages.
 
 ## Recall
 
