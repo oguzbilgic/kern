@@ -84,6 +84,7 @@ export class MemoryDB {
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_segments_session_level ON semantic_segments(session_id, level, msg_start);
       CREATE INDEX IF NOT EXISTS idx_segments_parent ON semantic_segments(parent_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_segments_unique ON semantic_segments(session_id, level, msg_start, msg_end);
     `);
 
     // Migrations — add columns to existing tables

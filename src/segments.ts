@@ -317,9 +317,11 @@ export class SegmentIndex {
             // Insert parent, set children's parent_id
             const tx = this.db.transaction(() => {
               const info = this.db.prepare(
-                `INSERT INTO semantic_segments (session_id, msg_start, msg_end, start_time, end_time, level, summary, token_count, summary_token_count, summarized)
+                `INSERT OR IGNORE INTO semantic_segments (session_id, msg_start, msg_end, start_time, end_time, level, summary, token_count, summary_token_count, summarized)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
               ).run(sessionId, msgStart, msgEnd, startTime, endTime, parentLevel, summaryText, totalTokens, summaryTokens);
+
+              if (info.changes === 0) return; // already exists
 
               const parentId = info.lastInsertRowid;
               const setParent = this.db.prepare(
