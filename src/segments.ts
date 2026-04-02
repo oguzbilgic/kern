@@ -5,7 +5,7 @@ import type { MemoryDB } from "./memory.js";
 import type Database from "better-sqlite3";
 
 const EMBEDDING_MODEL = "openai/text-embedding-3-small";
-const SUMMARY_MODEL = "openai/gpt-4.1-nano";
+const SUMMARY_MODEL = "openai/gpt-4.1-mini";
 
 // Segmentation parameters
 const TOPIC_THRESHOLD = 0.80;   // cosine distance — hard cut at topic shift
