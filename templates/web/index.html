@@ -1067,7 +1067,7 @@
     overflow-y: auto;
   }
   .segments-detail {
-    width: 360px;
+    width: 480px;
     flex-shrink: 0;
     border-left: 1px solid var(--border);
     padding: 16px;
@@ -1688,7 +1688,7 @@ function renderSegments(data) {
       const widthPct = Math.max(2, (span / maxMsgEnd) * 100);
       const color = segColor(seg.id);
       const cls = seg.summarized ? '' : ' unsummarized';
-      const label = span > 3 ? `${seg.msg_start}–${seg.msg_end}` : `${seg.msg_start}`;
+      const label = `${span}`;
 
       html += `<div class="seg-block${cls}" style="width:${widthPct}%;background:${color};"
         data-seg-id="${seg.id}"
