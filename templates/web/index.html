@@ -450,6 +450,21 @@
     border-radius: 8px 8px 8px 2px;
     color: #d4d4d4;
   }
+  .message.reasoning {
+    align-self: flex-start;
+    background: rgba(188, 140, 255, 0.08);
+    border: 1px solid rgba(188, 140, 255, 0.25);
+    border-radius: 8px 8px 8px 2px;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+  .message.reasoning .label {
+    display: block;
+    font-size: 11px;
+    color: var(--magenta);
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
   .timestamp {
     font-size: 10px;
     color: var(--text-muted);
@@ -1668,6 +1683,8 @@ function setupSwitcher() {
 let busy = false;
 let streamingText = '';
 let streamingEl = null;
+let reasoningText = '';
+let reasoningEl = null;
 let _streamRaf = 0;
 let connection = null;
 let authFailed = false;
@@ -1966,6 +1983,14 @@ function addMessage(type, content, meta, toolInput, timestamp, iface) {
     el.textContent = content;
   } else if (type === 'system') {
     el.textContent = content;
+  } else if (type === 'reasoning') {
+    const label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = 'thinking';
+    el.appendChild(label);
+    const text = document.createElement('div');
+    text.innerHTML = renderMarkdown(content);
+    el.appendChild(text);
   } else {
     const isMuted = type === 'assistant' && (content.trim() === 'NO_REPLY' || content.trim() === '(no text response)');
     if (isMuted) el.classList.add('muted');
@@ -1994,8 +2019,14 @@ function flushStreaming() {
     if (isMuted) streamingEl.classList.add('muted');
     streamingEl.innerHTML = renderMarkdown(streamingText);
   }
+  if (reasoningEl && reasoningText) {
+    const textEl = reasoningEl.querySelector('div');
+    if (textEl) textEl.innerHTML = renderMarkdown(reasoningText);
+  }
   streamingText = '';
   streamingEl = null;
+  reasoningText = '';
+  reasoningEl = null;
   if (_streamRaf) { cancelAnimationFrame(_streamRaf); _streamRaf = 0; }
 }
 
@@ -2088,6 +2119,19 @@ function handleEvent(event) {
       scrollToBottom();
       // Agent is thinking about what to do next — show dots
       showThinking();
+      break;
+    }
+
+    case 'reasoning': {
+      hideThinking();
+      if (!reasoningEl) {
+        reasoningEl = addMessage('reasoning', '');
+      }
+      reasoningText += event.reasoningText || '';
+      const textEl = reasoningEl.querySelector('div');
+      if (textEl) textEl.innerHTML = renderMarkdown(reasoningText);
+      scrollToBottom();
+      setBusy(true);
       break;
     }
 
