@@ -1661,7 +1661,7 @@ function renderSegments(data) {
   const { segments, stats } = data;
 
   const totalTokens = segments ? segments.reduce((s, seg) => s + (seg.token_count || 0), 0) : 0;
-  const totalSummaryTokens = segments ? segments.reduce((s, seg) => s + Math.ceil((seg.summary || '').length / 4), 0) : 0;
+  const totalSummaryTokens = segments ? segments.reduce((s, seg) => s + (seg.summary_token_count || Math.ceil((seg.summary || '').length / 4)), 0) : 0;
   const ratio = totalSummaryTokens > 0 ? Math.round(totalTokens / totalSummaryTokens) : 0;
   segStats.textContent = segments && segments.length > 0
     ? `${stats.segments || 0} segments · ${(totalTokens / 1000).toFixed(0)}k tokens · ${(totalSummaryTokens / 1000).toFixed(1)}k summary · ${ratio}:1`
@@ -1727,7 +1727,7 @@ function showSegDetail(el) {
 
   const span = seg.msg_end - seg.msg_start;
   const tokens = (seg.token_count || 0).toLocaleString();
-  const summaryTokens = Math.ceil((seg.summary || '').length / 4);
+  const summaryTokens = seg.summary_token_count || Math.ceil((seg.summary || '').length / 4);
 
   segDetail.classList.remove('empty');
   segDetail.innerHTML = `
