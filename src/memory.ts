@@ -80,6 +80,12 @@ export class MemoryDB {
       );
     `);
 
+    // Indexes
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_segments_session_level ON semantic_segments(session_id, level, msg_start);
+      CREATE INDEX IF NOT EXISTS idx_segments_parent ON semantic_segments(parent_id);
+    `);
+
     // Migrations — add columns to existing tables
     try { this.db.exec("ALTER TABLE semantic_segments ADD COLUMN start_time TEXT"); } catch {}
     try { this.db.exec("ALTER TABLE semantic_segments ADD COLUMN end_time TEXT"); } catch {}
