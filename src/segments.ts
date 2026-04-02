@@ -300,9 +300,8 @@ export class SegmentIndex {
             `[Segment ${i + 1}, msgs ${seg.msg_start}-${seg.msg_end}]\n${seg.summary}`
           ).join("\n\n");
 
-          const targetTokens = Math.max(200, Math.min(1500,
-            Math.round(group.reduce((s, seg) => s + seg.summary_token_count, 0) / 3)
-          ));
+          const childSummaryTotal = group.reduce((s, seg) => s + seg.summary_token_count, 0);
+          const targetTokens = Math.max(200, Math.round(childSummaryTotal / 3));
 
           try {
             const result = await generateText({
