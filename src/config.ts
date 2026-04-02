@@ -31,7 +31,7 @@ const defaults: KernConfig = {
   provider: "openrouter",
   toolScope: "full",
   maxSteps: 30,
-  maxContextTokens: 40000,
+  maxContextTokens: 50000,
   maxToolResultChars: 20000,
   heartbeatInterval: 60,
 };
