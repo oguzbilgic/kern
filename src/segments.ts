@@ -16,7 +16,7 @@ const WINDOW_SIZE = 5;          // embed windows of N messages for smoother dist
 
 // Batch size for embedding API calls
 const MIN_MESSAGES = 10;        // minimum messages per segment — merge if fewer
-const MIN_TAIL_MESSAGES = 10;  // minimum unsegmented messages before checking for topic shift
+const MIN_TAIL_MESSAGES = 100; // minimum unsegmented messages before creating new segments
 const EMBED_BATCH_SIZE = 100;
 
 // Max messages to process per indexSession call (prevents OOM on large backfills)
