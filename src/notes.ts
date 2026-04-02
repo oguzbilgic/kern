@@ -1,16 +1,13 @@
-import { readFile, readdir, writeFile, mkdir } from "fs/promises";
+import { readFile, readdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 import { generateText } from "ai";
 import { log } from "./log.js";
 import { createModel } from "./model.js";
 import type { KernConfig } from "./config.js";
+import type { MemoryDB } from "./memory.js";
 
-interface NotesCache {
-  key: string;
-  summary: string;
-}
-
+const SUMMARY_TYPE = "daily_notes";
 const SUMMARY_PROMPT = `Summarize the following daily notes into a brief context summary. Include: key events, decisions made, what changed, and anything unresolved. Be concise — this will be injected as context for an AI agent.`;
 
 let generating = false;
@@ -20,24 +17,6 @@ async function listNotes(notesDir: string): Promise<string[]> {
   if (!existsSync(notesDir)) return [];
   const files = await readdir(notesDir);
   return files.filter(f => f.endsWith(".md")).sort();
-}
-
-// Load cached summary from .kern/notes-context.json
-async function loadCache(agentDir: string): Promise<NotesCache | null> {
-  const cachePath = join(agentDir, ".kern", "notes-context.json");
-  if (!existsSync(cachePath)) return null;
-  try {
-    return JSON.parse(await readFile(cachePath, "utf-8"));
-  } catch {
-    return null;
-  }
-}
-
-// Save summary cache
-async function saveCache(agentDir: string, cache: NotesCache): Promise<void> {
-  const kernDir = join(agentDir, ".kern");
-  if (!existsSync(kernDir)) await mkdir(kernDir, { recursive: true });
-  await writeFile(join(kernDir, "notes-context.json"), JSON.stringify(cache, null, 2));
 }
 
 // Generate summary from notes content
@@ -55,7 +34,7 @@ async function generateSummary(notes: string, config: KernConfig): Promise<strin
 
 // Background regeneration — fire and forget
 function regenerateInBackground(
-  agentDir: string,
+  memoryDB: MemoryDB,
   config: KernConfig,
   notesDir: string,
   prevFiles: string[],
@@ -72,7 +51,9 @@ function regenerateInBackground(
       const combined = contents.join("\n\n---\n\n");
       log("notes", `generating summary from ${prevFiles.length} notes (${combined.length} chars)`);
       const summary = await generateSummary(combined, config);
-      await saveCache(agentDir, { key: latestFile, summary });
+      const dateStart = prevFiles[0].replace(".md", "");
+      const dateEnd = prevFiles[prevFiles.length - 1].replace(".md", "");
+      memoryDB.saveSummary(SUMMARY_TYPE, dateStart, dateEnd, latestFile, summary);
       log("notes", `summary cached (${summary.length} chars)`);
     } catch (err: any) {
       log("notes", `summary generation failed: ${err.message}`);
@@ -86,12 +67,13 @@ function regenerateInBackground(
  * Load notes context for system prompt injection.
  * Returns: { latest, summary } — either or both may be null.
  *
- * Summary is cached in .kern/notes-context.json, keyed by latest note filename.
+ * Summary is cached in recall.db summaries table, keyed by latest note filename.
  * On cache miss, serves stale summary (if any) and regenerates in background.
  */
 export async function loadNotesContext(
   agentDir: string,
   config: KernConfig,
+  memoryDB: MemoryDB | null,
 ): Promise<{ latest: string | null; summary: string | null }> {
   const notesDir = join(agentDir, "notes");
   const mdFiles = await listNotes(notesDir);
@@ -107,16 +89,18 @@ export async function loadNotesContext(
   } catch {}
 
   // Summary of previous notes (up to 5 before latest)
-  if (mdFiles.length < 2) return { latest, summary: null };
+  if (mdFiles.length < 2 || !memoryDB) return { latest, summary: null };
 
-  const cache = await loadCache(agentDir);
-  if (cache && cache.key === latestFile) {
-    return { latest, summary: cache.summary };
+  // Check cache — exact match on source_key
+  const cached = memoryDB.getSummary(SUMMARY_TYPE, latestFile);
+  if (cached) {
+    return { latest, summary: cached };
   }
 
-  // Cache miss — serve stale summary, regenerate in background
+  // Cache miss — serve stale (most recent summary), regenerate in background
+  const stale = memoryDB.getLatestSummary(SUMMARY_TYPE);
   const prevFiles = mdFiles.slice(-6, -1); // up to 5 notes before latest
-  regenerateInBackground(agentDir, config, notesDir, prevFiles, latestFile);
+  regenerateInBackground(memoryDB, config, notesDir, prevFiles, latestFile);
 
-  return { latest, summary: cache?.summary ?? null };
+  return { latest, summary: stale?.text ?? null };
 }

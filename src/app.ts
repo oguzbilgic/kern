@@ -14,6 +14,7 @@ import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
 import { setRecallIndex } from "./tools/recall.js";
 import { RecallIndex } from "./recall.js";
+import { MemoryDB } from "./memory.js";
 import { MessageQueue } from "./queue.js";
 import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, type InterfaceStatus } from "./tools/kern.js";
 import { log } from "./log.js";
@@ -76,12 +77,15 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   const runtime = new Runtime(agentDir);
   await runtime.init();
 
-  // Initialize recall index (opt-out via "recall": false in config)
+  // Initialize memory DB and recall index (opt-out via "recall": false in config)
+  let memoryDB: MemoryDB | null = null;
   let recallIndex: RecallIndex | null = null;
   let recallBuilding = false;
   if ((config as any).recall !== false) {
     try {
-      recallIndex = new RecallIndex(agentDir, config.provider);
+      memoryDB = new MemoryDB(agentDir);
+      runtime.setMemoryDB(memoryDB);
+      recallIndex = new RecallIndex(memoryDB, agentDir, config.provider);
       setRecallIndex(recallIndex);
       runtime.setRecallIndex(recallIndex);
       setRecallStatsFn(() => {
@@ -336,6 +340,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     if (telegramBot) await telegramBot.stop().catch(() => {});
     if (slackBot) await slackBot.stop().catch(() => {});
     server.stop();
+    if (memoryDB) memoryDB.close();
     log("kern", `stopped ${agentName}`);
     process.exit(0);
   };

@@ -5,10 +5,11 @@ import { existsSync } from "fs";
 import { log } from "./log.js";
 import { getToolsForScope, type KernConfig } from "./config.js";
 import type { RecallIndex } from "./recall.js";
+import type { MemoryDB } from "./memory.js";
 import { loadNotesContext } from "./notes.js";
 
 // Build the system prompt from agent markdown files + runtime info.
-export async function loadSystemPrompt(agentDir: string, config: KernConfig): Promise<string> {
+export async function loadSystemPrompt(agentDir: string, config: KernConfig, memoryDB?: MemoryDB | null): Promise<string> {
   const parts: string[] = [];
 
   // Load AGENTS.md (kernel)
@@ -40,7 +41,7 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig): Pr
 
   // Inject notes context: summary of recent days + latest daily note
   try {
-    const { latest, summary } = await loadNotesContext(agentDir, config);
+    const { latest, summary } = await loadNotesContext(agentDir, config, memoryDB ?? null);
     if (summary) {
       parts.push(`# Recent Notes Summary\n\n${summary}`);
     }
