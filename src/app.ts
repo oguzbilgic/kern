@@ -278,6 +278,22 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     segmentIndex.clear();
   });
 
+  server.setSegmentsStartFn(async () => {
+    if (!segmentIndex) throw new Error("segments not enabled");
+    if (segmentRunning) return { status: "already running" };
+    const sessionId = runtime.getSessionId();
+    if (!sessionId) throw new Error("no session");
+
+    segmentRunning = true;
+    try {
+      const created = await segmentIndex.indexSession(sessionId);
+      log("segments", `indexed ${created} new segments`);
+      return { status: "done", segments: created };
+    } finally {
+      segmentRunning = false;
+    }
+  });
+
   const port = await server.start("127.0.0.1");
   await setPortAndToken(agentName, port, process.env.KERN_AUTH_TOKEN || null);
 

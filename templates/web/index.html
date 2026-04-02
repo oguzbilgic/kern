@@ -1128,6 +1128,7 @@
     <h2>Semantic Segments</h2>
     <div style="display:flex;align-items:center;gap:12px;">
       <span class="stats" id="segments-stats"></span>
+      <button class="segments-close" id="segments-start" style="font-size:12px;">▶ Start</button>
       <button class="segments-close" id="segments-stop" style="font-size:12px;">⏹ Stop</button>
       <button class="segments-close" id="segments-clean" style="font-size:12px;">🗑 Clean</button>
       <button class="segments-close" id="segments-rebuild" style="font-size:12px;">↻ Rebuild</button>
@@ -1551,6 +1552,19 @@ $('segments-btn').addEventListener('click', async () => {
     segOverlay.classList.add('open');
   } catch (e) {
     console.error('segments fetch failed:', e);
+  }
+});
+
+$('segments-start').addEventListener('click', async () => {
+  if (!BASE_URL) return;
+  try {
+    await fetch(`${BASE_URL}/segments/start`, {
+      method: 'POST',
+      headers: AgentClient._headers(AUTH_TOKEN),
+    });
+    segStats.textContent = 'indexing...';
+  } catch (e) {
+    console.error('start failed:', e);
   }
 });
 
