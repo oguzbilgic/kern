@@ -10,6 +10,7 @@
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icon.svg">
 <title>kern</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js" defer></script>
 <style>
   :root {
     --bg: #1a1a1a;
@@ -503,6 +504,49 @@
   .message.tool.expanded .tool-output { display: block; }
   .message.tool .diff-line-old { color: var(--red); }
   .message.tool .diff-line-new { color: var(--green); }
+
+  /* Syntax-highlighted read output */
+  .read-output { display: flex; gap: 0; }
+  .read-gutter {
+    color: var(--text-muted);
+    text-align: right;
+    padding-right: 10px;
+    user-select: none;
+    border-right: 1px solid var(--border);
+    margin-right: 10px;
+    flex-shrink: 0;
+    white-space: pre;
+  }
+  .read-code {
+    flex: 1;
+    min-width: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  /* highlight.js theme — GitHub Dark Dimmed */
+  .hljs { color: #adbac7; background: transparent; }
+  .hljs-keyword, .hljs-selector-tag { color: #f47067; }
+  .hljs-literal, .hljs-built_in { color: #f47067; }
+  .hljs-string, .hljs-addition { color: #96d0ff; }
+  .hljs-title, .hljs-title.class_, .hljs-title.function_ { color: #dcbdfb; }
+  .hljs-variable, .hljs-template-variable { color: #f69d50; }
+  .hljs-comment, .hljs-deletion { color: #768390; }
+  .hljs-number { color: #6cb6ff; }
+  .hljs-type, .hljs-params { color: #6cb6ff; }
+  .hljs-attr, .hljs-attribute { color: #6cb6ff; }
+  .hljs-symbol, .hljs-bullet { color: #6cb6ff; }
+  .hljs-meta { color: #768390; }
+  .hljs-regexp { color: #96d0ff; }
+  .hljs-tag { color: #8ddb8c; }
+  .hljs-name { color: #8ddb8c; }
+  .hljs-selector-id, .hljs-selector-class { color: #6cb6ff; }
+  .hljs-emphasis { font-style: italic; }
+  .hljs-strong { font-weight: bold; }
+  .hljs-link { text-decoration: underline; }
+  .hljs-punctuation { color: #adbac7; }
+  .hljs-property { color: #f69d50; }
+
   .message.recall {
     font-size: 12px;
     color: var(--text-muted);
@@ -1621,6 +1665,63 @@ function ansiToHtml(s) {
   return html;
 }
 
+// File extension → highlight.js language mapping
+const EXT_LANG = {
+  ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
+  py: 'python', rb: 'ruby', go: 'go', rs: 'rust', c: 'c', cpp: 'cpp', h: 'cpp',
+  java: 'java', kt: 'kotlin', cs: 'csharp', swift: 'swift',
+  sh: 'bash', bash: 'bash', zsh: 'bash', fish: 'bash',
+  json: 'json', yaml: 'yaml', yml: 'yaml', toml: 'ini',
+  html: 'xml', xml: 'xml', svg: 'xml', css: 'css', scss: 'css',
+  md: 'markdown', sql: 'sql', dockerfile: 'dockerfile',
+  conf: 'ini', ini: 'ini', env: 'ini', nginx: 'nginx',
+  lua: 'lua', php: 'php', r: 'r', zig: 'rust',
+};
+
+function getLanguageFromPath(path) {
+  if (!path) return null;
+  const name = path.split('/').pop().toLowerCase();
+  if (name === 'dockerfile') return 'dockerfile';
+  if (name === 'makefile') return 'makefile';
+  const ext = name.split('.').pop();
+  return EXT_LANG[ext] || null;
+}
+
+// Format read tool output with line numbers gutter + syntax highlighting
+function formatReadOutput(text, filePath) {
+  const lines = text.split('\n');
+  const lineNums = [];
+  const codeLines = [];
+
+  for (const line of lines) {
+    const match = line.match(/^(\d+):(.*)/);
+    if (match) {
+      lineNums.push(match[1]);
+      codeLines.push(match[2]);
+    } else {
+      // Directory listing or non-numbered output — skip formatting
+      return null;
+    }
+  }
+
+  const code = codeLines.join('\n');
+  const lang = getLanguageFromPath(filePath);
+
+  let highlighted;
+  if (typeof hljs !== 'undefined' && lang) {
+    try {
+      highlighted = hljs.highlight(code, { language: lang, ignoreIllegals: true }).value;
+    } catch {
+      highlighted = escapeHtml(code);
+    }
+  } else {
+    highlighted = escapeHtml(code);
+  }
+
+  const gutter = lineNums.map(n => escapeHtml(n)).join('\n');
+  return `<div class="read-output"><div class="read-gutter">${gutter}</div><div class="read-code">${highlighted}</div></div>`;
+}
+
 function formatEditDiff(input) {
   if (!input || !input.oldString || !input.newString) return null;
   const oldLines = input.oldString.split('\n').map(l => `<span class="diff-line-old">- ${escapeHtml(l)}</span>`);
@@ -1654,6 +1755,8 @@ function addMessage(type, content, meta, toolInput, timestamp, iface) {
     const toolDetail = spaceIdx > 0 ? content.slice(spaceIdx) : '';
     const color = TOOL_COLORS[toolName] || 'var(--text-dim)';
     el.style.borderLeftColor = color;
+    el.dataset.toolName = toolName;
+    if (toolInput && toolInput.path) el.dataset.toolPath = toolInput.path;
     if (toolName === 'bash') {
       el.classList.add('tool-bash-style');
       el.innerHTML = `<div class="tool-header"><span class="tool-prompt">$</span><span class="tool-detail">${toolDetail}</span></div><div class="tool-output"></div>`;
@@ -1813,7 +1916,17 @@ function handleEvent(event) {
           const text = event.toolResult.length > 5000
             ? event.toolResult.slice(0, 5000) + '\n... (truncated)'
             : event.toolResult;
-          if (outputEl.innerHTML) {
+          // Try syntax-highlighted read output
+          const toolName = lastTool.dataset.toolName;
+          const toolPath = lastTool.dataset.toolPath;
+          if (toolName === 'read' && !outputEl.innerHTML) {
+            const formatted = formatReadOutput(text, toolPath);
+            if (formatted) {
+              outputEl.innerHTML = formatted;
+            } else {
+              outputEl.innerHTML = ansiToHtml(text);
+            }
+          } else if (outputEl.innerHTML) {
             outputEl.innerHTML += '\n\n' + ansiToHtml(text);
           } else {
             outputEl.innerHTML = ansiToHtml(text);
@@ -2103,7 +2216,14 @@ async function init() {
                   const truncated = result.length > 5000
                     ? result.slice(0, 5000) + '\n... (truncated)'
                     : result;
-                  if (outputEl.innerHTML) {
+                  if (part.toolName === 'read' && !outputEl.innerHTML) {
+                    const formatted = formatReadOutput(truncated, input.path);
+                    if (formatted) {
+                      outputEl.innerHTML = formatted;
+                    } else {
+                      outputEl.innerHTML = ansiToHtml(truncated);
+                    }
+                  } else if (outputEl.innerHTML) {
                     // Already has content (edit diff, write content, etc) — append result
                     outputEl.innerHTML += '\n\n' + ansiToHtml(truncated);
                   } else {
