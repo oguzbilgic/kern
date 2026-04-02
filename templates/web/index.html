@@ -1554,21 +1554,29 @@ function segColor(tokens, span) {
   return `hsl(${hue}, 60%, 45%)`;
 }
 
-$('segments-btn').addEventListener('click', async () => {
-  if (segOverlay.classList.contains('open')) {
-    segOverlay.classList.remove('open');
-    return;
-  }
+let segPollTimer = null;
+
+async function fetchAndRenderSegments() {
   if (!BASE_URL) return;
   try {
     const res = await fetch(`${BASE_URL}/segments`, { headers: AgentClient._headers(AUTH_TOKEN) });
     if (!res.ok) return;
     const data = await res.json();
     renderSegments(data);
-    segOverlay.classList.add('open');
   } catch (e) {
     console.error('segments fetch failed:', e);
   }
+}
+
+$('segments-btn').addEventListener('click', async () => {
+  if (segOverlay.classList.contains('open')) {
+    segOverlay.classList.remove('open');
+    if (segPollTimer) { clearInterval(segPollTimer); segPollTimer = null; }
+    return;
+  }
+  await fetchAndRenderSegments();
+  segOverlay.classList.add('open');
+  segPollTimer = setInterval(fetchAndRenderSegments, 3000);
 });
 
 $('segments-start').addEventListener('click', async () => {
@@ -1631,20 +1639,19 @@ $('segments-rebuild').addEventListener('click', async () => {
   }
 });
 
-$('segments-close').addEventListener('click', () => {
+function closeSegOverlay() {
   segOverlay.classList.remove('open');
-});
+  if (segPollTimer) { clearInterval(segPollTimer); segPollTimer = null; }
+}
+
+$('segments-close').addEventListener('click', closeSegOverlay);
 
 segOverlay.addEventListener('click', (e) => {
-  if (e.target === segOverlay) {
-    segOverlay.classList.remove('open');
-  }
+  if (e.target === segOverlay) closeSegOverlay();
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && segOverlay.classList.contains('open')) {
-    segOverlay.classList.remove('open');
-  }
+  if (e.key === 'Escape' && segOverlay.classList.contains('open')) closeSegOverlay();
 });
 
 const segDetail = $('segments-detail');
