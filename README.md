@@ -55,6 +55,7 @@ my-agent/
     config.json          # model, provider, toolScope (committed)
     .env                 # API keys, bot tokens (gitignored)
     sessions/            # conversation history (gitignored)
+    recall.db            # semantic search index (gitignored)
 ```
 
 Everything the agent needs is in this folder. Move it, zip it, clone it — the agent comes with it. Run `kern init` on any existing repo to adopt it as a kern agent.
@@ -128,6 +129,19 @@ Set `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` in `.kern/.env`. Uses Socket Mode �
 
 Invite the bot to channels where it should listen.
 
+## Memory
+
+Agents remember across sessions through two mechanisms:
+
+- **Files** — `knowledge/` for mutable state, `notes/` for daily logs. The agent reads and writes these through tools. Git-tracked, inspectable, portable.
+- **Recall** — semantic search over all past conversations. Messages are embedded and stored in a local SQLite database (`recall.db`). The agent uses the `recall` tool to search by query with optional date filters, or load raw messages from a specific session.
+
+On startup, the agent's system prompt is automatically injected with:
+- The latest daily note (full content)
+- An LLM-generated summary of the previous 5 daily notes
+
+This means the agent boots with recent context — no manual reading required. Summaries are cached in SQLite and regenerated in the background on day rollover.
+
 ## Heartbeat
 
 Kern sends a periodic `[heartbeat]` to the agent. The agent reviews notes, updates knowledge files, and messages the operator if something needs attention. Visible in the TUI only — Telegram and Slack never see it.
@@ -158,7 +172,7 @@ Structured, colored logs for queue, runtime, interfaces, and server. Logs stored
   "provider": "openrouter",
   "toolScope": "full",
   "maxSteps": 30,
-  "maxContextTokens": 40000,
+  "maxContextTokens": 50000,
   "maxToolResultChars": 20000
 }
 ```
@@ -180,9 +194,9 @@ Controls the `kern web` server. Optional — defaults apply if the file doesn't 
 
 ### Tool scopes
 
-- **full** — bash, read, write, edit, glob, grep, webfetch, kern, message
-- **write** — read, write, edit, glob, grep, webfetch, kern, message
-- **read** — read, glob, grep, webfetch, kern
+- **full** — bash, read, write, edit, glob, grep, webfetch, kern, message, recall
+- **write** — read, write, edit, glob, grep, webfetch, kern, message, recall
+- **read** — read, glob, grep, webfetch, kern, recall
 
 ### Providers
 
