@@ -259,6 +259,7 @@ export class Runtime {
           headers: {
             "HTTP-Referer": "https://github.com/oguzbilgic/kern-ai",
             "X-Title": "kern-ai",
+            "X-OpenRouter-Categories": "cli-agent,personal-agent",
           },
         });
         return openrouter.chat(this.config.model);

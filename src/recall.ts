@@ -46,6 +46,11 @@ export class RecallIndex {
     const client = createOpenAI({
       baseURL: provider === "openai" ? undefined : "https://openrouter.ai/api/v1",
       apiKey,
+      headers: provider !== "openai" ? {
+        "HTTP-Referer": "https://github.com/oguzbilgic/kern-ai",
+        "X-Title": "kern-ai",
+        "X-OpenRouter-Categories": "cli-agent,personal-agent",
+      } : undefined,
     });
     const modelId = provider === "openai" ? "text-embedding-3-small" : EMBEDDING_MODEL;
     this.embeddingModel = client.embeddingModel(modelId);
