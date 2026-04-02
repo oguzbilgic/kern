@@ -10,7 +10,7 @@ The main config file. Committed to git.
   "provider": "openrouter",
   "toolScope": "full",
   "maxSteps": 30,
-  "maxContextTokens": 40000
+  "maxContextTokens": 50000
 }
 ```
 
@@ -22,7 +22,7 @@ The main config file. Committed to git.
 | `provider` | `openrouter` | API provider: `openrouter`, `anthropic`, `openai` |
 | `toolScope` | `full` | Tool access level: `full`, `write`, `read` |
 | `maxSteps` | `30` | Max tool-use steps per message |
-| `maxContextTokens` | `40000` | Estimated token budget for context window. Messages beyond this are trimmed from the front (oldest first). Full history stays in JSONL. |
+| `maxContextTokens` | `50000` | Estimated token budget for context window. Messages beyond this are trimmed from the front (oldest first). Full history stays in JSONL. |
 | `maxToolResultChars` | `20000` | Max characters per tool result in context. Oversized results are truncated (keeping the start). Full results stay in JSONL and are searchable via recall. Set to `0` to disable. |
 | `heartbeatInterval` | `60` | Minutes between heartbeat prompts. Agent reviews notes, updates knowledge. 0 to disable. |
 | `recall` | `true` | Enable recall (long-term memory). Set to `false` to disable. Requires an embedding API key. |
