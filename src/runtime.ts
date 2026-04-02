@@ -7,7 +7,7 @@ import { SessionManager } from "./session.js";
 import { loadConfig, getToolsForScope, type KernConfig } from "./config.js";
 import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern.js";
 import type { RecallIndex } from "./recall.js";
-import { estimateTokens, getMsgSize, prepareContext, injectRecall, loadSystemPrompt } from "./context.js";
+import { prepareContext, injectRecall, loadSystemPrompt } from "./context.js";
 export type { SessionStats } from "./context.js";
 
 
@@ -99,7 +99,7 @@ export class Runtime {
       let fullText = "";
 
       const allMessages = this.session.getMessages();
-      const { messages: contextWindow } = prepareContext(allMessages, this.config);
+      const { messages: contextWindow, stats } = prepareContext(allMessages, this.config);
       const trimmedCount = allMessages.length - contextWindow.length;
       if (trimmedCount > 0) {
         log("runtime", `context trimmed: ${trimmedCount} old messages excluded`);
@@ -112,7 +112,7 @@ export class Runtime {
         onEvent({ type: "recall", recall });
       }
 
-      log("runtime", `context: ${contextMessages.length} messages, ~${estimateTokens(contextMessages)} tokens`);
+      log("runtime", `context: ${contextMessages.length} messages, ~${stats.windowTokens} tokens`);
       if (contextMessages.length > 0) {
         const first = contextMessages[0];
         const last = contextMessages[contextMessages.length - 1];

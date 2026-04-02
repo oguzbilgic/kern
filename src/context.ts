@@ -63,7 +63,7 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig): Pr
 }
 
 // Token estimate: stringify everything, ~4 chars per token
-export function estimateTokens(messages: ModelMessage[]): number {
+function estimateTokens(messages: ModelMessage[]): number {
   let chars = 0;
   for (const msg of messages) {
     chars += JSON.stringify(msg).length;
@@ -74,7 +74,7 @@ export function estimateTokens(messages: ModelMessage[]): number {
 // Per-message token size cache
 const msgSizeCache = new WeakMap<ModelMessage, number>();
 
-export function getMsgSize(msg: ModelMessage): number {
+function getMsgSize(msg: ModelMessage): number {
   let size = msgSizeCache.get(msg);
   if (size === undefined) {
     size = Math.ceil(JSON.stringify(msg).length / 4);
