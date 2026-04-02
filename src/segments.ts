@@ -193,8 +193,8 @@ export class SegmentIndex {
    */
   async summarizeUnsummarized(): Promise<number> {
     const rows = this.db.prepare(
-      "SELECT id, summary FROM semantic_segments WHERE summarized = 0 ORDER BY id"
-    ).all() as Array<{ id: number; summary: string }>;
+      "SELECT id, summary, token_count FROM semantic_segments WHERE summarized = 0 ORDER BY id"
+    ).all() as Array<{ id: number; summary: string; token_count: number }>;
 
     if (rows.length === 0) return 0;
 
@@ -214,12 +214,13 @@ export class SegmentIndex {
         // Build a summary-friendly version: truncate tool results to keep focus on narrative
         const summaryInput = row.summary.replace(/^tool: .{500,}$/gm, (m) => m.slice(0, 300) + '... [truncated]');
         const inputText = summaryInput.slice(0, 60000);
-        const targetWords = Math.max(200, Math.min(800, Math.round(inputText.length / 60)));
+        // Target ~10:1 compression ratio
+        const targetTokens = Math.max(200, Math.min(1500, Math.round(row.token_count / 10)));
 
         const result = await generateText({
           model: this.summaryModel,
-          prompt: `You are an AI agent writing notes for your future self. Summarize what happened in this conversation: what the user wanted, what you did, what the results and outcomes were, and what's still unresolved. Write in first person ("I did X", "User asked Y"). Focus on intent and outcomes, not individual commands. Be specific — include names, values, and key results. No filler. Bullet points if multiple topics. Target ~${targetWords} words.\n\n${inputText}`,
-          maxOutputTokens: 2000,
+          prompt: `You are an AI agent writing notes for your future self. Summarize what happened in this conversation: what the user wanted, what you did, what the results and outcomes were, and what's still unresolved. Write in first person ("I did X", "User asked Y"). Focus on intent and outcomes, not individual commands. Be specific — include names, values, and key results. No filler. Bullet points if multiple topics. IMPORTANT: Keep your response under ${targetTokens} tokens.\n\n${inputText}`,
+          maxOutputTokens: targetTokens,
         });
 
         const summaryText = result.text.trim();
