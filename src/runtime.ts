@@ -5,6 +5,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { allTools, type ToolName } from "./tools/index.js";
 import { SessionManager } from "./session.js";
 import { loadConfig, loadSystemPrompt, getToolsForScope, type KernConfig } from "./config.js";
+import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern.js";
+import type { RecallIndex } from "./recall.js";
 
 // Token estimate: stringify everything, ~4 chars per token
 function estimateTokens(messages: ModelMessage[]): number {
@@ -35,11 +37,11 @@ function truncateLargeToolResults(messages: ModelMessage[], maxChars: number, to
   // Only process messages within 2x the token budget from the end — older ones get trimmed anyway
   let startIndex = 0;
   if (tokenBudget > 0) {
-    const charBudget = tokenBudget * 4 * 2; // 2x budget in chars
-    let chars = 0;
+    const tokenLimit = tokenBudget * 2; // 2x budget
+    let tokens = 0;
     for (let i = messages.length - 1; i >= 0; i--) {
-      chars += JSON.stringify(messages[i]).length;
-      if (chars > charBudget) { startIndex = i + 1; break; }
+      tokens += getMsgSize(messages[i]);
+      if (tokens > tokenLimit) { startIndex = i + 1; break; }
     }
   }
 
@@ -118,9 +120,6 @@ function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): ModelMe
   return messages.slice(cutIndex);
 }
 
-import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern.js";
-import type { RecallIndex } from "./recall.js";
-
 export interface SessionStats {
   totalMessages: number;
   estimatedTokens: number;
@@ -135,11 +134,13 @@ function prepareContext(messages: ModelMessage[], config: KernConfig): { message
   const { messages: truncated, truncatedCount } = truncateLargeToolResults(messages, config.maxToolResultChars, config.maxContextTokens);
   const window = trimToTokenBudget(truncated, config.maxContextTokens);
   // Only count truncations that survived trimming
+  // FRAGILE: matches suffix appended by truncateLargeToolResults — keep in sync
+  const truncationSuffix = "use recall tool to search full content]";
   const trimmedTruncated = truncatedCount > 0
     ? window.reduce((n, msg) => {
         if (msg.role !== "tool" || !Array.isArray(msg.content)) return n;
         return n + (msg.content as ToolResultPart[]).filter(p =>
-          p.type === "tool-result" && p.output?.type === "text" && p.output.value.endsWith("use recall tool to search full content]")
+          p.type === "tool-result" && p.output?.type === "text" && p.output.value.endsWith(truncationSuffix)
         ).length;
       }, 0)
     : 0;
