@@ -2,7 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { readFile } from "fs/promises";
 import { join } from "path";
-import type { SessionStats } from "../runtime.js";
+import type { SessionStats } from "../context.js";
 
 // These get set by the runtime at init
 let _agentDir = "";
