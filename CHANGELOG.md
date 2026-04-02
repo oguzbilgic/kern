@@ -28,9 +28,7 @@
 ### Tools
 - **grep** — new `options` param for raw grep flags (`-C 3 -i -l`, etc.). Auto-excludes `node_modules`, `.git`, `dist`. `--color=always` for colored output. Single-file mode drops `-r` for clean line-only output.
 
-### Architecture
-- `model.ts` — extracted shared `createModel()` from runtime.ts. Used by runtime + notes.
-- `notes.ts` — new module: `loadNotesContext()` returns latest note + summary.
+### Changes
 - Default `maxContextTokens` increased from 40k to 50k.
 - OpenRouter: added `X-OpenRouter-Categories` header for attribution.
 
