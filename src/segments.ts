@@ -211,7 +211,7 @@ export class SegmentIndex {
       "UPDATE semantic_segments SET summary = ?, summarized = 1, summary_token_count = ? WHERE id = ?"
     );
 
-    const CONCURRENCY = 5;
+    const CONCURRENCY = 15;
     let summarized = 0;
 
     const summarizeOne = async (row: { id: number; summary: string; token_count: number }) => {
