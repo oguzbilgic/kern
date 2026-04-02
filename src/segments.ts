@@ -203,7 +203,7 @@ export class SegmentIndex {
     log("segments", `summarizing ${rows.length} segments...`);
 
     const update = this.db.prepare(
-      "UPDATE semantic_segments SET summary = ?, summarized = 1 WHERE id = ?"
+      "UPDATE semantic_segments SET summary = ?, summarized = 1, summary_token_count = ? WHERE id = ?"
     );
 
     let summarized = 0;
@@ -227,7 +227,8 @@ export class SegmentIndex {
 
         const summaryText = result.text.trim();
         if (summaryText) {
-          update.run(summaryText, row.id);
+          const summaryTokens = result.usage?.outputTokens ?? Math.ceil(summaryText.length / 4);
+          update.run(summaryText, summaryTokens, row.id);
           summarized++;
         }
       } catch (err: any) {
@@ -451,7 +452,7 @@ export class SegmentIndex {
     const params = sessionId ? [sessionId] : [];
 
     const segments = this.db.prepare(
-      `SELECT id, session_id, msg_start, msg_end, start_time, end_time, parent_id, level, summary, token_count, summarized, created_at
+      `SELECT id, session_id, msg_start, msg_end, start_time, end_time, parent_id, level, summary, token_count, summary_token_count, summarized, created_at
        FROM semantic_segments ${where} ORDER BY level, msg_start`
     ).all(...params) as any[];
 

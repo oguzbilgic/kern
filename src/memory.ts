@@ -83,6 +83,7 @@ export class MemoryDB {
     // Migrations — add columns to existing tables
     try { this.db.exec("ALTER TABLE semantic_segments ADD COLUMN start_time TEXT"); } catch {}
     try { this.db.exec("ALTER TABLE semantic_segments ADD COLUMN end_time TEXT"); } catch {}
+    try { this.db.exec("ALTER TABLE semantic_segments ADD COLUMN summary_token_count INTEGER NOT NULL DEFAULT 0"); } catch {}
 
     // Create vec tables separately (virtual tables don't support IF NOT EXISTS in all versions)
     try {
