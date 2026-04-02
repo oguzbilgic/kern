@@ -1655,6 +1655,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 const segDetail = $('segments-detail');
+let segDataMap = {};
 
 function renderSegments(data) {
   const { segments, stats } = data;
@@ -1681,6 +1682,7 @@ function renderSegments(data) {
     if (seg.msg_end > maxMsgEnd) maxMsgEnd = seg.msg_end;
   }
 
+  segDataMap = {};
   let html = '';
   const sortedLevels = Object.keys(levels).map(Number).sort();
 
@@ -1691,6 +1693,7 @@ function renderSegments(data) {
     html += `<div class="segments-row">`;
 
     for (const seg of segs) {
+      segDataMap[seg.id] = seg;
       const span = seg.msg_end - seg.msg_start;
       const widthPct = Math.max(2, (span / maxMsgEnd) * 100);
       const color = segColor(seg.token_count || 0, span);
@@ -1700,12 +1703,6 @@ function renderSegments(data) {
 
       html += `<div class="seg-block${cls}" style="width:${widthPct}%;height:${height}px;background:${color};"
         data-seg-id="${seg.id}"
-        data-seg-start="${seg.msg_start}"
-        data-seg-end="${seg.msg_end}"
-        data-seg-tokens="${seg.token_count}"
-        data-seg-summarized="${seg.summarized ? '1' : '0'}"
-        data-seg-summary="${escHtml(seg.summary || '')}"
-        data-seg-created="${seg.created_at || ''}"
       >${label}</div>`;
     }
 
@@ -1722,28 +1719,25 @@ function renderSegments(data) {
 }
 
 function showSegDetail(el) {
-  // Clear active state
   segTimeline.querySelectorAll('.seg-block.active').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
 
-  const start = el.dataset.segStart;
-  const end = el.dataset.segEnd;
-  const span = end - start;
-  const tokens = Number(el.dataset.segTokens).toLocaleString();
-  const summarized = el.dataset.segSummarized === '1';
-  const summary = el.dataset.segSummary;
-  const created = el.dataset.segCreated;
-  const summaryTokens = Math.ceil((summary || '').length / 4);
+  const seg = segDataMap[el.dataset.segId];
+  if (!seg) return;
+
+  const span = seg.msg_end - seg.msg_start;
+  const tokens = (seg.token_count || 0).toLocaleString();
+  const summaryTokens = Math.ceil((seg.summary || '').length / 4);
 
   segDetail.classList.remove('empty');
   segDetail.innerHTML = `
     <div class="seg-detail-meta">
-      msgs ${start}–${end} (${span} messages)<br>
-      ${tokens} tokens → ${summaryTokens} summary tokens (${summaryTokens > 0 ? Math.round(Number(el.dataset.segTokens) / summaryTokens) : '?'}:1)<br>
-      ${created ? new Date(created).toLocaleString() : ''}
-      ${!summarized ? '<br><span style="color:var(--orange);">⏳ not yet summarized</span>' : ''}
+      msgs ${seg.msg_start}–${seg.msg_end} (${span} messages)<br>
+      ${tokens} tokens → ${summaryTokens} summary tokens (${summaryTokens > 0 ? Math.round(seg.token_count / summaryTokens) : '?'}:1)<br>
+      ${seg.created_at ? new Date(seg.created_at).toLocaleString() : ''}
+      ${!seg.summarized ? '<br><span style="color:var(--orange);">⏳ not yet summarized</span>' : ''}
     </div>
-    <div class="seg-detail-summary">${summary || '<span style="color:var(--text-muted);font-style:italic;">no summary</span>'}</div>
+    <div class="seg-detail-summary">${escHtml(seg.summary || '') || '<span style="color:var(--text-muted);font-style:italic;">no summary</span>'}</div>
   `;
 }
 
