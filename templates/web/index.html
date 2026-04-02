@@ -1588,6 +1588,39 @@ function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// Convert ANSI escape sequences to HTML spans
+function ansiToHtml(s) {
+  const ANSI_COLORS = {
+    '30': '#545454', '31': '#fc533a', '32': '#3fb950', '33': '#d29922',
+    '34': '#58a6ff', '35': '#bc8cff', '36': '#56d4dd', '37': '#e6edf3',
+    '90': '#707070', '91': '#f97583', '92': '#56d364', '93': '#e3b341',
+    '94': '#79c0ff', '95': '#d2a8ff', '96': '#76e3ea', '97': '#ffffff',
+  };
+  let html = escapeHtml(s);
+  let open = false;
+  html = html.replace(/\x1b\[([0-9;]*)m/g, (_, codes) => {
+    const parts = codes.split(';').filter(Boolean);
+    if (parts.length === 0 || (parts.length === 1 && parts[0] === '0')) {
+      return open ? (open = false, '</span>') : '';
+    }
+    let color = null;
+    let bold = false;
+    for (const p of parts) {
+      if (p === '1') bold = true;
+      else if (ANSI_COLORS[p]) color = ANSI_COLORS[p];
+    }
+    if (!color && !bold) return open ? (open = false, '</span>') : '';
+    const prefix = open ? '</span>' : '';
+    open = true;
+    const style = (color ? `color:${color};` : '') + (bold ? 'font-weight:bold;' : '');
+    return `${prefix}<span style="${style}">`;
+  });
+  if (open) html += '</span>';
+  // Strip any remaining escape sequences
+  html = html.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+  return html;
+}
+
 function formatEditDiff(input) {
   if (!input || !input.oldString || !input.newString) return null;
   const oldLines = input.oldString.split('\n').map(l => `<span class="diff-line-old">- ${escapeHtml(l)}</span>`);
@@ -1781,9 +1814,9 @@ function handleEvent(event) {
             ? event.toolResult.slice(0, 5000) + '\n... (truncated)'
             : event.toolResult;
           if (outputEl.innerHTML) {
-            outputEl.innerHTML += '\n\n' + escapeHtml(text);
+            outputEl.innerHTML += '\n\n' + ansiToHtml(text);
           } else {
-            outputEl.textContent = text;
+            outputEl.innerHTML = ansiToHtml(text);
           }
         }
       }
@@ -2072,9 +2105,9 @@ async function init() {
                     : result;
                   if (outputEl.innerHTML) {
                     // Already has content (edit diff, write content, etc) — append result
-                    outputEl.innerHTML += '\n\n' + escapeHtml(truncated);
+                    outputEl.innerHTML += '\n\n' + ansiToHtml(truncated);
                   } else {
-                    outputEl.textContent = truncated;
+                    outputEl.innerHTML = ansiToHtml(truncated);
                   }
                 }
               }
