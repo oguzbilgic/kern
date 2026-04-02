@@ -218,7 +218,10 @@ interface PrepareContextOptions {
 export function prepareContext({ messages, config, sessionId, segmentIndex }: PrepareContextOptions): { messages: ModelMessage[]; stats: SessionStats } {
   const totalTokens = estimateTokens(messages);
   const { messages: truncated, truncatedCount } = truncateLargeToolResults(messages, config.maxToolResultChars, config.maxContextTokens);
-  const { messages: window, trimmedCount } = trimToTokenBudget(truncated, config.maxContextTokens);
+  const rawBudget = segmentIndex && config.historyBudget > 0
+    ? Math.round(config.maxContextTokens * (1 - config.historyBudget))
+    : config.maxContextTokens;
+  const { messages: window, trimmedCount } = trimToTokenBudget(truncated, rawBudget);
 
   // Inject compressed history at trim boundary
   let historyTokens = 0;
