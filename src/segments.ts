@@ -193,7 +193,7 @@ export class SegmentIndex {
     log("segments", `summarizing ${rows.length} segments...`);
 
     const update = this.db.prepare(
-      "UPDATE semantic_segments SET summary = ?, token_count = ?, summarized = 1 WHERE id = ?"
+      "UPDATE semantic_segments SET summary = ?, summarized = 1 WHERE id = ?"
     );
 
     let summarized = 0;
@@ -207,7 +207,7 @@ export class SegmentIndex {
 
         const summaryText = result.text.trim();
         if (summaryText) {
-          update.run(summaryText, Math.ceil(summaryText.length / 4), row.id);
+          update.run(summaryText, row.id);
           summarized++;
         }
       } catch (err: any) {
