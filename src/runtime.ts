@@ -130,11 +130,20 @@ export class Runtime {
       const pendingInjections = this.pendingInjections;
       let persistedCount = 0;
 
+      const providerOptions: Record<string, any> = {};
+      const reasoning = this.config.reasoning;
+      if (reasoning?.enabled !== false && reasoning?.effort && reasoning.effort !== "none") {
+        providerOptions.openai = {
+          reasoningEffort: reasoning.effort,
+        };
+      }
+
       const result = streamText({
         model,
         system: this.systemPrompt,
         messages: contextMessages,
         tools,
+        providerOptions,
         stopWhen: stepCountIs(this.config.maxSteps),
         onError: ({ error }) => {
           streamError = error;
