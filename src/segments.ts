@@ -169,9 +169,11 @@ export class SegmentIndex {
 
     if (totalCreated > 0) {
       log("segments", `total ${totalCreated} segments for session ${sessionId.slice(0, 8)}...`);
-      // Summarize in background
-      this.summarizeUnsummarized().catch((err) => {
-        log("segments", `summarization failed: ${err.message}`);
+      // Summarize in background, then roll up higher levels
+      this.summarizeUnsummarized().then(() => {
+        return this.rollUpLevels(sessionId);
+      }).catch((err) => {
+        log("segments", `summarization/rollup failed: ${err.message}`);
       });
     }
 
@@ -244,6 +246,101 @@ export class SegmentIndex {
       log("segments", `summarized ${summarized} segments`);
     }
     return summarized;
+  }
+
+  /**
+   * Roll up segments into higher levels.
+   * For each level, find 10+ consecutive summarized segments with no parent_id.
+   * Group them into a parent segment at level+1. Recurse until no more groups.
+   */
+  private async rollUpLevels(sessionId: string): Promise<void> {
+    const ROLLUP_SIZE = 10;
+    let rolled = true;
+
+    while (rolled) {
+      rolled = false;
+      if (this.abortController?.signal.aborted) break;
+
+      // Find the max level that exists
+      const maxLevelRow = this.db.prepare(
+        "SELECT MAX(level) as max_level FROM semantic_segments WHERE session_id = ?"
+      ).get(sessionId) as { max_level: number | null };
+      const maxLevel = maxLevelRow?.max_level ?? 0;
+
+      for (let level = 0; level <= maxLevel; level++) {
+        // Get consecutive summarized orphans at this level
+        const orphans = this.db.prepare(
+          `SELECT id, msg_start, msg_end, start_time, end_time, summary, token_count, summary_token_count
+           FROM semantic_segments
+           WHERE session_id = ? AND level = ? AND parent_id IS NULL AND summarized = 1
+           ORDER BY msg_start`
+        ).all(sessionId, level) as Array<{
+          id: number; msg_start: number; msg_end: number;
+          start_time: string | null; end_time: string | null;
+          summary: string; token_count: number; summary_token_count: number;
+        }>;
+
+        if (orphans.length < ROLLUP_SIZE) continue;
+
+        // Take groups of ROLLUP_SIZE
+        const groupCount = Math.floor(orphans.length / ROLLUP_SIZE);
+        for (let g = 0; g < groupCount; g++) {
+          if (this.abortController?.signal.aborted) break;
+
+          const group = orphans.slice(g * ROLLUP_SIZE, (g + 1) * ROLLUP_SIZE);
+          const parentLevel = level + 1;
+          const msgStart = group[0].msg_start;
+          const msgEnd = group[group.length - 1].msg_end;
+          const startTime = group[0].start_time;
+          const endTime = group[group.length - 1].end_time;
+          const totalTokens = group.reduce((s, seg) => s + seg.token_count, 0);
+
+          // Concatenate child summaries as input for parent summary
+          const childSummaries = group.map((seg, i) =>
+            `[Segment ${i + 1}, msgs ${seg.msg_start}-${seg.msg_end}]\n${seg.summary}`
+          ).join("\n\n");
+
+          const targetTokens = Math.max(200, Math.min(1500,
+            Math.round(group.reduce((s, seg) => s + seg.summary_token_count, 0) / 3)
+          ));
+
+          try {
+            const result = await generateText({
+              model: this.summaryModel,
+              prompt: `You are an AI agent writing notes for your future self. Below are ${group.length} sequential conversation summaries. Write a higher-level summary that captures the key themes, decisions, and outcomes across all of them. Write in first person. Be specific. Bullet points. Keep under ${targetTokens} tokens.\n\n${childSummaries}`,
+              maxOutputTokens: targetTokens,
+            });
+
+            const summaryText = result.text.trim();
+            if (!summaryText) continue;
+
+            const summaryTokens = result.usage?.outputTokens ?? Math.ceil(summaryText.length / 4);
+
+            // Insert parent, set children's parent_id
+            const tx = this.db.transaction(() => {
+              const info = this.db.prepare(
+                `INSERT INTO semantic_segments (session_id, msg_start, msg_end, start_time, end_time, level, summary, token_count, summary_token_count, summarized)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
+              ).run(sessionId, msgStart, msgEnd, startTime, endTime, parentLevel, summaryText, totalTokens, summaryTokens);
+
+              const parentId = info.lastInsertRowid;
+              const setParent = this.db.prepare(
+                "UPDATE semantic_segments SET parent_id = ? WHERE id = ?"
+              );
+              for (const child of group) {
+                setParent.run(parentId, child.id);
+              }
+            });
+            tx();
+
+            log("segments", `rolled up ${group.length} L${level} → 1 L${parentLevel} (msgs ${msgStart}-${msgEnd})`);
+            rolled = true;
+          } catch (err: any) {
+            log("segments", `rollup failed for L${level} group: ${err.message}`);
+          }
+        }
+      }
+    }
   }
 
   /**
