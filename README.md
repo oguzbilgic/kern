@@ -157,9 +157,13 @@ Structured, colored logs for queue, runtime, interfaces, and server. Logs stored
   "model": "anthropic/claude-opus-4.6",
   "provider": "openrouter",
   "toolScope": "full",
-  "maxSteps": 30
+  "maxSteps": 30,
+  "maxContextTokens": 40000,
+  "maxToolResultChars": 20000
 }
 ```
+
+`maxContextTokens` controls the sliding context window — older messages are trimmed to stay within budget. `maxToolResultChars` caps individual tool results in context (full results stay in session JSONL and are searchable via recall). Set to `0` to disable.
 
 Agent auth tokens are auto-generated on first start and stored in `.kern/.env`. The web proxy injects them automatically — no manual setup needed.
 

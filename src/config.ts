@@ -11,6 +11,7 @@ export interface KernConfig {
   toolScope: ToolScope;
   maxSteps: number;
   maxContextTokens: number;
+  maxToolResultChars: number;
   heartbeatInterval: number;
   autoRecall?: boolean;
   telegram?: {
@@ -31,6 +32,7 @@ const defaults: KernConfig = {
   toolScope: "full",
   maxSteps: 30,
   maxContextTokens: 40000,
+  maxToolResultChars: 20000,
   heartbeatInterval: 60,
 };
 
