@@ -201,7 +201,7 @@ export class SegmentIndex {
       try {
         const result = await generateText({
           model: this.summaryModel,
-          prompt: `Summarize this conversation segment. Include: topics discussed, decisions made, actions taken, problems encountered, and unresolved items. Be direct — start with the subject matter. Preserve specific names, values, and details that would help someone pick up where this left off. Target length: ~${Math.max(200, Math.min(800, Math.round(row.summary.length / 60)))} words.\n\n${row.summary.slice(0, 60000)}`,
+          prompt: `You are an AI agent writing notes for your future self about what happened in this conversation segment. Write in first person ("I did X", "User asked Y"). Be factual and specific — include exact names, values, commands, errors, and outcomes. No filler, no hedging, no "the conversation involved". Structure as bullet points if multiple topics were covered. Target ~${Math.max(200, Math.min(800, Math.round(row.summary.length / 60)))} words.\n\n${row.summary.slice(0, 60000)}`,
           maxOutputTokens: 2000,
         });
 
