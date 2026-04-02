@@ -16,7 +16,8 @@ const WINDOW_SIZE = 5;          // embed windows of N messages for smoother dist
 
 // Batch size for embedding API calls
 const MIN_MESSAGES = 10;        // minimum messages per segment — merge if fewer
-const MIN_TAIL_MESSAGES = 100; // minimum unsegmented messages before creating new segments
+const MIN_TAIL_MESSAGES = 10;  // minimum unsegmented messages before creating new segments
+const MIN_TAIL_TOKENS = 10000; // minimum unsegmented tokens before creating new segments
 const EMBED_BATCH_SIZE = 100;
 
 // Max messages to process per indexSession call (prevents OOM on large backfills)
@@ -92,8 +93,12 @@ export class SegmentIndex {
     ).all(sessionId, lastSegmented) as MessageRow[];
 
     if (allMessages.length < 3) return 0;
-    // For incremental indexing, wait for enough messages to detect topic boundaries
-    if (lastSegmented > 0 && allMessages.length < MIN_TAIL_MESSAGES) return 0;
+    // For incremental indexing, wait for enough content to detect topic boundaries
+    if (lastSegmented > 0) {
+      if (allMessages.length < MIN_TAIL_MESSAGES) return 0;
+      const tailTokens = allMessages.reduce((sum, m) => sum + Math.ceil(m.content.length / 4), 0);
+      if (tailTokens < MIN_TAIL_TOKENS) return 0;
+    }
 
     this.abortController = new AbortController();
     const signal = this.abortController.signal;
