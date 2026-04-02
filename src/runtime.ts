@@ -1,4 +1,4 @@
-import { streamText, type ModelMessage, stepCountIs } from "ai";
+import { streamText, type ModelMessage, type ToolResultPart, stepCountIs } from "ai";
 import { log } from "./log.js";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -55,11 +55,11 @@ function truncateLargeToolResults(messages: ModelMessage[], maxChars: number, to
     }
 
     let partChanged = false;
-    const newParts: any[] = [];
+    const newParts: ToolResultPart[] = [];
 
-    for (const part of msg.content as any[]) {
-      if (part.type === "tool-result" && part.output) {
-        const value = part.output.value;
+    for (const part of msg.content as ToolResultPart[]) {
+      if (part.type === "tool-result" && part.output && "value" in part.output) {
+        const { value } = part.output;
         const valueStr = typeof value === "string" ? value : JSON.stringify(value);
         if (valueStr.length > maxChars) {
           const truncated = valueStr.slice(0, maxChars);
@@ -93,8 +93,8 @@ function countTruncated(messages: ModelMessage[]): number {
   let count = 0;
   for (const msg of messages) {
     if (msg.role !== "tool" || !Array.isArray(msg.content)) continue;
-    for (const part of msg.content as any[]) {
-      if (part.type === "tool-result" && typeof part.output?.value === "string" &&
+    for (const part of msg.content as ToolResultPart[]) {
+      if (part.type === "tool-result" && part.output?.type === "text" &&
           part.output.value.includes("\n\n[truncated from ")) count++;
     }
   }
@@ -133,6 +133,29 @@ function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): ModelMe
 import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern.js";
 import type { RecallIndex } from "./recall.js";
 
+export interface SessionStats {
+  totalMessages: number;
+  estimatedTokens: number;
+  windowTokens: number;
+  windowMessages: number;
+  truncatedCount: number;
+}
+
+function getSessionStats(session: SessionManager, config: KernConfig): SessionStats {
+  const allMessages = session.getMessages();
+  const totalTokens = estimateTokens(allMessages);
+  const { messages: truncatedMsgs } = truncateLargeToolResults(allMessages, config.maxToolResultChars, config.maxContextTokens);
+  const windowMsgs = trimToTokenBudget(truncatedMsgs, config.maxContextTokens);
+  const windowTokens = estimateTokens(windowMsgs);
+  return {
+    totalMessages: allMessages.length,
+    estimatedTokens: totalTokens,
+    windowTokens,
+    windowMessages: windowMsgs.length,
+    truncatedCount: countTruncated(windowMsgs),
+  };
+}
+
 export interface StreamEvent {
   type: "text-delta" | "tool-call" | "tool-result" | "finish" | "error" | "recall";
   text?: string;
@@ -163,26 +186,11 @@ export class Runtime {
 
   async setPairingManager(pairing: any): Promise<void> {
     const { initKernTool } = await import("./tools/kern.js");
-    const session = this.session;
-    const config = this.config;
     await initKernTool({
       agentDir: this.agentDir,
       config: this.config,
       sessionId: this.session.getSessionId() || "unknown",
-      getSessionStats: () => {
-        const allMessages = session.getMessages();
-        const totalTokens = estimateTokens(allMessages);
-        const { messages: truncatedMsgs } = truncateLargeToolResults(allMessages, config.maxToolResultChars, config.maxContextTokens);
-        const windowMsgs = trimToTokenBudget(truncatedMsgs, config.maxContextTokens);
-        const windowTokens = estimateTokens(windowMsgs);
-        return {
-          totalMessages: allMessages.length,
-          estimatedTokens: totalTokens,
-          windowTokens,
-          windowMessages: windowMsgs.length,
-          truncatedCount: countTruncated(windowMsgs),
-        };
-      },
+      getSessionStats: () => getSessionStats(this.session, this.config),
       pairingManager: pairing,
     });
   }
@@ -194,26 +202,11 @@ export class Runtime {
     await this.session.init();
     await this.session.load();
 
-    const session = this.session;
-    const config = this.config;
     await initKernTool({
       agentDir: this.agentDir,
       config: this.config,
       sessionId: this.session.getSessionId() || "unknown",
-      getSessionStats: () => {
-        const allMessages = session.getMessages();
-        const totalTokens = estimateTokens(allMessages);
-        const { messages: truncatedMsgs } = truncateLargeToolResults(allMessages, config.maxToolResultChars, config.maxContextTokens);
-        const windowMsgs = trimToTokenBudget(truncatedMsgs, config.maxContextTokens);
-        const windowTokens = estimateTokens(windowMsgs);
-        return {
-          totalMessages: allMessages.length,
-          estimatedTokens: totalTokens,
-          windowTokens,
-          windowMessages: windowMsgs.length,
-          truncatedCount: countTruncated(windowMsgs),
-        };
-      },
+      getSessionStats: () => getSessionStats(this.session, this.config),
     });
   }
 

@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { readFile } from "fs/promises";
 import { join } from "path";
+import type { SessionStats } from "../runtime.js";
 
 // These get set by the runtime at init
 let _agentDir = "";
@@ -13,7 +14,7 @@ let _version = "unknown";
 let _totalPromptTokens = 0;
 let _totalCompletionTokens = 0;
 let _usageFile = "";
-let _getSessionStats: (() => { totalMessages: number; estimatedTokens: number; windowTokens: number; windowMessages: number; truncatedCount: number }) | null = null;
+let _getSessionStats: (() => SessionStats) | null = null;
 let _reloadFn: (() => Promise<void>) | null = null;
 let _pairingManager: any = null;
 let _getQueueStatus: (() => { processing: boolean; pending: number; activeChannel: string | null }) | null = null;
@@ -36,7 +37,7 @@ export async function initKernTool(opts: {
   agentDir: string;
   config: any;
   sessionId: string;
-  getSessionStats?: () => { totalMessages: number; estimatedTokens: number; windowTokens: number; windowMessages: number; truncatedCount: number };
+  getSessionStats?: () => SessionStats;
   reload?: () => Promise<void>;
   pairingManager?: any;
 }) {
