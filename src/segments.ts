@@ -238,9 +238,9 @@ export class SegmentIndex {
     const closeSegment = (end: number) => {
       if (end <= segStart) return;
 
-      // Build segment text from messages
+      // Build segment text from full message content (not truncated embedding text)
       const segMsgs = messages.slice(segStart, end);
-      const text = segMsgs.map((m) => `${m.role}: ${this.messageText(m)}`).join("\n");
+      const text = segMsgs.map((m) => `${m.role}: ${m.content}`).join("\n");
       const tokenCount = Math.ceil(text.length / 4);
 
       // Average the embeddings for this segment
