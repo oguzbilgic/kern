@@ -2,7 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { exec } from "child_process";
 
-const MAX_OUTPUT_CHARS = 100_000;
+const MAX_OUTPUT_CHARS = 25_000;
 
 export const bashTool = tool({
   description:
