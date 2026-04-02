@@ -33,6 +33,8 @@ interface Segment {
   session_id: string;
   msg_start: number;
   msg_end: number;
+  start_time: string | null;
+  end_time: string | null;
   text: string;
   token_count: number;
   embedding: number[];
@@ -131,7 +133,7 @@ export class SegmentIndex {
 
       // Store segments
       const insertSeg = this.db.prepare(
-        "INSERT OR IGNORE INTO semantic_segments (session_id, msg_start, msg_end, level, summary, token_count) VALUES (?, ?, ?, 0, ?, ?)"
+        "INSERT OR IGNORE INTO semantic_segments (session_id, msg_start, msg_end, start_time, end_time, level, summary, token_count) VALUES (?, ?, ?, ?, ?, 0, ?, ?)"
       );
       const insertVec = this.db.prepare(
         "INSERT INTO vec_segments (rowid, embedding) VALUES (?, ?)"
@@ -145,7 +147,7 @@ export class SegmentIndex {
 
       const tx = this.db.transaction(() => {
         for (const seg of merged) {
-          const info = insertSeg.run(seg.session_id, seg.msg_start, seg.msg_end, seg.text, seg.token_count);
+          const info = insertSeg.run(seg.session_id, seg.msg_start, seg.msg_end, seg.start_time, seg.end_time, seg.text, seg.token_count);
           if (info.changes === 0) continue;
           const segId = typeof info.lastInsertRowid === "bigint" ? info.lastInsertRowid : BigInt(info.lastInsertRowid);
           insertVec.run(segId, new Float32Array(seg.embedding));
@@ -265,10 +267,16 @@ export class SegmentIndex {
       const segEmbeddings = embeddings.slice(segStart, end);
       const avgEmbedding = averageEmbeddings(segEmbeddings);
 
+      // Extract time range from message timestamps
+      const startTime = messages[segStart].timestamp || null;
+      const endTime = messages[end - 1].timestamp || null;
+
       segments.push({
         session_id: sessionId,
         msg_start: messages[segStart].msg_index,
         msg_end: messages[end - 1].msg_index + 1, // exclusive end
+        start_time: startTime,
+        end_time: endTime,
         text,
         token_count: tokenCount,
         embedding: avgEmbedding,
@@ -443,7 +451,7 @@ export class SegmentIndex {
     const params = sessionId ? [sessionId] : [];
 
     const segments = this.db.prepare(
-      `SELECT id, session_id, msg_start, msg_end, parent_id, level, summary, token_count, summarized, created_at
+      `SELECT id, session_id, msg_start, msg_end, start_time, end_time, parent_id, level, summary, token_count, summarized, created_at
        FROM semantic_segments ${where} ORDER BY level, msg_start`
     ).all(...params) as any[];
 

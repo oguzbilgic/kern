@@ -64,6 +64,8 @@ export class MemoryDB {
         session_id TEXT NOT NULL,
         msg_start INTEGER NOT NULL,
         msg_end INTEGER NOT NULL,
+        start_time TEXT,
+        end_time TEXT,
         parent_id INTEGER REFERENCES semantic_segments(id),
         level INTEGER NOT NULL DEFAULT 0,
         summary TEXT NOT NULL,
@@ -77,6 +79,10 @@ export class MemoryDB {
         last_segmented_msg INTEGER NOT NULL
       );
     `);
+
+    // Migrations — add columns to existing tables
+    try { this.db.exec("ALTER TABLE semantic_segments ADD COLUMN start_time TEXT"); } catch {}
+    try { this.db.exec("ALTER TABLE semantic_segments ADD COLUMN end_time TEXT"); } catch {}
 
     // Create vec tables separately (virtual tables don't support IF NOT EXISTS in all versions)
     try {
