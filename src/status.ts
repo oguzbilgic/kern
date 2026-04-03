@@ -1,4 +1,5 @@
 import { loadRegistry, isProcessRunning } from "./registry.js";
+import { getInstallStatus } from "./install.js";
 import { existsSync } from "fs";
 import { readFile, readdir } from "fs/promises";
 import { join } from "path";
@@ -53,15 +54,19 @@ export async function showStatus(): Promise<void> {
       } catch {}
     }
 
+    const installStatus = getInstallStatus(agent.name);
     const dot = !exists ? red("●") : running ? green("●") : dim("●");
     const nameStr = bold(agent.name);
     const modelStr = provider && model ? dim(`${provider}/${model}`) : dim("no config");
     const portStr = agent.port ? `:${agent.port}` : "";
+    const installStr = installStatus ? dim(` [systemd]`) : "";
     const statusStr = !exists
       ? red("not found")
       : running
-        ? green(`running`) + dim(` (pid ${agent.pid}${portStr})`)
-        : dim("stopped");
+        ? green(`running`) + dim(` (pid ${agent.pid}${portStr})`) + installStr
+        : installStatus === "installed"
+          ? dim("installed, stopped")
+          : dim("stopped");
 
     w(`  ${dot} ${nameStr}  ${modelStr}  ${statusStr}`);
     w(`    ${dim("path")}  ${agent.path}`);

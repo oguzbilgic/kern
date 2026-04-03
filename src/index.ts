@@ -42,6 +42,8 @@ async function showHelp() {
   w(`    ${cyan("kern import")} ${dim("opencode <name>")}  import session from OpenCode`);
   w(`    ${cyan("kern restore")} ${dim("<file>")}         restore agent from backup`);
   w(`    ${cyan("kern logs")} ${dim("[name] [-f] [-n 50] [--level warn]")}  show agent logs`);
+  w(`    ${cyan("kern install")} ${dim("[name|--web]")}    install systemd services`);
+  w(`    ${cyan("kern uninstall")} ${dim("[name]")}        remove systemd services`);
   w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
   w(`    ${cyan("kern web")} ${dim("<start|stop|status|token>")}  web UI server`);
   w("");
@@ -109,19 +111,52 @@ async function main() {
   }
 
   if (cmd === "start") {
+    if (args[1]) {
+      const { isSystemdInstalled, systemctlAgent } = await import("./install.js");
+      if (isSystemdInstalled(args[1])) {
+        systemctlAgent("start", args[1]);
+        process.exit(0);
+      }
+    }
     await startAgent(args[1]);
     process.exit(0);
   }
 
   if (cmd === "stop") {
+    if (args[1]) {
+      const { isSystemdInstalled, systemctlAgent } = await import("./install.js");
+      if (isSystemdInstalled(args[1])) {
+        systemctlAgent("stop", args[1]);
+        process.exit(0);
+      }
+    }
     await stopAgent(args[1]);
     process.exit(0);
   }
 
   if (cmd === "restart") {
+    if (args[1]) {
+      const { isSystemdInstalled, systemctlAgent } = await import("./install.js");
+      if (isSystemdInstalled(args[1])) {
+        systemctlAgent("restart", args[1]);
+        process.exit(0);
+      }
+    }
     await stopAgent(args[1]);
     await new Promise((r) => setTimeout(r, 500));
     await startAgent(args[1]);
+    process.exit(0);
+  }
+
+  if (cmd === "install") {
+    const { install } = await import("./install.js");
+    await install(args[1]);
+    process.exit(0);
+  }
+
+  if (cmd === "uninstall") {
+    const { uninstall } = await import("./install.js");
+    await uninstall(args[1]);
     process.exit(0);
   }
 
