@@ -126,16 +126,23 @@ async function installAgent(agentName: string, agentPath: string): Promise<void>
   const svc = serviceName(agentName);
   const unitPath = join(SYSTEMD_DIR, `${svc}.service`);
 
-  // Stop PID-based daemon if running
-  const agent = await findAgent(agentName);
-  if (agent?.pid && isProcessRunning(agent.pid)) {
-    try {
-      process.kill(agent.pid, "SIGTERM");
-      console.log(`  ${dim("stopped pid-based daemon")} ${dim(`(pid ${agent.pid})`)}`);
-      await setPid(agentName, null);
-      // Wait for process to exit
-      await new Promise((r) => setTimeout(r, 1000));
-    } catch {}
+  // Already installed and running — skip
+  if (existsSync(unitPath) && isActive(svc)) {
+    console.log(`  ${green("●")} ${bold(agentName)} already installed and running`);
+    return;
+  }
+
+  // Stop PID-based daemon if running (but not if it's the systemd-managed process)
+  if (!existsSync(unitPath)) {
+    const agent = await findAgent(agentName);
+    if (agent?.pid && isProcessRunning(agent.pid)) {
+      try {
+        process.kill(agent.pid, "SIGTERM");
+        console.log(`  ${dim("stopped pid-based daemon")} ${dim(`(pid ${agent.pid})`)}`);
+        await setPid(agentName, null);
+        await new Promise((r) => setTimeout(r, 1000));
+      } catch {}
+    }
   }
 
   // Write unit file
@@ -144,7 +151,7 @@ async function installAgent(agentName: string, agentPath: string): Promise<void>
   // Enable and start
   systemctl("daemon-reload");
   systemctl("enable", svc);
-  systemctl("start", svc);
+  systemctl("restart", svc);
 
   // Verify
   await new Promise((r) => setTimeout(r, 1500));
@@ -159,25 +166,33 @@ async function installAgent(agentName: string, agentPath: string): Promise<void>
 async function installWeb(): Promise<void> {
   const unitPath = join(SYSTEMD_DIR, `${WEB_SERVICE}.service`);
 
-  // Stop existing web daemon if running
-  const pidFile = join(homedir(), ".kern", "web.pid");
-  if (existsSync(pidFile)) {
-    try {
-      const pid = parseInt(await readFile(pidFile, "utf-8"), 10);
-      if (pid && isProcessRunning(pid)) {
-        process.kill(pid, "SIGTERM");
-        console.log(`  ${dim("stopped pid-based web daemon")} ${dim(`(pid ${pid})`)}`);
-        await new Promise((r) => setTimeout(r, 1000));
-      }
-      await unlink(pidFile).catch(() => {});
-    } catch {}
+  // Already installed and running — skip
+  if (existsSync(unitPath) && isActive(WEB_SERVICE)) {
+    console.log(`  ${green("●")} ${bold("web")} already installed and running`);
+    return;
+  }
+
+  // Stop existing PID-based web daemon if running
+  if (!existsSync(unitPath)) {
+    const pidFile = join(homedir(), ".kern", "web.pid");
+    if (existsSync(pidFile)) {
+      try {
+        const pid = parseInt(await readFile(pidFile, "utf-8"), 10);
+        if (pid && isProcessRunning(pid)) {
+          process.kill(pid, "SIGTERM");
+          console.log(`  ${dim("stopped pid-based web daemon")} ${dim(`(pid ${pid})`)}`);
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+        await unlink(pidFile).catch(() => {});
+      } catch {}
+    }
   }
 
   await writeFile(unitPath, webServiceUnit());
 
   systemctl("daemon-reload");
   systemctl("enable", WEB_SERVICE);
-  systemctl("start", WEB_SERVICE);
+  systemctl("restart", WEB_SERVICE);
 
   await new Promise((r) => setTimeout(r, 1500));
   if (isActive(WEB_SERVICE)) {
