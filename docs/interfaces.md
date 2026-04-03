@@ -94,6 +94,48 @@ Web server port and host are configured in `~/.kern/config.json`:
 
 Optional — defaults apply if the file doesn't exist.
 
+## Web UI
+
+Browser-based chat interface served by `kern web`. No separate deployment needed.
+
+### Access
+
+Start the web server, then open in any browser:
+
+```
+kern web start
+# Open http://localhost:9000/
+```
+
+The web server proxies all agent APIs through one port with authentication.
+
+### Authentication
+
+Set a web token:
+
+```
+kern web token
+```
+
+This generates a token and prints the URL. Users authenticate by:
+- Opening the URL with `?token=...` (stored in browser localStorage automatically)
+- Entering the token in the login prompt on first visit
+
+The token is stripped from the URL bar after being stored.
+
+### Behavior
+
+- Full conversation history loaded on connect (including tool calls)
+- Streaming responses with live cursor
+- Messages from TUI appear as user bubbles in real time
+- Messages from Telegram/Slack appear with interface labels
+- Auto-reconnect on disconnect
+- Dark theme, mobile-friendly
+
+### Remote access
+
+For access from other devices, expose the web server port via ngrok, Tailscale, or similar. Always use authentication when exposing to non-loopback addresses.
+
 ## Telegram
 
 Long polling bot. Works behind NAT, no public URL needed.
