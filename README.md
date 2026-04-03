@@ -131,14 +131,16 @@ Invite the bot to channels where it should listen.
 
 ## Memory
 
-Agents remember across sessions through two mechanisms:
+Agents remember across sessions through three mechanisms:
 
 - **Files** — `knowledge/` for mutable state, `notes/` for daily logs. The agent reads and writes these through tools. Git-tracked, inspectable, portable.
 - **Recall** — semantic search over all past conversations. Messages are embedded and stored in a local SQLite database (`recall.db`). The agent uses the `recall` tool to search by query with optional date filters, or load raw messages from a specific session.
+- **Segments** — messages are automatically grouped into topic-coherent segments, summarized, and rolled up into a hierarchy (L0 → L1 → L2). When old messages are trimmed from context, compressed summaries are injected in their place — the agent sees its full conversation history at decreasing resolution.
 
 On startup, the agent's system prompt is automatically injected with:
 - The latest daily note (full content)
 - An LLM-generated summary of the previous 5 daily notes
+- Compressed conversation history from segments (when messages have been trimmed)
 
 This means the agent boots with recent context — no manual reading required. Summaries are cached in SQLite and regenerated in the background on day rollover.
 
@@ -173,11 +175,12 @@ Structured, colored logs for queue, runtime, interfaces, and server. Logs stored
   "toolScope": "full",
   "maxSteps": 30,
   "maxContextTokens": 50000,
-  "maxToolResultChars": 20000
+  "maxToolResultChars": 20000,
+  "historyBudget": 0.2
 }
 ```
 
-`maxContextTokens` controls the sliding context window — older messages are trimmed to stay within budget. `maxToolResultChars` caps individual tool results in context (full results stay in session JSONL and are searchable via recall). Set to `0` to disable.
+`maxContextTokens` controls the sliding context window — older messages are trimmed to stay within budget. `maxToolResultChars` caps individual tool results in context (full results stay in session JSONL and are searchable via recall). `historyBudget` controls what fraction of the context window is reserved for compressed segment summaries when old messages are trimmed (default 20%). Set to `0` to disable.
 
 Agent auth tokens are auto-generated on first start and stored in `.kern/.env`. The web proxy injects them automatically — no manual setup needed.
 
