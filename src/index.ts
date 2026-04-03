@@ -174,9 +174,8 @@ async function main() {
       process.exit(1);
     }
     // Uninstall systemd service if installed
-    const { isServiceInstalled } = await import("./install.js");
+    const { isServiceInstalled, uninstall } = await import("./install.js");
     if (isServiceInstalled(name)) {
-      const { uninstall } = await import("./install.js");
       await uninstall(name);
     }
     if (agent.pid && isProcessRunning(agent.pid)) {
@@ -359,7 +358,7 @@ async function main() {
       const { getWebServiceStatus } = await import("./install.js");
       if (getWebServiceStatus() !== null) {
         const { spawnSync } = await import("child_process");
-        spawnSync("systemctl", ["--user", subcmd, "kern-web"], { stdio: "inherit" });
+        spawnSync("systemctl", ["--user", subcmd, "kern-web"], { stdio: "pipe" });
         return;
       }
       if (subcmd === "start") await webStart();

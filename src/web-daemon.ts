@@ -109,18 +109,17 @@ export async function webStatus(): Promise<void> {
   const pid = await readPid();
   const pidRunning = pid && isProcessRunning(pid);
   const running = pidRunning || installStatus === "active";
-  const installTag = installStatus ? dim(" [systemd]") : "";
+  const mode = installStatus ? "systemd" : pidRunning ? "daemon" : "—";
 
   if (running) {
-    const pidStr = pid && pidRunning ? dim(` (pid ${pid}, port ${config.web_port})`) : dim(` (port ${config.web_port})`);
-    console.log(`\n  ${green("●")} ${bold("web")} running${pidStr}${installTag}\n`);
+    console.log(`\n  ${green("●")} ${bold("web")} running ${dim(`(:${config.web_port})`)}`);
   } else {
-    const stateStr = installStatus === "installed" ? "installed, stopped" : "stopped";
-    console.log(`\n  ${dim("●")} ${bold("web")} ${stateStr}${installTag}\n`);
+    console.log(`\n  ${dim("●")} ${bold("web")} stopped`);
     if (pid) {
       try { await unlink(PID_FILE); } catch {}
     }
   }
+  console.log(`    ${dim("mode:")} ${mode}\n`);
 }
 
 export async function webToken(): Promise<void> {
