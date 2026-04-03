@@ -1,28 +1,44 @@
-import { spawn } from "child_process";
-
-export interface ShellExecOptions {
-  shell: string;           // e.g. "/bin/sh", "pwsh", "bash"
-  args: string[];          // e.g. ["-c"], ["-NoProfile", "-NonInteractive", "-Command"]
-  timeout?: number;        // default 120000
-  maxOutput?: number;      // default 25000
-}
+import { exec, spawn } from "child_process";
 
 export interface ShellExecResult {
   stdout: string;
   stderr: string;
   code: number | null;
   killed: boolean;
-  error?: string;          // spawn error message
+  error?: string;
 }
 
 const MAX_OUTPUT_CHARS = 25_000;
 
-export async function shellExec(command: string, opts: ShellExecOptions): Promise<ShellExecResult> {
-  const timeout = opts.timeout ?? 120000;
-  const maxOutput = opts.maxOutput ?? MAX_OUTPUT_CHARS;
+/** Run a command via exec (buffered). Good for short commands. */
+export async function shellExec(command: string, options?: { timeout?: number; maxOutput?: number }): Promise<ShellExecResult> {
+  const timeout = options?.timeout ?? 120000;
+  const maxOutput = options?.maxOutput ?? MAX_OUTPUT_CHARS;
 
   return new Promise<ShellExecResult>((resolve) => {
-    const child = spawn(opts.shell, [...opts.args, command], {
+    exec(command, { timeout, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+      let out = stdout || "";
+      if (out.length > maxOutput) {
+        out = out.slice(0, maxOutput) + `\n\n[output truncated: ${out.length} chars, showing first ${maxOutput}]`;
+      }
+      resolve({
+        stdout: out,
+        stderr: stderr || "",
+        code: error?.code ?? (error ? 1 : 0),
+        killed: !!error?.killed,
+        error: error?.killed ? undefined : undefined,
+      });
+    });
+  });
+}
+
+/** Run a command via spawn with explicit shell binary. For pwsh etc. */
+export async function shellSpawn(command: string, shell: string, args: string[], options?: { timeout?: number; maxOutput?: number }): Promise<ShellExecResult> {
+  const timeout = options?.timeout ?? 120000;
+  const maxOutput = options?.maxOutput ?? MAX_OUTPUT_CHARS;
+
+  return new Promise<ShellExecResult>((resolve) => {
+    const child = spawn(shell, [...args, command], {
       stdio: ["ignore", "pipe", "pipe"],
       ...(process.platform === "win32" ? { windowsHide: true } : {}),
     });
@@ -36,13 +52,8 @@ export async function shellExec(command: string, opts: ShellExecOptions): Promis
       child.kill();
     }, timeout);
 
-    child.stdout?.on("data", (data) => {
-      stdout += data.toString();
-    });
-
-    child.stderr?.on("data", (data) => {
-      stderr += data.toString();
-    });
+    child.stdout?.on("data", (data) => { stdout += data.toString(); });
+    child.stderr?.on("data", (data) => { stderr += data.toString(); });
 
     child.on("error", (error) => {
       clearTimeout(timer);
@@ -51,7 +62,6 @@ export async function shellExec(command: string, opts: ShellExecOptions): Promis
 
     child.on("close", (code) => {
       clearTimeout(timer);
-      // Truncate at the source to prevent massive outputs
       if (stdout.length > maxOutput) {
         stdout = stdout.slice(0, maxOutput) + `\n\n[output truncated: ${stdout.length} chars, showing first ${maxOutput}]`;
       }

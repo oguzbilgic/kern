@@ -36,13 +36,9 @@ export const grepTool = tool({
     const excludeDirs = isFile ? "" : "--exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist";
     const cmd = `grep ${recursive} -n --color=always ${excludeDirs} ${includeArg} ${extra} '${escapedPattern}' '${target}' 2>/dev/null`;
 
-    const result = await shellExec(cmd, {
-      shell: "/bin/sh",
-      args: ["-c"],
-    });
-
-    // Use stdout directly — grep exit code 1 means no matches, not an error
+    const result = await shellExec(cmd);
     const stdout = result.stdout.trim();
+
     if (stdout) {
       const lines = stdout.split("\n");
       return lines.length > 100

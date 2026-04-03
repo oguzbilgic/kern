@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { execFileSync } from "child_process";
-import { shellExec, formatShellResult } from "./shell.js";
+import { shellSpawn, formatShellResult } from "./shell.js";
 
 // Lazy detection: try pwsh (PS 7+), fall back to powershell (5.1)
 let cachedPwshBin: string | null = null;
@@ -30,11 +30,7 @@ export const pwshTool = tool({
       .describe("Timeout in milliseconds (default: 120000)"),
   }),
   execute: async ({ command, timeout = 120000 }) => {
-    const result = await shellExec(command, {
-      shell: pwshBin(),
-      args: ["-NoProfile", "-NonInteractive", "-Command"],
-      timeout,
-    });
+    const result = await shellSpawn(command, pwshBin(), ["-NoProfile", "-NonInteractive", "-Command"], { timeout });
     return formatShellResult(result, timeout);
   },
 });

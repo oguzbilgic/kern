@@ -13,11 +13,7 @@ export const bashTool = tool({
       .describe("Timeout in milliseconds (default: 120000)"),
   }),
   execute: async ({ command, timeout = 120000 }) => {
-    const result = await shellExec(command, {
-      shell: "/bin/sh",
-      args: ["-c"],
-      timeout,
-    });
+    const result = await shellExec(command, { timeout });
     return formatShellResult(result, timeout);
   },
 });
