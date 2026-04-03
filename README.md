@@ -69,7 +69,7 @@ kern stop [name]          # stop agents
 kern restart [name]       # restart agents
 kern tui [name]           # interactive chat
 kern web <start|stop|status|token>  # web UI server
-kern logs [name]          # tail agent logs
+kern logs [name]          # follow agent logs
 kern list                 # show all agents
 kern remove <name>        # unregister an agent
 kern backup <name>        # backup agent to .tar.gz
@@ -159,10 +159,12 @@ Interval in minutes. Default 60 (1 hour). Set to 0 to disable.
 ## Logging
 
 ```bash
-kern logs [name]        # tail agent logs
+kern logs [name]              # follow logs (default)
+kern logs [name] -n 50        # last 50 lines, exit
+kern logs [name] --level warn # warnings and errors only
 ```
 
-Structured, colored logs for queue, runtime, interfaces, and server. Logs stored in `.kern/logs/kern.log`.
+Structured, leveled logs with colored labels. Stored in `.kern/logs/kern.log`. Configure verbosity with `logLevel` in config.
 
 ## Configuration
 
