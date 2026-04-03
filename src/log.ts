@@ -16,34 +16,17 @@ const COLORS: Record<string, string> = {
 };
 const RESET = "\x1b[0m";
 
-export type LogLevel = "debug" | "info" | "warn" | "error";
-
-const LEVEL_ORDER: Record<LogLevel, number> = {
-  debug: 0,
-  info: 1,
-  warn: 2,
-  error: 3,
-};
-
-const LEVEL_LABELS: Record<LogLevel, string> = {
+const LEVEL_LABELS: Record<string, string> = {
   debug: dim("DBG"),
   info: "",
   warn: "\x1b[33mWRN\x1b[0m",
   error: "\x1b[31mERR\x1b[0m",
 };
 
-let currentLevel: LogLevel = "info";
-
-export function setLogLevel(level: LogLevel) {
-  currentLevel = level;
-}
-
-function write(component: string, message: string, level: LogLevel) {
-  if (LEVEL_ORDER[level] < LEVEL_ORDER[currentLevel]) return;
-
+function write(component: string, message: string, level: string) {
   const time = new Date().toISOString();
   const color = COLORS[component] || "";
-  const label = LEVEL_LABELS[level];
+  const label = LEVEL_LABELS[level] || "";
   const prefix = label ? `${label} ` : "";
   process.stderr.write(`${dim(time)} ${prefix}${color}[${component}]${RESET} ${message}\n`);
 }

@@ -2,7 +2,7 @@ import { readFile } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 import { config as loadDotenv } from "dotenv";
-import { log, type LogLevel } from "./log.js";
+import { log } from "./log.js";
 
 export type ToolScope = "full" | "write" | "read";
 
@@ -24,7 +24,6 @@ export interface KernConfig {
 
   // Runtime
   heartbeatInterval: number;
-  logLevel: LogLevel;
 }
 
 const TOOL_SCOPES: Record<ToolScope, string[]> = {
@@ -44,7 +43,6 @@ export const configDefaults: KernConfig = {
   recall: true,
   autoRecall: false,
   heartbeatInterval: 60,
-  logLevel: "info",
 };
 
 const FIELD_TYPES: Record<string, string> = {
@@ -58,7 +56,6 @@ const FIELD_TYPES: Record<string, string> = {
   recall: "boolean",
   autoRecall: "boolean",
   heartbeatInterval: "number",
-  logLevel: "string",
 };
 
 function validateConfig(userConfig: Record<string, unknown>): void {

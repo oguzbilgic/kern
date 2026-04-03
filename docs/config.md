@@ -26,7 +26,6 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 | `recall` | `true` | Enable recall (long-term memory). Set to `false` to disable. Requires an embedding API key. |
 | `historyBudget` | `0.2` | Fraction of `maxContextTokens` allocated to compressed history from segments. Set to `0` to disable history injection. See [Memory](/docs/memory#segments-and-conversation-summary). |
 | `autoRecall` | `false` | Automatically inject relevant old context before each turn. Requires recall enabled. |
-| `logLevel` | `info` | Minimum log level: `debug`, `info`, `warn`, `error`. Controls what appears in `.kern/logs/kern.log`. |
 
 ### Tool scopes
 
