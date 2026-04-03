@@ -55,22 +55,21 @@ export async function showStatus(): Promise<void> {
     }
 
     const installStatus = getInstallStatus(agent.name);
-    const dot = !exists ? red("●") : running ? green("●") : dim("●");
+    const active = installStatus === "active" || running;
+    const dot = !exists ? red("●") : active ? green("●") : dim("●");
     const nameStr = bold(agent.name);
     const modelStr = provider && model ? dim(`${provider}/${model}`) : dim("no config");
     const portStr = agent.port ? `:${agent.port}` : "";
-    const installStr = installStatus ? dim(` [systemd]`) : "";
     const statusStr = !exists
       ? red("not found")
-      : running
-        ? green(`running`) + dim(` (pid ${agent.pid}${portStr})`) + installStr
-        : installStatus === "installed"
-          ? dim("installed, stopped")
-          : dim("stopped");
+      : active
+        ? green("running") + dim(portStr ? ` (${portStr})` : "")
+        : dim("stopped");
+    const mode = installStatus ? "systemd" : running ? "daemon" : "—";
 
     w(`  ${dot} ${nameStr}  ${modelStr}  ${statusStr}`);
     w(`    ${dim("path")}  ${agent.path}`);
-    w(`    ${dim("tools")} ${toolScope || "—"}  ${dim("sessions")} ${sessionInfo}`);
+    w(`    ${dim("tools")} ${toolScope || "—"}  ${dim("sessions")} ${sessionInfo}  ${dim("mode")} ${mode}`);
     w("");
   }
 }
