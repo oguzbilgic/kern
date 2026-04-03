@@ -42,6 +42,8 @@ async function showHelp() {
   w(`    ${cyan("kern import")} ${dim("opencode <name>")}  import session from OpenCode`);
   w(`    ${cyan("kern restore")} ${dim("<file>")}         restore agent from backup`);
   w(`    ${cyan("kern logs")} ${dim("[name] [-f] [-n 50] [--level warn]")}  show agent logs`);
+  w(`    ${cyan("kern install")} ${dim("[name|--web]")}    install systemd services`);
+  w(`    ${cyan("kern uninstall")} ${dim("[name]")}        remove systemd services`);
   w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
   w(`    ${cyan("kern web")} ${dim("<start|stop|status|token>")}  web UI server`);
   w("");
@@ -109,19 +111,52 @@ async function main() {
   }
 
   if (cmd === "start") {
+    if (args[1]) {
+      const { isServiceInstalled, serviceControl } = await import("./install.js");
+      if (isServiceInstalled(args[1])) {
+        serviceControl("start", args[1]);
+        process.exit(0);
+      }
+    }
     await startAgent(args[1]);
     process.exit(0);
   }
 
   if (cmd === "stop") {
+    if (args[1]) {
+      const { isServiceInstalled, serviceControl } = await import("./install.js");
+      if (isServiceInstalled(args[1])) {
+        serviceControl("stop", args[1]);
+        process.exit(0);
+      }
+    }
     await stopAgent(args[1]);
     process.exit(0);
   }
 
   if (cmd === "restart") {
+    if (args[1]) {
+      const { isServiceInstalled, serviceControl } = await import("./install.js");
+      if (isServiceInstalled(args[1])) {
+        serviceControl("restart", args[1]);
+        process.exit(0);
+      }
+    }
     await stopAgent(args[1]);
     await new Promise((r) => setTimeout(r, 500));
     await startAgent(args[1]);
+    process.exit(0);
+  }
+
+  if (cmd === "install") {
+    const { install } = await import("./install.js");
+    await install(args[1]);
+    process.exit(0);
+  }
+
+  if (cmd === "uninstall") {
+    const { uninstall } = await import("./install.js");
+    await uninstall(args[1]);
     process.exit(0);
   }
 
@@ -137,6 +172,11 @@ async function main() {
     if (!agent) {
       console.error(`Agent not found: ${name}`);
       process.exit(1);
+    }
+    // Uninstall systemd service if installed
+    const { isServiceInstalled, uninstall } = await import("./install.js");
+    if (isServiceInstalled(name)) {
+      await uninstall(name);
     }
     if (agent.pid && isProcessRunning(agent.pid)) {
       await stopAgent(name);
@@ -313,10 +353,17 @@ async function main() {
   if (cmd === "web") {
     const subcmd = args[1]; // start, stop, status
     const { webStart, webStop, webStatus, webToken } = await import("./web-daemon.js");
-    if (subcmd === "start") {
-      await webStart();
-    } else if (subcmd === "stop") {
-      await webStop();
+    if (subcmd === "start" || subcmd === "stop" || subcmd === "restart") {
+      // Delegate to systemd if installed
+      const { getWebServiceStatus } = await import("./install.js");
+      if (getWebServiceStatus() !== null) {
+        const { spawnSync } = await import("child_process");
+        spawnSync("systemctl", ["--user", subcmd, "kern-web"], { stdio: "pipe" });
+        return;
+      }
+      if (subcmd === "start") await webStart();
+      else if (subcmd === "stop") await webStop();
+      else { await webStop(); await new Promise(r => setTimeout(r, 500)); await webStart(); }
     } else if (subcmd === "status") {
       await webStatus();
     } else if (subcmd === "token") {
