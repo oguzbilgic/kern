@@ -24,11 +24,7 @@ export interface KernConfig {
   // Runtime
   heartbeatInterval: number;
 
-  // Interfaces
-  telegram?: {
-    allowedUsers?: number[];
-    showTools?: boolean;
-  };
+
 }
 
 const TOOL_SCOPES: Record<ToolScope, string[]> = {
