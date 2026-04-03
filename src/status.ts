@@ -1,7 +1,7 @@
 import { loadRegistry, isProcessRunning } from "./registry.js";
 import { getInstallStatus } from "./install.js";
 import { existsSync } from "fs";
-import { readFile, readdir } from "fs/promises";
+import { readFile } from "fs/promises";
 import { join } from "path";
 
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
@@ -41,18 +41,6 @@ export async function showStatus(): Promise<void> {
       } catch {}
     }
 
-    // Check sessions
-    let sessionInfo = "no session";
-    const sessDir = join(agent.path, ".kern", "sessions");
-    if (existsSync(sessDir)) {
-      try {
-        const files = await readdir(sessDir);
-        const jsonl = files.filter((f) => f.endsWith(".jsonl"));
-        if (jsonl.length > 0) {
-          sessionInfo = `${jsonl.length} session${jsonl.length > 1 ? "s" : ""}`;
-        }
-      } catch {}
-    }
 
     const installStatus = getInstallStatus(agent.name);
     const active = installStatus === "active" || running;
@@ -69,7 +57,7 @@ export async function showStatus(): Promise<void> {
 
     w(`  ${dot} ${nameStr}  ${modelStr}  ${statusStr}`);
     w(`    ${dim("path")}  ${agent.path}`);
-    w(`    ${dim("tools")} ${toolScope || "—"}  ${dim("sessions")} ${sessionInfo}  ${dim("mode")} ${mode}`);
+    w(`    ${dim("tools")} ${toolScope || "—"}  ${dim("mode")} ${mode}`);
     w("");
   }
 }
