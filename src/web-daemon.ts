@@ -103,8 +103,8 @@ export async function webStop(): Promise<void> {
 
 export async function webStatus(): Promise<void> {
   const config = await loadGlobalConfig();
-  const { getWebInstallStatus } = await import("./install.js");
-  const installStatus = getWebInstallStatus();
+  const { getWebServiceStatus } = await import("./install.js");
+  const installStatus = getWebServiceStatus();
 
   const pid = await readPid();
   const pidRunning = pid && isProcessRunning(pid);

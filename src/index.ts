@@ -112,9 +112,9 @@ async function main() {
 
   if (cmd === "start") {
     if (args[1]) {
-      const { isSystemdInstalled, systemctlAgent } = await import("./install.js");
-      if (isSystemdInstalled(args[1])) {
-        systemctlAgent("start", args[1]);
+      const { isServiceInstalled, serviceControl } = await import("./install.js");
+      if (isServiceInstalled(args[1])) {
+        serviceControl("start", args[1]);
         process.exit(0);
       }
     }
@@ -124,9 +124,9 @@ async function main() {
 
   if (cmd === "stop") {
     if (args[1]) {
-      const { isSystemdInstalled, systemctlAgent } = await import("./install.js");
-      if (isSystemdInstalled(args[1])) {
-        systemctlAgent("stop", args[1]);
+      const { isServiceInstalled, serviceControl } = await import("./install.js");
+      if (isServiceInstalled(args[1])) {
+        serviceControl("stop", args[1]);
         process.exit(0);
       }
     }
@@ -136,9 +136,9 @@ async function main() {
 
   if (cmd === "restart") {
     if (args[1]) {
-      const { isSystemdInstalled, systemctlAgent } = await import("./install.js");
-      if (isSystemdInstalled(args[1])) {
-        systemctlAgent("restart", args[1]);
+      const { isServiceInstalled, serviceControl } = await import("./install.js");
+      if (isServiceInstalled(args[1])) {
+        serviceControl("restart", args[1]);
         process.exit(0);
       }
     }
@@ -174,8 +174,8 @@ async function main() {
       process.exit(1);
     }
     // Uninstall systemd service if installed
-    const { isSystemdInstalled } = await import("./install.js");
-    if (isSystemdInstalled(name)) {
+    const { isServiceInstalled } = await import("./install.js");
+    if (isServiceInstalled(name)) {
       const { uninstall } = await import("./install.js");
       await uninstall(name);
     }
@@ -356,8 +356,8 @@ async function main() {
     const { webStart, webStop, webStatus, webToken } = await import("./web-daemon.js");
     if (subcmd === "start" || subcmd === "stop" || subcmd === "restart") {
       // Delegate to systemd if installed
-      const { getWebInstallStatus } = await import("./install.js");
-      if (getWebInstallStatus() !== null) {
+      const { getWebServiceStatus } = await import("./install.js");
+      if (getWebServiceStatus() !== null) {
         const { spawnSync } = await import("child_process");
         spawnSync("systemctl", ["--user", subcmd, "kern-web"], { stdio: "inherit" });
         return;

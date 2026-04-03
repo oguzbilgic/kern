@@ -58,22 +58,22 @@ function isActive(name: string): boolean {
   }
 }
 
-export function isSystemdInstalled(agentName: string): boolean {
+export function isServiceInstalled(agentName: string): boolean {
   return isInstalled(serviceName(agentName));
 }
 
-export function systemctlAgent(action: "start" | "stop" | "restart", agentName: string): boolean {
+export function serviceControl(action: "start" | "stop" | "restart", agentName: string): boolean {
   const svc = serviceName(agentName);
   return systemctl(action, svc);
 }
 
-export function getInstallStatus(agentName: string): "active" | "installed" | null {
+export function getServiceStatus(agentName: string): "active" | "installed" | null {
   const svc = serviceName(agentName);
   if (!isInstalled(svc)) return null;
   return isActive(svc) ? "active" : "installed";
 }
 
-export function getWebInstallStatus(): "active" | "installed" | null {
+export function getWebServiceStatus(): "active" | "installed" | null {
   if (!isInstalled(WEB_SERVICE)) return null;
   return isActive(WEB_SERVICE) ? "active" : "installed";
 }

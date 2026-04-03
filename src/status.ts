@@ -1,5 +1,5 @@
 import { loadRegistry, isProcessRunning } from "./registry.js";
-import { getInstallStatus } from "./install.js";
+import { getServiceStatus } from "./install.js";
 import { existsSync } from "fs";
 import { readFile } from "fs/promises";
 import { join } from "path";
@@ -43,7 +43,7 @@ export async function showStatus(): Promise<void> {
     }
 
 
-    const installStatus = getInstallStatus(agent.name);
+    const installStatus = getServiceStatus(agent.name);
     const active = installStatus === "active" || running;
     const dot = !exists ? red("●") : active ? green("●") : dim("●");
     const nameStr = bold(agent.name);
