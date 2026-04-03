@@ -13,13 +13,14 @@ export type { SessionStats } from "./context.js";
 
 
 export interface StreamEvent {
-  type: "text-delta" | "tool-call" | "tool-result" | "finish" | "error" | "recall";
+  type: "text-delta" | "tool-call" | "tool-result" | "finish" | "error" | "recall" | "reasoning";
   text?: string;
   toolName?: string;
   toolDetail?: string;
   toolInput?: Record<string, unknown>;
   toolResult?: string;
   error?: string;
+  reasoningText?: string;
   recall?: { query: string; chunks: number; tokens: number; results: Array<{ timestamp: string; text: string; distance: number }> };
 }
 
@@ -130,11 +131,20 @@ export class Runtime {
       const pendingInjections = this.pendingInjections;
       let persistedCount = 0;
 
+      const providerOptions: Record<string, any> = {};
+      const reasoning = this.config.reasoning;
+      if (reasoning?.enabled !== false && reasoning?.effort && reasoning.effort !== "none") {
+        providerOptions.openai = {
+          reasoningEffort: reasoning.effort,
+        };
+      }
+
       const result = streamText({
         model,
         system: this.systemPrompt,
         messages: contextMessages,
         tools,
+        providerOptions,
         stopWhen: stepCountIs(this.config.maxSteps),
         onError: ({ error }) => {
           streamError = error;
@@ -204,6 +214,9 @@ export class Runtime {
           const output = (part as any).output;
           const resultText = typeof output === "string" ? output : JSON.stringify(output);
           onEvent({ type: "tool-result", toolName: part.toolName, toolResult: resultText });
+        } else if ((part as any).type === "reasoning-delta" || (part as any).type === "reasoning" || (part as any).type === "response.reasoning_summary_text.delta") {
+          const reasoningText = (((part as any).text || (part as any).delta || "") as string).toString();
+          if (reasoningText) onEvent({ type: "reasoning", reasoningText });
         }
       }
 

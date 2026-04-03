@@ -14,6 +14,10 @@ export interface KernConfig {
   maxToolResultChars: number;
   heartbeatInterval: number;
   autoRecall?: boolean;
+  reasoning?: {
+    enabled?: boolean;
+    effort?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+  };
   telegram?: {
     allowedUsers?: number[];
     showTools?: boolean;
