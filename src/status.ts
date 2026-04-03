@@ -58,8 +58,8 @@ export async function showStatus(): Promise<void> {
     const mode = installStatus ? "systemd" : running ? "daemon" : "—";
 
     w(`  ${dot} ${nameStr}  ${modelStr}  ${statusStr}`);
-    w(`    ${dim("path")}  ${agent.path}`);
-    w(`    ${dim("tools")} ${toolScope || "—"}  ${dim("mode")} ${mode}`);
+    w(`    ${dim("path:")}  ${agent.path}`);
+    w(`    ${dim("tools:")} ${toolScope || "—"}  ${dim("mode:")} ${mode}`);
     w("");
   }
 }
