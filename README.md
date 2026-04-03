@@ -164,7 +164,7 @@ kern logs [name] -n 50        # last 50 lines, exit
 kern logs [name] --level warn # warnings and errors only
 ```
 
-Structured, leveled logs with colored labels. Stored in `.kern/logs/kern.log`. Configure verbosity with `logLevel` in config.
+Structured, leveled logs with colored labels. Stored in `.kern/logs/kern.log`. All levels written, filter on read.
 
 ## Configuration
 

@@ -140,7 +140,6 @@ export class Runtime {
       const trimmedCount = stats.totalMessages - stats.windowMessages + (stats.historyTokens > 0 ? 1 : 0);
       if (trimmedCount > 0) {
         log("context", `trimmed: ${trimmedCount} old messages excluded${stats.historyTokens > 0 ? `, history injected (~${stats.historyTokens} tokens)` : ''}`);
-
       }
 
       const { messages: contextMessages, recall } = await injectRecall(
