@@ -149,7 +149,7 @@ export class Runtime {
         onEvent({ type: "recall", recall });
       }
 
-      log("runtime", `context: ${contextMessages.length} messages, ~${stats.windowTokens} tokens`);
+      log.debug("runtime", `context: ${contextMessages.length} messages, ~${stats.windowTokens} tokens`);
       if (contextMessages.length > 0) {
         const first = contextMessages[0];
         const last = contextMessages[contextMessages.length - 1];
@@ -167,7 +167,7 @@ export class Runtime {
         stopWhen: stepCountIs(this.config.maxSteps),
         onError: ({ error }) => {
           streamError = error;
-          log("runtime", `streamText error: ${error}`);
+          log.error("runtime", `streamText error: ${error}`);
         },
         onStepFinish: async (step) => {
           // Persist only new messages from this step (response.messages is cumulative)

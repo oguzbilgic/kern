@@ -107,11 +107,11 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
           }
         }).catch((err) => {
           recallBuilding = false;
-          log("recall", `backfill failed: ${err.message}`);
+          log.error("recall", `backfill failed: ${err.message}`);
         });
       }
     } catch (err: any) {
-      log("recall", `init failed: ${err.message} — recall disabled`);
+      log.error("recall", `init failed: ${err.message} — recall disabled`);
     }
   }
 
@@ -124,7 +124,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       runtime.setSegmentIndex(segmentIndex);
       setSegmentStatsFn(() => segmentIndex ? segmentIndex.getStats() : null);
     } catch (err: any) {
-      log("segments", `init failed: ${err.message} — segments disabled`);
+      log.error("segments", `init failed: ${err.message} — segments disabled`);
     }
   }
 
@@ -194,12 +194,12 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     if (sessionId) {
       if (recallIndex) {
         recallIndex.indexSession(sessionId).catch((err) => {
-          log("recall", `indexing failed: ${err.message}`);
+          log.error("recall", `indexing failed: ${err.message}`);
         });
       }
       if (segmentIndex) {
         segmentIndex.indexSession(sessionId).catch((err) => {
-          log("segments", `indexing failed: ${err.message}`);
+          log.error("segments", `indexing failed: ${err.message}`);
         });
       }
     }

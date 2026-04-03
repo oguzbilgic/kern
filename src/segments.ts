@@ -113,7 +113,7 @@ export class SegmentIndex {
       const messages = allMessages.slice(chunkStart, chunkStart + MAX_CHUNK_SIZE);
       if (messages.length < 3) break;
 
-      log("segments", `processing chunk ${Math.floor(chunkStart / MAX_CHUNK_SIZE) + 1}/${Math.ceil(allMessages.length / MAX_CHUNK_SIZE)} (${messages.length} messages)`);
+      log.debug("segments", `processing chunk ${Math.floor(chunkStart / MAX_CHUNK_SIZE) + 1}/${Math.ceil(allMessages.length / MAX_CHUNK_SIZE)} (${messages.length} messages)`);
 
       // Build windowed text for embedding — smooths out per-message noise
       const windowTexts = this.buildWindowTexts(messages);
@@ -121,7 +121,7 @@ export class SegmentIndex {
       // Embed windows
       const embeddings = await this.embedTexts(windowTexts);
       if (embeddings.length !== messages.length) {
-        log("segments", `embedding count mismatch: ${embeddings.length} vs ${messages.length}`);
+        log.warn("segments", `embedding count mismatch: ${embeddings.length} vs ${messages.length}`);
         continue;
       }
 
@@ -168,7 +168,7 @@ export class SegmentIndex {
       totalCreated += created;
 
       if (created > 0) {
-        log("segments", `created ${created} segments from chunk`);
+        log.debug("segments", `created ${created} segments from chunk`);
       }
     }
 
@@ -178,7 +178,7 @@ export class SegmentIndex {
       this.summarizeUnsummarized().then(() => {
         return this.rollUpLevels(sessionId);
       }).catch((err) => {
-        log("segments", `summarization/rollup failed: ${err.message}`);
+        log.error("segments", `summarization/rollup failed: ${err.message}`);
       });
     }
 
@@ -210,7 +210,7 @@ export class SegmentIndex {
 
     if (rows.length === 0) return 0;
 
-    log("segments", `summarizing ${rows.length} segments...`);
+    log.debug("segments", `summarizing ${rows.length} segments...`);
 
     const update = this.db.prepare(
       "UPDATE semantic_segments SET summary = ?, summarized = 1, summary_token_count = ? WHERE id = ?"
@@ -239,14 +239,14 @@ export class SegmentIndex {
           summarized++;
         }
       } catch (err: any) {
-        log("segments", `failed to summarize segment ${row.id}: ${err.message}`);
+        log.error("segments", `failed to summarize segment ${row.id}: ${err.message}`);
       }
     };
 
     // Process in batches of CONCURRENCY
     for (let i = 0; i < rows.length; i += CONCURRENCY) {
       if (this.abortController?.signal.aborted) {
-        log("segments", "summarization aborted");
+        log.warn("segments", "summarization aborted");
         break;
       }
       const batch = rows.slice(i, i + CONCURRENCY);
@@ -254,7 +254,7 @@ export class SegmentIndex {
     }
 
     if (summarized > 0) {
-      log("segments", `summarized ${summarized} segments`);
+      log.debug("segments", `summarized ${summarized} segments`);
     }
     return summarized;
   }
@@ -347,7 +347,7 @@ export class SegmentIndex {
             log("segments", `rolled up ${group.length} L${level} → 1 L${parentLevel} (msgs ${msgStart}-${msgEnd})`);
             rolled = true;
           } catch (err: any) {
-            log("segments", `rollup failed for L${level} group: ${err.message}`);
+            log.error("segments", `rollup failed for L${level} group: ${err.message}`);
           }
         }
       }
@@ -523,7 +523,7 @@ export class SegmentIndex {
       const result = await embedMany({ model: this.embeddingModel, values: batch });
       embeddings.push(...result.embeddings);
       if (texts.length > EMBED_BATCH_SIZE) {
-        log("segments", `embedded batch ${Math.floor(b / EMBED_BATCH_SIZE) + 1}/${Math.ceil(texts.length / EMBED_BATCH_SIZE)}`);
+        log.debug("segments", `embedded batch ${Math.floor(b / EMBED_BATCH_SIZE) + 1}/${Math.ceil(texts.length / EMBED_BATCH_SIZE)}`);
       }
     }
     return embeddings;

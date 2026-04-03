@@ -168,7 +168,7 @@ export class TelegramInterface implements Interface {
 
     // Catch polling errors — prevent unhandled exceptions from crashing the process
     this.bot.catch((err) => {
-      log("telegram", `bot error: ${err.message || err}`);
+      log.error("telegram", `bot error: ${err.message || err}`);
     });
 
     log("telegram", "connected");
@@ -187,12 +187,12 @@ export class TelegramInterface implements Interface {
       if (msg.includes("409") || msg.includes("Conflict")) {
         this._status = "error";
         this._statusDetail = "409 conflict, retrying";
-        log("telegram", "409 conflict — retrying in 5s");
+        log.warn("telegram", "409 conflict — retrying in 5s");
         setTimeout(() => this.startPolling(), 5000);
       } else {
         this._status = "error";
         this._statusDetail = msg;
-        log("telegram", `polling failed: ${msg}`);
+        log.error("telegram", `polling failed: ${msg}`);
       }
     });
   }
