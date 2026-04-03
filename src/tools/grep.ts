@@ -21,6 +21,10 @@ export const grepTool = tool({
       .describe('Additional grep flags (e.g. "-C 3 -i -l")'),
   }),
   execute: async ({ pattern, path, include, options }) => {
+    if (process.platform === "win32") {
+      return "grep tool requires Unix (uses /bin/sh). Use pwsh with Select-String instead.";
+    }
+
     const target = path || process.cwd();
     const escapedPattern = pattern.replace(/'/g, "'\\''");
     const extra = options || "";
