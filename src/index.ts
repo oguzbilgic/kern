@@ -348,10 +348,17 @@ async function main() {
   if (cmd === "web") {
     const subcmd = args[1]; // start, stop, status
     const { webStart, webStop, webStatus, webToken } = await import("./web-daemon.js");
-    if (subcmd === "start") {
-      await webStart();
-    } else if (subcmd === "stop") {
-      await webStop();
+    if (subcmd === "start" || subcmd === "stop" || subcmd === "restart") {
+      // Delegate to systemd if installed
+      const { getWebInstallStatus } = await import("./install.js");
+      if (getWebInstallStatus() !== null) {
+        const { spawnSync } = await import("child_process");
+        spawnSync("systemctl", ["--user", subcmd, "kern-web"], { stdio: "inherit" });
+        return;
+      }
+      if (subcmd === "start") await webStart();
+      else if (subcmd === "stop") await webStop();
+      else { await webStop(); await new Promise(r => setTimeout(r, 500)); await webStart(); }
     } else if (subcmd === "status") {
       await webStatus();
     } else if (subcmd === "token") {

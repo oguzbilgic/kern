@@ -103,11 +103,20 @@ export async function webStop(): Promise<void> {
 
 export async function webStatus(): Promise<void> {
   const config = await loadGlobalConfig();
+  const { getWebInstallStatus } = await import("./install.js");
+  const installStatus = getWebInstallStatus();
+
   const pid = await readPid();
-  if (pid && isProcessRunning(pid)) {
-    console.log(`\n  ${green("●")} ${bold("web")} running ${dim(`(pid ${pid}, port ${config.web_port})`)}\n`);
+  const pidRunning = pid && isProcessRunning(pid);
+  const running = pidRunning || installStatus === "active";
+  const installTag = installStatus ? dim(" [systemd]") : "";
+
+  if (running) {
+    const pidStr = pid && pidRunning ? dim(` (pid ${pid}, port ${config.web_port})`) : dim(` (port ${config.web_port})`);
+    console.log(`\n  ${green("●")} ${bold("web")} running${pidStr}${installTag}\n`);
   } else {
-    console.log(`\n  ${dim("●")} ${bold("web")} stopped\n`);
+    const stateStr = installStatus === "installed" ? "installed, stopped" : "stopped";
+    console.log(`\n  ${dim("●")} ${bold("web")} ${stateStr}${installTag}\n`);
     if (pid) {
       try { await unlink(PID_FILE); } catch {}
     }
