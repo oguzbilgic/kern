@@ -15,10 +15,10 @@
   - `kern({ action: "logs" })` — agent can inspect its own logs (default warn+).
 - **Config validation** — warns on unknown fields and wrong types at startup. Invalid values ignored, defaults apply.
 
-### Changes
 - **Cross-platform shell** — `bash` tool on Unix, `pwsh` tool on Windows. One shell tool per platform, selected automatically. No config needed.
-  - `shellExec()` internal abstraction with structured `{ stdout, stderr, code }` results
   - `grep` works on Unix only; on Windows suggests `Select-String` via pwsh
+
+### Changes
 - `kern init` writes minimal config: `model`, `provider`, `toolScope` only
 - Removed stale `telegram.allowedUsers` and `telegram.showTools` config fields
 - Dropped legacy `tools` array support (use `toolScope` instead)
