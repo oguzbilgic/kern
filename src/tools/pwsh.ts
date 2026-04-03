@@ -10,7 +10,7 @@ function pwshBin(): string {
   if (cachedPwshBin) return cachedPwshBin;
 
   try {
-    execFileSync("pwsh", ["-Version"], { stdio: "ignore" });
+    execFileSync("pwsh", ["-Version"], { stdio: "ignore", windowsHide: true });
     cachedPwshBin = "pwsh";
   } catch {
     cachedPwshBin = "powershell";
