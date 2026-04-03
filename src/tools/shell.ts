@@ -7,6 +7,8 @@ export interface ShellExecOptions {
   maxOutput?: number;      // default 25000
 }
 
+const isWindows = process.platform === "win32";
+
 export async function shellExec(command: string, opts: ShellExecOptions): Promise<string> {
   const timeout = opts.timeout ?? 120000;
   const maxOutput = opts.maxOutput ?? 25000;
@@ -14,6 +16,7 @@ export async function shellExec(command: string, opts: ShellExecOptions): Promis
   return new Promise<string>((resolve) => {
     const child = spawn(opts.shell, [...opts.args, command], {
       stdio: ["ignore", "pipe", "pipe"],
+      ...(isWindows ? { windowsHide: true } : {}),
     });
 
     let stdout = "";
