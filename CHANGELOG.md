@@ -12,7 +12,6 @@
 - `kern init` writes minimal config: `model`, `provider`, `toolScope` only
 - Removed stale `telegram.allowedUsers` and `telegram.showTools` config fields
 - Dropped legacy `tools` array support (use `toolScope` instead)
-- All log calls categorized by level across the codebase
 
 ## v0.16.0
 
