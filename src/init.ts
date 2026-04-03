@@ -4,6 +4,7 @@ import { existsSync } from "fs";
 import { input, select, password } from "@inquirer/prompts";
 import { registerAgent, findAgent, isProcessRunning, setPid } from "./registry.js";
 import { startAgent } from "./daemon.js";
+import type { KernConfig } from "./config.js";
 
 // Fallback models used when live fetch fails (e.g. no network, bad key)
 const FALLBACK_MODELS: Record<string, { name: string; value: string }[]> = {
@@ -129,7 +130,7 @@ async function runConfig(name: string, dir: string): Promise<void> {
   print("");
 
   // Load existing config and env
-  let currentConfig: any = {};
+  let currentConfig: Partial<KernConfig> = {};
   try {
     currentConfig = JSON.parse(await readFile(join(dir, ".kern", "config.json"), "utf-8"));
   } catch {}
@@ -206,11 +207,10 @@ async function runConfig(name: string, dir: string): Promise<void> {
   }
 
   // Build new config
-  const config: any = {
+  const config: Partial<KernConfig> = {
     model,
     provider,
     toolScope: currentConfig.toolScope || "full",
-    maxSteps: currentConfig.maxSteps || 30,
   };
   // Build new env
   const envLines: string[] = [];
@@ -407,11 +407,10 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
 `;
 
   // .kern/config.json
-  const config: any = {
+  const config: Partial<KernConfig> = {
     model,
     provider,
     toolScope: "full",
-    maxSteps: 30,
   };
   // .kern/.env
   const envLines: string[] = [];

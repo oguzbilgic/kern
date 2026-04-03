@@ -1,5 +1,13 @@
 # Changelog
 
+## next
+
+### Changes
+- `kern init` now writes a minimal config: just `model`, `provider`, and `toolScope`. Other fields use defaults.
+- Config validation on load — warns on unknown fields (catches typos) and wrong types (uses default instead)
+- Removed stale `telegram.allowedUsers` and `telegram.showTools` config fields (unused since pairing system)
+- Dropped legacy `tools` array support (use `toolScope` instead)
+
 ## v0.16.0
 
 ### Features
