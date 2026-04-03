@@ -23,6 +23,7 @@ export async function showStatus(): Promise<void> {
     return;
   }
 
+  let hasUninstalled = false;
   for (const agent of agents) {
     const exists = existsSync(agent.path);
     const running = agent.pid ? isProcessRunning(agent.pid) : false;
@@ -56,10 +57,20 @@ export async function showStatus(): Promise<void> {
         ? green("running") + (details ? dim(` (${details})`) : "")
         : dim("stopped");
     const mode = installStatus ? "systemd" : running ? "daemon" : "—";
+    if (!installStatus) hasUninstalled = true;
 
     w(`  ${dot} ${nameStr}  ${modelStr}  ${statusStr}`);
     w(`    ${dim("path:")}  ${agent.path}`);
     w(`    ${dim("tools:")} ${toolScope || "—"}  ${dim("mode:")} ${mode}`);
     w("");
+  }
+
+  if (hasUninstalled) {
+    try {
+      const { execSync } = await import("child_process");
+      execSync("which systemctl", { stdio: "ignore" });
+      w(`  ${dim("tip: 'kern install' enables auto-restart and boot persistence")}`);
+      w("");
+    } catch {}
   }
 }
