@@ -165,6 +165,7 @@ export class AgentServer {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
       });
       // Assign a connection ID and send it as the first event
       const connectionId = crypto.randomUUID().slice(0, 8);
