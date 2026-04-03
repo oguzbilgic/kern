@@ -3,7 +3,7 @@
 ## next
 
 ### Features
-- **Log levels** — `log()`, `log.debug()`, `log.warn()`, `log.error()` with colored labels (WRN, ERR, DBG). Configurable via `logLevel` in config (default: `info`).
+- **Log levels** — `log()`, `log.debug()`, `log.warn()`, `log.error()` with colored labels (WRN, ERR, DBG). All levels written to file, filter on read.
 - **`kern logs` CLI** — defaults to follow mode. `-n 50` for last N lines (no follow). `--level warn` to filter by level. Combinable.
 - **`kern({ action: "logs" })` tool** — agents can inspect their own logs. Defaults to warn+ level, configurable with `level` and `lines` params.
 - **Config validation** — warns on unknown fields and wrong types at startup. Invalid values are ignored and defaults apply.
