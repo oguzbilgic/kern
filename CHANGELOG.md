@@ -2,12 +2,10 @@
 
 ## next
 
-### Config
-- `recall` and `autoRecall` added to `KernConfig` typed interface (previously untyped, accessed via `as any` cast)
-- Removed stale `telegram.allowedUsers` and `telegram.showTools` from config interface (never used at runtime)
-- `kern init` now writes minimal config: `model`, `provider`, `toolScope` only. No more redundant `maxSteps: 30`.
-- `kern init` config object typed as `Partial<KernConfig>` instead of `any`
-- Removed `maxSteps` from example JSON in README and docs (still a valid config field, just not prominently shown)
+### Changes
+- `kern init` now writes a minimal config: just `model`, `provider`, and `toolScope`. Other fields use defaults.
+- Removed stale `telegram.allowedUsers` and `telegram.showTools` config fields (unused since pairing system was introduced)
+- Config interface is now fully typed — no more untyped fields
 
 ## v0.16.0
 
