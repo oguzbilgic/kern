@@ -22,9 +22,9 @@ export interface KernConfig {
 }
 
 const TOOL_SCOPES: Record<ToolScope, string[]> = {
-  full: ["bash", "read", "write", "edit", "glob", "grep", "webfetch", "kern", "message", "recall"],
-  write: ["read", "write", "edit", "glob", "grep", "webfetch", "kern", "message", "recall"],
-  read: ["read", "glob", "grep", "webfetch", "kern", "recall"],
+  full: ["bash", "pwsh", "read", "write", "edit", "glob", "grep", "webfetch", "kern", "message", "recall"],
+  write: ["pwsh", "read", "write", "edit", "glob", "grep", "webfetch", "kern", "message", "recall"],
+  read: ["pwsh", "read", "glob", "grep", "webfetch", "kern", "recall"],
 };
 
 const defaults: KernConfig = {

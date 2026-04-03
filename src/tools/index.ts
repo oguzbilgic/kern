@@ -1,4 +1,5 @@
 import { bashTool } from "./bash.js";
+import { pwshTool } from "./pwsh.js";
 import { readTool } from "./read.js";
 import { writeTool } from "./write.js";
 import { editTool } from "./edit.js";
@@ -11,6 +12,7 @@ import { recallTool } from "./recall.js";
 
 export const allTools = {
   bash: bashTool,
+  pwsh: pwshTool,
   read: readTool,
   write: writeTool,
   edit: editTool,

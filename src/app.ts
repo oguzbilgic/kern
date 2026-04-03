@@ -26,7 +26,8 @@ async function handleSlashCommand(cmd: string, userId: string, iface: string, ag
       log("kern", `restart requested by ${userId} via ${iface}`);
       setTimeout(async () => {
         const { spawn } = await import("child_process");
-        spawn("kern", ["restart", agentName], { detached: true, stdio: "ignore" }).unref();
+        const kernBin = join(import.meta.dirname, "index.js");
+        spawn("node", [kernBin, "restart", agentName], { detached: true, stdio: "ignore" }).unref();
       }, 2000);
       return "Restarting in 2 seconds...";
     }

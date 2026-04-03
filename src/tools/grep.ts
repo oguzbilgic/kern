@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { exec } from "child_process";
+import { shellExec } from "./shell.js";
 
 export const grepTool = tool({
   description:
@@ -32,20 +32,25 @@ export const grepTool = tool({
     const excludeDirs = isFile ? "" : "--exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist";
     const cmd = `grep ${recursive} -n --color=always ${excludeDirs} ${includeArg} ${extra} '${escapedPattern}' '${target}' 2>/dev/null`;
 
-    return new Promise<string>((resolve) => {
-      exec(cmd, { maxBuffer: 1024 * 1024 * 5 }, (_err, stdout) => {
-        if (stdout && stdout.trim()) {
-          const lines = stdout.trim().split("\n");
-          resolve(
-            lines.length > 100
-              ? lines.slice(0, 100).join("\n") +
-                  `\n... (${lines.length - 100} more matches)`
-              : lines.join("\n"),
-          );
-        } else {
-          resolve("No matches found.");
-        }
-      });
+    const output = await shellExec(cmd, {
+      shell: "/bin/sh",
+      args: ["-c"],
     });
+
+    // shellExec merges stdout + error info into one string.
+    // grep returns exit code 1 for no matches, which adds "Error: exit code 1".
+    // Filter out error/stderr lines to get just grep output.
+    const lines = output.trim().split("\n").filter(l =>
+      l && !l.startsWith("Error: ") && !l.startsWith("stderr: ")
+    );
+
+    if (lines.length > 0) {
+      return lines.length > 100
+        ? lines.slice(0, 100).join("\n") +
+            `\n... (${lines.length - 100} more matches)`
+        : lines.join("\n");
+    } else {
+      return "No matches found.";
+    }
   },
 });

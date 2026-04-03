@@ -70,6 +70,7 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig, mem
   const tools = getToolsForScope(config.toolScope);
   const toolDescriptions: Record<string, string> = {
     bash: "run shell commands",
+    pwsh: "run PowerShell commands (Windows)",
     read: "read files and directories",
     write: "create or overwrite files",
     edit: "find and replace in files",
@@ -82,7 +83,11 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig, mem
   };
   const toolList = tools.map(t => `- **${t}**: ${toolDescriptions[t] || t}`).join("\n");
 
-  parts.push(wrapTools(toolList));
+  const platformInfo = process.platform === "win32"
+    ? "Platform: Windows. Prefer the pwsh tool for shell commands. The bash tool requires Git Bash."
+    : "Platform: Unix/Linux. Use the bash tool for shell commands.";
+
+  parts.push(wrapTools(`${toolList}\n\n${platformInfo}`));
 
   if (parts.length === 0) {
     return "You are a helpful AI assistant.";
