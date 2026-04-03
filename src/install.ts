@@ -118,7 +118,7 @@ WantedBy=default.target
 }
 
 function systemctl(...args: string[]): boolean {
-  const result = spawnSync("systemctl", ["--user", ...args], { stdio: "inherit" });
+  const result = spawnSync("systemctl", ["--user", ...args], { stdio: "pipe" });
   return result.status === 0;
 }
 
