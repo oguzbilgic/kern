@@ -511,5 +511,6 @@ node_modules/
   print("  Next steps:");
   print(`    \x1b[36mkern tui\x1b[0m            terminal chat`);
   print(`    \x1b[36mkern web start\x1b[0m      browser chat`);
+  print(`    \x1b[36mkern install ${name}\x1b[0m     auto-restart + boot persistence (systemd)`);
   print("");
 }
