@@ -23,6 +23,7 @@ export class AgentServer {
   private statusFn: (() => any | Promise<any>) | null = null;
   private historyFn: ((limit: number, before?: number) => any[]) | null = null;
   private segmentsFn: ((sessionId?: string) => any) | null = null;
+  private systemPromptFn: (() => any | Promise<any>) | null = null;
   private segmentsRebuildFn: (() => Promise<any>) | null = null;
   private segmentsStopFn: (() => void) | null = null;
   private segmentsCleanFn: (() => void) | null = null;
@@ -47,6 +48,10 @@ export class AgentServer {
 
   setSegmentsFn(fn: (sessionId?: string) => any) {
     this.segmentsFn = fn;
+  }
+
+  setSystemPromptFn(fn: () => any | Promise<any>) {
+    this.systemPromptFn = fn;
   }
 
   setSegmentsRebuildFn(fn: () => Promise<any>) {
@@ -244,6 +249,14 @@ export class AgentServer {
       const data = this.segmentsFn ? this.segmentsFn() : { segments: [], stats: {} };
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
+      return;
+    }
+
+    // System prompt debug dump
+    if (url === "/prompt/system" && req.method === "GET") {
+      const data = this.systemPromptFn ? await this.systemPromptFn() : { system: "" };
+      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end(typeof data === "string" ? data : (data.system || ""));
       return;
     }
 

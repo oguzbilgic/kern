@@ -18,6 +18,16 @@ The runtime injects memory into the system prompt automatically. The agent boots
 - **KNOWLEDGE.md** — the index of all knowledge files (what state exists)
 - **Recent notes summary** — an LLM-generated summary of the previous 5 daily notes
 - **Latest daily note** — the most recent file from `notes/`, full content
+- **Conversation summary** — compressed hierarchical summaries of trimmed conversation history
+
+Each section of the system prompt is wrapped in an XML tag for clear identification:
+
+| Tag | Content |
+|-----|---------|
+| `<document path="...">` | Loaded files (AGENTS.md, IDENTITY.md, KERN.md, KNOWLEDGE.md, latest daily note) |
+| `<notes_summary>` | LLM-generated summary of previous 5 daily notes |
+| `<tools>` | Available tools and descriptions |
+| `<conversation_summary>` | Compressed history with nested `<summary>` blocks (only when messages have been trimmed) |
 
 The system prompt is reloaded on every message, so changes to notes and knowledge are picked up immediately.
 
@@ -45,18 +55,40 @@ kern uses a sliding window to manage context size. `maxContextTokens` (default 5
 
 Tool results can be large (command output, file contents, web pages). `maxToolResultChars` (default 20000) truncates oversized results in context while keeping the full output in session storage and the recall index.
 
-## Segments and history injection
+## Segments and conversation summary
 
 When messages are trimmed from the context window, the agent loses direct access to that conversation history. Segments solve this by injecting compressed summaries of the trimmed region.
 
 **How it works:**
 
 1. **Segmentation** — messages are grouped into semantic segments (L0) based on embedding similarity. Topic shifts create segment boundaries.
-2. **Summarization** — each segment is summarized by an LLM (~10-44:1 compression ratio).
+2. **Summarization** — each segment is summarized by an LLM (~10-20:1 compression ratio).
 3. **Rollup** — every 10 L0 segments are summarized into an L1 parent. 10 L1s → L2, etc. This builds a hierarchical tree.
 4. **Injection** — when messages are trimmed, `composeHistory` fills a token budget (`historyBudget`, default 20% of context) with summaries from the tree. Highest-level summaries cover old history cheaply, recent segments near the trim boundary are expanded to lower (more detailed) levels.
 
-The result: the agent sees `[compressed history] → [raw messages]` instead of just raw messages. Old conversations are represented at decreasing resolution, recent history at full detail.
+The result is injected as a `<conversation_summary>` block in the system prompt, containing `<summary>` entries for each segment:
+
+```xml
+<conversation_summary>
+<summary>
+level: L1
+messages: 0-853
+
+...compressed summary text...
+</summary>
+
+<summary>
+level: L0
+messages: 20766-20793
+first: 2026-04-03T06:39:26.634Z
+last: 2026-04-03T06:44:25.437Z
+
+...detailed summary text...
+</summary>
+</conversation_summary>
+```
+
+Old conversations are represented at decreasing resolution, recent history at full detail.
 
 The agent can drill deeper into any segment using the `recall` tool with message range parameters.
 

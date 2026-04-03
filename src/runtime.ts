@@ -8,7 +8,7 @@ import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern
 import type { RecallIndex } from "./recall.js";
 import type { SegmentIndex } from "./segments.js";
 import type { MemoryDB } from "./memory.js";
-import { prepareContext, injectRecall, loadSystemPrompt } from "./context.js";
+import { prepareContext, injectRecall, loadSystemPrompt, type PrepareContextOptions } from "./context.js";
 export type { SessionStats } from "./context.js";
 
 
@@ -84,6 +84,25 @@ export class Runtime {
     this.pendingInjections = fn;
   }
 
+  buildPromptContext(options?: Partial<PrepareContextOptions>) {
+    const allMessages = options?.messages ?? this.session.getMessages();
+    const sessionId = options?.sessionId ?? (this.session.getSessionId() || undefined);
+    const prepared = prepareContext({
+      messages: allMessages,
+      config: options?.config ?? this.config,
+      sessionId,
+      segmentIndex: options?.segmentIndex ?? this.segmentIndex,
+    });
+    const effectiveSystemPrompt = prepared.systemAdditions.length > 0
+      ? `${this.systemPrompt}\n\n${prepared.systemAdditions.join("\n\n")}`
+      : this.systemPrompt;
+    return {
+      system: effectiveSystemPrompt,
+      messages: prepared.messages,
+      stats: prepared.stats,
+    };
+  }
+
   async handleMessage(
     userMessage: string,
     onEvent: StreamHandler,
@@ -114,11 +133,9 @@ export class Runtime {
 
       const allMessages = this.session.getMessages();
       const sessionId = this.session.getSessionId() || undefined;
-      const { messages: contextWindow, stats } = prepareContext({
+      const { system: effectiveSystemPrompt, messages: contextWindow, stats } = this.buildPromptContext({
         messages: allMessages,
-        config: this.config,
         sessionId,
-        segmentIndex: this.segmentIndex,
       });
       const trimmedCount = stats.totalMessages - stats.windowMessages + (stats.historyTokens > 0 ? 1 : 0);
       if (trimmedCount > 0) {
@@ -144,7 +161,7 @@ export class Runtime {
 
       const result = streamText({
         model,
-        system: this.systemPrompt,
+        system: effectiveSystemPrompt,
         messages: contextMessages,
         tools,
         stopWhen: stepCountIs(this.config.maxSteps),
@@ -269,6 +286,11 @@ export class Runtime {
 
   getSessionId(): string | null {
     return this.session.getSessionId();
+  }
+
+  async getSystemPrompt(): Promise<string> {
+    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.memoryDB);
+    return this.systemPrompt;
   }
 
   getMessages(): ModelMessage[] {

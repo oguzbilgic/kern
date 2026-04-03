@@ -1177,6 +1177,20 @@
   </div>
 </div>
 
+<div class="segments-overlay" id="prompt-overlay">
+  <div class="segments-header">
+    <h2>System Prompt</h2>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="stats" id="prompt-stats"></span>
+      <button class="segments-close" id="prompt-refresh" style="font-size:12px;">↻ Refresh</button>
+      <button class="segments-close" id="prompt-close">&times;</button>
+    </div>
+  </div>
+  <div class="segments-body" style="display:block;">
+    <pre id="prompt-text" style="margin:0;white-space:pre-wrap;word-break:break-word;max-height:70vh;overflow:auto;background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:16px;color:var(--text);"></pre>
+  </div>
+</div>
+
 <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
 <div class="sidebar" id="sidebar">
@@ -1226,6 +1240,7 @@
       <button class="filter-btn" id="filter-btn" title="Filter messages">&#9881;</button>
       <div class="filter-dropdown" id="filter-dropdown"></div>
       <button class="info-btn" id="segments-btn" title="Segments">&#9707;</button>
+      <button class="info-btn" id="prompt-btn" title="System prompt">&#123;</button>
       <button class="info-btn" id="info-btn" title="Agent info">&#8942;</button>
     </div>
   </div>
@@ -1356,6 +1371,11 @@ const AgentClient = {
     if (before !== undefined) params.set('before', String(before));
     const res = await fetch(`${baseUrl}/history?${params}`, { headers: this._headers(token) });
     return res.json();
+  },
+
+  async getSystemPrompt(baseUrl, token) {
+    const res = await fetch(`${baseUrl}/prompt/system`, { headers: this._headers(token) });
+    return res.text();
   },
 };
 
@@ -1563,6 +1583,9 @@ $('info-btn').addEventListener('click', async () => {
 const segOverlay = $('segments-overlay');
 const segTimeline = $('segments-timeline');
 const segStats = $('segments-stats');
+const promptOverlay = $('prompt-overlay');
+const promptText = $('prompt-text');
+const promptStats = $('prompt-stats');
 
 
 // Color encodes token density (tokens/message) — cool to warm
@@ -1597,6 +1620,35 @@ $('segments-btn').addEventListener('click', async () => {
   await fetchAndRenderSegments();
   segOverlay.classList.add('open');
   segPollTimer = setInterval(fetchAndRenderSegments, 3000);
+});
+
+async function fetchAndRenderPrompt() {
+  if (!BASE_URL) return;
+  try {
+    const text = await AgentClient.getSystemPrompt(BASE_URL, AUTH_TOKEN);
+    promptText.textContent = text;
+    const approxTokens = Math.ceil(text.length / 4);
+    promptStats.textContent = `${text.length.toLocaleString()} chars · ~${approxTokens.toLocaleString()} tokens`;
+  } catch (e) {
+    console.error('prompt fetch failed:', e);
+    promptText.textContent = 'Failed to load system prompt';
+    promptStats.textContent = '';
+  }
+}
+
+$('prompt-btn').addEventListener('click', async () => {
+  if (promptOverlay.classList.contains('open')) {
+    promptOverlay.classList.remove('open');
+    return;
+  }
+  await fetchAndRenderPrompt();
+  promptOverlay.classList.add('open');
+});
+
+$('prompt-refresh').addEventListener('click', fetchAndRenderPrompt);
+$('prompt-close').addEventListener('click', () => promptOverlay.classList.remove('open'));
+promptOverlay.addEventListener('click', (e) => {
+  if (e.target === promptOverlay) promptOverlay.classList.remove('open');
 });
 
 $('segments-start').addEventListener('click', async () => {
@@ -1672,6 +1724,7 @@ segOverlay.addEventListener('click', (e) => {
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && segOverlay.classList.contains('open')) closeSegOverlay();
+  if (e.key === 'Escape' && promptOverlay.classList.contains('open')) promptOverlay.classList.remove('open');
 });
 
 const segDetail = $('segments-detail');

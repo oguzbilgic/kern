@@ -74,11 +74,11 @@ export async function loadNotesContext(
   agentDir: string,
   config: KernConfig,
   memoryDB: MemoryDB | null,
-): Promise<{ latest: string | null; summary: string | null }> {
+): Promise<{ latest: string | null; latestFile: string | null; summary: string | null }> {
   const notesDir = join(agentDir, "notes");
   const mdFiles = await listNotes(notesDir);
 
-  if (mdFiles.length === 0) return { latest: null, summary: null };
+  if (mdFiles.length === 0) return { latest: null, latestFile: null, summary: null };
 
   // Latest note — always inject raw
   const latestFile = mdFiles[mdFiles.length - 1];
@@ -89,12 +89,12 @@ export async function loadNotesContext(
   } catch {}
 
   // Summary of previous notes (up to 5 before latest)
-  if (mdFiles.length < 2 || !memoryDB) return { latest, summary: null };
+  if (mdFiles.length < 2 || !memoryDB) return { latest, latestFile, summary: null };
 
   // Check cache — exact match on source_key
   const cached = memoryDB.getSummary(SUMMARY_TYPE, latestFile);
   if (cached) {
-    return { latest, summary: cached };
+    return { latest, latestFile, summary: cached };
   }
 
   // Cache miss — serve stale (most recent summary), regenerate in background
@@ -102,5 +102,5 @@ export async function loadNotesContext(
   const prevFiles = mdFiles.slice(-6, -1); // up to 5 notes before latest
   regenerateInBackground(memoryDB, config, notesDir, prevFiles, latestFile);
 
-  return { latest, summary: stale?.text ?? null };
+  return { latest, latestFile, summary: stale?.text ?? null };
 }

@@ -243,6 +243,12 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     }));
   });
 
+  server.setSystemPromptFn(async () => {
+    const latestSystem = await runtime.getSystemPrompt();
+    const built = runtime.buildPromptContext();
+    return { system: built.system || latestSystem };
+  });
+
   server.setSegmentsFn((sessionId?: string) => {
     if (!segmentIndex) return { segments: [], stats: { segments: 0, level0: 0 } };
     return segmentIndex.getSegments(sessionId);

@@ -1,5 +1,42 @@
 # Changelog
 
+## next
+
+### Features
+- **Semantic segments** — messages are automatically grouped into topic-coherent segments (L0) based on embedding cosine distance. Each segment is summarized by gpt-4.1-mini (~10-20:1 compression). First-person, bullet-point style focusing on intent, outcomes, and decisions.
+- **Hierarchical rollups** — every 10 L0 segments are summarized into an L1 parent. 10 L1s → L2, etc. Builds a multi-level summary tree.
+- **Compressed history injection** — when old messages are trimmed from context, `composeHistory()` fills a token budget (`historyBudget`, default 20% of context) with segment summaries. High-level summaries cover old history cheaply, recent segments expand to detailed lower levels. Injected as `<conversation_summary>` in the system prompt.
+- **Structured system prompt** — all system prompt sections wrapped in XML tags for clear identification:
+  - `<document path="...">` for loaded markdown files
+  - `<notes_summary>` for daily notes summary
+  - `<tools>` for tool list
+  - `<conversation_summary>` with nested `<summary>` blocks for compressed history
+  - No more `---` delimiters between sections.
+- **System prompt endpoint** — `GET /prompt/system` returns the full composed system prompt for inspection.
+- **Status enrichment** — `/status` now reports history tokens injected, segment level counts, and total segments per level.
+
+### Web UI
+- **Segments visualization** — proportional colored blocks representing token density and message spans. Hover detail panel with full summary text, message range, timestamps, token counts.
+- **Level toggle** — switch between L0, L1, L2 views with collapsible rolled-up child segments.
+- **Segment controls** — Start, Stop, Rebuild, Clean buttons for managing segmentation lifecycle.
+- **System prompt overlay** — button opens full composed system prompt in a scrollable panel.
+
+### Config
+- `historyBudget` (default `0.2`) — fraction of `maxContextTokens` allocated to compressed history. Set to `0` to disable.
+
+### Changes
+- `prepareContext()` now accepts `sessionId` and `segmentIndex` for history injection. Returns `systemAdditions` array and `trimmedCount`.
+- `trimToTokenBudget()` returns trimmed message count for history injection.
+- `loadNotesContext()` returns `latestFile` for document path tagging.
+- `Runtime` gains `buildPromptContext()` and `getSystemPrompt()` public methods.
+
+### Docs
+- Updated `memory.md` — segments and conversation summary section with XML examples, tag reference table.
+- Updated `config.md` — `historyBudget` field, new DB tables in schema section.
+- Updated `KERN.md` template — references `<conversation_summary>` instead of `<history>`.
+
+---
+
 ## v0.15.0
 
 ### Features

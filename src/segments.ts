@@ -379,9 +379,10 @@ export class SegmentIndex {
       const segEmbeddings = embeddings.slice(segStart, end);
       const avgEmbedding = averageEmbeddings(segEmbeddings);
 
-      // Extract time range from message timestamps
-      const startTime = messages[segStart].timestamp || null;
-      const endTime = messages[end - 1].timestamp || null;
+      // Extract time range from first/last non-null message timestamps within the segment.
+      // Edge messages are often assistant/tool rows with no embedded user metadata timestamp.
+      const startTime = segMsgs.find((m) => m.timestamp)?.timestamp || null;
+      const endTime = [...segMsgs].reverse().find((m) => m.timestamp)?.timestamp || null;
 
       segments.push({
         session_id: sessionId,
@@ -626,14 +627,20 @@ export class SegmentIndex {
       levelCounts[seg.level] = (levelCounts[seg.level] || 0) + 1;
     }
 
-    // Format output
+    // Format output as explicit summary blocks.
     const lines: string[] = [];
     for (const seg of selected) {
-      const timeRange = seg.start_time && seg.end_time
-        ? `${seg.start_time.slice(0, 16)} – ${seg.end_time.slice(0, 16)}`
-        : '';
-      const header = `[L${seg.level} · msgs ${seg.msg_start}-${seg.msg_end}${timeRange ? ' · ' + timeRange : ''}]`;
-      lines.push(`${header}\n${seg.summary}`);
+      const summaryLines = [
+        `<summary>`,
+        `level: L${seg.level}`,
+        `messages: ${seg.msg_start}-${seg.msg_end}`,
+        ...(seg.start_time ? [`first: ${seg.start_time}`] : []),
+        ...(seg.end_time ? [`last: ${seg.end_time}`] : []),
+        ``,
+        seg.summary,
+        `</summary>`,
+      ];
+      lines.push(summaryLines.join("\n"));
     }
 
     return { text: lines.join('\n\n'), levelCounts, tokens: usedTokens };

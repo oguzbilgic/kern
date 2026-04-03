@@ -26,7 +26,7 @@ The main config file. Committed to git.
 | `maxToolResultChars` | `20000` | Max characters per tool result in context. Oversized results are truncated (keeping the start). Full results stay in JSONL and are searchable via recall. Set to `0` to disable. |
 | `heartbeatInterval` | `60` | Minutes between heartbeat prompts. Agent reviews notes, updates knowledge. 0 to disable. |
 | `recall` | `true` | Enable recall (long-term memory). Set to `false` to disable. Requires an embedding API key. |
-| `historyBudget` | `0.2` | Fraction of `maxContextTokens` allocated to compressed history from segments. Set to `0` to disable history injection. See [Memory](/docs/memory#segments-and-history-injection). |
+| `historyBudget` | `0.2` | Fraction of `maxContextTokens` allocated to compressed history from segments. Set to `0` to disable history injection. See [Memory](/docs/memory#segments-and-conversation-summary). |
 | `autoRecall` | `false` | Automatically inject relevant old context before each turn. Requires recall enabled. |
 
 ### Tool scopes
