@@ -1,8 +1,10 @@
 import { loadRegistry, isProcessRunning } from "./registry.js";
-import { getServiceStatus } from "./install.js";
+import { getServiceStatus, getWebServiceStatus } from "./install.js";
+import { loadGlobalConfig } from "./global-config.js";
 import { existsSync } from "fs";
 import { readFile } from "fs/promises";
 import { join } from "path";
+import { homedir } from "os";
 
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
@@ -64,6 +66,30 @@ export async function showStatus(): Promise<void> {
     w(`    ${dim("tools:")} ${toolScope || "—"}  ${dim("mode:")} ${mode}`);
     w("");
   }
+
+  // Web status
+  const config = await loadGlobalConfig();
+  const webInstall = getWebServiceStatus();
+  const pidFile = join(homedir(), ".kern", "web.pid");
+  let webRunning = webInstall === "active";
+  let webPid: number | null = null;
+  if (!webRunning && existsSync(pidFile)) {
+    try {
+      webPid = parseInt(await readFile(pidFile, "utf-8"), 10);
+      webRunning = !!webPid && isProcessRunning(webPid);
+    } catch {}
+  }
+  const webDot = webRunning ? green("●") : dim("●");
+  const webStatus = webRunning
+    ? green("running") + dim(` (:${config.web_port})`)
+    : dim("stopped");
+  const webMode = webInstall ? "systemd" : webRunning ? "daemon" : "—";
+
+  w(`  ${bold("kern web")}`);
+  w("");
+  w(`  ${webDot} ${bold("web")}  ${webStatus}`);
+  w(`    ${dim("mode:")} ${webMode}`);
+  w("");
 
   if (hasUninstalled) {
     try {
