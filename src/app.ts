@@ -18,7 +18,7 @@ import { SegmentIndex } from "./segments.js";
 import { MemoryDB } from "./memory.js";
 import { MessageQueue } from "./queue.js";
 import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, setSegmentStatsFn, type InterfaceStatus } from "./tools/kern.js";
-import { log } from "./log.js";
+import { log, setLogLevel } from "./log.js";
 
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
   switch (cmd) {
@@ -53,6 +53,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   await updateKernel(agentDir);
 
   const config = await loadConfig(agentDir);
+  setLogLevel(config.logLevel);
 
   // Auto-generate auth token if missing
   if (!process.env.KERN_AUTH_TOKEN) {
