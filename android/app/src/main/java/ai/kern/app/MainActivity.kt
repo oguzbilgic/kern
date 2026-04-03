@@ -24,7 +24,7 @@ import com.google.android.material.textfield.TextInputEditText
 class MainActivity : AppCompatActivity() {
 
     companion object {
-        const val BUILD = 38
+        const val BUILD = 39
     }
 
     private lateinit var webView: WebView
@@ -180,6 +180,16 @@ class MainActivity : AppCompatActivity() {
                 }
                 return result;
             };
+        }
+
+        // If init() already ran, the web UI connected via AgentClient.connect()
+        // which got a dead EventSource (we killed it). Trigger native SSE now.
+        var baseUrl = window.KernBridge.getBaseUrl();
+        if (baseUrl && window.KernNative && window.KernNative.switchAgent) {
+            console.log('[kern-native] init already ran, triggering native SSE for: ' + baseUrl);
+            // Get token from localStorage (same way the web UI stores it)
+            var token = localStorage.getItem('kern_web_token') || '';
+            KernNative.switchAgent(baseUrl, token);
         }
 
         // Build number on agent name
