@@ -3,6 +3,10 @@
 ## next
 
 ### Features
+- **`kern install`** — install user-level systemd services for agents and web daemon. Auto-restart on crash, boot persistence, idempotent. `kern install [name|--web]` to install, `kern uninstall [name]` to remove. Services named `kern-agent-<name>` to avoid collisions.
+- **Systemd integration** — `kern start/stop/restart` auto-delegate to `systemctl` when services are installed. `kern web start/stop` too. Falls back to PID-based daemon on systems without systemd.
+- **`kern status` improvements** — shows web daemon status, mode field (systemd/daemon/—), colon-separated labels. Hints about `kern install` when agents aren't installed.
+- **`kern remove` cleanup** — uninstalls systemd service before unregistering agent.
 - **Log levels** — `log()`, `log.debug()`, `log.warn()`, `log.error()` with colored labels (WRN, ERR, DBG). All levels written to file, filter on read.
 - **`kern logs` CLI** — defaults to follow mode. `-n 50` for last N lines (no follow). `--level warn` to filter by level. Combinable.
 - **`kern({ action: "logs" })` tool** — agents can inspect their own logs. Defaults to warn+ level, configurable with `level` and `lines` params.
