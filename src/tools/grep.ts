@@ -36,19 +36,15 @@ export const grepTool = tool({
     const excludeDirs = isFile ? "" : "--exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist";
     const cmd = `grep ${recursive} -n --color=always ${excludeDirs} ${includeArg} ${extra} '${escapedPattern}' '${target}' 2>/dev/null`;
 
-    const output = await shellExec(cmd, {
+    const result = await shellExec(cmd, {
       shell: "/bin/sh",
       args: ["-c"],
     });
 
-    // shellExec merges stdout + error info into one string.
-    // grep returns exit code 1 for no matches, which adds "Error: exit code 1".
-    // Filter out error/stderr lines to get just grep output.
-    const lines = output.trim().split("\n").filter(l =>
-      l && !l.startsWith("Error: ") && !l.startsWith("stderr: ")
-    );
-
-    if (lines.length > 0) {
+    // Use stdout directly — grep exit code 1 means no matches, not an error
+    const stdout = result.stdout.trim();
+    if (stdout) {
+      const lines = stdout.split("\n");
       return lines.length > 100
         ? lines.slice(0, 100).join("\n") +
             `\n... (${lines.length - 100} more matches)`

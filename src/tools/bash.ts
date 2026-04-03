@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { shellExec } from "./shell.js";
+import { shellExec, formatShellResult } from "./shell.js";
 
 export const bashTool = tool({
   description:
@@ -13,10 +13,11 @@ export const bashTool = tool({
       .describe("Timeout in milliseconds (default: 120000)"),
   }),
   execute: async ({ command, timeout = 120000 }) => {
-    return shellExec(command, {
+    const result = await shellExec(command, {
       shell: "/bin/sh",
       args: ["-c"],
       timeout,
     });
+    return formatShellResult(result, timeout);
   },
 });

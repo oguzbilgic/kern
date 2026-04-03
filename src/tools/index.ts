@@ -10,9 +10,11 @@ import { kernTool } from "./kern.js";
 import { messageTool } from "./message.js";
 import { recallTool } from "./recall.js";
 
+const isWindows = process.platform === "win32";
+
 export const allTools = {
-  bash: bashTool,
-  pwsh: pwshTool,
+  // Platform-specific shell tool — one per platform
+  ...(isWindows ? { pwsh: pwshTool } : { bash: bashTool }),
   read: readTool,
   write: writeTool,
   edit: editTool,

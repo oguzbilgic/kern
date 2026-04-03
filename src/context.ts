@@ -83,11 +83,7 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig, mem
   };
   const toolList = tools.map(t => `- **${t}**: ${toolDescriptions[t] || t}`).join("\n");
 
-  const platformInfo = process.platform === "win32"
-    ? "Platform: Windows. Prefer the pwsh tool for shell commands. The bash tool requires Git Bash."
-    : "Platform: Unix/Linux. Use the bash tool for shell commands.";
-
-  parts.push(wrapTools(`${toolList}\n\n${platformInfo}`));
+  parts.push(wrapTools(toolList));
 
   if (parts.length === 0) {
     return "You are a helpful AI assistant.";
