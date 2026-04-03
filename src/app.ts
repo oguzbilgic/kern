@@ -14,9 +14,10 @@ import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
 import { setRecallIndex } from "./tools/recall.js";
 import { RecallIndex } from "./recall.js";
+import { SegmentIndex } from "./segments.js";
 import { MemoryDB } from "./memory.js";
 import { MessageQueue } from "./queue.js";
-import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, type InterfaceStatus } from "./tools/kern.js";
+import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, setSegmentStatsFn, type InterfaceStatus } from "./tools/kern.js";
 import { log } from "./log.js";
 
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
@@ -113,6 +114,19 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     }
   }
 
+  // Initialize semantic segments (uses same embedding infra as recall)
+  let segmentIndex: SegmentIndex | null = null;
+  let segmentRunning = false;
+  if ((config as any).recall !== false) {
+    try {
+      segmentIndex = new SegmentIndex(memoryDB, config.provider);
+      runtime.setSegmentIndex(segmentIndex);
+      setSegmentStatsFn(() => segmentIndex ? segmentIndex.getStats() : null);
+    } catch (err: any) {
+      log("segments", `init failed: ${err.message} — segments disabled`);
+    }
+  }
+
   const agentName = basename(agentDir);
   await registerAgent(agentName, agentDir);
   process.chdir(agentDir);
@@ -174,12 +188,17 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       msg.onEvent?.(event);
     });
 
-    // Index new messages for recall (async, non-blocking)
-    if (recallIndex) {
-      const sessionId = runtime.getSessionId();
-      if (sessionId) {
+    // Index new messages for recall + segments (async, non-blocking)
+    const sessionId = runtime.getSessionId();
+    if (sessionId) {
+      if (recallIndex) {
         recallIndex.indexSession(sessionId).catch((err) => {
           log("recall", `indexing failed: ${err.message}`);
+        });
+      }
+      if (segmentIndex) {
+        segmentIndex.indexSession(sessionId).catch((err) => {
+          log("segments", `indexing failed: ${err.message}`);
         });
       }
     }
@@ -222,6 +241,65 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       index: start + i,
       ...m,
     }));
+  });
+
+  server.setSystemPromptFn(async () => {
+    const latestSystem = await runtime.getSystemPrompt();
+    const built = runtime.buildPromptContext();
+    return { system: built.system || latestSystem };
+  });
+
+  server.setSegmentsFn((sessionId?: string) => {
+    if (!segmentIndex) return { segments: [], stats: { segments: 0, level0: 0 } };
+    return segmentIndex.getSegments(sessionId);
+  });
+
+  server.setSegmentsRebuildFn(async () => {
+    if (!segmentIndex) throw new Error("segments not enabled");
+    if (segmentRunning) {
+      log("segments", "rebuild already running");
+      return { status: "already running" };
+    }
+    const sessionId = runtime.getSessionId();
+    if (!sessionId) throw new Error("no session");
+
+    segmentRunning = true;
+    try {
+      segmentIndex.clear();
+      log("segments", "cleared — starting rebuild");
+      const created = await segmentIndex.indexSession(sessionId);
+      log("segments", `rebuild complete: ${created} segments`);
+      return { status: "done", segments: created };
+    } finally {
+      segmentRunning = false;
+    }
+  });
+
+  server.setSegmentsStopFn(() => {
+    if (!segmentIndex) return;
+    segmentIndex.stop();
+    segmentRunning = false;
+  });
+
+  server.setSegmentsCleanFn(() => {
+    if (!segmentIndex) return;
+    segmentIndex.clear();
+  });
+
+  server.setSegmentsStartFn(async () => {
+    if (!segmentIndex) throw new Error("segments not enabled");
+    if (segmentRunning) return { status: "already running" };
+    const sessionId = runtime.getSessionId();
+    if (!sessionId) throw new Error("no session");
+
+    segmentRunning = true;
+    try {
+      const created = await segmentIndex.indexSession(sessionId);
+      log("segments", `indexed ${created} new segments`);
+      return { status: "done", segments: created };
+    } finally {
+      segmentRunning = false;
+    }
   });
 
   const port = await server.start("127.0.0.1");

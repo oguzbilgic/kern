@@ -26,6 +26,7 @@ The main config file. Committed to git.
 | `maxToolResultChars` | `20000` | Max characters per tool result in context. Oversized results are truncated (keeping the start). Full results stay in JSONL and are searchable via recall. Set to `0` to disable. |
 | `heartbeatInterval` | `60` | Minutes between heartbeat prompts. Agent reviews notes, updates knowledge. 0 to disable. |
 | `recall` | `true` | Enable recall (long-term memory). Set to `false` to disable. Requires an embedding API key. |
+| `historyBudget` | `0.2` | Fraction of `maxContextTokens` allocated to compressed history from segments. Set to `0` to disable history injection. See [Memory](/docs/memory#segments-and-conversation-summary). |
 | `autoRecall` | `false` | Automatically inject relevant old context before each turn. Requires recall enabled. |
 
 ### Tool scopes
@@ -102,7 +103,10 @@ SQLite database for agent memory. Always created on startup. Contains:
 - `chunks` — turn-level summaries for recall search
 - `vec_chunks` — embeddings (sqlite-vec)
 - `index_state` — tracks indexing progress per session
-- `summaries` — cached notes summaries and future rolling summaries
+- `summaries` — cached notes summaries
+- `semantic_segments` — hierarchical segment tree (L0, L1, L2...)
+- `vec_segments` — segment embeddings
+- `segment_state` — tracks segmentation progress per session
 
 Gitignored. Safe to delete — rebuilds from session JSONL files on next start, summaries regenerate on next cache miss.
 

@@ -22,6 +22,12 @@ export class AgentServer {
   private onMessage: ((text: string, userId: string, iface: string, channel: string) => Promise<void>) | null = null;
   private statusFn: (() => any | Promise<any>) | null = null;
   private historyFn: ((limit: number, before?: number) => any[]) | null = null;
+  private segmentsFn: ((sessionId?: string) => any) | null = null;
+  private systemPromptFn: (() => any | Promise<any>) | null = null;
+  private segmentsRebuildFn: (() => Promise<any>) | null = null;
+  private segmentsStopFn: (() => void) | null = null;
+  private segmentsCleanFn: (() => void) | null = null;
+  private segmentsStartFn: (() => Promise<any>) | null = null;
   private port = 0;
 
   constructor() {
@@ -38,6 +44,30 @@ export class AgentServer {
 
   setHistoryFn(fn: (limit: number, before?: number) => any[]) {
     this.historyFn = fn;
+  }
+
+  setSegmentsFn(fn: (sessionId?: string) => any) {
+    this.segmentsFn = fn;
+  }
+
+  setSystemPromptFn(fn: () => any | Promise<any>) {
+    this.systemPromptFn = fn;
+  }
+
+  setSegmentsRebuildFn(fn: () => Promise<any>) {
+    this.segmentsRebuildFn = fn;
+  }
+
+  setSegmentsStopFn(fn: () => void) {
+    this.segmentsStopFn = fn;
+  }
+
+  setSegmentsCleanFn(fn: () => void) {
+    this.segmentsCleanFn = fn;
+  }
+
+  setSegmentsStartFn(fn: () => Promise<any>) {
+    this.segmentsStartFn = fn;
   }
 
   async start(host: string = "127.0.0.1"): Promise<number> {
@@ -211,6 +241,76 @@ export class AgentServer {
       const history = this.historyFn ? this.historyFn(limit, before) : [];
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(history));
+      return;
+    }
+
+    // Segments — semantic segment DAG data
+    if (url === "/segments" && req.method === "GET") {
+      const data = this.segmentsFn ? this.segmentsFn() : { segments: [], stats: {} };
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
+      return;
+    }
+
+    // System prompt debug dump
+    if (url === "/prompt/system" && req.method === "GET") {
+      const data = this.systemPromptFn ? await this.systemPromptFn() : { system: "" };
+      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end(typeof data === "string" ? data : (data.system || ""));
+      return;
+    }
+
+    // Segments start — index new messages (no clear)
+    if (url === "/segments/start" && req.method === "POST") {
+      if (!this.segmentsStartFn) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "segments not enabled" }));
+        return;
+      }
+      this.segmentsStartFn().catch(() => {});
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "started" }));
+      return;
+    }
+
+    // Segments rebuild — clear and re-index
+    if (url === "/segments/rebuild" && req.method === "POST") {
+      if (!this.segmentsRebuildFn) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "segments not enabled" }));
+        return;
+      }
+      // Non-blocking — start rebuild, return immediately
+      this.segmentsRebuildFn().catch(() => {});
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "rebuilding" }));
+      return;
+    }
+
+    // Segments stop — abort running rebuild/summarization
+    if (url === "/segments/stop" && req.method === "POST") {
+      if (this.segmentsStopFn) {
+        this.segmentsStopFn();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ status: "stopped" }));
+      } else {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "segments not enabled" }));
+      }
+      return;
+    }
+
+    // Segments clean — stop + clear all segments
+    if (url === "/segments/clean" && req.method === "POST") {
+      if (this.segmentsStopFn && this.segmentsCleanFn) {
+        this.segmentsStopFn();
+        this.segmentsCleanFn();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ status: "cleaned" }));
+      } else {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "segments not enabled" }));
+      }
       return;
     }
 

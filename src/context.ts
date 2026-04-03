@@ -6,7 +6,21 @@ import { log } from "./log.js";
 import { getToolsForScope, type KernConfig } from "./config.js";
 import type { RecallIndex } from "./recall.js";
 import type { MemoryDB } from "./memory.js";
+import type { SegmentIndex } from "./segments.js";
 import { loadNotesContext } from "./notes.js";
+
+function wrapDocument(pathLabel: string, content: string): string {
+  const safePath = pathLabel.replace(/"/g, '&quot;');
+  return `<document path="${safePath}">\n${content.trim()}\n</document>`;
+}
+
+function wrapNotesSummary(content: string): string {
+  return `<notes_summary>\n${content.trim()}\n</notes_summary>`;
+}
+
+function wrapTools(content: string): string {
+  return `<tools>\n${content.trim()}\n</tools>`;
+}
 
 // Build the system prompt from agent markdown files + runtime info.
 export async function loadSystemPrompt(agentDir: string, config: KernConfig, memoryDB?: MemoryDB | null): Promise<string> {
@@ -15,38 +29,38 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig, mem
   // Load AGENTS.md (kernel)
   const agentsPath = join(agentDir, "AGENTS.md");
   if (existsSync(agentsPath)) {
-    parts.push(await readFile(agentsPath, "utf-8"));
+    parts.push(wrapDocument("AGENTS.md", await readFile(agentsPath, "utf-8")));
   }
 
   // Load IDENTITY.md
   const identityPath = join(agentDir, "IDENTITY.md");
   if (existsSync(identityPath)) {
-    parts.push(await readFile(identityPath, "utf-8"));
+    parts.push(wrapDocument("IDENTITY.md", await readFile(identityPath, "utf-8")));
   }
 
   // Load KERN.md (runtime context) — from agent dir first, fall back to kern package
   const kernMdAgent = join(agentDir, "KERN.md");
   const kernMdPackage = join(import.meta.dirname, "..", "templates", "KERN.md");
   if (existsSync(kernMdAgent)) {
-    parts.push(await readFile(kernMdAgent, "utf-8"));
+    parts.push(wrapDocument("KERN.md", await readFile(kernMdAgent, "utf-8")));
   } else if (existsSync(kernMdPackage)) {
-    parts.push(await readFile(kernMdPackage, "utf-8"));
+    parts.push(wrapDocument("KERN.md", await readFile(kernMdPackage, "utf-8")));
   }
 
   // Load KNOWLEDGE.md (memory index)
   const knowledgePath = join(agentDir, "KNOWLEDGE.md");
   if (existsSync(knowledgePath)) {
-    parts.push(await readFile(knowledgePath, "utf-8"));
+    parts.push(wrapDocument("KNOWLEDGE.md", await readFile(knowledgePath, "utf-8")));
   }
 
   // Inject notes context: summary of recent days + latest daily note
   try {
-    const { latest, summary } = await loadNotesContext(agentDir, config, memoryDB ?? null);
+    const { latest, summary, latestFile } = await loadNotesContext(agentDir, config, memoryDB ?? null);
     if (summary) {
-      parts.push(`# Recent Notes Summary\n\n${summary}`);
+      parts.push(wrapNotesSummary(summary));
     }
-    if (latest) {
-      parts.push(`# Latest Daily Note\n\n${latest}`);
+    if (latest && latestFile) {
+      parts.push(wrapDocument(`notes/${latestFile}`, latest));
     }
   } catch (err: any) {
     log("context", `failed to load notes context: ${err.message}`);
@@ -68,13 +82,13 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig, mem
   };
   const toolList = tools.map(t => `- **${t}**: ${toolDescriptions[t] || t}`).join("\n");
 
-  parts.push(`### Your tools\n${toolList}`);
+  parts.push(wrapTools(toolList));
 
   if (parts.length === 0) {
     return "You are a helpful AI assistant.";
   }
 
-  return parts.join("\n\n---\n\n");
+  return parts.join("\n\n");
 }
 
 // Token estimate: stringify everything, ~4 chars per token
@@ -166,15 +180,15 @@ function truncateLargeToolResults(messages: ModelMessage[], maxChars: number, to
   return { messages: changed ? result : messages, truncatedCount };
 }
 
-function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): ModelMessage[] {
-  if (maxTokens <= 0) return messages;
+function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): { messages: ModelMessage[]; trimmedCount: number } {
+  if (maxTokens <= 0) return { messages, trimmedCount: 0 };
 
   // Compute total using cached per-message sizes
   let total = 0;
   for (const msg of messages) {
     total += getMsgSize(msg);
   }
-  if (total <= maxTokens) return messages;
+  if (total <= maxTokens) return { messages, trimmedCount: 0 };
 
   // Find cut point from the front
   let cutTotal = total;
@@ -193,7 +207,7 @@ function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): ModelMe
     cutIndex++;
   }
 
-  return messages.slice(cutIndex);
+  return { messages: messages.slice(cutIndex), trimmedCount: cutIndex };
 }
 
 export interface SessionStats {
@@ -202,18 +216,52 @@ export interface SessionStats {
   windowTokens: number;
   windowMessages: number;
   truncatedCount: number;
+  historyTokens: number;
+  historyLevelCounts: Record<number, number>;
 }
 
-// Unified pipeline: truncate → trim → stats. Single call, all numbers out.
-export function prepareContext(messages: ModelMessage[], config: KernConfig): { messages: ModelMessage[]; stats: SessionStats } {
+export interface PrepareContextOptions {
+  messages: ModelMessage[];
+  config: KernConfig;
+  sessionId?: string;
+  segmentIndex?: SegmentIndex | null;
+}
+
+export interface PreparedContext {
+  systemAdditions: string[];
+  messages: ModelMessage[];
+  stats: SessionStats;
+}
+
+// Unified pipeline: truncate → trim → inject history → stats.
+export function prepareContext({ messages, config, sessionId, segmentIndex }: PrepareContextOptions): PreparedContext {
   const totalTokens = estimateTokens(messages);
   const { messages: truncated, truncatedCount } = truncateLargeToolResults(messages, config.maxToolResultChars, config.maxContextTokens);
-  const window = trimToTokenBudget(truncated, config.maxContextTokens);
+  const rawBudget = segmentIndex && config.historyBudget > 0
+    ? Math.round(config.maxContextTokens * (1 - config.historyBudget))
+    : config.maxContextTokens;
+  const { messages: window, trimmedCount } = trimToTokenBudget(truncated, rawBudget);
+
+  // Inject compressed history at trim boundary
+  let historyTokens = 0;
+  let historyLevelCounts: Record<number, number> = {};
+  let historySystemAddition = "";
+  const finalMessages = window;
+  if (trimmedCount > 0 && segmentIndex && sessionId && config.historyBudget > 0) {
+    const budgetTokens = Math.round(config.maxContextTokens * config.historyBudget);
+    const history = segmentIndex.composeHistory(sessionId, trimmedCount, budgetTokens);
+    if (history) {
+      historyTokens = history.tokens;
+      historyLevelCounts = history.levelCounts;
+      historySystemAddition = `<conversation_summary>\nCompressed conversation summary of trimmed earlier messages (oldest → newest). Use recall tool to load full messages by range.\n\n${history.text}\n</conversation_summary>`;
+    }
+  }
+
   // Only count truncations that survived trimming
   // FRAGILE: matches suffix appended by truncateLargeToolResults — keep in sync
   const truncationSuffix = "use recall tool to search full content]";
   const trimmedTruncated = truncatedCount > 0
-    ? window.reduce((n, msg) => {
+    ? finalMessages.reduce((n, msg) => {
         if (msg.role !== "tool" || !Array.isArray(msg.content)) return n;
         return n + (msg.content as ToolResultPart[]).filter(p =>
           p.type === "tool-result" && p.output?.type === "text" && p.output.value.endsWith(truncationSuffix)
@@ -221,13 +269,16 @@ export function prepareContext(messages: ModelMessage[], config: KernConfig): { 
       }, 0)
     : 0;
   return {
-    messages: window,
+    systemAdditions: historySystemAddition ? [historySystemAddition] : [],
+    messages: finalMessages,
     stats: {
       totalMessages: messages.length,
       estimatedTokens: totalTokens,
-      windowTokens: estimateTokens(window),
-      windowMessages: window.length,
+      windowTokens: estimateTokens(finalMessages),
+      windowMessages: finalMessages.length,
       truncatedCount: trimmedTruncated,
+      historyTokens,
+      historyLevelCounts,
     },
   };
 }

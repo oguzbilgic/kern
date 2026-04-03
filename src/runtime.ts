@@ -6,8 +6,9 @@ import { SessionManager } from "./session.js";
 import { loadConfig, getToolsForScope, type KernConfig } from "./config.js";
 import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern.js";
 import type { RecallIndex } from "./recall.js";
+import type { SegmentIndex } from "./segments.js";
 import type { MemoryDB } from "./memory.js";
-import { prepareContext, injectRecall, loadSystemPrompt } from "./context.js";
+import { prepareContext, injectRecall, loadSystemPrompt, type PrepareContextOptions } from "./context.js";
 export type { SessionStats } from "./context.js";
 
 
@@ -31,6 +32,7 @@ export class Runtime {
   private session!: SessionManager;
   private agentDir: string;
   private recallIndex: RecallIndex | null = null;
+  private segmentIndex: SegmentIndex | null = null;
   private memoryDB: MemoryDB | null = null;
 
   constructor(agentDir: string) {
@@ -39,6 +41,10 @@ export class Runtime {
 
   setRecallIndex(index: RecallIndex) {
     this.recallIndex = index;
+  }
+
+  setSegmentIndex(index: SegmentIndex) {
+    this.segmentIndex = index;
   }
 
   setMemoryDB(db: MemoryDB) {
@@ -51,7 +57,7 @@ export class Runtime {
       agentDir: this.agentDir,
       config: this.config,
       sessionId: this.session.getSessionId() || "unknown",
-      getSessionStats: () => prepareContext(this.session.getMessages(), this.config).stats,
+      getSessionStats: () => prepareContext({ messages: this.session.getMessages(), config: this.config, sessionId: this.session.getSessionId() || undefined, segmentIndex: this.segmentIndex }).stats,
       pairingManager: pairing,
     });
   }
@@ -67,7 +73,7 @@ export class Runtime {
       agentDir: this.agentDir,
       config: this.config,
       sessionId: this.session.getSessionId() || "unknown",
-      getSessionStats: () => prepareContext(this.session.getMessages(), this.config).stats,
+      getSessionStats: () => prepareContext({ messages: this.session.getMessages(), config: this.config, sessionId: this.session.getSessionId() || undefined, segmentIndex: this.segmentIndex }).stats,
     });
   }
 
@@ -76,6 +82,25 @@ export class Runtime {
 
   setPendingInjections(fn: () => { role: string; content: string }[]) {
     this.pendingInjections = fn;
+  }
+
+  buildPromptContext(options?: Partial<PrepareContextOptions>) {
+    const allMessages = options?.messages ?? this.session.getMessages();
+    const sessionId = options?.sessionId ?? (this.session.getSessionId() || undefined);
+    const prepared = prepareContext({
+      messages: allMessages,
+      config: options?.config ?? this.config,
+      sessionId,
+      segmentIndex: options?.segmentIndex ?? this.segmentIndex,
+    });
+    const effectiveSystemPrompt = prepared.systemAdditions.length > 0
+      ? `${this.systemPrompt}\n\n${prepared.systemAdditions.join("\n\n")}`
+      : this.systemPrompt;
+    return {
+      system: effectiveSystemPrompt,
+      messages: prepared.messages,
+      stats: prepared.stats,
+    };
   }
 
   async handleMessage(
@@ -107,10 +132,14 @@ export class Runtime {
       let fullText = "";
 
       const allMessages = this.session.getMessages();
-      const { messages: contextWindow, stats } = prepareContext(allMessages, this.config);
-      const trimmedCount = allMessages.length - contextWindow.length;
+      const sessionId = this.session.getSessionId() || undefined;
+      const { system: effectiveSystemPrompt, messages: contextWindow, stats } = this.buildPromptContext({
+        messages: allMessages,
+        sessionId,
+      });
+      const trimmedCount = stats.totalMessages - stats.windowMessages + (stats.historyTokens > 0 ? 1 : 0);
       if (trimmedCount > 0) {
-        log("runtime", `context trimmed: ${trimmedCount} old messages excluded`);
+        log("runtime", `context trimmed: ${trimmedCount} old messages excluded${stats.historyTokens > 0 ? `, history injected (~${stats.historyTokens} tokens)` : ''}`);
       }
 
       const { messages: contextMessages, recall } = await injectRecall(
@@ -132,7 +161,7 @@ export class Runtime {
 
       const result = streamText({
         model,
-        system: this.systemPrompt,
+        system: effectiveSystemPrompt,
         messages: contextMessages,
         tools,
         stopWhen: stepCountIs(this.config.maxSteps),
@@ -257,6 +286,11 @@ export class Runtime {
 
   getSessionId(): string | null {
     return this.session.getSessionId();
+  }
+
+  async getSystemPrompt(): Promise<string> {
+    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.memoryDB);
+    return this.systemPrompt;
   }
 
   getMessages(): ModelMessage[] {

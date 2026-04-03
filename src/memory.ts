@@ -58,12 +58,54 @@ export class MemoryDB {
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         UNIQUE(type, source_key)
       );
+
+      CREATE TABLE IF NOT EXISTS semantic_segments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        msg_start INTEGER NOT NULL,
+        msg_end INTEGER NOT NULL,
+        start_time TEXT,
+        end_time TEXT,
+        parent_id INTEGER REFERENCES semantic_segments(id),
+        level INTEGER NOT NULL DEFAULT 0,
+        summary TEXT NOT NULL,
+        token_count INTEGER NOT NULL,
+        summarized INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS segment_state (
+        session_id TEXT PRIMARY KEY,
+        last_segmented_msg INTEGER NOT NULL
+      );
     `);
 
-    // Create vec table separately (virtual tables don't support IF NOT EXISTS in all versions)
+    // Indexes
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_segments_session_level ON semantic_segments(session_id, level, msg_start);
+      CREATE INDEX IF NOT EXISTS idx_segments_parent ON semantic_segments(parent_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_segments_unique ON semantic_segments(session_id, level, msg_start, msg_end);
+    `);
+
+    // Migrations — add columns to existing tables
+    try { this.db.exec("ALTER TABLE semantic_segments ADD COLUMN start_time TEXT"); } catch {}
+    try { this.db.exec("ALTER TABLE semantic_segments ADD COLUMN end_time TEXT"); } catch {}
+    try { this.db.exec("ALTER TABLE semantic_segments ADD COLUMN summary_token_count INTEGER NOT NULL DEFAULT 0"); } catch {}
+
+    // Create vec tables separately (virtual tables don't support IF NOT EXISTS in all versions)
     try {
       this.db.exec(`
         CREATE VIRTUAL TABLE vec_chunks USING vec0(
+          embedding FLOAT[${EMBEDDING_DIMENSIONS}]
+        );
+      `);
+    } catch {
+      // Already exists — fine
+    }
+
+    try {
+      this.db.exec(`
+        CREATE VIRTUAL TABLE vec_segments USING vec0(
           embedding FLOAT[${EMBEDDING_DIMENSIONS}]
         );
       `);
