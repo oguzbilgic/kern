@@ -2,6 +2,7 @@ import { readFile } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 import { config as loadDotenv } from "dotenv";
+import { log } from "./log.js";
 
 export type ToolScope = "full" | "write" | "read";
 
@@ -60,13 +61,13 @@ const FIELD_TYPES: Record<string, string> = {
 function validateConfig(userConfig: Record<string, unknown>): void {
   for (const key of Object.keys(userConfig)) {
     if (!(key in FIELD_TYPES)) {
-      console.warn(`config: unknown field "${key}" — ignored`);
+      log.warn("config", `unknown field "${key}" — ignored`);
       continue;
     }
     const expected = FIELD_TYPES[key];
     const actual = typeof userConfig[key];
     if (actual !== expected) {
-      console.warn(`config: "${key}" should be ${expected}, got ${actual} — using default`);
+      log.warn("config", `"${key}" should be ${expected}, got ${actual} — using default`);
     }
   }
 }

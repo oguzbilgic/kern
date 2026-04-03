@@ -2,10 +2,15 @@
 
 ## next
 
+### Features
+- **Log levels** — `log()`, `log.debug()`, `log.warn()`, `log.error()` with colored labels (WRN, ERR, DBG). All levels written to file, filter on read.
+- **`kern logs` CLI** — defaults to follow mode. `-n 50` for last N lines (no follow). `--level warn` to filter by level. Combinable.
+- **`kern({ action: "logs" })` tool** — agents can inspect their own logs. Defaults to warn+ level, configurable with `level` and `lines` params.
+- **Config validation** — warns on unknown fields and wrong types at startup. Invalid values are ignored and defaults apply.
+
 ### Changes
-- `kern init` now writes a minimal config: just `model`, `provider`, and `toolScope`. Other fields use defaults.
-- Config validation on load — warns on unknown fields (catches typos) and wrong types (uses default instead)
-- Removed stale `telegram.allowedUsers` and `telegram.showTools` config fields (unused since pairing system)
+- `kern init` writes minimal config: `model`, `provider`, `toolScope` only
+- Removed stale `telegram.allowedUsers` and `telegram.showTools` config fields
 - Dropped legacy `tools` array support (use `toolScope` instead)
 
 ## v0.16.0

@@ -7,11 +7,34 @@ const COLORS: Record<string, string> = {
   telegram: "\x1b[34m", // blue
   slack: "\x1b[35m",    // magenta
   server: "\x1b[32m",   // green
+  config: "\x1b[33m",   // yellow
+  context: "\x1b[36m",  // cyan
+  notes: "\x1b[32m",    // green
+  recall: "\x1b[35m",   // magenta
+  segments: "\x1b[34m", // blue
+  memory: "\x1b[34m",   // blue
 };
 const RESET = "\x1b[0m";
 
-export function log(component: string, message: string) {
+const LEVEL_LABELS: Record<string, string> = {
+  debug: dim("DBG"),
+  info: "",
+  warn: "\x1b[33mWRN\x1b[0m",
+  error: "\x1b[31mERR\x1b[0m",
+};
+
+function write(component: string, message: string, level: string) {
   const time = new Date().toISOString();
   const color = COLORS[component] || "";
-  process.stderr.write(`${dim(time)} ${color}[${component}]${RESET} ${message}\n`);
+  const label = LEVEL_LABELS[level] || "";
+  const prefix = label ? `${label} ` : "";
+  process.stderr.write(`${dim(time)} ${prefix}${color}[${component}]${RESET} ${message}\n`);
 }
+
+export function log(component: string, message: string) {
+  write(component, message, "info");
+}
+
+log.debug = (component: string, message: string) => write(component, message, "debug");
+log.warn = (component: string, message: string) => write(component, message, "warn");
+log.error = (component: string, message: string) => write(component, message, "error");

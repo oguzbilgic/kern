@@ -69,14 +69,16 @@ Interactive terminal chat. Connects to running daemon via HTTP/SSE.
 - Heartbeat activity visible
 - Ctrl-C only exits TUI, daemon stays alive
 
-## kern logs [name]
+## kern logs [name] [-f] [-n N] [--level LEVEL]
 
-Tail agent logs in real time. Structured, colored output.
+Follow agent logs. Structured, leveled, colored output.
 
 - No argument: auto-selects agent
+- Default: follow mode (like `tail -f`). `-n 50` shows last 50 lines and exits.
+- `--level warn` filters to warnings and errors only. Levels: `debug`, `info`, `warn`, `error`.
 - Logs stored in `.kern/logs/kern.log`
-- Components: `[kern]` `[queue]` `[runtime]` `[telegram]` `[slack]` `[server]`
-- Ctrl-C to stop
+- Components: `[kern]` `[queue]` `[runtime]` `[context]` `[telegram]` `[slack]` `[server]` `[recall]` `[segments]` `[notes]` `[config]` `[memory]`
+- Level labels: `ERR` (red), `WRN` (yellow), `DBG` (dim). Info has no label.
 
 ## kern remove \<name\>
 

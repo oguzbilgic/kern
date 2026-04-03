@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
+import { log } from "./log.js";
 
 const BUNDLED_AGENTS = join(import.meta.dirname, "..", "templates", "AGENTS.md");
 
@@ -21,7 +22,7 @@ export async function updateKernel(agentDir: string): Promise<void> {
   if (!existsSync(agentFile)) {
     // No AGENTS.md — write it
     await writeFile(agentFile, bundled);
-    console.log(`[kern] wrote AGENTS.md (kernel ${bundledVersion})`);
+    log("kern", `wrote AGENTS.md (kernel ${bundledVersion})`);
     return;
   }
 
@@ -33,8 +34,8 @@ export async function updateKernel(agentDir: string): Promise<void> {
   // Different version or no version marker — update
   await writeFile(agentFile, bundled);
   if (currentVersion) {
-    console.log(`[kern] updated AGENTS.md: kernel ${currentVersion} → ${bundledVersion}`);
+    log("kern", `updated AGENTS.md: kernel ${currentVersion} → ${bundledVersion}`);
   } else {
-    console.log(`[kern] updated AGENTS.md to kernel ${bundledVersion}`);
+    log("kern", `updated AGENTS.md to kernel ${bundledVersion}`);
   }
 }

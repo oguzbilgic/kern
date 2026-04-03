@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { readFile } from "fs/promises";
 import { join } from "path";
+import { existsSync } from "fs";
 import type { SessionStats } from "../context.js";
 
 // These get set by the runtime at init
@@ -217,16 +218,24 @@ export const kernTool = tool({
     "Manage your own kern runtime. Check status, view config, or pair users.",
   inputSchema: z.object({
     action: z
-      .enum(["status", "config", "env", "pair", "users"])
+      .enum(["status", "config", "env", "pair", "users", "logs"])
       .describe(
-        "status: runtime info. config: show config. env: show env var names. pair: approve a pairing code (provide code param). users: list paired users.",
+        "status: runtime info. config: show config. env: show env var names. pair: approve a pairing code (provide code param). users: list paired users. logs: show recent logs (optionally filter by level).",
       ),
     code: z
       .string()
       .optional()
       .describe("Pairing code to approve (for pair action). Format: KERN-XXXX"),
+    level: z
+      .enum(["debug", "info", "warn", "error"])
+      .optional()
+      .describe("Filter logs by minimum level (for logs action). Default: warn."),
+    lines: z
+      .number()
+      .optional()
+      .describe("Number of log lines to return (for logs action). Default: 50."),
   }),
-  execute: async ({ action, code }) => {
+  execute: async ({ action, code, level, lines }) => {
     switch (action) {
       case "status":
         return getStatus();
@@ -288,6 +297,35 @@ export const kernTool = tool({
           }
         }
         return lines.join("\n");
+      }
+
+      case "logs": {
+        const logFile = join(_agentDir, ".kern", "logs", "kern.log");
+        if (!existsSync(logFile)) return "No logs yet.";
+        try {
+          const content = await readFile(logFile, "utf-8");
+          let allLines = content.trimEnd().split("\n");
+
+          // Filter by level
+          const minLevel = level || "warn";
+          const LEVEL_FILTERS: Record<string, string[]> = {
+            debug: [],
+            info: [],
+            warn: ["WRN", "ERR"],
+            error: ["ERR"],
+          };
+          const filterLabels = LEVEL_FILTERS[minLevel];
+          if (filterLabels && filterLabels.length > 0) {
+            allLines = allLines.filter(l => filterLabels.some(label => l.includes(label)));
+          }
+
+          const count = lines || 50;
+          const output = allLines.slice(-count);
+          if (output.length === 0) return `No ${minLevel}+ logs found.`;
+          return output.join("\n");
+        } catch {
+          return "Error reading logs.";
+        }
       }
 
       default:

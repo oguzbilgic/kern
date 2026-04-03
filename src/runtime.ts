@@ -139,7 +139,7 @@ export class Runtime {
       });
       const trimmedCount = stats.totalMessages - stats.windowMessages + (stats.historyTokens > 0 ? 1 : 0);
       if (trimmedCount > 0) {
-        log("runtime", `context trimmed: ${trimmedCount} old messages excluded${stats.historyTokens > 0 ? `, history injected (~${stats.historyTokens} tokens)` : ''}`);
+        log("context", `trimmed: ${trimmedCount} old messages excluded${stats.historyTokens > 0 ? `, history injected (~${stats.historyTokens} tokens)` : ''}`);
       }
 
       const { messages: contextMessages, recall } = await injectRecall(
@@ -149,11 +149,11 @@ export class Runtime {
         onEvent({ type: "recall", recall });
       }
 
-      log("runtime", `context: ${contextMessages.length} messages, ~${stats.windowTokens} tokens`);
+      log.debug("context", `${contextMessages.length} messages, ~${stats.windowTokens} tokens`);
       if (contextMessages.length > 0) {
         const first = contextMessages[0];
         const last = contextMessages[contextMessages.length - 1];
-        log("runtime", `first msg: role=${first.role}, last msg: role=${last.role}`);
+        log.debug("context", `first msg: role=${first.role}, last msg: role=${last.role}`);
       }
 
       const pendingInjections = this.pendingInjections;
@@ -167,7 +167,7 @@ export class Runtime {
         stopWhen: stepCountIs(this.config.maxSteps),
         onError: ({ error }) => {
           streamError = error;
-          log("runtime", `streamText error: ${error}`);
+          log.error("runtime", `streamText error: ${error}`);
         },
         onStepFinish: async (step) => {
           // Persist only new messages from this step (response.messages is cumulative)

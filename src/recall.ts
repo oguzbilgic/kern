@@ -115,7 +115,7 @@ export class RecallIndex {
     // Embed chunks in batches (API limits)
     const BATCH_SIZE = 100;
     const texts = chunks.map((c) => c.text);
-    log("recall", `embedding ${texts.length} chunks (${texts.reduce((a, t) => a + t.length, 0)} chars)`);
+    log.debug("recall", `embedding ${texts.length} chunks (${texts.reduce((a, t) => a + t.length, 0)} chars)`);
 
     const embeddings: number[][] = [];
     try {
@@ -124,11 +124,11 @@ export class RecallIndex {
         const result = await embedMany({ model: this.embeddingModel, values: batch });
         embeddings.push(...result.embeddings);
         if (texts.length > BATCH_SIZE) {
-          log("recall", `embedded batch ${Math.floor(b / BATCH_SIZE) + 1}/${Math.ceil(texts.length / BATCH_SIZE)}`);
+          log.debug("recall", `embedded batch ${Math.floor(b / BATCH_SIZE) + 1}/${Math.ceil(texts.length / BATCH_SIZE)}`);
         }
       }
     } catch (err: any) {
-      log("recall", `embedding failed: ${err.message}`);
+      log.error("recall", `embedding failed: ${err.message}`);
       return 0;
     }
 

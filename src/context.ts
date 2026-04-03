@@ -63,7 +63,7 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig, mem
       parts.push(wrapDocument(`notes/${latestFile}`, latest));
     }
   } catch (err: any) {
-    log("context", `failed to load notes context: ${err.message}`);
+    log.error("context", `failed to load notes context: ${err.message}`);
   }
 
   // Inject live runtime info
@@ -324,7 +324,7 @@ export async function injectRecall(
       return { messages, recall: null };
     }
 
-    log("recall", `auto-recall: injected ${relevant.length} chunks (~${recallTokens} tokens)`);
+    log.debug("recall", `auto-recall: injected ${relevant.length} chunks (~${recallTokens} tokens)`);
     return {
       messages: [recallMsg, ...messages],
       recall: {
@@ -335,7 +335,7 @@ export async function injectRecall(
       },
     };
   } catch (err: any) {
-    log("recall", `auto-recall failed: ${err.message}`);
+    log.error("recall", `auto-recall failed: ${err.message}`);
     return { messages, recall: null };
   }
 }
