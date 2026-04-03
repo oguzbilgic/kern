@@ -10,6 +10,7 @@
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icon.svg">
 <title>kern</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js" defer></script>
 <style>
   :root {
     --bg: #1a1a1a;
@@ -528,8 +529,127 @@
     color: var(--text-dim);
   }
   .message.tool.expanded .tool-output { display: block; }
-  .message.tool .diff-line-old { color: var(--red); }
-  .message.tool .diff-line-new { color: var(--green); }
+  .diff-line-old, .diff-line-new { display: flex; gap: 0; }
+  .diff-line-old { opacity: 0.4; }
+  .diff-gutter { user-select: none; width: 16px; flex-shrink: 0; text-align: center; }
+  .diff-line-old .diff-gutter { color: var(--red); }
+  .diff-line-new .diff-gutter { color: var(--green); }
+  .diff-code { flex: 1; min-width: 0; }
+  .diff-separator { height: 6px; }
+  .tool-result-text { margin-top: 8px; }
+
+  /* Fullscreen expand button — on header line, visible only when expanded */
+  .tool-expand-btn {
+    display: none;
+    width: 20px;
+    height: 20px;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 12px;
+    margin-left: auto;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .tool-expand-btn:hover { color: var(--text); }
+  .message.tool.expanded .tool-expand-btn.has-overflow { display: flex; }
+
+  /* Fullscreen overlay */
+  .fullscreen-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .fullscreen-content {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 100%;
+    max-width: 1000px;
+    height: 100%;
+    max-height: 100%;
+    overflow-y: auto;
+    padding: 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    word-break: break-all;
+    position: relative;
+  }
+  .fullscreen-close {
+    position: sticky;
+    top: 0;
+    float: right;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    z-index: 1;
+  }
+  .fullscreen-close:hover { color: var(--text); background: var(--border); }
+  .fullscreen-content .read-output { min-height: 0; }
+  .fullscreen-content .read-code { white-space: pre-wrap; word-break: break-all; }
+
+
+  /* Syntax-highlighted read output */
+  .read-output { display: flex; gap: 0; }
+  .read-gutter {
+    color: var(--text-muted);
+    text-align: right;
+    padding-right: 10px;
+    user-select: none;
+    border-right: 1px solid var(--border);
+    margin-right: 10px;
+    flex-shrink: 0;
+    white-space: pre;
+  }
+  .read-code {
+    flex: 1;
+    min-width: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  /* highlight.js theme — GitHub Dark Dimmed */
+  .hljs { color: #adbac7; background: transparent; }
+  .hljs-keyword, .hljs-selector-tag { color: #f47067; }
+  .hljs-literal, .hljs-built_in { color: #f47067; }
+  .hljs-string, .hljs-addition { color: #96d0ff; }
+  .hljs-title, .hljs-title.class_, .hljs-title.function_ { color: #dcbdfb; }
+  .hljs-variable, .hljs-template-variable { color: #f69d50; }
+  .hljs-comment, .hljs-deletion { color: #768390; }
+  .hljs-number { color: #6cb6ff; }
+  .hljs-type, .hljs-params { color: #6cb6ff; }
+  .hljs-attr, .hljs-attribute { color: #6cb6ff; }
+  .hljs-symbol, .hljs-bullet { color: #6cb6ff; }
+  .hljs-meta { color: #768390; }
+  .hljs-regexp { color: #96d0ff; }
+  .hljs-tag { color: #8ddb8c; }
+  .hljs-name { color: #8ddb8c; }
+  .hljs-selector-id, .hljs-selector-class { color: #6cb6ff; }
+  .hljs-emphasis { font-style: italic; }
+  .hljs-strong { font-weight: bold; }
+  .hljs-link { text-decoration: underline; }
+  .hljs-punctuation { color: #adbac7; }
+  .hljs-property { color: #f69d50; }
+
   .message.recall {
     font-size: 12px;
     color: var(--text-muted);
@@ -969,9 +1089,184 @@
   }
   .hub-agent-row.offline .hub-agent-dot { background: var(--text-muted); }
   .hub-agent-id { margin-left: auto; font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+
+  /* --- Segments Overlay --- */
+  .segments-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 2000;
+    overflow-y: auto;
+    padding: 24px;
+  }
+  .segments-overlay.open { display: block; }
+  .segments-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    position: sticky;
+    top: 0;
+    background: rgba(0,0,0,0.9);
+    padding: 8px 0;
+    z-index: 1;
+  }
+  .segments-header h2 {
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 600;
+    font-family: var(--font-sans);
+  }
+  .segments-header .stats {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: var(--font-mono);
+  }
+  .segments-close {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+  .segments-close:hover { color: var(--text); border-color: var(--text-muted); }
+  .segments-body {
+    display: flex;
+    gap: 0;
+    min-height: 200px;
+  }
+  .segments-timeline {
+    flex: 1;
+    min-width: 0;
+    overflow: auto;
+  }
+  .segments-detail {
+    width: 540px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--border);
+    padding: 16px;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    max-height: calc(100vh - 80px);
+  }
+  .segments-detail.empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: var(--font-mono);
+  }
+  .seg-detail-meta {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    margin-bottom: 10px;
+    line-height: 1.6;
+  }
+  .seg-detail-summary {
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+  .segments-level {
+    margin-bottom: 16px;
+  }
+  .segments-level-label {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .segments-row {
+    display: flex;
+    gap: 2px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+  .seg-block {
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+    transition: opacity 0.15s;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0 2px 2px;
+    overflow: hidden;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: rgba(255,255,255,0.6);
+    white-space: nowrap;
+    min-width: 20px;
+  }
+  .seg-block:hover { opacity: 0.8; }
+  .seg-block.active { outline: 2px solid #fff; outline-offset: -2px; }
+  .seg-block.unsummarized { opacity: 0.5; border: 1px dashed rgba(255,255,255,0.3); }
+  .seg-block.seg-child { opacity: 0.6; border: 1px dashed rgba(255,255,255,0.2); }
+  .seg-collapsed {
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.05);
+    border: 1px dashed rgba(255,255,255,0.2);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    align-self: center;
+  }
+  .seg-collapsed:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+  .seg-collapsed.open { background: rgba(255,255,255,0.08); }
+  .seg-children-row {
+    display: flex;
+    gap: 2px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+
 </style>
 </head>
 <body>
+
+<div class="segments-overlay" id="segments-overlay">
+  <div class="segments-header">
+    <h2>Semantic Segments</h2>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="stats" id="segments-stats"></span>
+      <button class="segments-close" id="segments-start" style="font-size:12px;">▶ Start</button>
+      <button class="segments-close" id="segments-stop" style="font-size:12px;">⏹ Stop</button>
+      <button class="segments-close" id="segments-clean" style="font-size:12px;">🗑 Clean</button>
+      <button class="segments-close" id="segments-rebuild" style="font-size:12px;">↻ Rebuild</button>
+      <button class="segments-close" id="segments-close">&times;</button>
+    </div>
+  </div>
+  <div class="segments-body">
+    <div class="segments-timeline" id="segments-timeline"></div>
+    <div class="segments-detail empty" id="segments-detail">hover a segment</div>
+  </div>
+</div>
+
+<div class="segments-overlay" id="prompt-overlay">
+  <div class="segments-header">
+    <h2>System Prompt</h2>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="stats" id="prompt-stats"></span>
+      <button class="segments-close" id="prompt-refresh" style="font-size:12px;">↻ Refresh</button>
+      <button class="segments-close" id="prompt-close">&times;</button>
+    </div>
+  </div>
+  <div class="segments-body" style="display:block;">
+    <pre id="prompt-text" style="margin:0;white-space:pre-wrap;word-break:break-word;max-height:70vh;overflow:auto;background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:16px;color:var(--text);"></pre>
+  </div>
+</div>
 
 <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
@@ -1039,6 +1334,8 @@
     <div style="display:flex;align-items:center;gap:4px;position:relative;">
       <button class="filter-btn" id="filter-btn" title="Filter messages">&#9881;</button>
       <div class="filter-dropdown" id="filter-dropdown"></div>
+      <button class="info-btn" id="segments-btn" title="Segments">&#9707;</button>
+      <button class="info-btn" id="prompt-btn" title="System prompt">&#123;</button>
       <button class="info-btn" id="info-btn" title="Agent info">&#8942;</button>
     </div>
   </div>
@@ -1073,9 +1370,15 @@ const AgentClient = {
    * @returns {{ close: function }} - Call close() to disconnect
    */
   connect(baseUrl, token, { onEvent, onConnect, onDisconnect }) {
+    // Close any existing EventSource to prevent duplicates
+    if (activeEventSource) {
+      activeEventSource.close();
+      activeEventSource = null;
+    }
     // EventSource can't set headers — pass token as query param
     const url = token ? `${baseUrl}/events?token=${encodeURIComponent(token)}` : `${baseUrl}/events`;
     const es = new EventSource(url);
+    activeEventSource = es;
     let connected = false;
     es.onopen = () => { connected = true; onConnect?.(); };
     let connectionId = null;
@@ -1163,6 +1466,11 @@ const AgentClient = {
     if (before !== undefined) params.set('before', String(before));
     const res = await fetch(`${baseUrl}/history?${params}`, { headers: this._headers(token) });
     return res.json();
+  },
+
+  async getSystemPrompt(baseUrl, token) {
+    const res = await fetch(`${baseUrl}/prompt/system`, { headers: this._headers(token) });
+    return res.text();
   },
 };
 
@@ -1373,6 +1681,308 @@ $('info-btn').addEventListener('click', async () => {
     });
   } catch {}
 });
+
+// ==========================================================================
+// Segments Visualization
+// ==========================================================================
+
+const segOverlay = $('segments-overlay');
+const segTimeline = $('segments-timeline');
+const segStats = $('segments-stats');
+const promptOverlay = $('prompt-overlay');
+const promptText = $('prompt-text');
+const promptStats = $('prompt-stats');
+
+
+// Color encodes token density (tokens/message) — cool to warm
+function segColor(tokens, span) {
+  const density = span > 0 ? tokens / span : 0;
+  // Clamp density to 0-1000 range, map to hue 210 (blue) → 0 (red)
+  const t = Math.min(1, density / 1000);
+  const hue = 210 - t * 210;
+  return `hsl(${hue}, 60%, 45%)`;
+}
+
+let segPollTimer = null;
+
+async function fetchAndRenderSegments() {
+  if (!BASE_URL) return;
+  try {
+    const res = await fetch(`${BASE_URL}/segments`, { headers: AgentClient._headers(AUTH_TOKEN) });
+    if (!res.ok) return;
+    const data = await res.json();
+    renderSegments(data);
+  } catch (e) {
+    console.error('segments fetch failed:', e);
+  }
+}
+
+$('segments-btn').addEventListener('click', async () => {
+  if (segOverlay.classList.contains('open')) {
+    segOverlay.classList.remove('open');
+    if (segPollTimer) { clearInterval(segPollTimer); segPollTimer = null; }
+    return;
+  }
+  await fetchAndRenderSegments();
+  segOverlay.classList.add('open');
+  segPollTimer = setInterval(fetchAndRenderSegments, 3000);
+});
+
+async function fetchAndRenderPrompt() {
+  if (!BASE_URL) return;
+  try {
+    const text = await AgentClient.getSystemPrompt(BASE_URL, AUTH_TOKEN);
+    promptText.textContent = text;
+    const approxTokens = Math.ceil(text.length / 4);
+    promptStats.textContent = `${text.length.toLocaleString()} chars · ~${approxTokens.toLocaleString()} tokens`;
+  } catch (e) {
+    console.error('prompt fetch failed:', e);
+    promptText.textContent = 'Failed to load system prompt';
+    promptStats.textContent = '';
+  }
+}
+
+$('prompt-btn').addEventListener('click', async () => {
+  if (promptOverlay.classList.contains('open')) {
+    promptOverlay.classList.remove('open');
+    return;
+  }
+  await fetchAndRenderPrompt();
+  promptOverlay.classList.add('open');
+});
+
+$('prompt-refresh').addEventListener('click', fetchAndRenderPrompt);
+$('prompt-close').addEventListener('click', () => promptOverlay.classList.remove('open'));
+promptOverlay.addEventListener('click', (e) => {
+  if (e.target === promptOverlay) promptOverlay.classList.remove('open');
+});
+
+$('segments-start').addEventListener('click', async () => {
+  if (!BASE_URL) return;
+  try {
+    await fetch(`${BASE_URL}/segments/start`, {
+      method: 'POST',
+      headers: AgentClient._headers(AUTH_TOKEN),
+    });
+    segStats.textContent = 'indexing...';
+  } catch (e) {
+    console.error('start failed:', e);
+  }
+});
+
+$('segments-clean').addEventListener('click', async () => {
+  if (!BASE_URL) return;
+  try {
+    await fetch(`${BASE_URL}/segments/clean`, {
+      method: 'POST',
+      headers: AgentClient._headers(AUTH_TOKEN),
+    });
+    segStats.textContent = 'cleaned';
+    segTimeline.innerHTML = '';
+  } catch (e) {
+    console.error('clean failed:', e);
+  }
+});
+
+$('segments-stop').addEventListener('click', async () => {
+  if (!BASE_URL) return;
+  try {
+    await fetch(`${BASE_URL}/segments/stop`, {
+      method: 'POST',
+      headers: AgentClient._headers(AUTH_TOKEN),
+    });
+    segStats.textContent = 'stopped';
+  } catch (e) {
+    console.error('stop failed:', e);
+  }
+});
+
+$('segments-rebuild').addEventListener('click', async () => {
+  if (!BASE_URL) return;
+  const btn = $('segments-rebuild');
+  btn.textContent = '↻ Rebuilding...';
+  btn.disabled = true;
+  try {
+    await fetch(`${BASE_URL}/segments/rebuild`, {
+      method: 'POST',
+      headers: AgentClient._headers(AUTH_TOKEN),
+    });
+    segStats.textContent = 'rebuilding in background...';
+    segTimeline.innerHTML = '<div style="color:var(--text-muted);padding:20px;">Rebuild started. Refresh in a minute to see results.</div>';
+  } catch (e) {
+    console.error('rebuild failed:', e);
+  } finally {
+    btn.textContent = '↻ Rebuild';
+    btn.disabled = false;
+  }
+});
+
+function closeSegOverlay() {
+  segOverlay.classList.remove('open');
+  if (segPollTimer) { clearInterval(segPollTimer); segPollTimer = null; }
+}
+
+$('segments-close').addEventListener('click', closeSegOverlay);
+
+segOverlay.addEventListener('click', (e) => {
+  if (e.target === segOverlay) closeSegOverlay();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && segOverlay.classList.contains('open')) closeSegOverlay();
+  if (e.key === 'Escape' && promptOverlay.classList.contains('open')) promptOverlay.classList.remove('open');
+});
+
+const segDetail = $('segments-detail');
+let segDataMap = {};
+
+function renderSegments(data) {
+  const { segments, stats } = data;
+
+  // Stats: compute from top-level only (no parent)
+  const topLevel = segments ? segments.filter(s => !s.parent_id) : [];
+  const totalTokens = topLevel.reduce((s, seg) => s + (seg.token_count || 0), 0);
+  const totalSummaryTokens = topLevel.reduce((s, seg) => s + (seg.summary_token_count || Math.ceil((seg.summary || '').length / 4)), 0);
+  const ratio = totalSummaryTokens > 0 ? Math.round(totalTokens / totalSummaryTokens) : 0;
+  const levelCount = new Set(topLevel.map(s => s.level || 0)).size;
+  segStats.textContent = topLevel.length > 0
+    ? `${topLevel.length} segments · ${levelCount} level${levelCount > 1 ? 's' : ''} · ${(totalTokens / 1000).toFixed(0)}k tokens · ${(totalSummaryTokens / 1000).toFixed(1)}k summary · ${ratio}:1`
+    : `${stats.segments || 0} segments`;
+
+  if (!segments || segments.length === 0) {
+    segTimeline.innerHTML = '<div style="color:var(--text-muted);padding:20px;">No segments yet. Use Start or Rebuild to index.</div>';
+    return;
+  }
+
+  // Group by level
+  const levels = {};       // orphans per level
+  const children = {};     // children (have parent_id) per level
+  let maxMsgEnd = 0;
+  for (const seg of segments) {
+    const lvl = seg.level || 0;
+    if (seg.parent_id) {
+      if (!children[lvl]) children[lvl] = [];
+      children[lvl].push(seg);
+    } else {
+      if (!levels[lvl]) levels[lvl] = [];
+      levels[lvl].push(seg);
+    }
+    if (seg.msg_end > maxMsgEnd) maxMsgEnd = seg.msg_end;
+  }
+
+  segDataMap = {};
+  let html = '';
+  const sortedLevels = Object.keys(levels).map(Number).sort();
+
+  const MIN_BLOCK_PX = 40;
+  const MAX_BLOCK_PX = 200;
+
+  for (const lvl of sortedLevels) {
+    const segs = levels[lvl] || [];
+    const childSegs = children[lvl] || [];
+    const allSegs = [...childSegs, ...segs];
+    // Scale widths within this level: smallest → MIN, largest → MAX
+    const spans = allSegs.map(s => s.msg_end - s.msg_start);
+    const minSpan = Math.min(...spans);
+    const maxSpan = Math.max(...spans);
+    const spanRange = maxSpan - minSpan || 1;
+
+    const childCount = childSegs.length;
+    const totalCount = childCount + segs.length;
+
+    html += `<div class="segments-level">`;
+    html += `<div class="segments-level-label">Level ${lvl} · ${totalCount} segments${childCount > 0 ? ` (${childCount} rolled up)` : ''}</div>`;
+    html += `<div class="segments-row">`;
+
+    // Collapsed children block — click to expand
+    if (childCount > 0) {
+      const childSpan = childSegs.reduce((s, seg) => s + (seg.msg_end - seg.msg_start), 0);
+      html += `<div class="seg-collapsed" data-level="${lvl}">▸ ${childCount} · ${childSpan} msgs</div>`;
+      html += `<div class="seg-children-row" data-level="${lvl}" style="display:none">`;
+      for (const seg of childSegs) {
+        segDataMap[seg.id] = seg;
+        const span = seg.msg_end - seg.msg_start;
+        const t = (span - minSpan) / spanRange;
+        const widthPx = Math.round(MIN_BLOCK_PX + t * (MAX_BLOCK_PX - MIN_BLOCK_PX));
+        const color = segColor(seg.token_count || 0, span);
+        const height = Math.max(24, Math.min(48, Math.round(Math.sqrt(seg.token_count || 0) / 2)));
+        const label = `${span}`;
+        html += `<div class="seg-block seg-child" style="width:${widthPx}px;height:${height}px;background:${color};"
+          data-seg-id="${seg.id}"
+        >${label}</div>`;
+      }
+      html += `</div>`;
+    }
+
+    // Orphan blocks
+    for (const seg of segs) {
+      segDataMap[seg.id] = seg;
+      const span = seg.msg_end - seg.msg_start;
+      const t = (span - minSpan) / spanRange;
+      const widthPx = Math.round(MIN_BLOCK_PX + t * (MAX_BLOCK_PX - MIN_BLOCK_PX));
+      const color = segColor(seg.token_count || 0, span);
+      const height = Math.max(24, Math.min(64, Math.round(Math.sqrt(seg.token_count || 0) / 2)));
+      const cls = seg.summarized ? '' : ' unsummarized';
+      const label = `${span}`;
+
+      html += `<div class="seg-block${cls}" style="width:${widthPx}px;height:${height}px;background:${color};"
+        data-seg-id="${seg.id}"
+      >${label}</div>`;
+    }
+
+    html += '</div></div>';
+  }
+
+  segTimeline.innerHTML = html;
+
+  // Toggle collapsed children
+  segTimeline.querySelectorAll('.seg-collapsed').forEach(el => {
+    el.addEventListener('click', () => {
+      const lvl = el.dataset.level;
+      const row = segTimeline.querySelector(`.seg-children-row[data-level="${lvl}"]`);
+      if (!row) return;
+      const open = row.style.display !== 'none';
+      row.style.display = open ? 'none' : 'flex';
+      el.textContent = el.textContent.replace(/^[▸▾]/, open ? '▸' : '▾');
+      el.classList.toggle('open', !open);
+    });
+  });
+
+  // Hover to show detail panel
+  segTimeline.querySelectorAll('.seg-block').forEach(el => {
+    el.addEventListener('mouseenter', () => showSegDetail(el));
+    el.addEventListener('click', () => showSegDetail(el));
+  });
+}
+
+function showSegDetail(el) {
+  segTimeline.querySelectorAll('.seg-block.active').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+
+  const seg = segDataMap[el.dataset.segId];
+  if (!seg) return;
+
+  const span = seg.msg_end - seg.msg_start;
+  const tokens = (seg.token_count || 0).toLocaleString();
+  const summaryTokens = seg.summary_token_count || Math.ceil((seg.summary || '').length / 4);
+
+  segDetail.classList.remove('empty');
+  segDetail.innerHTML = `
+    <div class="seg-detail-meta">
+      msgs ${seg.msg_start}–${seg.msg_end} (${span} messages)<br>
+      ${tokens} tokens → ${summaryTokens} summary tokens (${summaryTokens > 0 ? Math.round(seg.token_count / summaryTokens) : '?'}:1)<br>
+      ${seg.start_time ? new Date(seg.start_time).toLocaleString() : ''}${seg.start_time && seg.end_time ? ' – ' : ''}${seg.end_time ? new Date(seg.end_time).toLocaleString() : ''}
+      ${!seg.summarized ? '<br><span style="color:var(--orange);">⏳ not yet summarized</span>' : ''}
+    </div>
+    <div class="seg-detail-summary">${escHtml(seg.summary || '') || '<span style="color:var(--text-muted);font-style:italic;">no summary</span>'}</div>
+  `;
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
 
 // ==========================================================================
 // Agent Switcher
@@ -1773,6 +2383,7 @@ let _streamRaf = 0;
 let connection = null;
 let authFailed = false;
 let intentionalClose = false;
+let activeEventSource = null;
 let currentTurnContext = null; // tracks which interface/type triggered the current turn
 let lastToolEl = null; // last tool call element — kept expanded during streaming
 let isLoadingHistory = false; // suppress auto-expand during history load
@@ -1808,11 +2419,116 @@ function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// Convert ANSI escape sequences to HTML spans
+function ansiToHtml(s) {
+  const ANSI_COLORS = {
+    '30': '#545454', '31': '#fc533a', '32': '#3fb950', '33': '#d29922',
+    '34': '#58a6ff', '35': '#bc8cff', '36': '#56d4dd', '37': '#e6edf3',
+    '90': '#707070', '91': '#f97583', '92': '#56d364', '93': '#e3b341',
+    '94': '#79c0ff', '95': '#d2a8ff', '96': '#76e3ea', '97': '#ffffff',
+  };
+  let html = escapeHtml(s);
+  let open = false;
+  html = html.replace(/\x1b\[([0-9;]*)m/g, (_, codes) => {
+    const parts = codes.split(';').filter(Boolean);
+    if (parts.length === 0 || (parts.length === 1 && parts[0] === '0')) {
+      return open ? (open = false, '</span>') : '';
+    }
+    let color = null;
+    let bold = false;
+    for (const p of parts) {
+      if (p === '1') bold = true;
+      else if (ANSI_COLORS[p]) color = ANSI_COLORS[p];
+    }
+    if (!color && !bold) return open ? (open = false, '</span>') : '';
+    const prefix = open ? '</span>' : '';
+    open = true;
+    const style = (color ? `color:${color};` : '') + (bold ? 'font-weight:bold;' : '');
+    return `${prefix}<span style="${style}">`;
+  });
+  if (open) html += '</span>';
+  // Strip any remaining escape sequences
+  html = html.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+  return html;
+}
+
+// File extension → highlight.js language mapping
+const EXT_LANG = {
+  ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
+  py: 'python', rb: 'ruby', go: 'go', rs: 'rust', c: 'c', cpp: 'cpp', h: 'cpp',
+  java: 'java', kt: 'kotlin', cs: 'csharp', swift: 'swift',
+  sh: 'bash', bash: 'bash', zsh: 'bash', fish: 'bash',
+  json: 'json', yaml: 'yaml', yml: 'yaml', toml: 'ini',
+  html: 'xml', xml: 'xml', svg: 'xml', css: 'css', scss: 'css',
+  md: 'markdown', sql: 'sql', dockerfile: 'dockerfile',
+  conf: 'ini', ini: 'ini', env: 'ini', nginx: 'nginx',
+  lua: 'lua', php: 'php', r: 'r', zig: 'rust',
+};
+
+function getLanguageFromPath(path) {
+  if (!path) return null;
+  const name = path.split('/').pop().toLowerCase();
+  if (name === 'dockerfile') return 'dockerfile';
+  if (name === 'makefile') return 'makefile';
+  const ext = name.split('.').pop();
+  return EXT_LANG[ext] || null;
+}
+
+// Format read tool output with line numbers gutter + syntax highlighting
+function formatReadOutput(text, filePath) {
+  const lines = text.split('\n');
+  const lineNums = [];
+  const codeLines = [];
+
+  for (const line of lines) {
+    const match = line.match(/^(\d+):(.*)/);
+    if (match) {
+      lineNums.push(match[1]);
+      codeLines.push(match[2]);
+    } else {
+      // Directory listing or non-numbered output — skip formatting
+      return null;
+    }
+  }
+
+  const code = codeLines.join('\n');
+  const lang = getLanguageFromPath(filePath);
+
+  let highlighted;
+  if (typeof hljs !== 'undefined' && lang) {
+    try {
+      highlighted = hljs.highlight(code, { language: lang, ignoreIllegals: true }).value;
+    } catch {
+      highlighted = escapeHtml(code);
+    }
+  } else {
+    highlighted = escapeHtml(code);
+  }
+
+  const gutter = lineNums.map(n => escapeHtml(n)).join('\n');
+  return `<div class="read-output"><div class="read-gutter">${gutter}</div><div class="read-code">${highlighted}</div></div>`;
+}
+
 function formatEditDiff(input) {
   if (!input || !input.oldString || !input.newString) return null;
-  const oldLines = input.oldString.split('\n').map(l => `<span class="diff-line-old">- ${escapeHtml(l)}</span>`);
-  const newLines = input.newString.split('\n').map(l => `<span class="diff-line-new">+ ${escapeHtml(l)}</span>`);
-  return oldLines.join('\n') + '\n' + newLines.join('\n');
+  const lang = getLanguageFromPath(input.path);
+
+  function highlightLines(text) {
+    if (typeof hljs !== 'undefined' && lang) {
+      try {
+        const highlighted = hljs.highlight(text, { language: lang, ignoreIllegals: true }).value;
+        return highlighted.split('\n');
+      } catch {}
+    }
+    return text.split('\n').map(l => escapeHtml(l));
+  }
+
+  const oldHL = highlightLines(input.oldString);
+  const newHL = highlightLines(input.newString);
+
+  const oldLines = oldHL.map(l => `<div class="diff-line-old"><span class="diff-gutter">−</span><span class="diff-code">${l || ' '}</span></div>`);
+  const newLines = newHL.map(l => `<div class="diff-line-new"><span class="diff-gutter">+</span><span class="diff-code">${l || ' '}</span></div>`);
+  return oldLines.join('') + '<div class="diff-separator"></div>' + newLines.join('');
 }
 
 function formatTime(date) {
@@ -1823,6 +2539,57 @@ function formatTime(date) {
   const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   if (d.toDateString() === now.toDateString()) return time;
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + time;
+}
+
+// Add expand-to-fullscreen button to a tool message's header (only shows if output overflows)
+function addExpandBtn(toolEl) {
+  const header = toolEl.querySelector('.tool-header');
+  const outputEl = toolEl.querySelector('.tool-output');
+  if (!header || !outputEl || header.querySelector('.tool-expand-btn')) return;
+  const btn = document.createElement('button');
+  btn.className = 'tool-expand-btn';
+  btn.innerHTML = '⛶';
+  btn.title = 'Fullscreen';
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openFullscreen(outputEl);
+  });
+  header.appendChild(btn);
+  // Check overflow after render (needs to be visible)
+  checkExpandOverflow(toolEl);
+}
+
+function checkExpandOverflow(toolEl) {
+  const btn = toolEl.querySelector('.tool-expand-btn');
+  const outputEl = toolEl.querySelector('.tool-output');
+  if (!btn || !outputEl) return;
+  requestAnimationFrame(() => {
+    if (outputEl.scrollHeight > outputEl.clientHeight + 2) {
+      btn.classList.add('has-overflow');
+    } else {
+      btn.classList.remove('has-overflow');
+    }
+  });
+}
+
+function openFullscreen(outputEl) {
+  const overlay = document.createElement('div');
+  overlay.className = 'fullscreen-overlay';
+  const content = document.createElement('div');
+  content.className = 'fullscreen-content';
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'fullscreen-close';
+  closeBtn.innerHTML = '✕';
+  closeBtn.addEventListener('click', () => overlay.remove());
+  content.appendChild(closeBtn);
+  const inner = document.createElement('div');
+  inner.innerHTML = outputEl.innerHTML;
+  content.appendChild(inner);
+  overlay.appendChild(content);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+  const onKey = (e) => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onKey); } };
+  document.addEventListener('keydown', onKey);
 }
 
 function addMessage(type, content, meta, toolInput, timestamp, iface) {
@@ -1841,6 +2608,8 @@ function addMessage(type, content, meta, toolInput, timestamp, iface) {
     const toolDetail = spaceIdx > 0 ? content.slice(spaceIdx) : '';
     const color = TOOL_COLORS[toolName] || 'var(--text-dim)';
     el.style.borderLeftColor = color;
+    el.dataset.toolName = toolName;
+    if (toolInput && toolInput.path) el.dataset.toolPath = toolInput.path;
     if (toolName === 'bash') {
       el.classList.add('tool-bash-style');
       el.innerHTML = `<div class="tool-header"><span class="tool-prompt">$</span><span class="tool-detail">${toolDetail}</span></div><div class="tool-output"></div>`;
@@ -1854,11 +2623,20 @@ function addMessage(type, content, meta, toolInput, timestamp, iface) {
         el.querySelector('.tool-output').innerHTML = diff;
       }
     } else if (toolName === 'write' && toolInput && toolInput.content) {
-      el.querySelector('.tool-output').textContent = toolInput.content;
+      const writeLang = getLanguageFromPath(toolInput.path);
+      if (typeof hljs !== 'undefined' && writeLang) {
+        try {
+          el.querySelector('.tool-output').innerHTML = hljs.highlight(toolInput.content, { language: writeLang, ignoreIllegals: true }).value;
+        } catch {
+          el.querySelector('.tool-output').textContent = toolInput.content;
+        }
+      } else {
+        el.querySelector('.tool-output').textContent = toolInput.content;
+      }
     } else if (toolName === 'message' && toolInput && toolInput.text) {
       el.querySelector('.tool-output').textContent = `→ ${toolInput.interface || 'unknown'}: ${toolInput.text}`;
     }
-    el.addEventListener('click', () => el.classList.toggle('expanded'));
+    el.addEventListener('click', () => { el.classList.toggle('expanded'); checkExpandOverflow(el); });
     // Auto-expand last tool call during streaming, collapse previous
     if (!isLoadingHistory) {
       if (lastToolEl) lastToolEl.classList.remove('expanded');
@@ -2000,11 +2778,22 @@ function handleEvent(event) {
           const text = event.toolResult.length > 5000
             ? event.toolResult.slice(0, 5000) + '\n... (truncated)'
             : event.toolResult;
-          if (outputEl.innerHTML) {
-            outputEl.innerHTML += '\n\n' + escapeHtml(text);
+          // Try syntax-highlighted read output
+          const toolName = lastTool.dataset.toolName;
+          const toolPath = lastTool.dataset.toolPath;
+          if (toolName === 'read' && !outputEl.innerHTML) {
+            const formatted = formatReadOutput(text, toolPath);
+            if (formatted) {
+              outputEl.innerHTML = formatted;
+            } else {
+              outputEl.innerHTML = ansiToHtml(text);
+            }
+          } else if (outputEl.innerHTML) {
+            outputEl.innerHTML += `<div class="tool-result-text">${ansiToHtml(text)}</div>`;
           } else {
-            outputEl.textContent = text;
+            outputEl.innerHTML = ansiToHtml(text);
           }
+          addExpandBtn(lastTool);
         }
       }
       scrollToBottom();
@@ -2216,6 +3005,11 @@ async function init() {
   // Close existing connection
   intentionalClose = true;
   if (connection) { connection.close(); connection = null; }
+  // Safety close for orphaned EventSource
+  if (activeEventSource) {
+    activeEventSource.close();
+    activeEventSource = null;
+  }
   intentionalClose = false;
   // Clear previous messages to avoid duplicates on reconnect
   messagesEl.innerHTML = '';
@@ -2285,12 +3079,20 @@ async function init() {
                   const truncated = result.length > 5000
                     ? result.slice(0, 5000) + '\n... (truncated)'
                     : result;
-                  if (outputEl.innerHTML) {
+                  if (part.toolName === 'read' && !outputEl.innerHTML) {
+                    const formatted = formatReadOutput(truncated, input.path);
+                    if (formatted) {
+                      outputEl.innerHTML = formatted;
+                    } else {
+                      outputEl.innerHTML = ansiToHtml(truncated);
+                    }
+                  } else if (outputEl.innerHTML) {
                     // Already has content (edit diff, write content, etc) — append result
-                    outputEl.innerHTML += '\n\n' + escapeHtml(truncated);
+                    outputEl.innerHTML += `<div class="tool-result-text">${ansiToHtml(truncated)}</div>`;
                   } else {
-                    outputEl.textContent = truncated;
+                    outputEl.innerHTML = ansiToHtml(truncated);
                   }
+                  addExpandBtn(el);
                 }
               }
             }

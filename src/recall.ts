@@ -1,5 +1,3 @@
-import Database from "better-sqlite3";
-import * as sqliteVec from "sqlite-vec";
 import { join } from "path";
 import { embed, embedMany } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -7,9 +5,9 @@ import { readFile } from "fs/promises";
 import { existsSync } from "fs";
 import { log } from "./log.js";
 import type { ModelMessage } from "ai";
+import type { MemoryDB } from "./memory.js";
 
 const EMBEDDING_MODEL = "openai/text-embedding-3-small";
-const EMBEDDING_DIMENSIONS = 1536;
 const MAX_CHUNK_TOKENS = 1000; // rough token limit per chunk
 
 interface RecallResult {
@@ -22,15 +20,13 @@ interface RecallResult {
 }
 
 export class RecallIndex {
-  private db: Database.Database;
+  private db: MemoryDB["db"];
   private embeddingModel: Parameters<typeof embed>[0]["model"];
   private agentDir: string;
 
-  constructor(agentDir: string, provider: string) {
+  constructor(memoryDB: MemoryDB, agentDir: string, provider: string) {
     this.agentDir = agentDir;
-    const dbPath = join(agentDir, ".kern", "recall.db");
-    this.db = new Database(dbPath);
-    sqliteVec.load(this.db);
+    this.db = memoryDB.db;
 
     // Create embedding model — use OpenAI-compatible endpoint
     const apiKey = provider === "openrouter"
@@ -46,52 +42,14 @@ export class RecallIndex {
     const client = createOpenAI({
       baseURL: provider === "openai" ? undefined : "https://openrouter.ai/api/v1",
       apiKey,
+      headers: provider !== "openai" ? {
+        "HTTP-Referer": "https://github.com/oguzbilgic/kern-ai",
+        "X-Title": "kern-ai",
+        "X-OpenRouter-Categories": "cli-agent,personal-agent",
+      } : undefined,
     });
     const modelId = provider === "openai" ? "text-embedding-3-small" : EMBEDDING_MODEL;
     this.embeddingModel = client.embeddingModel(modelId);
-
-    this.initSchema();
-  }
-
-  private initSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id TEXT NOT NULL,
-        msg_index INTEGER NOT NULL,
-        role TEXT NOT NULL,
-        content TEXT NOT NULL,
-        timestamp TEXT,
-        UNIQUE(session_id, msg_index)
-      );
-
-      CREATE TABLE IF NOT EXISTS chunks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id TEXT NOT NULL,
-        msg_start INTEGER NOT NULL,
-        msg_end INTEGER NOT NULL,
-        text TEXT NOT NULL,
-        timestamp TEXT NOT NULL,
-        token_count INTEGER NOT NULL,
-        UNIQUE(session_id, msg_start, msg_end)
-      );
-
-      CREATE TABLE IF NOT EXISTS index_state (
-        session_id TEXT PRIMARY KEY,
-        last_indexed_msg INTEGER NOT NULL
-      );
-    `);
-
-    // Create vec table separately (virtual tables don't support IF NOT EXISTS in all versions)
-    try {
-      this.db.exec(`
-        CREATE VIRTUAL TABLE vec_chunks USING vec0(
-          embedding FLOAT[${EMBEDDING_DIMENSIONS}]
-        );
-      `);
-    } catch {
-      // Already exists — fine
-    }
   }
 
   /**
@@ -157,7 +115,7 @@ export class RecallIndex {
     // Embed chunks in batches (API limits)
     const BATCH_SIZE = 100;
     const texts = chunks.map((c) => c.text);
-    log("recall", `embedding ${texts.length} chunks (${texts.reduce((a, t) => a + t.length, 0)} chars)`);
+    log.debug("recall", `embedding ${texts.length} chunks (${texts.reduce((a, t) => a + t.length, 0)} chars)`);
 
     const embeddings: number[][] = [];
     try {
@@ -166,11 +124,11 @@ export class RecallIndex {
         const result = await embedMany({ model: this.embeddingModel, values: batch });
         embeddings.push(...result.embeddings);
         if (texts.length > BATCH_SIZE) {
-          log("recall", `embedded batch ${Math.floor(b / BATCH_SIZE) + 1}/${Math.ceil(texts.length / BATCH_SIZE)}`);
+          log.debug("recall", `embedded batch ${Math.floor(b / BATCH_SIZE) + 1}/${Math.ceil(texts.length / BATCH_SIZE)}`);
         }
       }
     } catch (err: any) {
-      log("recall", `embedding failed: ${err.message}`);
+      log.error("recall", `embedding failed: ${err.message}`);
       return 0;
     }
 
@@ -402,7 +360,4 @@ export class RecallIndex {
     return { chunks, sessions, messages };
   }
 
-  close(): void {
-    this.db.close();
-  }
 }

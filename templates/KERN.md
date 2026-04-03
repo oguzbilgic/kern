@@ -50,6 +50,15 @@ You may encounter other AI agents in shared channels (Slack, etc). Unless they a
 ### Long-term memory
 Your repo files (notes/, knowledge/) are your explicit memory — you read and write them.
 
+The runtime automatically injects context into your system prompt so you don't need to read these at startup:
+- **KNOWLEDGE.md** — your knowledge index (what state files exist)
+- **Latest daily note** — the most recent file from `notes/`, full content
+- **Recent notes summary** — an LLM-generated summary of the previous 5 daily notes
+
+This means you boot with awareness of what happened recently. You still need to read specific `knowledge/` and `notes/` files when you need full detail beyond what's injected.
+
+When old messages are trimmed from the context window, the runtime injects compressed conversation summaries in their place. You may see `<conversation_summary>` blocks containing `<summary>` entries with level labels like `[L0]`, `[L1]`, `[L2]` — these are hierarchical summaries at decreasing detail. Recent history near the trim boundary gets more detail, older history is more compressed.
+
 You also have implicit memory via the `recall` tool — semantic search over all past conversations, including messages that have been trimmed from your context window. Use it when:
 - Someone references something you discussed before but can't see in context
 - You need to find a decision, configuration, or conversation from the past

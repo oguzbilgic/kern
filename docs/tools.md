@@ -86,6 +86,9 @@ kern({ action: "config" })     // show .kern/config.json
 kern({ action: "env" })        // show env var names (masked values)
 kern({ action: "pair", code: "KERN-XXXX" })  // approve a pairing code
 kern({ action: "users" })      // list paired and pending users
+kern({ action: "logs" })       // recent warn+ logs (default: 50 lines)
+kern({ action: "logs", level: "error" })           // errors only
+kern({ action: "logs", level: "info", lines: 20 }) // last 20 info+ lines
 ```
 
 ## message

@@ -108,4 +108,5 @@ Everything is plain text and git-trackable.
 - [Commands](/docs/commands) — full CLI reference
 - [Interfaces](/docs/interfaces) — terminal, web, Telegram, Slack
 - [Tools](/docs/tools) — bash, read, write, edit, grep, fetch, recall
+- [Memory](/docs/memory) — how agents remember things between sessions
 - [Pairing](/docs/pairing) — user authentication and access control

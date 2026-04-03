@@ -1,5 +1,94 @@
 # Changelog
 
+## next
+
+### Features
+- **Log levels** — `log()`, `log.debug()`, `log.warn()`, `log.error()` with colored labels (WRN, ERR, DBG). All levels written to file, filter on read.
+- **`kern logs` CLI** — defaults to follow mode. `-n 50` for last N lines (no follow). `--level warn` to filter by level. Combinable.
+- **`kern({ action: "logs" })` tool** — agents can inspect their own logs. Defaults to warn+ level, configurable with `level` and `lines` params.
+- **Config validation** — warns on unknown fields and wrong types at startup. Invalid values are ignored and defaults apply.
+
+### Changes
+- `kern init` writes minimal config: `model`, `provider`, `toolScope` only
+- Removed stale `telegram.allowedUsers` and `telegram.showTools` config fields
+- Dropped legacy `tools` array support (use `toolScope` instead)
+
+## v0.16.0
+
+### Features
+- **Semantic segments** — messages are automatically grouped into topic-coherent segments (L0) based on embedding cosine distance. Each segment is summarized by gpt-4.1-mini (~10-20:1 compression). First-person, bullet-point style focusing on intent, outcomes, and decisions.
+- **Hierarchical rollups** — every 10 L0 segments are summarized into an L1 parent. 10 L1s → L2, etc. Builds a multi-level summary tree.
+- **Compressed history injection** — when old messages are trimmed from context, `composeHistory()` fills a token budget (`historyBudget`, default 20% of context) with segment summaries. High-level summaries cover old history cheaply, recent segments expand to detailed lower levels. Injected as `<conversation_summary>` in the system prompt.
+- **Structured system prompt** — all system prompt sections wrapped in XML tags for clear identification:
+  - `<document path="...">` for loaded markdown files
+  - `<notes_summary>` for daily notes summary
+  - `<tools>` for tool list
+  - `<conversation_summary>` with nested `<summary>` blocks for compressed history
+  - No more `---` delimiters between sections.
+- **System prompt endpoint** — `GET /prompt/system` returns the full composed system prompt for inspection.
+- **Status enrichment** — `/status` now reports history tokens injected, segment level counts, and total segments per level.
+
+### Web UI
+- **Segments visualization** — proportional colored blocks representing token density and message spans. Hover detail panel with full summary text, message range, timestamps, token counts.
+- **Level toggle** — switch between L0, L1, L2 views with collapsible rolled-up child segments.
+- **Segment controls** — Start, Stop, Rebuild, Clean buttons for managing segmentation lifecycle.
+- **System prompt overlay** — button opens full composed system prompt in a scrollable panel.
+
+### Config
+- `historyBudget` (default `0.2`) — fraction of `maxContextTokens` allocated to compressed history. Set to `0` to disable.
+
+### Changes
+- `prepareContext()` now accepts `sessionId` and `segmentIndex` for history injection. Returns `systemAdditions` array and `trimmedCount`.
+- `trimToTokenBudget()` returns trimmed message count for history injection.
+- `loadNotesContext()` returns `latestFile` for document path tagging.
+- `Runtime` gains `buildPromptContext()` and `getSystemPrompt()` public methods.
+
+### Docs
+- Updated `memory.md` — segments and conversation summary section with XML examples, tag reference table.
+- Updated `config.md` — `historyBudget` field, new DB tables in schema section.
+- Updated `KERN.md` template — references `<conversation_summary>` instead of `<history>`.
+
+---
+
+## v0.15.0
+
+### Features
+- **Notes injection** — agent system prompt now includes latest daily note (full content) and an LLM-generated summary of the previous 5 daily notes. Agents boot with recent context automatically.
+  - Summary cached in SQLite `summaries` table. Non-blocking regeneration on day rollover.
+  - System prompt reloaded per message — picks up new notes/knowledge/summaries without restart.
+- **MemoryDB** (`memory.ts`) — new module owns SQLite database, schema, and summaries table. Always created on startup (works even with `recall: false`).
+  - RecallIndex now takes MemoryDB instead of managing its own connection.
+- **Tool result truncation** — `maxToolResultChars` config (default 20,000) caps oversized tool results in context only. Full results preserved in session JSONL and recall.
+- **Context pipeline** (`context.ts`) — extracted from runtime.ts. Owns truncate → trim → stats. Single `prepareContext()` entry point.
+
+### Web UI
+- **Syntax highlighting** — highlight.js via CDN for tool output rendering.
+  - **Read**: line number gutter + language-detected highlighting (TS, JS, Python, Go, Rust, SQL, YAML, Bash, etc.)
+  - **Edit**: syntax-highlighted unified diff. Old lines dimmed (40% opacity), new lines full brightness. `−`/`+` gutter markers.
+  - **Write**: syntax-highlighted content based on file extension.
+  - **Grep**: ANSI color passthrough — file paths magenta, line numbers green, matches bold red.
+- **Fullscreen expand** — `⛶` button on tool header line. Only visible when expanded and content overflows. Dark overlay, Escape/click-outside to dismiss.
+- ANSI color support in all tool output (`ansiToHtml` renderer).
+- Consistent spacing for tool results (`tool-result-text` div replaces `\n\n` whitespace).
+- Fix SSE duplicate stream bug by tracking active EventSource.
+- Debounced streaming render + textarea auto-resize to reduce input lag on mobile.
+- Disable autocorrect/spellcheck on input textarea.
+- Prevent duplicate agents when local URL added as remote server.
+
+### Tools
+- **grep** — new `options` param for raw grep flags (`-C 3 -i -l`, etc.). Auto-excludes `node_modules`, `.git`, `dist`. `--color=always` for colored output. Single-file mode drops `-r` for clean line-only output.
+
+### Changes
+- Default `maxContextTokens` increased from 40k to 50k.
+- OpenRouter: added `X-OpenRouter-Categories` header for attribution.
+
+### Docs
+- New `memory.md` page covering all memory layers, auto-injection, and persistence.
+- Updated `config.md` with `maxToolResultChars` and `maxContextTokens` defaults.
+- Updated `KERN.md` template with auto-injected context details.
+
+---
+
 ## v0.14.2
 
 ### Fixes

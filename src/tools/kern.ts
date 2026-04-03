@@ -2,6 +2,8 @@ import { tool } from "ai";
 import { z } from "zod";
 import { readFile } from "fs/promises";
 import { join } from "path";
+import { existsSync } from "fs";
+import type { SessionStats } from "../context.js";
 
 // These get set by the runtime at init
 let _agentDir = "";
@@ -13,7 +15,7 @@ let _version = "unknown";
 let _totalPromptTokens = 0;
 let _totalCompletionTokens = 0;
 let _usageFile = "";
-let _getSessionStats: (() => { totalMessages: number; estimatedTokens: number; windowTokens: number }) | null = null;
+let _getSessionStats: (() => SessionStats) | null = null;
 let _reloadFn: (() => Promise<void>) | null = null;
 let _pairingManager: any = null;
 let _getQueueStatus: (() => { processing: boolean; pending: number; activeChannel: string | null }) | null = null;
@@ -21,6 +23,7 @@ let _getHubStatus: (() => { url: string; connected: boolean; id: string | null }
 let _hubPairConfirmFn: ((userId: string) => Promise<boolean>) | null = null;
 let _getInterfaceStatuses: (() => InterfaceStatus[]) | null = null;
 let _getRecallStats: (() => { chunks: number; sessions: number; messages: number; building: boolean } | null) | null = null;
+let _getSegmentStats: (() => { segments: number; level0: number; levels: Record<number, number> } | null) | null = null;
 
 export function setHubPairConfirmFn(fn: (userId: string) => Promise<boolean>) {
   _hubPairConfirmFn = fn;
@@ -42,11 +45,15 @@ export function setRecallStatsFn(fn: () => { chunks: number; sessions: number; m
   _getRecallStats = fn;
 }
 
+export function setSegmentStatsFn(fn: () => { segments: number; level0: number; levels: Record<number, number> } | null) {
+  _getSegmentStats = fn;
+}
+
 export async function initKernTool(opts: {
   agentDir: string;
   config: any;
   sessionId: string;
-  getSessionStats?: () => { totalMessages: number; estimatedTokens: number; windowTokens: number };
+  getSessionStats?: () => SessionStats;
   reload?: () => Promise<void>;
   pairingManager?: any;
 }) {
@@ -109,6 +116,7 @@ export interface StatusData {
   uptime: string;
   session: string;
   context: string | null;
+  history: string | null;
   apiUsage: string;
   promptTokens: number;
   completionTokens: number;
@@ -117,6 +125,7 @@ export interface StatusData {
   telegram: string | null;
   slack: string | null;
   recall: string | null;
+  segments: string | null;
 }
 
 export function getStatusData(): StatusData {
@@ -133,10 +142,20 @@ export function getStatusData(): StatusData {
 
   const stats = _getSessionStats ? _getSessionStats() : null;
   const session = stats
-    ? `~${stats.estimatedTokens} tokens (${stats.totalMessages} messages)`
+    ? `${stats.totalMessages} messages (~${Math.round(stats.estimatedTokens / 1000)}k tokens)`
     : `${_messageCount} messages`;
+  const trimmed = stats ? stats.totalMessages - stats.windowMessages + (stats.historyTokens > 0 ? 1 : 0) : 0;
   const context = stats
-    ? `~${stats.windowTokens} tokens`
+    ? `~${Math.round(stats.windowTokens / 1000)}k / ${Math.round(_config.maxContextTokens / 1000)}k tokens (${stats.windowMessages} messages${trimmed > 0 ? `, ${trimmed} trimmed` : ""}${stats.truncatedCount > 0 ? `, ${stats.truncatedCount} truncated` : ""})`
+    : null;
+  const history = stats && stats.historyTokens > 0
+    ? (() => {
+        const lvlStr = Object.entries(stats.historyLevelCounts)
+          .sort(([a], [b]) => Number(a) - Number(b))
+          .map(([l, n]) => `${n}×L${l}`)
+          .join(", ");
+        return `~${Math.round(stats.historyTokens / 1000)}k tokens (${lvlStr})`;
+      })()
     : null;
   const totalTokens = _totalPromptTokens + _totalCompletionTokens;
   const apiUsage = `${totalTokens} tokens (in: ${_totalPromptTokens}, out: ${_totalCompletionTokens})`;
@@ -159,6 +178,7 @@ export function getStatusData(): StatusData {
     uptime: uptimeStr,
     session,
     context,
+    history,
     apiUsage,
     promptTokens: _totalPromptTokens,
     completionTokens: _totalCompletionTokens,
@@ -169,6 +189,15 @@ export function getStatusData(): StatusData {
     recall: _getRecallStats ? (() => {
       const rs = _getRecallStats!();
       return rs ? `${rs.messages} messages, ${rs.chunks} chunks${rs.building ? " (building)" : ""}` : "disabled";
+    })() : null,
+    segments: _getSegmentStats ? (() => {
+      const ss = _getSegmentStats!();
+      if (!ss) return "disabled";
+      const lvlStr = Object.entries(ss.levels)
+        .sort(([a], [b]) => Number(a) - Number(b))
+        .map(([l, n]) => `${n} L${l}`)
+        .join(", ");
+      return lvlStr || "0 segments";
     })() : null,
   };
 }
@@ -183,7 +212,9 @@ export function formatStatus(data: StatusData): string {
     data.slack ? `slack: ${data.slack}` : "",
     `session: ${data.session}`,
     data.context ? `context: ${data.context}` : "",
+    data.history ? `  history: ${data.history}` : "",
     data.recall ? `recall: ${data.recall}` : "",
+    data.segments ? `segments: ${data.segments}` : "",
     `api usage: ${data.apiUsage}`,
     `queue: ${data.queue}`,
     data.hub ? `hub: ${data.hub}` : "",
@@ -200,16 +231,24 @@ export const kernTool = tool({
     "Manage your own kern runtime. Check status, view config, or pair users.",
   inputSchema: z.object({
     action: z
-      .enum(["status", "config", "env", "pair", "users"])
+      .enum(["status", "config", "env", "pair", "users", "logs"])
       .describe(
-        "status: runtime info. config: show config. env: show env var names. pair: approve a pairing code (provide code param). users: list paired users.",
+        "status: runtime info. config: show config. env: show env var names. pair: approve a pairing code (provide code param). users: list paired users. logs: show recent logs (optionally filter by level).",
       ),
     code: z
       .string()
       .optional()
       .describe("Pairing code to approve (for pair action). Format: KERN-XXXX"),
+    level: z
+      .enum(["debug", "info", "warn", "error"])
+      .optional()
+      .describe("Filter logs by minimum level (for logs action). Default: warn."),
+    lines: z
+      .number()
+      .optional()
+      .describe("Number of log lines to return (for logs action). Default: 50."),
   }),
-  execute: async ({ action, code }) => {
+  execute: async ({ action, code, level, lines }) => {
     switch (action) {
       case "status":
         return getStatus();
@@ -275,6 +314,35 @@ export const kernTool = tool({
           }
         }
         return lines.join("\n");
+      }
+
+      case "logs": {
+        const logFile = join(_agentDir, ".kern", "logs", "kern.log");
+        if (!existsSync(logFile)) return "No logs yet.";
+        try {
+          const content = await readFile(logFile, "utf-8");
+          let allLines = content.trimEnd().split("\n");
+
+          // Filter by level
+          const minLevel = level || "warn";
+          const LEVEL_FILTERS: Record<string, string[]> = {
+            debug: [],
+            info: [],
+            warn: ["WRN", "ERR"],
+            error: ["ERR"],
+          };
+          const filterLabels = LEVEL_FILTERS[minLevel];
+          if (filterLabels && filterLabels.length > 0) {
+            allLines = allLines.filter(l => filterLabels.some(label => l.includes(label)));
+          }
+
+          const count = lines || 50;
+          const output = allLines.slice(-count);
+          if (output.length === 0) return `No ${minLevel}+ logs found.`;
+          return output.join("\n");
+        } catch {
+          return "Error reading logs.";
+        }
       }
 
       default:

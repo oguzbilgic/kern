@@ -41,7 +41,7 @@ async function showHelp() {
   w(`    ${cyan("kern backup")} ${dim("<name>")}          backup agent to .tar.gz`);
   w(`    ${cyan("kern import")} ${dim("opencode <name>")}  import session from OpenCode`);
   w(`    ${cyan("kern restore")} ${dim("<file>")}         restore agent from backup`);
-  w(`    ${cyan("kern logs")} ${dim("[name]")}            tail agent logs`);
+  w(`    ${cyan("kern logs")} ${dim("[name] [-f] [-n 50] [--level warn]")}  show agent logs`);
   w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
   w(`    ${cyan("kern web")} ${dim("<start|stop|status|token>")}  web UI server`);
   w("");
@@ -161,16 +161,61 @@ async function main() {
   }
 
   if (cmd === "logs") {
-    const agentDir = await resolveAgentDir(args[1]);
+    // Parse flags: -f (follow), -n <count>, --level <level>
+    let follow: boolean | null = null;  // null = auto (follow unless -n)
+    let lines = 50;
+    let level: string | null = null;
+    let nameArg: string | undefined;
+    const logArgs = args.slice(1);
+    for (let i = 0; i < logArgs.length; i++) {
+      if (logArgs[i] === "-f") { follow = true; }
+      else if (logArgs[i] === "-n" && logArgs[i + 1]) { lines = parseInt(logArgs[++i], 10) || 50; }
+      else if (logArgs[i] === "--level" && logArgs[i + 1]) { level = logArgs[++i]; }
+      else if (!logArgs[i].startsWith("-")) { nameArg = logArgs[i]; }
+    }
+
+    const agentDir = await resolveAgentDir(nameArg);
     const logFile = join(agentDir, ".kern", "logs", "kern.log");
-    const { existsSync } = await import("fs");
     if (!existsSync(logFile)) {
       console.error("No logs yet. Start the agent first.");
       process.exit(1);
     }
-    const { spawn } = await import("child_process");
-    const tail = spawn("tail", ["-f", logFile], { stdio: "inherit" });
-    process.on("SIGINT", () => { tail.kill(); process.exit(0); });
+
+    // Level filtering: map level to minimum set of labels to show
+    const LEVEL_FILTERS: Record<string, string[]> = {
+      debug: [],           // show all (no filtering)
+      info: [],            // show all (info has no label)
+      warn: ["WRN", "ERR"],
+      error: ["ERR"],
+    };
+    const filterLabels = level ? LEVEL_FILTERS[level] : null;
+
+    // Default: follow unless -n was specified
+    const shouldFollow = follow !== null ? follow : !logArgs.some(a => a === "-n");
+
+    if (shouldFollow) {
+      const { spawn } = await import("child_process");
+      if (!filterLabels || filterLabels.length === 0) {
+        const tail = spawn("tail", ["-f", `-n`, String(lines), logFile], { stdio: "inherit" });
+        process.on("SIGINT", () => { tail.kill(); process.exit(0); });
+      } else {
+        // tail + grep
+        const pattern = filterLabels.join("\\|");
+        const tail = spawn("sh", ["-c", `tail -f -n +1 "${logFile}" | grep --line-buffered "${pattern}"`], { stdio: "inherit" });
+        process.on("SIGINT", () => { tail.kill(); process.exit(0); });
+      }
+    } else {
+      // Read last N lines, optionally filter
+      const content = await readFile(logFile, "utf-8");
+      let allLines = content.trimEnd().split("\n");
+      if (filterLabels && filterLabels.length > 0) {
+        allLines = allLines.filter(l => filterLabels.some(label => l.includes(label)));
+      }
+      const output = allLines.slice(-lines);
+      for (const line of output) {
+        process.stdout.write(line + "\n");
+      }
+    }
     return;
   }
 

@@ -2,17 +2,13 @@
 
 ## Per-agent: .kern/config.json
 
-The main config file. Committed to git.
+The main config file. Committed to git. Unknown fields and wrong types are warned on startup and ignored — defaults apply.
 
 ```json
 {
   "model": "anthropic/claude-opus-4.6",
   "provider": "openrouter",
-  "toolScope": "full",
-  "maxSteps": 30,
-  "maxContextTokens": 40000,
-  "host": "0.0.0.0",
-  "hub": "local"
+  "toolScope": "full"
 }
 ```
 
@@ -24,11 +20,13 @@ The main config file. Committed to git.
 | `provider` | `openrouter` | API provider: `openrouter`, `anthropic`, `openai` |
 | `toolScope` | `full` | Tool access level: `full`, `write`, `read` |
 | `maxSteps` | `30` | Max tool-use steps per message |
-| `maxContextTokens` | `40000` | Estimated token budget for context window. Messages beyond this are trimmed from the front (oldest first). Full history stays in JSONL. |
+| `maxContextTokens` | `50000` | Estimated token budget for context window. Messages beyond this are trimmed from the front (oldest first). Full history stays in JSONL. |
+| `maxToolResultChars` | `20000` | Max characters per tool result in context. Oversized results are truncated (keeping the start). Full results stay in JSONL and are searchable via recall. Set to `0` to disable. |
 | `heartbeatInterval` | `60` | Minutes between heartbeat prompts. Agent reviews notes, updates knowledge. 0 to disable. |
 | `host` | `0.0.0.0` | Bind address for the agent's HTTP API. Default binds to all interfaces. Set to `127.0.0.1` for localhost only. |
 | `hub` | *(none)* | Hub connection. `"default"` (kern.ai public hub), `"local"` (localhost:4000), or a custom hostname:port. Omit to disable. |
 | `recall` | `true` | Enable recall (long-term memory). Set to `false` to disable. Requires an embedding API key. |
+| `historyBudget` | `0.2` | Fraction of `maxContextTokens` allocated to compressed history from segments. Set to `0` to disable history injection. See [Memory](/docs/memory#segments-and-conversation-summary). |
 | `autoRecall` | `false` | Automatically inject relevant old context before each turn. Requires recall enabled. |
 
 ### Tool scopes
@@ -101,7 +99,18 @@ Tracks all registered agents with their name, path, PID, port, and auth token. U
 
 ## .kern/recall.db
 
-SQLite database with sqlite-vec extension for the recall tool. Contains three tables: `messages` (raw message content), `chunks` (turn-level summaries), and `vec_chunks` (embeddings). Auto-created on first start. Gitignored. Safe to delete — will be rebuilt on next start from session JSONL files.
+SQLite database for agent memory. Always created on startup. Contains:
+
+- `messages` — raw message content
+- `chunks` — turn-level summaries for recall search
+- `vec_chunks` — embeddings (sqlite-vec)
+- `index_state` — tracks indexing progress per session
+- `summaries` — cached notes summaries
+- `semantic_segments` — hierarchical segment tree (L0, L1, L2...)
+- `vec_segments` — segment embeddings
+- `segment_state` — tracks segmentation progress per session
+
+Gitignored. Safe to delete — rebuilds from session JSONL files on next start, summaries regenerate on next cache miss.
 
 ## .kern/sessions/
 

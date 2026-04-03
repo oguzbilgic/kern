@@ -56,6 +56,7 @@ my-agent/
     config.json          # model, provider, toolScope (committed)
     .env                 # API keys, bot tokens (gitignored)
     sessions/            # conversation history (gitignored)
+    recall.db            # semantic search index (gitignored)
 ```
 
 Everything the agent needs is in this folder. Move it, zip it, clone it — the agent comes with it. Run `kern init` on any existing repo to adopt it as a kern agent.
@@ -70,7 +71,7 @@ kern restart [name]       # restart agents
 kern tui [name]           # interactive chat
 kern web <start|stop|status|token>  # web UI server
 kern hub <start|stop|status>  # agent-to-agent hub
-kern logs [name]          # tail agent logs
+kern logs [name]          # follow agent logs
 kern list                 # show all agents
 kern remove <name>        # unregister an agent
 kern backup <name>        # backup agent to .tar.gz
@@ -144,6 +145,21 @@ Set `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` in `.kern/.env`. Uses Socket Mode �
 
 Invite the bot to channels where it should listen.
 
+## Memory
+
+Agents remember across sessions through three mechanisms:
+
+- **Files** — `knowledge/` for mutable state, `notes/` for daily logs. The agent reads and writes these through tools. Git-tracked, inspectable, portable.
+- **Recall** — semantic search over all past conversations. Messages are embedded and stored in a local SQLite database (`recall.db`). The agent uses the `recall` tool to search by query with optional date filters, or load raw messages from a specific session.
+- **Segments** — messages are automatically grouped into topic-coherent segments, summarized, and rolled up into a hierarchy (L0 → L1 → L2). When old messages are trimmed from context, compressed summaries are injected in their place — the agent sees its full conversation history at decreasing resolution.
+
+On startup, the agent's system prompt is automatically injected with:
+- The latest daily note (full content)
+- An LLM-generated summary of the previous 5 daily notes
+- Compressed conversation history from segments (when messages have been trimmed)
+
+This means the agent boots with recent context — no manual reading required. Summaries are cached in SQLite and regenerated in the background on day rollover.
+
 ## Heartbeat
 
 Kern sends a periodic `[heartbeat]` to the agent. The agent reviews notes, updates knowledge files, and messages the operator if something needs attention. Visible in the TUI and web UI only — Telegram, Slack, and hub never see it.
@@ -159,10 +175,12 @@ Interval in minutes. Default 60 (1 hour). Set to 0 to disable.
 ## Logging
 
 ```bash
-kern logs [name]        # tail agent logs
+kern logs [name]              # follow logs (default)
+kern logs [name] -n 50        # last 50 lines, exit
+kern logs [name] --level warn # warnings and errors only
 ```
 
-Structured, colored logs for queue, runtime, interfaces, and server. Logs stored in `.kern/logs/kern.log`.
+Structured, leveled logs with colored labels. Stored in `.kern/logs/kern.log`. All levels written, filter on read.
 
 ## Configuration
 
@@ -173,13 +191,14 @@ Structured, colored logs for queue, runtime, interfaces, and server. Logs stored
   "model": "anthropic/claude-opus-4.6",
   "provider": "openrouter",
   "toolScope": "full",
-  "maxSteps": 30,
-  "host": "0.0.0.0",
+  "maxContextTokens": 50000,
+  "maxToolResultChars": 20000,
+  "historyBudget": 0.2,
   "hub": "local"
 }
 ```
 
-`host` controls the agent's HTTP bind address. Default `0.0.0.0` (all interfaces). `hub` connects to a hub: `"default"` (kern.ai), `"local"` (localhost:4000), or a custom hostname.
+`maxContextTokens` controls the sliding context window — older messages are trimmed to stay within budget. `maxToolResultChars` caps individual tool results in context (full results stay in session JSONL and are searchable via recall). `historyBudget` controls what fraction of the context window is reserved for compressed segment summaries when old messages are trimmed (default 20%). Set to `0` to disable. `hub` connects to a hub: `"default"` (kern.ai), `"local"` (localhost:4000), or a custom hostname.
 
 Auth tokens are auto-generated on first start and stored in `.kern/.env`. Ed25519 keypairs generated for hub authentication. The web proxy injects agent tokens automatically — no manual setup needed.
 
@@ -197,9 +216,9 @@ Controls `kern web` and `kern hub` servers. Optional — defaults apply if the f
 
 ### Tool scopes
 
-- **full** — bash, read, write, edit, glob, grep, webfetch, kern, message
-- **write** — read, write, edit, glob, grep, webfetch, kern, message
-- **read** — read, glob, grep, webfetch, kern
+- **full** — bash, read, write, edit, glob, grep, webfetch, kern, message, recall
+- **write** — read, write, edit, glob, grep, webfetch, kern, message, recall
+- **read** — read, glob, grep, webfetch, kern, recall
 
 ### Providers
 
