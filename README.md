@@ -67,17 +67,19 @@ kern init <name>          # create or configure an agent
 kern start [name|path]    # start agents in background
 kern stop [name]          # stop agents
 kern restart [name]       # restart agents
+kern install [name|--web] # install systemd services (auto-restart, boot persistence)
+kern uninstall [name]     # remove systemd services
 kern tui [name]           # interactive chat
 kern web <start|stop|status|token>  # web UI server
-kern logs [name]          # tail agent logs
-kern list                 # show all agents
+kern logs [name]          # follow agent logs
+kern list                 # show all agents and web status
 kern remove <name>        # unregister an agent
 kern backup <name>        # backup agent to .tar.gz
 kern restore <file>       # restore agent from backup
-kern import opencode         # import session from OpenCode
+kern import opencode      # import session from OpenCode
 ```
 
-Agents auto-register when you init, start, or run them. `kern list` shows every agent with its running state.
+Agents auto-register when you init, start, or run them. `kern list` shows every agent and the web daemon with running state and mode (systemd/daemon).
 
 ### Web UI
 
@@ -159,10 +161,12 @@ Interval in minutes. Default 60 (1 hour). Set to 0 to disable.
 ## Logging
 
 ```bash
-kern logs [name]        # tail agent logs
+kern logs [name]              # follow logs (default)
+kern logs [name] -n 50        # last 50 lines, exit
+kern logs [name] --level warn # warnings and errors only
 ```
 
-Structured, colored logs for queue, runtime, interfaces, and server. Logs stored in `.kern/logs/kern.log`.
+Structured, leveled logs with colored labels. Stored in `.kern/logs/kern.log`. All levels written, filter on read.
 
 ## Configuration
 
@@ -173,7 +177,6 @@ Structured, colored logs for queue, runtime, interfaces, and server. Logs stored
   "model": "anthropic/claude-opus-4.6",
   "provider": "openrouter",
   "toolScope": "full",
-  "maxSteps": 30,
   "maxContextTokens": 50000,
   "maxToolResultChars": 20000,
   "historyBudget": 0.2

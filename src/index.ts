@@ -41,7 +41,9 @@ async function showHelp() {
   w(`    ${cyan("kern backup")} ${dim("<name>")}          backup agent to .tar.gz`);
   w(`    ${cyan("kern import")} ${dim("opencode <name>")}  import session from OpenCode`);
   w(`    ${cyan("kern restore")} ${dim("<file>")}         restore agent from backup`);
-  w(`    ${cyan("kern logs")} ${dim("[name]")}            tail agent logs`);
+  w(`    ${cyan("kern logs")} ${dim("[name] [-f] [-n 50] [--level warn]")}  show agent logs`);
+  w(`    ${cyan("kern install")} ${dim("[name|--web]")}    install systemd services`);
+  w(`    ${cyan("kern uninstall")} ${dim("[name]")}        remove systemd services`);
   w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
   w(`    ${cyan("kern web")} ${dim("<start|stop|status|token>")}  web UI server`);
   w("");
@@ -109,19 +111,52 @@ async function main() {
   }
 
   if (cmd === "start") {
+    if (args[1]) {
+      const { isServiceInstalled, serviceControl } = await import("./install.js");
+      if (isServiceInstalled(args[1])) {
+        serviceControl("start", args[1]);
+        process.exit(0);
+      }
+    }
     await startAgent(args[1]);
     process.exit(0);
   }
 
   if (cmd === "stop") {
+    if (args[1]) {
+      const { isServiceInstalled, serviceControl } = await import("./install.js");
+      if (isServiceInstalled(args[1])) {
+        serviceControl("stop", args[1]);
+        process.exit(0);
+      }
+    }
     await stopAgent(args[1]);
     process.exit(0);
   }
 
   if (cmd === "restart") {
+    if (args[1]) {
+      const { isServiceInstalled, serviceControl } = await import("./install.js");
+      if (isServiceInstalled(args[1])) {
+        serviceControl("restart", args[1]);
+        process.exit(0);
+      }
+    }
     await stopAgent(args[1]);
     await new Promise((r) => setTimeout(r, 500));
     await startAgent(args[1]);
+    process.exit(0);
+  }
+
+  if (cmd === "install") {
+    const { install } = await import("./install.js");
+    await install(args[1]);
+    process.exit(0);
+  }
+
+  if (cmd === "uninstall") {
+    const { uninstall } = await import("./install.js");
+    await uninstall(args[1]);
     process.exit(0);
   }
 
@@ -138,6 +173,11 @@ async function main() {
       console.error(`Agent not found: ${name}`);
       process.exit(1);
     }
+    // Uninstall systemd service if installed
+    const { isServiceInstalled, uninstall } = await import("./install.js");
+    if (isServiceInstalled(name)) {
+      await uninstall(name);
+    }
     if (agent.pid && isProcessRunning(agent.pid)) {
       await stopAgent(name);
     }
@@ -147,16 +187,61 @@ async function main() {
   }
 
   if (cmd === "logs") {
-    const agentDir = await resolveAgentDir(args[1]);
+    // Parse flags: -f (follow), -n <count>, --level <level>
+    let follow: boolean | null = null;  // null = auto (follow unless -n)
+    let lines = 50;
+    let level: string | null = null;
+    let nameArg: string | undefined;
+    const logArgs = args.slice(1);
+    for (let i = 0; i < logArgs.length; i++) {
+      if (logArgs[i] === "-f") { follow = true; }
+      else if (logArgs[i] === "-n" && logArgs[i + 1]) { lines = parseInt(logArgs[++i], 10) || 50; }
+      else if (logArgs[i] === "--level" && logArgs[i + 1]) { level = logArgs[++i]; }
+      else if (!logArgs[i].startsWith("-")) { nameArg = logArgs[i]; }
+    }
+
+    const agentDir = await resolveAgentDir(nameArg);
     const logFile = join(agentDir, ".kern", "logs", "kern.log");
-    const { existsSync } = await import("fs");
     if (!existsSync(logFile)) {
       console.error("No logs yet. Start the agent first.");
       process.exit(1);
     }
-    const { spawn } = await import("child_process");
-    const tail = spawn("tail", ["-f", logFile], { stdio: "inherit" });
-    process.on("SIGINT", () => { tail.kill(); process.exit(0); });
+
+    // Level filtering: map level to minimum set of labels to show
+    const LEVEL_FILTERS: Record<string, string[]> = {
+      debug: [],           // show all (no filtering)
+      info: [],            // show all (info has no label)
+      warn: ["WRN", "ERR"],
+      error: ["ERR"],
+    };
+    const filterLabels = level ? LEVEL_FILTERS[level] : null;
+
+    // Default: follow unless -n was specified
+    const shouldFollow = follow !== null ? follow : !logArgs.some(a => a === "-n");
+
+    if (shouldFollow) {
+      const { spawn } = await import("child_process");
+      if (!filterLabels || filterLabels.length === 0) {
+        const tail = spawn("tail", ["-f", `-n`, String(lines), logFile], { stdio: "inherit" });
+        process.on("SIGINT", () => { tail.kill(); process.exit(0); });
+      } else {
+        // tail + grep
+        const pattern = filterLabels.join("\\|");
+        const tail = spawn("sh", ["-c", `tail -f -n +1 "${logFile}" | grep --line-buffered "${pattern}"`], { stdio: "inherit" });
+        process.on("SIGINT", () => { tail.kill(); process.exit(0); });
+      }
+    } else {
+      // Read last N lines, optionally filter
+      const content = await readFile(logFile, "utf-8");
+      let allLines = content.trimEnd().split("\n");
+      if (filterLabels && filterLabels.length > 0) {
+        allLines = allLines.filter(l => filterLabels.some(label => l.includes(label)));
+      }
+      const output = allLines.slice(-lines);
+      for (const line of output) {
+        process.stdout.write(line + "\n");
+      }
+    }
     return;
   }
 
@@ -268,10 +353,17 @@ async function main() {
   if (cmd === "web") {
     const subcmd = args[1]; // start, stop, status
     const { webStart, webStop, webStatus, webToken } = await import("./web-daemon.js");
-    if (subcmd === "start") {
-      await webStart();
-    } else if (subcmd === "stop") {
-      await webStop();
+    if (subcmd === "start" || subcmd === "stop" || subcmd === "restart") {
+      // Delegate to systemd if installed
+      const { getWebServiceStatus } = await import("./install.js");
+      if (getWebServiceStatus() !== null) {
+        const { spawnSync } = await import("child_process");
+        spawnSync("systemctl", ["--user", subcmd, "kern-web"], { stdio: "pipe" });
+        return;
+      }
+      if (subcmd === "start") await webStart();
+      else if (subcmd === "stop") await webStop();
+      else { await webStop(); await new Promise(r => setTimeout(r, 500)); await webStart(); }
     } else if (subcmd === "status") {
       await webStatus();
     } else if (subcmd === "token") {

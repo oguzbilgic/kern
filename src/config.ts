@@ -2,23 +2,28 @@ import { readFile } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 import { config as loadDotenv } from "dotenv";
+import { log } from "./log.js";
 
 export type ToolScope = "full" | "write" | "read";
 
 export interface KernConfig {
+  // Core
   model: string;
   provider: string;
   toolScope: ToolScope;
   maxSteps: number;
+
+  // Context window
   maxContextTokens: number;
   maxToolResultChars: number;
-  heartbeatInterval: number;
   historyBudget: number;
-  autoRecall?: boolean;
-  telegram?: {
-    allowedUsers?: number[];
-    showTools?: boolean;
-  };
+
+  // Memory
+  recall: boolean;
+  autoRecall: boolean;
+
+  // Runtime
+  heartbeatInterval: number;
 }
 
 const TOOL_SCOPES: Record<ToolScope, string[]> = {
@@ -27,16 +32,45 @@ const TOOL_SCOPES: Record<ToolScope, string[]> = {
   read: ["pwsh", "read", "glob", "grep", "webfetch", "kern", "recall"],
 };
 
-const defaults: KernConfig = {
+export const configDefaults: KernConfig = {
   model: "anthropic/claude-opus-4.6",
   provider: "openrouter",
   toolScope: "full",
   maxSteps: 30,
   maxContextTokens: 50000,
   maxToolResultChars: 20000,
-  heartbeatInterval: 60,
   historyBudget: 0.2,
+  recall: true,
+  autoRecall: false,
+  heartbeatInterval: 60,
 };
+
+const FIELD_TYPES: Record<string, string> = {
+  model: "string",
+  provider: "string",
+  toolScope: "string",
+  maxSteps: "number",
+  maxContextTokens: "number",
+  maxToolResultChars: "number",
+  historyBudget: "number",
+  recall: "boolean",
+  autoRecall: "boolean",
+  heartbeatInterval: "number",
+};
+
+function validateConfig(userConfig: Record<string, unknown>): void {
+  for (const key of Object.keys(userConfig)) {
+    if (!(key in FIELD_TYPES)) {
+      log.warn("config", `unknown field "${key}" — ignored`);
+      continue;
+    }
+    const expected = FIELD_TYPES[key];
+    const actual = typeof userConfig[key];
+    if (actual !== expected) {
+      log.warn("config", `"${key}" should be ${expected}, got ${actual} — using default`);
+    }
+  }
+}
 
 export function getToolsForScope(scope: ToolScope): string[] {
   return TOOL_SCOPES[scope] || TOOL_SCOPES.full;
@@ -52,16 +86,24 @@ export async function loadConfig(agentDir: string): Promise<KernConfig> {
   // Load .kern/config.json
   const configPath = join(agentDir, ".kern", "config.json");
   if (!existsSync(configPath)) {
-    return defaults;
+    return configDefaults;
   }
 
   try {
     const raw = await readFile(configPath, "utf-8");
     const userConfig = JSON.parse(raw);
-    // Support legacy "tools" array — ignore it, use toolScope
-    const { tools, ...rest } = userConfig;
-    return { ...defaults, ...rest };
+    validateConfig(userConfig);
+
+    // Filter out unknown and wrong-type fields
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(userConfig)) {
+      if (key in FIELD_TYPES && typeof value === FIELD_TYPES[key]) {
+        cleaned[key] = value;
+      }
+    }
+
+    return { ...configDefaults, ...cleaned };
   } catch {
-    return defaults;
+    return configDefaults;
   }
 }

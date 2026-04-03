@@ -49,14 +49,14 @@ function regenerateInBackground(
         prevFiles.map(f => readFile(join(notesDir, f), "utf-8")),
       );
       const combined = contents.join("\n\n---\n\n");
-      log("notes", `generating summary from ${prevFiles.length} notes (${combined.length} chars)`);
+      log.debug("notes", `generating summary from ${prevFiles.length} notes (${combined.length} chars)`);
       const summary = await generateSummary(combined, config);
       const dateStart = prevFiles[0].replace(".md", "");
       const dateEnd = prevFiles[prevFiles.length - 1].replace(".md", "");
       memoryDB.saveSummary(SUMMARY_TYPE, dateStart, dateEnd, latestFile, summary);
-      log("notes", `summary cached (${summary.length} chars)`);
+      log.debug("notes", `summary cached (${summary.length} chars)`);
     } catch (err: any) {
-      log("notes", `summary generation failed: ${err.message}`);
+      log.error("notes", `summary generation failed: ${err.message}`);
     } finally {
       generating = false;
     }

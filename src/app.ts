@@ -8,7 +8,7 @@ import { readFile, appendFile } from "fs/promises";
 import { join, basename } from "path";
 import { randomBytes } from "crypto";
 import type { Interface, MessageHandler } from "./interfaces/types.js";
-import { registerAgent, setPortAndToken } from "./registry.js";
+import { registerAgent, setPortAndToken, setPid } from "./registry.js";
 import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
@@ -85,7 +85,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   let recallIndex: RecallIndex | null = null;
   let recallBuilding = false;
-  if ((config as any).recall !== false) {
+  if (config.recall !== false) {
     try {
       recallIndex = new RecallIndex(memoryDB, agentDir, config.provider);
       setRecallIndex(recallIndex);
@@ -107,24 +107,24 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
           }
         }).catch((err) => {
           recallBuilding = false;
-          log("recall", `backfill failed: ${err.message}`);
+          log.error("recall", `backfill failed: ${err.message}`);
         });
       }
     } catch (err: any) {
-      log("recall", `init failed: ${err.message} — recall disabled`);
+      log.error("recall", `init failed: ${err.message} — recall disabled`);
     }
   }
 
   // Initialize semantic segments (uses same embedding infra as recall)
   let segmentIndex: SegmentIndex | null = null;
   let segmentRunning = false;
-  if ((config as any).recall !== false) {
+  if (config.recall !== false) {
     try {
       segmentIndex = new SegmentIndex(memoryDB, config.provider);
       runtime.setSegmentIndex(segmentIndex);
       setSegmentStatsFn(() => segmentIndex ? segmentIndex.getStats() : null);
     } catch (err: any) {
-      log("segments", `init failed: ${err.message} — segments disabled`);
+      log.error("segments", `init failed: ${err.message} — segments disabled`);
     }
   }
 
@@ -194,12 +194,12 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     if (sessionId) {
       if (recallIndex) {
         recallIndex.indexSession(sessionId).catch((err) => {
-          log("recall", `indexing failed: ${err.message}`);
+          log.error("recall", `indexing failed: ${err.message}`);
         });
       }
       if (segmentIndex) {
         segmentIndex.indexSession(sessionId).catch((err) => {
-          log("segments", `indexing failed: ${err.message}`);
+          log.error("segments", `indexing failed: ${err.message}`);
         });
       }
     }
@@ -305,6 +305,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   const port = await server.start("127.0.0.1");
   await setPortAndToken(agentName, port, process.env.KERN_AUTH_TOKEN || null);
+  await setPid(agentName, process.pid);
 
   // Start Telegram if configured
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN;

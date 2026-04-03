@@ -2,15 +2,13 @@
 
 ## Per-agent: .kern/config.json
 
-The main config file. Committed to git.
+The main config file. Committed to git. Unknown fields and wrong types are warned on startup and ignored — defaults apply.
 
 ```json
 {
   "model": "anthropic/claude-opus-4.6",
   "provider": "openrouter",
-  "toolScope": "full",
-  "maxSteps": 30,
-  "maxContextTokens": 50000
+  "toolScope": "full"
 }
 ```
 
