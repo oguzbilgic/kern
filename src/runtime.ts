@@ -143,7 +143,7 @@ export class Runtime {
       }
 
       const { messages: contextMessages, recall } = await injectRecall(
-        contextWindow, userMessage, this.recallIndex, trimmedCount, this.config.autoRecall ?? false,
+        contextWindow, userMessage, this.recallIndex, trimmedCount, this.config.autoRecall,
       );
       if (recall) {
         onEvent({ type: "recall", recall });

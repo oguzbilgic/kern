@@ -6,15 +6,25 @@ import { config as loadDotenv } from "dotenv";
 export type ToolScope = "full" | "write" | "read";
 
 export interface KernConfig {
+  // Core
   model: string;
   provider: string;
   toolScope: ToolScope;
   maxSteps: number;
+
+  // Context window
   maxContextTokens: number;
   maxToolResultChars: number;
-  heartbeatInterval: number;
   historyBudget: number;
-  autoRecall?: boolean;
+
+  // Memory
+  recall: boolean;
+  autoRecall: boolean;
+
+  // Runtime
+  heartbeatInterval: number;
+
+  // Interfaces
   telegram?: {
     allowedUsers?: number[];
     showTools?: boolean;
@@ -34,8 +44,10 @@ const defaults: KernConfig = {
   maxSteps: 30,
   maxContextTokens: 50000,
   maxToolResultChars: 20000,
-  heartbeatInterval: 60,
   historyBudget: 0.2,
+  recall: true,
+  autoRecall: false,
+  heartbeatInterval: 60,
 };
 
 export function getToolsForScope(scope: ToolScope): string[] {

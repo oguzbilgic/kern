@@ -84,7 +84,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   let recallIndex: RecallIndex | null = null;
   let recallBuilding = false;
-  if ((config as any).recall !== false) {
+  if (config.recall !== false) {
     try {
       recallIndex = new RecallIndex(memoryDB, agentDir, config.provider);
       setRecallIndex(recallIndex);
@@ -117,7 +117,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   // Initialize semantic segments (uses same embedding infra as recall)
   let segmentIndex: SegmentIndex | null = null;
   let segmentRunning = false;
-  if ((config as any).recall !== false) {
+  if (config.recall !== false) {
     try {
       segmentIndex = new SegmentIndex(memoryDB, config.provider);
       runtime.setSegmentIndex(segmentIndex);
