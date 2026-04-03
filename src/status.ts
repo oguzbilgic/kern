@@ -48,10 +48,12 @@ export async function showStatus(): Promise<void> {
     const nameStr = bold(agent.name);
     const modelStr = provider && model ? dim(`${provider}/${model}`) : dim("no config");
     const portStr = agent.port ? `:${agent.port}` : "";
+    const pidStr = agent.pid && (running || installStatus === "active") ? `pid ${agent.pid}` : "";
+    const details = [pidStr, portStr].filter(Boolean).join(", ");
     const statusStr = !exists
       ? red("not found")
       : active
-        ? green("running") + dim(portStr ? ` (${portStr})` : "")
+        ? green("running") + (details ? dim(` (${details})`) : "")
         : dim("stopped");
     const mode = installStatus ? "systemd" : running ? "daemon" : "—";
 
