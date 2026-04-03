@@ -24,7 +24,7 @@ import com.google.android.material.textfield.TextInputEditText
 class MainActivity : AppCompatActivity() {
 
     companion object {
-        const val BUILD = 37
+        const val BUILD = 38
     }
 
     private lateinit var webView: WebView
@@ -109,24 +109,30 @@ class MainActivity : AppCompatActivity() {
 
     window._kernNativeBuild = $BUILD;
 
-    // Wait for page script to define AgentClient, then patch
+    // Wait for KernBridge to be defined by the web UI
     var _patchInterval = setInterval(function() {
-        if (!window.AgentClient) return;
+        if (!window.KernBridge) return;
         clearInterval(_patchInterval);
         if (window._kernPatched) return;
         window._kernPatched = true;
 
         // Close any existing SSE connection from page init
-        if (window._kern && window._kern.connection) {
-            window._kern.connection.close();
-            window._kern.connection = { close: function(){} };
+        var state = window.KernBridge.getState();
+        if (state.connected) {
+            window.KernBridge.setConnection({ close: function(){}, connectionId: null });
         }
 
         // Track current agent to detect switches vs reconnects
         var _currentAgentUrl = null;
 
+        // Save original bridge methods before wrapping
+        var _origConnect = window.KernBridge.connect;
+        var _origInit = window.KernBridge.init;
+        var _origRenderMarkdown = window.KernBridge.renderMarkdown;
+        var _origHandleEvent = window.KernBridge.handleEvent;
+
         // Intercept SSE connections — route to native
-        window.AgentClient.connect = function(baseUrl, token, opts) {
+        window.KernBridge.connect = function(baseUrl, token, opts) {
             console.log('[kern-native] SSE connect: ' + baseUrl);
             window._kernSseOpts = opts;
             if (baseUrl !== _currentAgentUrl) {
@@ -140,55 +146,41 @@ class MainActivity : AppCompatActivity() {
                 close: function(){},
                 connectionId: null
             };
-            // Store stub so native SSE can populate connectionId
-            if (window._kern) {
-                window._kern.connection = stub;
-            }
+            window.KernBridge.setConnection(stub);
             return stub;
         };
 
         // Allow init() once per agent, skip reconnect loops
-        var _origInit = window.init;
         var _initForAgent = null;
-        window.init = function() {
-            var base = window.BASE_URL || '';
+        window.KernBridge.init = function() {
+            var base = window.KernBridge.getBaseUrl() || '';
             if (_initForAgent === base) return;
             _initForAgent = base;
-            _origInit && _origInit();
+            _origInit && _origInit.call(window.KernBridge);
         };
 
         // Strip leading/trailing <br> from rendered markdown
-        var _origRM = window.renderMarkdown;
-        if (_origRM) {
-            window.renderMarkdown = function(text) {
-                return _origRM(text).replace(/^(<br>)+/, '').replace(/(<br>)+$/, '');
+        if (_origRenderMarkdown) {
+            window.KernBridge.renderMarkdown = function(text) {
+                return _origRenderMarkdown.call(window.KernBridge, text).replace(/^(<br>)+/, '').replace(/(<br>)+$/, '');
             };
         }
 
         // Trim leading newlines + TTS on finish
-        var _origHE = window.handleEvent;
-        if (_origHE) {
-            window.handleEvent = function(ev) {
-                if (ev.type === 'text-delta' && ev.text && window._kern && !window._kern.streamingText) {
+        if (_origHandleEvent) {
+            window.KernBridge.handleEvent = function(ev) {
+                if (ev.type === 'text-delta' && ev.text && !window.KernBridge.getState().streamingText) {
                     ev.text = ev.text.replace(/^\n+/, '');
                     if (!ev.text) return;
                 }
-                var textToSpeak = (ev.type === 'finish' && window._kern) ? window._kern.streamingText : '';
-                var result = _origHE(ev);
+                var textToSpeak = (ev.type === 'finish') ? window.KernBridge.getState().streamingText : '';
+                var result = _origHandleEvent.call(window.KernBridge, ev);
                 if (ev.type === 'finish' && window._kernTtsEnabled && textToSpeak) {
                     KernNative.speak(textToSpeak);
                 }
                 return result;
             };
         }
-
-        // Native SSE callbacks
-        window._kernNativeSseReady = function() {
-            if (window.setConnected) window.setConnected('connected');
-        };
-        window._kernNativeSseDisconnected = function() {
-            if (window.setConnected) window.setConnected('disconnected');
-        };
 
         // Build number on agent name
         var an = document.getElementById('agent-name');
@@ -252,7 +244,7 @@ class MainActivity : AppCompatActivity() {
             window.onKernSpeechPartial = function(text) { inputEl.value = text; inputEl.dispatchEvent(new Event('input')); };
             window.onKernSpeechResult = function(text) {
                 setMicUI(false);
-                if (voiceMode) { if (checkVoiceCommand(text)) return; if (text && text.trim()) { inputEl.value = text.trim(); inputEl.dispatchEvent(new Event('input')); if (window.send) window.send(); } else { startVoiceListening(); } }
+                if (voiceMode) { if (checkVoiceCommand(text)) return; if (text && text.trim()) { inputEl.value = text.trim(); inputEl.dispatchEvent(new Event('input')); window.KernBridge.send(); } else { startVoiceListening(); } }
                 else { inputEl.value = text; inputEl.dispatchEvent(new Event('input')); }
             };
             window.onKernSpeechError = function(msg) { setMicUI(false); if (voiceMode && msg !== 'Microphone permission required') startVoiceListening(); };
@@ -362,13 +354,13 @@ class MainActivity : AppCompatActivity() {
                     "for(var i=0;i<b.length;i++) bytes[i]=b.charCodeAt(i);" +
                     "var json=new TextDecoder().decode(bytes);" +
                     "var ev=JSON.parse(json);" +
-                    "if (ev.type === '__sse_connected') { if (window._kernNativeSseReady) window._kernNativeSseReady(); }" +
-                    " else if (ev.type === '__sse_disconnected') { if (window._kernNativeSseDisconnected) window._kernNativeSseDisconnected(); }" +
+                    "if (ev.type === '__sse_connected') { if (window.KernBridge) window.KernBridge.setConnected('connected'); }" +
+                    " else if (ev.type === '__sse_disconnected') { if (window.KernBridge) window.KernBridge.setConnected('disconnected'); }" +
                     " else if (ev.type === 'connection' && ev.connectionId) { " +
                     "  console.log('[kern-native] connectionId: ' + ev.connectionId); " +
-                    "  if (window._kern && window._kern.connection) { window._kern.connection.connectionId = ev.connectionId; } " +
+                    "  if (window.KernBridge) window.KernBridge.setConnectionId(ev.connectionId); " +
                     " } " +
-                    " else { if (window.handleEvent) window.handleEvent(ev); }" +
+                    " else { if (window.KernBridge) window.KernBridge.handleEvent(ev); }" +
                     " } catch(e) { console.log('SSE inject error: ' + e); } })();",
                     null
                 )
