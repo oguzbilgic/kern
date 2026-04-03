@@ -8,7 +8,7 @@ import { readFile, appendFile } from "fs/promises";
 import { join, basename } from "path";
 import { randomBytes } from "crypto";
 import type { Interface, MessageHandler } from "./interfaces/types.js";
-import { registerAgent, setPortAndToken } from "./registry.js";
+import { registerAgent, setPortAndToken, setPid } from "./registry.js";
 import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
@@ -304,6 +304,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   const port = await server.start("127.0.0.1");
   await setPortAndToken(agentName, port, process.env.KERN_AUTH_TOKEN || null);
+  await setPid(agentName, process.pid);
 
   // Start Telegram if configured
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
