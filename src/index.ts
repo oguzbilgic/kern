@@ -148,7 +148,7 @@ async function main() {
 
   if (cmd === "logs") {
     // Parse flags: -f (follow), -n <count>, --level <level>
-    let follow = false;
+    let follow: boolean | null = null;  // null = auto (follow unless -n)
     let lines = 50;
     let level: string | null = null;
     let nameArg: string | undefined;
@@ -176,7 +176,10 @@ async function main() {
     };
     const filterLabels = level ? LEVEL_FILTERS[level] : null;
 
-    if (follow) {
+    // Default: follow unless -n was specified
+    const shouldFollow = follow !== null ? follow : !logArgs.some(a => a === "-n");
+
+    if (shouldFollow) {
       const { spawn } = await import("child_process");
       if (!filterLabels || filterLabels.length === 0) {
         const tail = spawn("tail", ["-f", `-n`, String(lines), logFile], { stdio: "inherit" });
