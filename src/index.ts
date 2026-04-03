@@ -173,6 +173,12 @@ async function main() {
       console.error(`Agent not found: ${name}`);
       process.exit(1);
     }
+    // Uninstall systemd service if installed
+    const { isSystemdInstalled } = await import("./install.js");
+    if (isSystemdInstalled(name)) {
+      const { uninstall } = await import("./install.js");
+      await uninstall(name);
+    }
     if (agent.pid && isProcessRunning(agent.pid)) {
       await stopAgent(name);
     }
