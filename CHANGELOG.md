@@ -3,19 +3,17 @@
 ## next
 
 ### Features
-- **`kern install`** — install user-level systemd services for agents and web daemon. Auto-restart on crash, boot persistence, idempotent.
-  - `kern install [name|--web]` to install, `kern uninstall [name]` to remove
-  - Services named `kern-agent-<name>` to avoid collisions
-  - `kern start/stop/restart` auto-delegate to `systemctl` when installed, fall back to PID daemon otherwise
-  - `kern web start/stop/restart` also delegate when installed
-  - `kern remove` uninstalls systemd service before unregistering
-  - `kern init` and `kern start` show hints when systemd is available but not installed
-- **`kern status`** — shows web daemon, mode field (systemd/daemon/—), colon-separated labels
-  - Hints about `kern install` when agents aren't installed
-- **Log levels** — `log()`, `log.debug()`, `log.warn()`, `log.error()` with colored labels (WRN, ERR, DBG). All levels written to file, filter on read.
-  - **`kern logs` CLI** — defaults to follow mode. `-n 50` for last N lines (no follow). `--level warn` to filter by level.
-  - **`kern({ action: "logs" })` tool** — agents can inspect their own logs. Defaults to warn+, configurable with `level` and `lines` params.
-- **Config validation** — warns on unknown fields and wrong types at startup. Invalid values are ignored and defaults apply.
+- **Service management** — `kern install` sets up user-level systemd services for agents and the web daemon. Crash recovery, boot persistence, one command.
+  - `kern install` — all agents + web. `kern install <name>` or `kern install --web` for individual.
+  - `kern uninstall [name]` — remove services.
+  - `kern start/stop/restart` automatically delegate to systemd when installed, fall back to PID daemon otherwise.
+  - `kern remove` cleans up the systemd service before unregistering.
+  - Hints shown after `kern init`, `kern start`, and in `kern status` when systemd is available but not installed.
+- **Status overhaul** — `kern status` now shows the web daemon alongside agents. New `mode` field (systemd/daemon/—) shows how each process is managed.
+- **Logging** — structured, leveled, colored log output. All levels written to file, filtering only at read time.
+  - `kern logs` — follow mode by default. `-n 50` for last N lines. `--level warn` to filter.
+  - `kern({ action: "logs" })` — agent can inspect its own logs (default warn+).
+- **Config validation** — warns on unknown fields and wrong types at startup. Invalid values ignored, defaults apply.
 
 ### Changes
 - `kern init` writes minimal config: `model`, `provider`, `toolScope` only
