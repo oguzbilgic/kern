@@ -5,7 +5,6 @@ export interface QueuedMessage {
   userId: string;
   interface: string;
   channel: string;
-  clientId?: string;
   resolve: (response: string) => void;
   reject: (error: Error) => void;
   onEvent?: (event: StreamEvent) => void;

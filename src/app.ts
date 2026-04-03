@@ -153,7 +153,6 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
         fromInterface: msg.interface,
         fromUserId: msg.userId,
         fromChannel: msg.channel,
-        fromClientId: msg.clientId,
       });
     }
 
@@ -185,7 +184,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   });
 
   // Helper to enqueue from any interface
-  const enqueueMessage = async (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void, clientId?: string) => {
+  const enqueueMessage = async (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void) => {
     // Slash commands bypass the queue — instant response even if queue is busy
     const cmd = text.trim();
     if (cmd.startsWith("/")) {
@@ -199,15 +198,15 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
         return result;
       }
     }
-    return queue.enqueue({ text, userId, interface: iface, channel, clientId }, onEvent);
+    return queue.enqueue({ text, userId, interface: iface, channel }, onEvent);
   };
 
   server.setStatusFn(() => {
     return { ...getStatusDataFn(), agentName };
   });
 
-  server.setMessageHandler(async (text, userId, iface, channel, clientId?) => {
-    await enqueueMessage(text, userId, iface, channel, undefined, clientId);
+  server.setMessageHandler(async (text, userId, iface, channel) => {
+    await enqueueMessage(text, userId, iface, channel);
   });
 
   // History: return messages from session, paginated

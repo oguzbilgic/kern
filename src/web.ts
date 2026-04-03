@@ -163,7 +163,6 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     const result = agents.map((a) => ({
       name: a.name,
       running: !!(a.pid && isProcessRunning(a.pid)),
-      proxy: a.port ? `/agent/${encodeURIComponent(a.name)}` : null,
     }));
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(result));

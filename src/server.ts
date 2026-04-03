@@ -1,7 +1,4 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
-import { readFile } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
 import type { StreamEvent } from "./runtime.js";
 import { log } from "./log.js";
 
@@ -10,7 +7,6 @@ export interface ServerEvent extends StreamEvent {
   fromInterface?: string;
   fromUserId?: string;
   fromChannel?: string;
-  fromClientId?: string;
   command?: string;
 }
 
@@ -22,7 +18,7 @@ type SSEClient = {
 export class AgentServer {
   private server: ReturnType<typeof createServer>;
   private clients: SSEClient[] = [];
-  private onMessage: ((text: string, userId: string, iface: string, channel: string, clientId?: string) => Promise<void>) | null = null;
+  private onMessage: ((text: string, userId: string, iface: string, channel: string) => Promise<void>) | null = null;
   private statusFn: (() => any | Promise<any>) | null = null;
   private historyFn: ((limit: number, before?: number) => any[]) | null = null;
   private port = 0;
@@ -31,7 +27,7 @@ export class AgentServer {
     this.server = createServer((req, res) => this.handleRequest(req, res));
   }
 
-  setMessageHandler(handler: (text: string, userId: string, iface: string, channel: string, clientId?: string) => Promise<void>) {
+  setMessageHandler(handler: (text: string, userId: string, iface: string, channel: string) => Promise<void>) {
     this.onMessage = handler;
   }
 
@@ -45,16 +41,9 @@ export class AgentServer {
 
   async start(host: string = "127.0.0.1"): Promise<number> {
     return new Promise((resolve) => {
-      const port = parseInt(process.env.KERN_PORT || "0", 10);
-      const bindHost = process.env.KERN_HOST || host;
-
-      if (bindHost !== "127.0.0.1" && bindHost !== "localhost" && bindHost !== "::1" && !process.env.KERN_AUTH_TOKEN) {
-        log("server", `WARNING: binding to ${bindHost} without KERN_AUTH_TOKEN — agent is accessible without authentication`);
-      }
-
-      this.server.listen(port, bindHost, () => {
+      this.server.listen(0, host, () => {
         this.port = (this.server.address() as any).port;
-        log("server", `listening on ${bindHost}:${this.port}`);
+        log("server", `listening on ${host}:${this.port}`);
         resolve(this.port);
       });
     });
@@ -173,7 +162,7 @@ export class AgentServer {
     if (url === "/message" && req.method === "POST") {
       const body = await readBody(req);
       try {
-        const { text, userId, interface: iface, channel, connectionId, clientId } = JSON.parse(body);
+        const { text, userId, interface: iface, channel, connectionId } = JSON.parse(body);
         if (!text) {
           res.writeHead(400);
           res.end(JSON.stringify({ error: "text required" }));
@@ -197,7 +186,7 @@ export class AgentServer {
 
         // Handle async — don't await, response already sent
         if (this.onMessage) {
-          this.onMessage(text, userId || "tui", iface || "tui", channel || "tui", clientId).catch(() => {});
+          this.onMessage(text, userId || "tui", iface || "tui", channel || "tui").catch(() => {});
         }
       } catch {
         res.writeHead(400);
