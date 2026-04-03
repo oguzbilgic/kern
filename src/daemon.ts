@@ -5,6 +5,7 @@ import { mkdir } from "fs/promises";
 import { join } from "path";
 import { openSync } from "fs";
 import { findAgent, loadRegistry, registerAgent, setPid, isProcessRunning } from "./registry.js";
+import { isSystemdInstalled } from "./install.js";
 
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -51,6 +52,13 @@ async function startOne(name: string, path: string): Promise<void> {
 
   if (isProcessRunning(pid)) {
     console.log(`  ${green("●")} ${bold(name)} started ${dim(`(pid ${pid})`)}`);
+    if (!isSystemdInstalled(name)) {
+      try {
+        const { execSync } = await import("child_process");
+        execSync("which systemctl", { stdio: "ignore" });
+        console.log(`  ${dim(`tip: 'kern install ${name}' enables auto-restart and boot persistence`)}`);
+      } catch {}
+    }
   } else {
     await setPid(name, null);
     console.log(`  ${red("●")} ${bold(name)} failed to start`);
