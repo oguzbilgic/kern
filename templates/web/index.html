@@ -2055,21 +2055,25 @@ async function init() {
     }
   } catch {}
 
-  // Connect SSE
-  connection = AgentClient.connect(BASE_URL, AUTH_TOKEN, {
-    onEvent: handleEvent,
-    onConnect() {
-      setConnected('connected');
-    },
-    async onDisconnect() {
-      if (authFailed || intentionalClose) return;
-      setConnected('disconnected');
-      addMessage('system', 'disconnected — reconnecting...');
-      // Re-discover agents (proxy URL is stable, but agent may have stopped)
-      await discoverAllAgents();
-      reconnectTimer = setTimeout(init, 2000);
-    },
-  });
+  // Connect SSE — if native bridge is active, skip EventSource (native handles SSE)
+  if (window._kernNativeBuild) {
+    connection = { close() {}, connectionId: null };
+  } else {
+    connection = AgentClient.connect(BASE_URL, AUTH_TOKEN, {
+      onEvent: handleEvent,
+      onConnect() {
+        setConnected('connected');
+      },
+      async onDisconnect() {
+        if (authFailed || intentionalClose) return;
+        setConnected('disconnected');
+        addMessage('system', 'disconnected — reconnecting...');
+        // Re-discover agents (proxy URL is stable, but agent may have stopped)
+        await discoverAllAgents();
+        reconnectTimer = setTimeout(init, 2000);
+      },
+    });
+  }
 }
 
 setupSwitcher();
