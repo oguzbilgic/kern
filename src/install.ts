@@ -15,6 +15,12 @@ const SERVICE_PREFIX = "kern-agent-";
 const WEB_SERVICE = "kern-web";
 const SYSTEMD_DIR = join(homedir(), ".config", "systemd", "user");
 
+// Ensure XDG_RUNTIME_DIR is set for systemctl --user to find the D-Bus socket
+const uid = process.getuid?.();
+if (uid !== undefined && !process.env.XDG_RUNTIME_DIR) {
+  process.env.XDG_RUNTIME_DIR = `/run/user/${uid}`;
+}
+
 function hasSystemd(): boolean {
   try {
     execSync("systemctl --user --no-pager status 2>/dev/null", { stdio: "ignore" });
