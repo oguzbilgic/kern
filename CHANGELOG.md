@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.16.0
 
 ### Features
 - **Semantic segments** — messages are automatically grouped into topic-coherent segments (L0) based on embedding cosine distance. Each segment is summarized by gpt-4.1-mini (~10-20:1 compression). First-person, bullet-point style focusing on intent, outcomes, and decisions.
