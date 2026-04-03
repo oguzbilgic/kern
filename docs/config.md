@@ -8,9 +8,7 @@ The main config file. Committed to git.
 {
   "model": "anthropic/claude-opus-4.6",
   "provider": "openrouter",
-  "toolScope": "full",
-  "maxSteps": 30,
-  "maxContextTokens": 50000
+  "toolScope": "full"
 }
 ```
 

@@ -173,7 +173,6 @@ Structured, colored logs for queue, runtime, interfaces, and server. Logs stored
   "model": "anthropic/claude-opus-4.6",
   "provider": "openrouter",
   "toolScope": "full",
-  "maxSteps": 30,
   "maxContextTokens": 50000,
   "maxToolResultChars": 20000,
   "historyBudget": 0.2

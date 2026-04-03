@@ -210,7 +210,7 @@ async function runConfig(name: string, dir: string): Promise<void> {
   const config: Partial<KernConfig> = {
     model,
     provider,
-    ...(currentConfig.toolScope && currentConfig.toolScope !== "full" ? { toolScope: currentConfig.toolScope } : {}),
+    toolScope: currentConfig.toolScope || "full",
   };
   // Build new env
   const envLines: string[] = [];
@@ -410,6 +410,7 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
   const config: Partial<KernConfig> = {
     model,
     provider,
+    toolScope: "full",
   };
   // .kern/.env
   const envLines: string[] = [];
