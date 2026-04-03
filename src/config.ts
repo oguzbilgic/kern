@@ -23,8 +23,6 @@ export interface KernConfig {
 
   // Runtime
   heartbeatInterval: number;
-
-
 }
 
 const TOOL_SCOPES: Record<ToolScope, string[]> = {
@@ -33,7 +31,7 @@ const TOOL_SCOPES: Record<ToolScope, string[]> = {
   read: ["read", "glob", "grep", "webfetch", "kern", "recall"],
 };
 
-const defaults: KernConfig = {
+export const configDefaults: KernConfig = {
   model: "anthropic/claude-opus-4.6",
   provider: "openrouter",
   toolScope: "full",
@@ -45,6 +43,33 @@ const defaults: KernConfig = {
   autoRecall: false,
   heartbeatInterval: 60,
 };
+
+const FIELD_TYPES: Record<string, string> = {
+  model: "string",
+  provider: "string",
+  toolScope: "string",
+  maxSteps: "number",
+  maxContextTokens: "number",
+  maxToolResultChars: "number",
+  historyBudget: "number",
+  recall: "boolean",
+  autoRecall: "boolean",
+  heartbeatInterval: "number",
+};
+
+function validateConfig(userConfig: Record<string, unknown>): void {
+  for (const key of Object.keys(userConfig)) {
+    if (!(key in FIELD_TYPES)) {
+      console.warn(`config: unknown field "${key}" — ignored`);
+      continue;
+    }
+    const expected = FIELD_TYPES[key];
+    const actual = typeof userConfig[key];
+    if (actual !== expected) {
+      console.warn(`config: "${key}" should be ${expected}, got ${actual} — using default`);
+    }
+  }
+}
 
 export function getToolsForScope(scope: ToolScope): string[] {
   return TOOL_SCOPES[scope] || TOOL_SCOPES.full;
@@ -60,16 +85,24 @@ export async function loadConfig(agentDir: string): Promise<KernConfig> {
   // Load .kern/config.json
   const configPath = join(agentDir, ".kern", "config.json");
   if (!existsSync(configPath)) {
-    return defaults;
+    return configDefaults;
   }
 
   try {
     const raw = await readFile(configPath, "utf-8");
     const userConfig = JSON.parse(raw);
-    // Support legacy "tools" array — ignore it, use toolScope
-    const { tools, ...rest } = userConfig;
-    return { ...defaults, ...rest };
+    validateConfig(userConfig);
+
+    // Filter out unknown and wrong-type fields
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(userConfig)) {
+      if (key in FIELD_TYPES && typeof value === FIELD_TYPES[key]) {
+        cleaned[key] = value;
+      }
+    }
+
+    return { ...configDefaults, ...cleaned };
   } catch {
-    return defaults;
+    return configDefaults;
   }
 }
