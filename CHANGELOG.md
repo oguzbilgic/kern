@@ -14,9 +14,7 @@
 ### Changes
 - **Token estimation** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — improved from chars/4 to chars/3.3 with per-message overhead (~25% more accurate).
 - **Context breakdown** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — `/status` reports system prompt + summary + messages token counts across all consumers (HTTP, slash cmd, kern tool, web UI).
-- **Rename `historyBudget` → `summaryBudget`** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — renamed throughout codebase and docs.
-- **Docs reorganized** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — split `memory.md` into `memory.md` and `context.md`.
-- **Overlay visual redesign** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — warm amber accent replacing blue, unified neutral gray palette matching main app, improved contrast and visual hierarchy.
+- **Config rename** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — `historyBudget` → `summaryBudget`. Old name still works.
 
 ## v0.17.0
 
