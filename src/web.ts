@@ -11,13 +11,15 @@
  *   GET  /api/agents/:name/status       → proxy to agent
  *   GET  /api/agents/:name/history      → proxy to agent
  *   GET  /api/agents/:name/health       → proxy to agent
+ *   GET  /api/agents/:name/segments     → proxy to agent (semantic segment DAG)
+ *   POST /api/agents/:name/segments/rebuild → proxy to agent (clear + re-index)
  *   GET  /manifest.json                 → PWA manifest
  *   GET  /sw.js                         → service worker
  *   GET  /icon.svg                      → app icon
  */
 
 import { createServer, request as httpRequest, type IncomingMessage, type ServerResponse } from "http";
-import { readFile, appendFile } from "fs/promises";
+import { readFile, writeFile, appendFile } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 import { homedir } from "os";
@@ -197,8 +199,11 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 async function start() {
   webToken = await getWebToken();
   const config = await loadGlobalConfig();
-  server.listen(config.web_port, config.web_host, () => {
+  server.listen(config.web_port, config.web_host, async () => {
     log(`listening on ${config.web_host}:${config.web_port}`);
+    // Write PID so status checks work regardless of how the server was started
+    const pidFile = join(homedir(), ".kern", "web.pid");
+    await writeFile(pidFile, String(process.pid));
   });
 }
 

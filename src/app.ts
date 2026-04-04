@@ -8,25 +8,39 @@ import { readFile, appendFile } from "fs/promises";
 import { join, basename } from "path";
 import { randomBytes } from "crypto";
 import type { Interface, MessageHandler } from "./interfaces/types.js";
-import { registerAgent, setPortAndToken } from "./registry.js";
+import { registerAgent, setPortAndToken, setPid } from "./registry.js";
 import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
 import { setRecallIndex } from "./tools/recall.js";
 import { RecallIndex } from "./recall.js";
+import { SegmentIndex } from "./segments.js";
+import { MemoryDB } from "./memory.js";
 import { MessageQueue } from "./queue.js";
-import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, type InterfaceStatus } from "./tools/kern.js";
+import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, setSegmentStatsFn, type InterfaceStatus } from "./tools/kern.js";
 import { log } from "./log.js";
 
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
   switch (cmd) {
     case "/restart": {
       log("kern", `restart requested by ${userId} via ${iface}`);
-      setTimeout(async () => {
-        const { spawn } = await import("child_process");
-        spawn("kern", ["restart", agentName], { detached: true, stdio: "ignore" }).unref();
-      }, 2000);
-      return "Restarting in 2 seconds...";
+      const { spawn } = await import("child_process");
+      const child = spawn("kern", ["restart", agentName], { stdio: "pipe" });
+
+      const result = await new Promise<{ code: number | null; stderr: string }>((resolve) => {
+        let stderr = "";
+        child.stderr.on("data", (chunk) => {
+          stderr += chunk.toString();
+        });
+        child.on("close", (code) => resolve({ code, stderr: stderr.trim() }));
+        child.on("error", (err) => resolve({ code: 1, stderr: err.message }));
+      });
+
+      if (result.code === 0) {
+        return "Restart initiated.";
+      }
+
+      return `Restart failed: ${result.stderr || `exit code ${result.code}`}`;
     }
 
     case "/status": {
@@ -76,12 +90,15 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   const runtime = new Runtime(agentDir);
   await runtime.init();
 
-  // Initialize recall index (opt-out via "recall": false in config)
+  // Initialize memory DB (always) and recall index (opt-out via "recall": false)
+  const memoryDB = new MemoryDB(agentDir);
+  runtime.setMemoryDB(memoryDB);
+
   let recallIndex: RecallIndex | null = null;
   let recallBuilding = false;
-  if ((config as any).recall !== false) {
+  if (config.recall !== false) {
     try {
-      recallIndex = new RecallIndex(agentDir, config.provider);
+      recallIndex = new RecallIndex(memoryDB, agentDir, config.provider);
       setRecallIndex(recallIndex);
       runtime.setRecallIndex(recallIndex);
       setRecallStatsFn(() => {
@@ -101,11 +118,24 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
           }
         }).catch((err) => {
           recallBuilding = false;
-          log("recall", `backfill failed: ${err.message}`);
+          log.error("recall", `backfill failed: ${err.message}`);
         });
       }
     } catch (err: any) {
-      log("recall", `init failed: ${err.message} — recall disabled`);
+      log.error("recall", `init failed: ${err.message} — recall disabled`);
+    }
+  }
+
+  // Initialize semantic segments (uses same embedding infra as recall)
+  let segmentIndex: SegmentIndex | null = null;
+  let segmentRunning = false;
+  if (config.recall !== false) {
+    try {
+      segmentIndex = new SegmentIndex(memoryDB, config.provider);
+      runtime.setSegmentIndex(segmentIndex);
+      setSegmentStatsFn(() => segmentIndex ? segmentIndex.getStats() : null);
+    } catch (err: any) {
+      log.error("segments", `init failed: ${err.message} — segments disabled`);
     }
   }
 
@@ -170,12 +200,17 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       msg.onEvent?.(event);
     });
 
-    // Index new messages for recall (async, non-blocking)
-    if (recallIndex) {
-      const sessionId = runtime.getSessionId();
-      if (sessionId) {
+    // Index new messages for recall + segments (async, non-blocking)
+    const sessionId = runtime.getSessionId();
+    if (sessionId) {
+      if (recallIndex) {
         recallIndex.indexSession(sessionId).catch((err) => {
-          log("recall", `indexing failed: ${err.message}`);
+          log.error("recall", `indexing failed: ${err.message}`);
+        });
+      }
+      if (segmentIndex) {
+        segmentIndex.indexSession(sessionId).catch((err) => {
+          log.error("segments", `indexing failed: ${err.message}`);
         });
       }
     }
@@ -220,8 +255,68 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     }));
   });
 
+  server.setSystemPromptFn(async () => {
+    const latestSystem = await runtime.getSystemPrompt();
+    const built = runtime.buildPromptContext();
+    return { system: built.system || latestSystem };
+  });
+
+  server.setSegmentsFn((sessionId?: string) => {
+    if (!segmentIndex) return { segments: [], stats: { segments: 0, level0: 0 } };
+    return segmentIndex.getSegments(sessionId);
+  });
+
+  server.setSegmentsRebuildFn(async () => {
+    if (!segmentIndex) throw new Error("segments not enabled");
+    if (segmentRunning) {
+      log("segments", "rebuild already running");
+      return { status: "already running" };
+    }
+    const sessionId = runtime.getSessionId();
+    if (!sessionId) throw new Error("no session");
+
+    segmentRunning = true;
+    try {
+      segmentIndex.clear();
+      log("segments", "cleared — starting rebuild");
+      const created = await segmentIndex.indexSession(sessionId);
+      log("segments", `rebuild complete: ${created} segments`);
+      return { status: "done", segments: created };
+    } finally {
+      segmentRunning = false;
+    }
+  });
+
+  server.setSegmentsStopFn(() => {
+    if (!segmentIndex) return;
+    segmentIndex.stop();
+    segmentRunning = false;
+  });
+
+  server.setSegmentsCleanFn(() => {
+    if (!segmentIndex) return;
+    segmentIndex.clear();
+  });
+
+  server.setSegmentsStartFn(async () => {
+    if (!segmentIndex) throw new Error("segments not enabled");
+    if (segmentRunning) return { status: "already running" };
+    const sessionId = runtime.getSessionId();
+    if (!sessionId) throw new Error("no session");
+
+    segmentRunning = true;
+    try {
+      const created = await segmentIndex.indexSession(sessionId);
+      log("segments", `indexed ${created} new segments`);
+      return { status: "done", segments: created };
+    } finally {
+      segmentRunning = false;
+    }
+  });
+
   const port = await server.start("127.0.0.1");
   await setPortAndToken(agentName, port, process.env.KERN_AUTH_TOKEN || null);
+  await setPid(agentName, process.pid);
 
   // Start Telegram if configured
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -336,6 +431,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     if (telegramBot) await telegramBot.stop().catch(() => {});
     if (slackBot) await slackBot.stop().catch(() => {});
     server.stop();
+    memoryDB.close();
     log("kern", `stopped ${agentName}`);
     process.exit(0);
   };

@@ -103,15 +103,23 @@ export async function webStop(): Promise<void> {
 
 export async function webStatus(): Promise<void> {
   const config = await loadGlobalConfig();
+  const { getWebServiceStatus } = await import("./install.js");
+  const installStatus = getWebServiceStatus();
+
   const pid = await readPid();
-  if (pid && isProcessRunning(pid)) {
-    console.log(`\n  ${green("●")} ${bold("web")} running ${dim(`(pid ${pid}, port ${config.web_port})`)}\n`);
+  const pidRunning = pid && isProcessRunning(pid);
+  const running = pidRunning || installStatus === "active";
+  const mode = installStatus ? "systemd" : pidRunning ? "daemon" : "—";
+
+  if (running) {
+    console.log(`\n  ${green("●")} ${bold("web")} running ${dim(`(:${config.web_port})`)}`);
   } else {
-    console.log(`\n  ${dim("●")} ${bold("web")} stopped\n`);
+    console.log(`\n  ${dim("●")} ${bold("web")} stopped`);
     if (pid) {
       try { await unlink(PID_FILE); } catch {}
     }
   }
+  console.log(`    ${dim("mode:")} ${mode}\n`);
 }
 
 export async function webToken(): Promise<void> {

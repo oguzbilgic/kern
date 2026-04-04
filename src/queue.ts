@@ -87,7 +87,7 @@ export class MessageQueue {
       }
       this.pendingSameChannel = [];
     } catch (error: any) {
-      log("queue", `error: ${error.message}`);
+      log.error("queue", `error: ${error.message}`);
       msg.reject(error);
       for (const pending of this.pendingSameChannel) {
         pending.reject(error);

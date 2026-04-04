@@ -15,12 +15,22 @@ export const grepTool = tool({
       .string()
       .optional()
       .describe('File pattern to include (e.g. "*.ts", "*.md")'),
+    options: z
+      .string()
+      .optional()
+      .describe('Additional grep flags (e.g. "-C 3 -i -l")'),
   }),
-  execute: async ({ pattern, path, include }) => {
-    const dir = path || process.cwd();
+  execute: async ({ pattern, path, include, options }) => {
+    const target = path || process.cwd();
     const escapedPattern = pattern.replace(/'/g, "'\\''");
-    const includeArg = include ? `--include='${include}'` : "";
-    const cmd = `grep -rn ${includeArg} '${escapedPattern}' '${dir}' 2>/dev/null`;
+    const extra = options || "";
+
+    // Detect if target is a file (has extension) vs directory
+    const isFile = /\.[a-zA-Z0-9]+$/.test(target);
+    const recursive = isFile ? "" : "-r";
+    const includeArg = !isFile && include ? `--include='${include}'` : "";
+    const excludeDirs = isFile ? "" : "--exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist";
+    const cmd = `grep ${recursive} -n --color=always ${excludeDirs} ${includeArg} ${extra} '${escapedPattern}' '${target}' 2>/dev/null`;
 
     return new Promise<string>((resolve) => {
       exec(cmd, { maxBuffer: 1024 * 1024 * 5 }, (_err, stdout) => {
