@@ -199,7 +199,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     const result = await runtime.handleMessage(context, (event: StreamEvent) => {
       server.broadcast(event);
       msg.onEvent?.(event);
-    });
+    }, msg.attachments);
 
     // Index new messages for recall + segments (async, non-blocking)
     const sessionId = runtime.getSessionId();
@@ -220,7 +220,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   });
 
   // Helper to enqueue from any interface
-  const enqueueMessage = async (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void) => {
+  const enqueueMessage = async (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void, attachments?: import("./interfaces/types.js").Attachment[]) => {
     // Slash commands bypass the queue — instant response even if queue is busy
     const cmd = text.trim();
     if (cmd.startsWith("/")) {
@@ -234,15 +234,15 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
         return result;
       }
     }
-    return queue.enqueue({ text, userId, interface: iface, channel }, onEvent);
+    return queue.enqueue({ text, userId, interface: iface, channel, attachments }, onEvent);
   };
 
   server.setStatusFn(() => {
     return { ...getStatusDataFn(), agentName };
   });
 
-  server.setMessageHandler(async (text, userId, iface, channel) => {
-    await enqueueMessage(text, userId, iface, channel);
+  server.setMessageHandler(async (text, userId, iface, channel, attachments) => {
+    await enqueueMessage(text, userId, iface, channel, undefined, attachments);
   });
 
   // History: return messages from session, paginated
@@ -394,7 +394,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     telegramBot = new TelegramInterface(telegramToken, pairing);
     await telegramBot.start({
       onMessage: async (msg, onEvent) => {
-        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "", onEvent);
+        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "", onEvent, msg.attachments);
       },
     });
   }
@@ -407,7 +407,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     slackBot = new SlackInterface(slackBotToken, slackAppToken, pairing);
     await slackBot.start({
       onMessage: async (msg, onEvent) => {
-        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "");
+        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "", undefined, msg.attachments);
       },
     });
   }

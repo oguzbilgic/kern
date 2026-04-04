@@ -927,6 +927,83 @@
     cursor: not-allowed;
   }
 
+  /* --- Attachment UI --- */
+  .attach-btn {
+    background: none !important;
+    border: none !important;
+    color: var(--text-muted);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 4px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .attach-btn:hover { color: var(--text); }
+  .attachment-preview {
+    display: none;
+    padding: 4px 12px 0;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .attachment-preview.has-items { display: flex; }
+  .attachment-thumb {
+    position: relative;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+  }
+  .attachment-thumb img {
+    display: block;
+    max-height: 80px;
+    max-width: 120px;
+    object-fit: cover;
+  }
+  .attachment-thumb .file-label {
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .attachment-thumb .remove-btn {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: rgba(0,0,0,0.7);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+  .attachment-thumb .remove-btn:hover { background: rgba(200,0,0,0.8); }
+  .drop-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    border: 2px dashed var(--text-muted);
+    border-radius: 12px;
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    color: var(--text);
+    font-size: 16px;
+    pointer-events: none;
+  }
+  .drop-overlay.visible { display: flex; }
+
   /* --- Scrollbar --- */
   .messages::-webkit-scrollbar { width: 6px; }
   .messages::-webkit-scrollbar-track { background: transparent; }
@@ -1961,11 +2038,15 @@
 
   <button class="scroll-down-btn" id="scroll-down-btn" title="Scroll to bottom">&#8595;</button>
   <div class="input-area">
+    <div class="attachment-preview" id="attachment-preview"></div>
     <div class="input-row">
       <div class="cmd-popup" id="cmd-popup"></div>
+      <input type="file" id="file-input" multiple hidden accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.json,.md" />
+      <button class="attach-btn" id="attach-btn" title="Attach files">📎</button>
       <textarea id="input" placeholder="Send a message..." rows="1" autofocus autocomplete="off" autocorrect="off" spellcheck="false" autocapitalize="off"></textarea>
       <button id="send" disabled>↑</button>
     </div>
+    <div class="drop-overlay" id="drop-overlay">Drop files here</div>
   </div>
 </div>
 
@@ -2044,16 +2125,21 @@ const AgentClient = {
    * @returns {Promise<{ok: boolean}>}
    */
   async sendMessage(baseUrl, token, text, opts = {}) {
+    const payload = {
+      text,
+      userId: opts.userId || 'tui',
+      interface: opts.interface || 'web',
+      channel: opts.channel || 'web',
+      connectionId: opts.connectionId,
+    };
+    // Attach base64-encoded files if present
+    if (opts.attachments && opts.attachments.length > 0) {
+      payload.attachments = opts.attachments;
+    }
     const res = await fetch(`${baseUrl}/message`, {
       method: 'POST',
       headers: this._headers(token),
-      body: JSON.stringify({
-        text,
-        userId: opts.userId || 'tui',
-        interface: opts.interface || 'web',
-        channel: opts.channel || 'web',
-        connectionId: opts.connectionId,
-      }),
+      body: JSON.stringify(payload),
     });
     return res.json();
   },
@@ -2277,6 +2363,124 @@ const sendBtn = $('send');
 const statusDot = $('status-dot');
 const agentNameEl = $('agent-name');
 const infoPanel = $('info-panel');
+
+// --- Attachment management ---
+const fileInput = $('file-input');
+const attachBtn = $('attach-btn');
+const attachPreview = $('attachment-preview');
+const dropOverlay = $('drop-overlay');
+let pendingAttachments = []; // { file, type, mimeType, dataUrl, base64, filename, size }
+
+function fileToAttachment(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1];
+      const type = file.type.startsWith('image/') ? 'image'
+        : file.type.startsWith('video/') ? 'video'
+        : file.type.startsWith('audio/') ? 'audio'
+        : 'document';
+      resolve({
+        file,
+        type,
+        mimeType: file.type || 'application/octet-stream',
+        filename: file.name,
+        size: file.size,
+        dataUrl: reader.result,
+        base64,
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function addFiles(files) {
+  for (const file of files) {
+    if (file.size > 20 * 1024 * 1024) {
+      addMessage('error', `File too large: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB, max 20MB)`);
+      continue;
+    }
+    const att = await fileToAttachment(file);
+    pendingAttachments.push(att);
+  }
+  renderAttachmentPreviews();
+  updateSendState();
+}
+
+function removeAttachment(idx) {
+  pendingAttachments.splice(idx, 1);
+  renderAttachmentPreviews();
+  updateSendState();
+}
+
+function renderAttachmentPreviews() {
+  attachPreview.innerHTML = '';
+  if (pendingAttachments.length === 0) {
+    attachPreview.classList.remove('has-items');
+    return;
+  }
+  attachPreview.classList.add('has-items');
+  pendingAttachments.forEach((att, i) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'attachment-thumb';
+    if (att.type === 'image') {
+      thumb.innerHTML = `<img src="${att.dataUrl}" alt="${att.filename}" /><button class="remove-btn" data-idx="${i}">\u00d7</button>`;
+    } else {
+      const icon = att.type === 'video' ? '\ud83c\udfac' : att.type === 'audio' ? '\ud83c\udfb5' : '\ud83d\udcc4';
+      thumb.innerHTML = `<div class="file-label">${icon} ${att.filename}</div><button class="remove-btn" data-idx="${i}">\u00d7</button>`;
+    }
+    thumb.querySelector('.remove-btn').addEventListener('click', () => removeAttachment(i));
+    attachPreview.appendChild(thumb);
+  });
+}
+
+function updateSendState() {
+  sendBtn.disabled = !inputEl.value.trim() && pendingAttachments.length === 0;
+}
+
+// Paperclip button
+attachBtn.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length > 0) addFiles(Array.from(fileInput.files));
+  fileInput.value = '';
+});
+
+// Paste handler — images from clipboard
+inputEl.addEventListener('paste', (e) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  const files = [];
+  for (const item of items) {
+    if (item.kind === 'file') {
+      const file = item.getAsFile();
+      if (file) files.push(file);
+    }
+  }
+  if (files.length > 0) {
+    e.preventDefault();
+    addFiles(files);
+  }
+});
+
+// Drag and drop
+let dragCounter = 0;
+document.addEventListener('dragenter', (e) => {
+  e.preventDefault();
+  dragCounter++;
+  if (dragCounter === 1) dropOverlay.classList.add('visible');
+});
+document.addEventListener('dragleave', (e) => {
+  e.preventDefault();
+  dragCounter--;
+  if (dragCounter <= 0) { dragCounter = 0; dropOverlay.classList.remove('visible'); }
+});
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dragCounter = 0;
+  dropOverlay.classList.remove('visible');
+  if (e.dataTransfer?.files.length > 0) addFiles(Array.from(e.dataTransfer.files));
+});
 
 // Toggle agent info panel
 $('info-btn').addEventListener('click', async () => {
@@ -3901,7 +4105,7 @@ function flushStreaming() {
 
 function setBusy(b) {
   busy = b;
-  sendBtn.disabled = !inputEl.value.trim();
+  sendBtn.disabled = !inputEl.value.trim() && pendingAttachments.length === 0;
   if (!b) hideThinking();
 }
 
@@ -4067,13 +4271,33 @@ function handleEvent(event) {
 
 async function send() {
   const text = inputEl.value.trim();
-  if (!text) return;
+  const hasAttachments = pendingAttachments.length > 0;
+  if (!text && !hasAttachments) return;
+
+  // Collect attachments before clearing
+  const attachments = pendingAttachments.map(att => ({
+    type: att.type,
+    mimeType: att.mimeType,
+    filename: att.filename,
+    size: att.size,
+    data: att.base64,
+  }));
 
   inputEl.value = '';
   inputEl.style.height = 'auto';
+  pendingAttachments = [];
+  renderAttachmentPreviews();
   sendBtn.disabled = true;
 
-  addMessage('user', text, null, null, new Date(), 'web');
+  // Build display text with attachment info
+  let displayText = text || '';
+  if (hasAttachments) {
+    const labels = attachments.map(a => a.filename || a.type);
+    if (displayText) displayText += '\n';
+    displayText += labels.map(l => `📎 ${l}`).join('\n');
+  }
+
+  addMessage('user', displayText, null, null, new Date(), 'web');
   scrollToBottom(true);
   if (!busy) {
     setBusy(true);
@@ -4081,7 +4305,9 @@ async function send() {
   }
 
   try {
-    await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text, { connectionId: connection?.connectionId });
+    const opts = { connectionId: connection?.connectionId };
+    if (attachments.length > 0) opts.attachments = attachments;
+    await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text || '', opts);
   } catch (err) {
     addMessage('error', `Failed to send: ${err.message}`);
     if (!busy) setBusy(false);
@@ -4144,7 +4370,7 @@ inputEl.addEventListener('input', () => {
   if (!_inputRaf) {
     _inputRaf = requestAnimationFrame(() => {
       _inputRaf = 0;
-      sendBtn.disabled = !inputEl.value.trim();
+      sendBtn.disabled = !inputEl.value.trim() && pendingAttachments.length === 0;
       updateCmdPopup();
       inputEl.style.height = 'auto';
       inputEl.style.height = inputEl.scrollHeight + 'px';
