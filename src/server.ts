@@ -7,6 +7,7 @@ export interface ServerEvent extends StreamEvent {
   fromInterface?: string;
   fromUserId?: string;
   fromChannel?: string;
+  fromClientId?: string;
   command?: string;
 }
 
