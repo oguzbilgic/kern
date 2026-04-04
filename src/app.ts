@@ -24,11 +24,23 @@ async function handleSlashCommand(cmd: string, userId: string, iface: string, ag
   switch (cmd) {
     case "/restart": {
       log("kern", `restart requested by ${userId} via ${iface}`);
-      setTimeout(async () => {
-        const { spawn } = await import("child_process");
-        spawn("kern", ["restart", agentName], { detached: true, stdio: "ignore" }).unref();
-      }, 2000);
-      return "Restarting in 2 seconds...";
+      const { spawn } = await import("child_process");
+      const child = spawn("kern", ["restart", agentName], { stdio: "pipe" });
+
+      const result = await new Promise<{ code: number | null; stderr: string }>((resolve) => {
+        let stderr = "";
+        child.stderr.on("data", (chunk) => {
+          stderr += chunk.toString();
+        });
+        child.on("close", (code) => resolve({ code, stderr: stderr.trim() }));
+        child.on("error", (err) => resolve({ code: 1, stderr: err.message }));
+      });
+
+      if (result.code === 0) {
+        return "Restart initiated.";
+      }
+
+      return `Restart failed: ${result.stderr || `exit code ${result.code}`}`;
     }
 
     case "/status": {
