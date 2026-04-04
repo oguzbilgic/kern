@@ -2058,6 +2058,10 @@ async function init() {
   // Connect SSE — if native bridge is active, skip EventSource (native handles SSE)
   if (window.KernNative) {
     connection = { close() {}, connectionId: null };
+    // Tell native to start SSE — bridge script may not have run yet
+    if (window.KernNative.switchAgent) {
+      KernNative.switchAgent(BASE_URL, AUTH_TOKEN || '');
+    }
   } else {
     connection = AgentClient.connect(BASE_URL, AUTH_TOKEN, {
       onEvent: handleEvent,
