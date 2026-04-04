@@ -3,14 +3,20 @@
 ## next
 
 ### Features
-- **Memory overlay** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — web UI for inspecting agent memory: notes summaries with regeneration, recall search, session list with daily/hourly activity charts.
-- **Context overlay** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — structured view of the full system prompt. Parses XML tags into collapsible sections with token cost bars. Shows real token breakdown (system + summary + messages) from `/status`.
+- **Memory inspector** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — unified web UI overlay for inspecting all agent memory. Five tabs: Sessions, Segments, Notes, Recall, and Context. Tab switcher with underline-style navigation and per-tab action buttons.
+  - **Sessions**: session list with message counts, durations, role breakdowns, daily/hourly activity charts. Live session indicator. Click to expand details.
+  - **Segments**: hierarchical segment tree with L0/L1/L2 levels. Fixed L1 segment visibility bug (segments with parent_id were excluded from level index). Collapsible rolled-up groups. Detail pane with dark background, markdown summaries, token compression stats, and resummarize action.
+  - **Notes**: notes summaries with regeneration trigger. Rendered as markdown.
+  - **Recall**: stats cards (messages, chunks, sessions, date range) and search interface.
+  - **Context**: structured view parsing XML prompt tags into collapsible sections with token cost bars. Raw message count and timestamp. Real token breakdown from `/status`.
+- **Session list API** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — `/sessions` endpoint now returns `currentSessionId` alongside session list for live session identification.
 
 ### Changes
 - **Token estimation** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — improved from chars/4 to chars/3.3 with per-message overhead (~25% more accurate).
 - **Context breakdown** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — `/status` reports system prompt + summary + messages token counts across all consumers (HTTP, slash cmd, kern tool, web UI).
 - **Rename `historyBudget` → `summaryBudget`** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — renamed throughout codebase and docs.
 - **Docs reorganized** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — split `memory.md` into `memory.md` and `context.md`.
+- **Overlay visual redesign** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — warm amber accent replacing blue, unified neutral gray palette matching main app, improved contrast and visual hierarchy.
 
 ## v0.17.0
 

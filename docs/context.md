@@ -81,8 +81,17 @@ Only fires when messages have been trimmed (long sessions). Capped at ~2000 toke
 
 ## Inspection
 
-The web UI provides endpoints for debugging the context pipeline:
+The web UI includes a Memory inspector overlay with five tabs:
 
-- `GET /context/system` — the full composed system prompt
-- `GET /context/segments` — segment IDs currently injected by `composeHistory()`
-- Segment visualization overlay — shows the hierarchical segment tree with summaries, token counts, and compression ratios
+- **Sessions** — session list with message counts, durations, role breakdowns, and activity charts. Live session indicator. Click any session to expand.
+- **Segments** — hierarchical segment tree (L0/L1/L2). Click any segment to see its markdown summary, token compression stats, and metadata. Filter by "All" or "In context". Collapsible rolled-up groups for child segments.
+- **Notes** — notes summaries with regeneration. Rendered as markdown.
+- **Recall** — stats (indexed messages, chunks, sessions, date range) and semantic search.
+- **Context** — structured view of the full system prompt. Parses XML tags into collapsible colored sections with token cost bars. Shows real token breakdown (system + summary + messages).
+
+### API endpoints
+
+- `GET /context/system` — the full composed system prompt as text
+- `GET /context/segments` — segment IDs and metadata currently injected by `composeHistory()`
+- `GET /sessions` — session list with `currentSessionId` for live session identification
+- `GET /recall/stats` — recall index stats (messages, chunks, sessions, date range)
