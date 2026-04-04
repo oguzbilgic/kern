@@ -12,14 +12,11 @@ const SUMMARY_PROMPT = `Summarize the following daily notes into a brief context
 
 let generating = false;
 
-// Match only YYYY-MM-DD.md files — one daily note per day, nothing else.
-const DAILY_NOTE_RE = /^\d{4}-\d{2}-\d{2}\.md$/;
-
-// Read sorted daily note files from notes/ directory
+// Read sorted .md files from notes/ directory
 async function listNotes(notesDir: string): Promise<string[]> {
   if (!existsSync(notesDir)) return [];
   const files = await readdir(notesDir);
-  return files.filter(f => DAILY_NOTE_RE.test(f)).sort();
+  return files.filter(f => f.endsWith(".md")).sort();
 }
 
 // Generate summary from notes content
