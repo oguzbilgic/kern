@@ -2298,14 +2298,36 @@ function renderPromptStructured(text) {
   const sections = parsePromptSections(text);
   const totalTokens = tokEst(text);
 
-  // Size bar
-  const sizeBar = sections.map(s => {
-    const tokens = tokEst(s.content);
-    const pct = totalTokens > 0 ? (tokens / totalTokens * 100) : 0;
+  // Compute raw messages remainder
+  const sectionTokens = sections.reduce((sum, s) => sum + tokEst(s.content), 0);
+  const msgTokens = Math.max(0, totalTokens - sectionTokens);
+
+  // Count messages from the DOM
+  const msgContainer = $('messages');
+  const domMsgs = msgContainer ? msgContainer.querySelectorAll('.message') : [];
+  const msgCount = domMsgs.length;
+  const roleCounts = {};
+  domMsgs.forEach(el => {
+    const cls = el.className.split(/\s+/);
+    const type = cls[1] || 'unknown';
+    roleCounts[type] = (roleCounts[type] || 0) + 1;
+  });
+  // Find first/last timestamps from DOM
+  const allTs = msgContainer ? msgContainer.querySelectorAll('.timestamp') : [];
+  const firstTs = allTs.length > 0 ? allTs[0].textContent.trim() : '';
+  const lastTs = allTs.length > 0 ? allTs[allTs.length - 1].textContent.trim() : '';
+
+  // Size bar — include messages segment
+  const allSegments = [...sections.map(s => ({ ...s, tokens: tokEst(s.content) }))];
+  if (msgTokens > 0) allSegments.push({ type: 'messages', label: 'Messages', tokens: msgTokens });
+  const barTotal = allSegments.reduce((s, x) => s + x.tokens, 0);
+
+  const sizeBar = allSegments.map(s => {
+    const pct = barTotal > 0 ? (s.tokens / barTotal * 100) : 0;
     if (pct < 1) return '';
-    const color = SECTION_COLORS[s.type] || SECTION_COLORS.unknown;
-    const shortLabel = s.type === 'document' ? (s.attrs.path || '').split('/').pop() : s.label;
-    return `<div class="prompt-size-bar-segment" style="width:${pct}%;background:${color};" title="${escapeHtml(s.label)}: ~${tokens.toLocaleString()} tokens (${pct.toFixed(1)}%)">${pct > 6 ? escapeHtml(shortLabel) : ''}</div>`;
+    const color = s.type === 'messages' ? '#e5534b' : (SECTION_COLORS[s.type] || SECTION_COLORS.unknown);
+    const shortLabel = s.type === 'document' ? (s.attrs?.path || '').split('/').pop() : s.label;
+    return `<div class="prompt-size-bar-segment" style="width:${pct}%;background:${color};" title="${escapeHtml(s.label)}: ~${s.tokens.toLocaleString()} tokens (${pct.toFixed(1)}%)">${pct > 6 ? escapeHtml(shortLabel) : ''}</div>`;
   }).join('');
 
   // Section cards
@@ -2340,7 +2362,23 @@ function renderPromptStructured(text) {
     </div>`;
   }).join('');
 
-  return `<div class="prompt-size-bar">${sizeBar}</div>${cards}`;
+  // Messages card
+  const roleStr = Object.entries(roleCounts).map(([k, v]) => `${k}: ${v}`).join(' · ');
+  const timeStr = firstTs && lastTs ? `${firstTs} → ${lastTs}` : firstTs || lastTs || '';
+  const messagesCard = `<div class="prompt-section type-unknown" style="border-left-color:#e5534b;">
+    <div class="prompt-section-header" style="border-left:3px solid #e5534b;cursor:default;">
+      <div class="prompt-section-title">💬 Raw Messages</div>
+      <div class="prompt-section-meta">~${msgTokens.toLocaleString()} tokens · ${msgCount.toLocaleString()} messages</div>
+    </div>
+    <div class="prompt-section-body open" style="padding:10px 14px;">
+      <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);line-height:1.8;">
+        ${roleStr ? `<div>${roleStr}</div>` : ''}
+        ${timeStr ? `<div>${timeStr}</div>` : ''}
+      </div>
+    </div>
+  </div>`;
+
+  return `<div class="prompt-size-bar">${sizeBar}</div>${cards}${messagesCard}`;
 }
 
 function updatePromptModeButtons() {
