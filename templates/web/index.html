@@ -2160,7 +2160,10 @@ $('info-btn').addEventListener('click', async () => {
         const max = Math.round(cb.maxTokens / 1000);
         return `<div class="info-row"><span class="info-label">context</span><span class="info-value">~${total}k / ${max}k tokens (${cb.messageCount} msgs, ${cb.trimmedCount.toLocaleString()} trimmed)</span></div>
         <div class="info-row"><span class="info-label">&nbsp; messages</span><span class="info-value">~${Math.round(cb.messageTokens / 1000)}k tokens</span></div>
-        ${cb.historyTokens > 0 ? `<div class="info-row"><span class="info-label">&nbsp; history</span><span class="info-value">~${Math.round(cb.historyTokens / 1000)}k tokens (${Object.entries(cb.historyLevelCounts).sort(([a],[b])=>a-b).map(([l,n])=>\`\${n}×L\${l}\`).join(', ')})</span></div>` : ''}`;
+        ${cb.historyTokens > 0 ? (() => {
+          const lvl = Object.entries(cb.historyLevelCounts).sort(([a],[b])=>a-b).map(([l,n])=> n + '×L' + l).join(', ');
+          return '<div class="info-row"><span class="info-label">&nbsp; history</span><span class="info-value">~' + Math.round(cb.historyTokens / 1000) + 'k tokens (' + lvl + ')</span></div>';
+        })() : ''}`;
       })()}
       <div class="info-row"><span class="info-label">api usage</span><span class="info-value">${esc(status.apiUsage)}</span></div>
       <div class="info-row"><span class="info-label">queue</span><span class="info-value">${esc(status.queue)}</span></div>
