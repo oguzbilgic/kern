@@ -41,7 +41,7 @@
   - `<tools>` for tool list
   - `<conversation_summary>` with nested `<summary>` blocks for compressed history
   - No more `---` delimiters between sections.
-- **System prompt endpoint** — `GET /context/system` returns the full composed system prompt for inspection.
+- **System prompt endpoint** — `GET /prompt/system` returns the full composed system prompt for inspection.
 - **Status enrichment** — `/status` now reports history tokens injected, segment level counts, and total segments per level.
 
 ### Web UI
