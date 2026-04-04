@@ -1703,7 +1703,6 @@
     <div class="segments-toolbar">
       <div class="prompt-content-toggle">
         <button class="modal-btn active" id="prompt-mode-structured">Structured</button>
-        <button class="modal-btn" id="prompt-mode-md">Markdown</button>
         <button class="modal-btn" id="prompt-mode-raw">Raw</button>
       </div>
       <div class="modal-actions">
@@ -1712,7 +1711,7 @@
     </div>
     <div class="segments-body" style="display:block;overflow:auto;padding:20px;">
       <div id="prompt-structured"></div>
-      <div id="prompt-rendered" class="prompt-markdown" style="display:none;"></div>
+
       <pre id="prompt-text" style="display:none;margin:0;white-space:pre-wrap;word-break:break-word;overflow:auto;background:#0d1117;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px;color:var(--text);"></pre>
     </div>
   </div>
@@ -2186,7 +2185,6 @@ const segTimeline = $('segments-timeline');
 const segStats = $('segments-stats');
 const promptOverlay = $('prompt-overlay');
 const promptText = $('prompt-text');
-const promptRendered = $('prompt-rendered');
 const promptStructured = $('prompt-structured');
 const promptStats = $('prompt-stats');
 let promptViewMode = 'structured';
@@ -2347,10 +2345,8 @@ function renderPromptStructured(text) {
 
 function updatePromptModeButtons() {
   $('prompt-mode-structured').classList.toggle('active', promptViewMode === 'structured');
-  $('prompt-mode-md').classList.toggle('active', promptViewMode === 'md');
   $('prompt-mode-raw').classList.toggle('active', promptViewMode === 'raw');
   promptStructured.style.display = promptViewMode === 'structured' ? 'block' : 'none';
-  promptRendered.style.display = promptViewMode === 'md' ? 'block' : 'none';
   promptText.style.display = promptViewMode === 'raw' ? 'block' : 'none';
 }
 
@@ -2359,7 +2355,6 @@ async function fetchAndRenderPrompt() {
   try {
     const text = await AgentClient.getSystemPrompt(BASE_URL, AUTH_TOKEN);
     promptText.textContent = text;
-    promptRendered.innerHTML = renderMarkdown(text);
     promptStructured.innerHTML = renderPromptStructured(text);
     const approxTokens = Math.ceil(text.length / 4);
     promptStats.textContent = `${text.length.toLocaleString()} chars · ~${approxTokens.toLocaleString()} tokens`;
@@ -2367,7 +2362,6 @@ async function fetchAndRenderPrompt() {
   } catch (e) {
     console.error('prompt fetch failed:', e);
     promptText.textContent = 'Failed to load system prompt';
-    promptRendered.innerHTML = '<p>Failed to load system prompt</p>';
     promptStructured.innerHTML = '<p>Failed to load system prompt</p>';
     promptStats.textContent = '';
     updatePromptModeButtons();
@@ -2385,7 +2379,6 @@ $('prompt-btn').addEventListener('click', async () => {
 });
 
 $('prompt-mode-structured').addEventListener('click', () => { promptViewMode = 'structured'; updatePromptModeButtons(); });
-$('prompt-mode-md').addEventListener('click', () => { promptViewMode = 'md'; updatePromptModeButtons(); });
 $('prompt-mode-raw').addEventListener('click', () => { promptViewMode = 'raw'; updatePromptModeButtons(); });
 $('prompt-refresh').addEventListener('click', fetchAndRenderPrompt);
 $('prompt-close').addEventListener('click', () => promptOverlay.classList.remove('open'));
