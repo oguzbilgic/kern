@@ -9,11 +9,10 @@
   - **Notes**: notes summaries with regeneration trigger. Rendered as markdown.
   - **Recall**: stats cards (messages, chunks, sessions, date range) and search interface.
   - **Context**: structured view parsing XML prompt tags into collapsible sections with token cost bars. Raw message count and timestamp. Real token breakdown from `/status`.
-- **Session list API** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — `/sessions` endpoint now returns `currentSessionId` alongside session list for live session identification.
 
 ### Changes
+- **New APIs** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — `/sessions` (with `currentSessionId`), `/context/system`, `/context/segments`, `/recall/stats`. Context breakdown in `/status` reports system + summary + messages token counts.
 - **Token estimation** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — improved from chars/4 to chars/3.3 with per-message overhead (~25% more accurate).
-- **Context breakdown** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — `/status` reports system prompt + summary + messages token counts across all consumers (HTTP, slash cmd, kern tool, web UI).
 - **Config rename** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — `historyBudget` → `summaryBudget`. Old name still works.
 
 ## v0.17.0
