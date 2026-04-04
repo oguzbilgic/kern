@@ -14,11 +14,10 @@
   - `kern logs` — follow mode by default. `-n 50` for last N lines. `--level warn` to filter.
   - `kern({ action: "logs" })` — agent can inspect its own logs (default warn+).
 - **Config validation** — warns on unknown fields and wrong types at startup. Invalid values ignored, defaults apply.
-- **Android wrapper app** — native Android WebView shell for the web UI.
-  - Connects to any `kern web` server (local, LAN, Tailscale, tunnel)
-  - Uses native SSE to avoid WebView EventSource issues
+- **Android app** — native mobile app for chatting with kern from Android devices.
+  - Connects to any `kern web` server (local, LAN, Tailscale, or tunnel)
+  - Improves mobile streaming reliability
   - Adds voice input and text-to-speech
-  - Integrates through an explicit `window.KernBridge` contract between Android and the web UI
 
 ### Changes
 - `kern init` writes minimal config: `model`, `provider`, `toolScope` only
