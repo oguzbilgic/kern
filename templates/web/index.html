@@ -2153,7 +2153,15 @@ $('info-btn').addEventListener('click', async () => {
       ${status.recall ? `<div class="info-row"><span class="info-label">recall</span><span class="info-value">${esc(status.recall)}</span></div>` : ''}
       <div class="info-row"><span class="info-label">uptime</span><span class="info-value">${esc(status.uptime)}</span></div>
       <div class="info-row"><span class="info-label">session</span><span class="info-value">${esc(status.session)}</span></div>
-      ${status.context ? `<div class="info-row"><span class="info-label">context</span><span class="info-value">${esc(status.context)}</span></div>` : ''}
+      ${(() => {
+        const cb = status.contextBreakdown;
+        if (!cb) return status.context ? `<div class="info-row"><span class="info-label">context</span><span class="info-value">${esc(status.context)}</span></div>` : '';
+        const total = Math.round((cb.messageTokens + cb.historyTokens) / 1000);
+        const max = Math.round(cb.maxTokens / 1000);
+        return `<div class="info-row"><span class="info-label">context</span><span class="info-value">~${total}k / ${max}k tokens (${cb.messageCount} msgs, ${cb.trimmedCount.toLocaleString()} trimmed)</span></div>
+        <div class="info-row"><span class="info-label">&nbsp; messages</span><span class="info-value">~${Math.round(cb.messageTokens / 1000)}k tokens</span></div>
+        ${cb.historyTokens > 0 ? `<div class="info-row"><span class="info-label">&nbsp; history</span><span class="info-value">~${Math.round(cb.historyTokens / 1000)}k tokens (${Object.entries(cb.historyLevelCounts).sort(([a],[b])=>a-b).map(([l,n])=>\`\${n}×L\${l}\`).join(', ')})</span></div>` : ''}`;
+      })()}
       <div class="info-row"><span class="info-label">api usage</span><span class="info-value">${esc(status.apiUsage)}</span></div>
       <div class="info-row"><span class="info-label">queue</span><span class="info-value">${esc(status.queue)}</span></div>
       <div class="info-section">
