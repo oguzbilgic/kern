@@ -2294,13 +2294,14 @@ function parsePromptSections(text) {
 
 function tokEst(text) { return Math.ceil((text || '').length / 4); }
 
-function renderPromptStructured(text) {
+function renderPromptStructured(text, status) {
   const sections = parsePromptSections(text);
-  const totalTokens = tokEst(text);
+  const systemTokens = tokEst(text);
 
-  // Compute raw messages remainder
-  const sectionTokens = sections.reduce((sum, s) => sum + tokEst(s.content), 0);
-  const msgTokens = Math.max(0, totalTokens - sectionTokens);
+  // Use real context tokens from status; messages = total context - system prompt
+  const ctxMatch = status?.context?.match(/~(\d+)k/);
+  const totalContextTokens = ctxMatch ? parseInt(ctxMatch[1]) * 1000 : systemTokens;
+  const msgTokens = Math.max(0, totalContextTokens - systemTokens);
 
   // Count messages from the DOM
   const msgContainer = $('messages');
@@ -2320,7 +2321,7 @@ function renderPromptStructured(text) {
   // Size bar — include messages segment
   const allSegments = [...sections.map(s => ({ ...s, tokens: tokEst(s.content) }))];
   if (msgTokens > 0) allSegments.push({ type: 'messages', label: 'Messages', tokens: msgTokens });
-  const barTotal = allSegments.reduce((s, x) => s + x.tokens, 0);
+  const barTotal = totalContextTokens || allSegments.reduce((s, x) => s + x.tokens, 0);
 
   const sizeBar = allSegments.map(s => {
     const pct = barTotal > 0 ? (s.tokens / barTotal * 100) : 0;
@@ -2362,13 +2363,17 @@ function renderPromptStructured(text) {
     </div>`;
   }).join('');
 
-  // Messages card
+  // Messages card — use status context message count if available
+  const ctxMsgMatch = status?.context?.match(/(\d+) messages/);
+  const statusMsgCount = ctxMsgMatch ? parseInt(ctxMsgMatch[1]) : msgCount;
+  const trimmedMatch = status?.context?.match(/(\d+) trimmed/);
+  const trimmedCount = trimmedMatch ? parseInt(trimmedMatch[1]) : null;
   const roleStr = Object.entries(roleCounts).map(([k, v]) => `${k}: ${v}`).join(' · ');
   const timeStr = firstTs && lastTs ? `${firstTs} → ${lastTs}` : firstTs || lastTs || '';
   const messagesCard = `<div class="prompt-section type-unknown" style="border-left-color:#e5534b;">
     <div class="prompt-section-header" style="border-left:3px solid #e5534b;cursor:default;">
-      <div class="prompt-section-title">💬 Raw Messages</div>
-      <div class="prompt-section-meta">~${msgTokens.toLocaleString()} tokens · ${msgCount.toLocaleString()} messages</div>
+      <div class="prompt-section-title">Raw Messages</div>
+      <div class="prompt-section-meta">~${msgTokens.toLocaleString()} tokens · ${statusMsgCount.toLocaleString()} messages${trimmedCount ? ` · ${trimmedCount.toLocaleString()} trimmed` : ''}</div>
     </div>
     <div class="prompt-section-body open" style="padding:10px 14px;">
       <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);line-height:1.8;">
@@ -2391,11 +2396,20 @@ function updatePromptModeButtons() {
 async function fetchAndRenderPrompt() {
   if (!BASE_URL) return;
   try {
-    const text = await AgentClient.getSystemPrompt(BASE_URL, AUTH_TOKEN);
+    const [text, status] = await Promise.all([
+      AgentClient.getSystemPrompt(BASE_URL, AUTH_TOKEN),
+      fetch(`${BASE_URL}/status`, { headers: AgentClient._headers(AUTH_TOKEN) }).then(r => r.json()).catch(() => null),
+    ]);
     promptText.textContent = text;
-    promptStructured.innerHTML = renderPromptStructured(text);
-    const approxTokens = Math.ceil(text.length / 4);
-    promptStats.textContent = `${text.length.toLocaleString()} chars · ~${approxTokens.toLocaleString()} tokens`;
+    promptStructured.innerHTML = renderPromptStructured(text, status);
+    // Use real context tokens from status if available
+    const ctxMatch = status?.context?.match(/~(\d+)k/);
+    const ctxTokens = ctxMatch ? parseInt(ctxMatch[1]) * 1000 : Math.ceil(text.length / 4);
+    const ctxMsgMatch = status?.context?.match(/(\d+) messages/);
+    const ctxMsgs = ctxMsgMatch ? parseInt(ctxMsgMatch[1]) : '?';
+    const trimmedMatch = status?.context?.match(/(\d+) trimmed/);
+    const trimmed = trimmedMatch ? parseInt(trimmedMatch[1]) : null;
+    promptStats.textContent = `~${(ctxTokens / 1000).toFixed(0)}k tokens · ${ctxMsgs} messages${trimmed ? ` · ${trimmed.toLocaleString()} trimmed` : ''}`;
     updatePromptModeButtons();
   } catch (e) {
     console.error('prompt fetch failed:', e);
