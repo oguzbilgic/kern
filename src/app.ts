@@ -359,6 +359,10 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     return memoryDB.getSessionList();
   });
 
+  server.setCurrentSessionIdFn(() => {
+    return runtime.getSessionId();
+  });
+
   server.setSessionActivityFn((sessionId: string) => {
     return {
       daily: memoryDB.getSessionActivity(sessionId),

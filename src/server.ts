@@ -36,6 +36,7 @@ export class AgentServer {
   private recallStatsFn: (() => any) | null = null;
   private sessionListFn: (() => any) | null = null;
   private sessionActivityFn: ((sessionId: string) => any) | null = null;
+  private currentSessionIdFn: (() => string | null) | null = null;
   private port = 0;
 
   constructor() {
@@ -108,6 +109,10 @@ export class AgentServer {
 
   setSessionActivityFn(fn: (sessionId: string) => any) {
     this.sessionActivityFn = fn;
+  }
+
+  setCurrentSessionIdFn(fn: () => string | null) {
+    this.currentSessionIdFn = fn;
   }
 
   async start(host: string = "127.0.0.1"): Promise<number> {
@@ -450,9 +455,10 @@ export class AgentServer {
 
     // Sessions list with stats
     if (url === "/sessions" && req.method === "GET") {
-      const data = this.sessionListFn ? this.sessionListFn() : [];
+      const sessions = this.sessionListFn ? this.sessionListFn() : [];
+      const currentSessionId = this.currentSessionIdFn ? this.currentSessionIdFn() : null;
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(data));
+      res.end(JSON.stringify({ sessions, currentSessionId }));
       return;
     }
 
