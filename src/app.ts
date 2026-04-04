@@ -366,12 +366,16 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     };
   });
 
-  // Recall search API
+  // Recall API
   if (recallIndex) {
+    server.setRecallStatsFn(() => {
+      const stats = recallIndex!.getStats();
+      return { ...stats, building: recallBuilding };
+    });
+
     server.setRecallSearchFn(async (query: string, limit: number) => {
       const results = await recallIndex!.search(query, limit);
-      const stats = recallIndex!.getStats();
-      return { query, results, stats };
+      return { query, results };
     });
   }
 

@@ -33,6 +33,7 @@ export class AgentServer {
   private summariesFn: (() => any) | null = null;
   private summaryRegenerateFn: (() => Promise<any>) | null = null;
   private recallSearchFn: ((query: string, limit: number) => Promise<any>) | null = null;
+  private recallStatsFn: (() => any) | null = null;
   private sessionListFn: (() => any) | null = null;
   private sessionActivityFn: ((sessionId: string) => any) | null = null;
   private port = 0;
@@ -95,6 +96,10 @@ export class AgentServer {
 
   setRecallSearchFn(fn: (query: string, limit: number) => Promise<any>) {
     this.recallSearchFn = fn;
+  }
+
+  setRecallStatsFn(fn: () => any) {
+    this.recallStatsFn = fn;
   }
 
   setSessionListFn(fn: () => any) {
@@ -402,6 +407,18 @@ export class AgentServer {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err.message || "regeneration failed" }));
       }
+      return;
+    }
+
+    // Recall stats
+    if (url === "/recall/stats" && req.method === "GET") {
+      if (!this.recallStatsFn) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ enabled: false }));
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ enabled: true, ...this.recallStatsFn() }));
       return;
     }
 
