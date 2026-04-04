@@ -67,18 +67,19 @@ export async function showStatus(): Promise<void> {
     w("");
   }
 
-  // Web status
+  // Web status — check PID first (reliable), systemd as supplementary
   const config = await loadGlobalConfig();
   const webInstall = getWebServiceStatus();
   const pidFile = join(homedir(), ".kern", "web.pid");
-  let webRunning = webInstall === "active";
   let webPid: number | null = null;
-  if (!webRunning && existsSync(pidFile)) {
+  let webRunning = false;
+  if (existsSync(pidFile)) {
     try {
       webPid = parseInt(await readFile(pidFile, "utf-8"), 10);
       webRunning = !!webPid && isProcessRunning(webPid);
     } catch {}
   }
+  if (!webRunning) webRunning = webInstall === "active";
   const webDot = webRunning ? green("●") : dim("●");
   const webStatus = webRunning
     ? green("running") + dim(` (:${config.web_port})`)
