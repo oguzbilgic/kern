@@ -1260,6 +1260,151 @@
     padding: 18px;
     overflow: auto;
   }
+  /* --- Memory overlay --- */
+  .memory-tabs {
+    display: flex;
+    gap: 8px;
+  }
+  .memory-tabs .modal-btn.active {
+    background: rgba(88, 166, 255, 0.16);
+    border-color: rgba(88, 166, 255, 0.45);
+    color: #dbeafe;
+  }
+  .memory-tab-content { display: none; }
+  .memory-tab-content.active { display: block; }
+  .summary-card {
+    background: #0d1117;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .summary-card.current {
+    border-color: rgba(88, 166, 255, 0.35);
+  }
+  .summary-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+  .summary-meta .badge {
+    background: rgba(88, 166, 255, 0.16);
+    color: #58a6ff;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .summary-text {
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+  }
+  .summary-text.expanded {
+    max-height: none;
+  }
+  .summary-text:not(.expanded)::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(transparent, #0d1117);
+    pointer-events: none;
+  }
+  .recall-search-box {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .recall-search-box input {
+    flex: 1;
+    background: #0d1117;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+    font-family: inherit;
+  }
+  .recall-search-box input:focus {
+    border-color: var(--text-muted);
+  }
+  .recall-search-box input::placeholder { color: var(--text-muted); }
+  .recall-result {
+    background: #0d1117;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .recall-result-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    margin-bottom: 6px;
+  }
+  .recall-result-text {
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 150px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+  }
+  .recall-result-text.expanded {
+    max-height: none;
+  }
+  .recall-result-text:not(.expanded)::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(transparent, #0d1117);
+    pointer-events: none;
+  }
+  .recall-stats {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    margin-bottom: 16px;
+  }
+  .recall-empty {
+    color: var(--text-muted);
+    font-size: 13px;
+    text-align: center;
+    padding: 40px 0;
+  }
+  .distance-bar {
+    display: inline-block;
+    height: 4px;
+    border-radius: 2px;
+    background: #58a6ff;
+    vertical-align: middle;
+    margin-left: 6px;
+  }
+
   .segments-level {
     margin-bottom: 16px;
   }
@@ -1399,6 +1544,38 @@
   </div>
 </div>
 
+<div class="segments-overlay" id="memory-overlay">
+  <div class="segments-modal" style="width:min(1000px, calc(100vw - 56px));">
+    <div class="segments-header">
+      <div>
+        <h2>Memory</h2>
+        <span class="stats" id="memory-stats"></span>
+      </div>
+      <button class="modal-btn modal-btn-close" id="memory-close">&times;</button>
+    </div>
+    <div class="segments-toolbar">
+      <div class="memory-tabs">
+        <button class="modal-btn active" id="memory-tab-summaries">Notes Summaries</button>
+        <button class="modal-btn" id="memory-tab-recall">Recall Search</button>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn" id="memory-regenerate">Regenerate</button>
+      </div>
+    </div>
+    <div class="segments-body" style="display:block;overflow:auto;padding:20px;">
+      <div class="memory-tab-content active" id="memory-content-summaries"></div>
+      <div class="memory-tab-content" id="memory-content-recall">
+        <div class="recall-search-box">
+          <input type="text" id="recall-search-input" placeholder="Search past conversations..." />
+          <button class="modal-btn" id="recall-search-btn">Search</button>
+        </div>
+        <div class="recall-stats" id="recall-stats" style="display:none;"></div>
+        <div id="recall-results"><div class="recall-empty">Enter a query to search past conversations</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
 <div class="sidebar" id="sidebar">
@@ -1447,6 +1624,7 @@
     <div style="display:flex;align-items:center;gap:4px;position:relative;">
       <button class="filter-btn" id="filter-btn" title="Filter messages">&#9881;</button>
       <div class="filter-dropdown" id="filter-dropdown"></div>
+      <button class="info-btn" id="memory-btn" title="Memory">&#9826;</button>
       <button class="info-btn" id="segments-btn" title="Segments">&#9707;</button>
       <button class="info-btn" id="prompt-btn" title="System prompt">&#123;</button>
       <button class="info-btn" id="info-btn" title="Agent info">&#8942;</button>
@@ -1588,6 +1766,25 @@ const AgentClient = {
 
   async getContextSegments(baseUrl, token) {
     const res = await fetch(`${baseUrl}/context/segments`, { headers: this._headers(token) });
+    return res.json();
+  },
+
+  async getSummaries(baseUrl, token) {
+    const res = await fetch(`${baseUrl}/summaries`, { headers: this._headers(token) });
+    return res.json();
+  },
+
+  async regenerateSummary(baseUrl, token) {
+    const res = await fetch(`${baseUrl}/summaries/regenerate`, {
+      method: 'POST',
+      headers: this._headers(token),
+    });
+    return res.json();
+  },
+
+  async recallSearch(baseUrl, token, query, limit = 10) {
+    const params = new URLSearchParams({ q: query, limit: String(limit) });
+    const res = await fetch(`${baseUrl}/recall/search?${params}`, { headers: this._headers(token) });
     return res.json();
   },
 };
@@ -1965,9 +2162,153 @@ segOverlay.addEventListener('click', (e) => {
   if (e.target === segOverlay) closeSegOverlay();
 });
 
+// ==========================================================================
+// Memory Overlay (Notes Summaries + Recall Search)
+// ==========================================================================
+
+const memOverlay = $('memory-overlay');
+const memStats = $('memory-stats');
+const memSummariesContent = $('memory-content-summaries');
+const memRecallContent = $('memory-content-recall');
+const recallResults = $('recall-results');
+const recallStatsEl = $('recall-stats');
+let memoryTab = 'summaries';
+
+function updateMemoryTabs() {
+  $('memory-tab-summaries').classList.toggle('active', memoryTab === 'summaries');
+  $('memory-tab-recall').classList.toggle('active', memoryTab === 'recall');
+  memSummariesContent.classList.toggle('active', memoryTab === 'summaries');
+  memRecallContent.classList.toggle('active', memoryTab === 'recall');
+  // Show regenerate button only on summaries tab
+  $('memory-regenerate').style.display = memoryTab === 'summaries' ? '' : 'none';
+}
+
+function renderSummaries(summaries) {
+  if (!summaries || summaries.length === 0) {
+    memSummariesContent.innerHTML = '<div class="recall-empty">No notes summaries generated yet</div>';
+    memStats.textContent = '';
+    return;
+  }
+  memStats.textContent = `${summaries.length} ${summaries.length === 1 ? 'summary' : 'summaries'}`;
+  memSummariesContent.innerHTML = summaries.map((s, i) => {
+    const isCurrent = i === 0;
+    const dateRange = s.date_start && s.date_end ? `${s.date_start} → ${s.date_end}` : '';
+    const sourceKey = s.source_key || '';
+    const created = s.created_at ? new Date(s.created_at).toLocaleString() : '';
+    const chars = s.text ? s.text.length : 0;
+    return `<div class="summary-card${isCurrent ? ' current' : ''}">
+      <div class="summary-meta">
+        <span>${dateRange}${sourceKey ? ` · key: ${sourceKey}` : ''}</span>
+        <span>${isCurrent ? '<span class="badge">current</span> · ' : ''}${chars.toLocaleString()} chars${created ? ` · ${created}` : ''}</span>
+      </div>
+      <div class="summary-text" onclick="this.classList.toggle('expanded')">${escapeHtml(s.text || '(empty)')}</div>
+    </div>`;
+  }).join('');
+}
+
+async function fetchSummaries() {
+  if (!BASE_URL) return;
+  try {
+    const data = await AgentClient.getSummaries(BASE_URL, AUTH_TOKEN);
+    renderSummaries(data);
+  } catch (e) {
+    memSummariesContent.innerHTML = '<div class="recall-empty">Failed to load summaries</div>';
+  }
+}
+
+async function doRecallSearch() {
+  const query = $('recall-search-input').value.trim();
+  if (!query) return;
+  const btn = $('recall-search-btn');
+  btn.textContent = 'Searching...';
+  btn.disabled = true;
+  try {
+    const data = await AgentClient.recallSearch(BASE_URL, AUTH_TOKEN, query);
+    renderRecallResults(data);
+  } catch (e) {
+    recallResults.innerHTML = `<div class="recall-empty">Search failed: ${escapeHtml(e.message)}</div>`;
+    recallStatsEl.style.display = 'none';
+  } finally {
+    btn.textContent = 'Search';
+    btn.disabled = false;
+  }
+}
+
+function renderRecallResults(data) {
+  const { results, stats, query } = data;
+  if (stats) {
+    recallStatsEl.style.display = 'block';
+    recallStatsEl.textContent = `${stats.messages || 0} messages · ${stats.chunks || 0} chunks indexed${stats.building ? ' · building...' : ''}`;
+  }
+  if (!results || results.length === 0) {
+    recallResults.innerHTML = '<div class="recall-empty">No results found</div>';
+    return;
+  }
+  recallResults.innerHTML = results.map(r => {
+    const dist = typeof r.distance === 'number' ? r.distance.toFixed(3) : '?';
+    const barWidth = Math.max(2, Math.round((1 - (r.distance || 0)) * 80));
+    const ts = r.timestamp ? new Date(r.timestamp).toLocaleString() : '';
+    const msgRange = r.msgStart !== undefined ? `msgs ${r.msgStart}-${r.msgEnd}` : '';
+    return `<div class="recall-result">
+      <div class="recall-result-meta">
+        <span>${ts}${msgRange ? ` · ${msgRange}` : ''}</span>
+        <span>distance: ${dist}<span class="distance-bar" style="width:${barWidth}px"></span></span>
+      </div>
+      <div class="recall-result-text" onclick="this.classList.toggle('expanded')">${escapeHtml(r.text || r.chunk || '(empty)')}</div>
+    </div>`;
+  }).join('');
+}
+
+$('memory-btn').addEventListener('click', async () => {
+  if (memOverlay.classList.contains('open')) {
+    memOverlay.classList.remove('open');
+    return;
+  }
+  updateMemoryTabs();
+  if (memoryTab === 'summaries') await fetchSummaries();
+  memOverlay.classList.add('open');
+});
+
+$('memory-tab-summaries').addEventListener('click', async () => {
+  memoryTab = 'summaries';
+  updateMemoryTabs();
+  await fetchSummaries();
+});
+$('memory-tab-recall').addEventListener('click', () => {
+  memoryTab = 'recall';
+  updateMemoryTabs();
+  $('recall-search-input').focus();
+});
+
+$('memory-regenerate').addEventListener('click', async () => {
+  const btn = $('memory-regenerate');
+  btn.textContent = 'Regenerating...';
+  btn.disabled = true;
+  try {
+    await AgentClient.regenerateSummary(BASE_URL, AUTH_TOKEN);
+    await fetchSummaries();
+  } catch (e) {
+    console.error('regenerate failed:', e);
+  } finally {
+    btn.textContent = 'Regenerate';
+    btn.disabled = false;
+  }
+});
+
+$('memory-close').addEventListener('click', () => memOverlay.classList.remove('open'));
+memOverlay.addEventListener('click', (e) => {
+  if (e.target === memOverlay) memOverlay.classList.remove('open');
+});
+
+$('recall-search-btn').addEventListener('click', doRecallSearch);
+$('recall-search-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') doRecallSearch();
+});
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && segOverlay.classList.contains('open')) closeSegOverlay();
   if (e.key === 'Escape' && promptOverlay.classList.contains('open')) promptOverlay.classList.remove('open');
+  if (e.key === 'Escape' && memOverlay.classList.contains('open')) memOverlay.classList.remove('open');
 });
 
 const segDetail = $('segments-detail');

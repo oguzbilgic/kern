@@ -136,6 +136,17 @@ export class MemoryDB {
     ).run(type, dateStart, dateEnd, sourceKey, text);
   }
 
+  getAllSummaries(type?: string): Array<{ id: number; type: string; date_start: string; date_end: string; source_key: string; text: string; created_at: string }> {
+    if (type) {
+      return this.db.prepare(
+        "SELECT id, type, date_start, date_end, source_key, text, created_at FROM summaries WHERE type = ? ORDER BY id DESC"
+      ).all(type) as any[];
+    }
+    return this.db.prepare(
+      "SELECT id, type, date_start, date_end, source_key, text, created_at FROM summaries ORDER BY id DESC"
+    ).all() as any[];
+  }
+
   close(): void {
     this.db.close();
   }
