@@ -1046,7 +1046,7 @@
     justify-content: space-between;
     align-items: flex-start;
     gap: 16px;
-    padding: 18px 20px 14px;
+    padding: 14px 20px 10px;
     border-bottom: 1px solid rgba(255,255,255,0.06);
     background: rgba(255,255,255,0.02);
   }
@@ -1055,22 +1055,71 @@
     font-size: 16px;
     font-weight: 600;
     font-family: var(--font-sans);
-    margin-bottom: 6px;
+    margin-bottom: 4px;
   }
   .segments-header .stats {
     color: var(--text-muted);
     font-size: 12px;
     font-family: var(--font-mono);
+    min-height: 16px;
   }
   .segments-toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 12px 20px;
+    gap: 8px;
+    padding: 6px 20px;
     border-bottom: 1px solid rgba(255,255,255,0.06);
     background: rgba(255,255,255,0.015);
     flex-wrap: wrap;
+  }
+  .toolbar-left, .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--text-dim);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 20px;
+    transition: all 0.15s;
+  }
+  .action-btn:hover {
+    color: var(--text);
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.15);
+  }
+  .action-btn:active { transform: scale(0.97); }
+  .action-btn.active {
+    background: rgba(88, 166, 255, 0.12);
+    border-color: rgba(88, 166, 255, 0.35);
+    color: #93c5fd;
+  }
+  .action-btn.danger:hover {
+    color: #fca5a5;
+    border-color: rgba(252, 83, 58, 0.4);
+    background: rgba(252, 83, 58, 0.1);
+  }
+  .action-btn .action-icon {
+    font-size: 12px;
+    line-height: 1;
+    opacity: 0.7;
+  }
+  .action-divider {
+    width: 1px;
+    height: 18px;
+    background: rgba(255,255,255,0.08);
+    margin: 0 4px;
   }
   .modal-actions,
   .modal-filters {
@@ -1353,17 +1402,37 @@
     overflow: auto;
   }
   /* --- Memory overlay --- */
-  .memory-tabs {
+  .inspector-tabs {
     display: flex;
-    gap: 8px;
+    gap: 0;
   }
-  .memory-tabs .modal-btn.active {
-    background: rgba(88, 166, 255, 0.16);
-    border-color: rgba(88, 166, 255, 0.45);
-    color: #dbeafe;
+  .inspector-tabs button {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 9px 14px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
   }
-  .memory-tab-content { display: none; }
-  .memory-tab-content.active { display: block; }
+  .inspector-tabs button:hover {
+    color: var(--text-dim);
+  }
+  .inspector-tabs button.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+  }
+  #inspector-tabs-bar {
+    padding: 0 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.015);
+  }
+  .inspector-tab-content { display: none !important; overflow: auto; padding: 20px; }
+  .inspector-tab-content.active { display: block !important; }
+  #inspector-content-segments.active { display: flex !important; padding: 0; }
   .summary-card {
     background: #0d1117;
     border: 1px solid rgba(255,255,255,0.08);
@@ -1663,90 +1732,54 @@
 </head>
 <body>
 
-<div class="segments-overlay" id="segments-overlay">
+<div class="segments-overlay" id="inspector-overlay">
   <div class="segments-modal">
     <div class="segments-header">
       <div>
-        <h2>Semantic Segments</h2>
-        <span class="stats" id="segments-stats"></span>
+        <div style="display:flex;align-items:baseline;gap:10px;">
+          <h2 id="inspector-title">Memory</h2>
+          <span class="stats" id="inspector-agent-name" style="opacity:0.5;"></span>
+        </div>
+        <span class="stats" id="inspector-stats">Sessions</span>
       </div>
-      <button class="modal-btn modal-btn-close" id="segments-close">&times;</button>
+      <button class="modal-btn modal-btn-close" id="inspector-close">&times;</button>
     </div>
-    <div class="segments-toolbar">
-      <div class="modal-filters">
-        <button class="modal-btn active" id="segments-filter-all">All</button>
-        <button class="modal-btn" id="segments-filter-context">Context</button>
-      </div>
-      <div class="modal-actions">
-        <button class="modal-btn" id="segments-start">Start</button>
-        <button class="modal-btn" id="segments-stop">Stop</button>
-        <button class="modal-btn modal-btn-danger" id="segments-clean">Clean</button>
-        <button class="modal-btn" id="segments-rebuild">Rebuild</button>
-      </div>
+    <div class="inspector-tabs" id="inspector-tabs-bar">
+      <button id="inspector-tab-sessions">Sessions</button>
+      <button id="inspector-tab-recall">Recall</button>
+      <button id="inspector-tab-notes">Notes</button>
+      <button id="inspector-tab-segments">Segments</button>
+      <button id="inspector-tab-context">Context</button>
     </div>
-    <div class="segments-body">
+    <div class="segments-toolbar" id="inspector-toolbar" style="display:none;">
+      <div class="modal-actions" id="inspector-actions" style="display:flex;justify-content:space-between;width:100%;"></div>
+    </div>
+    <!-- Sessions tab -->
+    <div class="segments-body inspector-tab-content" id="inspector-content-sessions">
+      <div id="memory-content-sessions"></div>
+    </div>
+    <!-- Recall tab -->
+    <div class="segments-body inspector-tab-content" id="inspector-content-recall">
+      <div class="recall-search-box">
+        <input type="text" id="recall-search-input" placeholder="Search past conversations..." />
+        <button class="modal-btn" id="recall-search-btn">Search</button>
+      </div>
+      <div class="recall-stats" id="recall-stats" style="display:none;"></div>
+      <div id="recall-results"><div class="recall-empty">Enter a query to search past conversations</div></div>
+    </div>
+    <!-- Notes tab -->
+    <div class="segments-body inspector-tab-content" id="inspector-content-notes">
+      <div id="memory-content-summaries"></div>
+    </div>
+    <!-- Segments tab -->
+    <div class="segments-body inspector-tab-content" id="inspector-content-segments">
       <div class="segments-timeline" id="segments-timeline"></div>
       <div class="segments-detail empty" id="segments-detail">hover a segment</div>
     </div>
-  </div>
-</div>
-
-<div class="segments-overlay" id="prompt-overlay">
-  <div class="segments-modal" style="width:min(1200px, calc(100vw - 56px));">
-    <div class="segments-header">
-      <div>
-        <h2>Context</h2>
-        <span class="stats" id="prompt-stats"></span>
-      </div>
-      <button class="modal-btn modal-btn-close" id="prompt-close">&times;</button>
-    </div>
-    <div class="segments-toolbar">
-      <div class="prompt-content-toggle">
-        <button class="modal-btn active" id="prompt-mode-structured">Structured</button>
-        <button class="modal-btn" id="prompt-mode-raw">Raw</button>
-      </div>
-      <div class="modal-actions">
-        <button class="modal-btn" id="prompt-refresh">Refresh</button>
-      </div>
-    </div>
-    <div class="segments-body" style="display:block;overflow:auto;padding:20px;">
+    <!-- Context tab -->
+    <div class="segments-body inspector-tab-content" id="inspector-content-context">
       <div id="prompt-structured"></div>
-
       <pre id="prompt-text" style="display:none;margin:0;white-space:pre-wrap;word-break:break-word;overflow:auto;background:#0d1117;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px;color:var(--text);"></pre>
-    </div>
-  </div>
-</div>
-
-<div class="segments-overlay" id="memory-overlay">
-  <div class="segments-modal" style="width:min(1000px, calc(100vw - 56px));">
-    <div class="segments-header">
-      <div>
-        <h2>Memory</h2>
-        <span class="stats" id="memory-stats"></span>
-      </div>
-      <button class="modal-btn modal-btn-close" id="memory-close">&times;</button>
-    </div>
-    <div class="segments-toolbar">
-      <div class="memory-tabs">
-        <button class="modal-btn active" id="memory-tab-summaries">Notes Summaries</button>
-        <button class="modal-btn" id="memory-tab-recall">Recall Search</button>
-        <button class="modal-btn" id="memory-tab-sessions">Sessions</button>
-      </div>
-      <div class="modal-actions">
-        <button class="modal-btn" id="memory-regenerate">Regenerate</button>
-      </div>
-    </div>
-    <div class="segments-body" style="display:block;overflow:auto;padding:20px;">
-      <div class="memory-tab-content active" id="memory-content-summaries"></div>
-      <div class="memory-tab-content" id="memory-content-sessions"></div>
-      <div class="memory-tab-content" id="memory-content-recall">
-        <div class="recall-search-box">
-          <input type="text" id="recall-search-input" placeholder="Search past conversations..." />
-          <button class="modal-btn" id="recall-search-btn">Search</button>
-        </div>
-        <div class="recall-stats" id="recall-stats" style="display:none;"></div>
-        <div id="recall-results"><div class="recall-empty">Enter a query to search past conversations</div></div>
-      </div>
     </div>
   </div>
 </div>
@@ -1799,9 +1832,7 @@
     <div style="display:flex;align-items:center;gap:4px;position:relative;">
       <button class="filter-btn" id="filter-btn" title="Filter messages">&#9881;</button>
       <div class="filter-dropdown" id="filter-dropdown"></div>
-      <button class="info-btn" id="memory-btn" title="Memory">&#9826;</button>
-      <button class="info-btn" id="segments-btn" title="Segments">&#9707;</button>
-      <button class="info-btn" id="prompt-btn" title="Context">&#123;</button>
+      <button class="info-btn" id="inspector-btn" title="Memory">&#9826;</button>
       <button class="info-btn" id="info-btn" title="Agent info">&#8942;</button>
     </div>
   </div>
@@ -2188,17 +2219,144 @@ $('info-btn').addEventListener('click', async () => {
 });
 
 // ==========================================================================
-// Segments Visualization
+// Unified Inspector Overlay
 // ==========================================================================
 
-const segOverlay = $('segments-overlay');
+const inspectorOverlay = $('inspector-overlay');
+const inspectorTitle = $('inspector-title');
+const inspectorStats = $('inspector-stats');
+const inspectorActions = $('inspector-actions');
 const segTimeline = $('segments-timeline');
-const segStats = $('segments-stats');
-const promptOverlay = $('prompt-overlay');
 const promptText = $('prompt-text');
 const promptStructured = $('prompt-structured');
-const promptStats = $('prompt-stats');
 let promptViewMode = 'structured';
+let inspectorTab = 'sessions';
+
+const INSPECTOR_TAB_TITLES = {
+  sessions: 'Sessions',
+  recall: 'Recall',
+  notes: 'Notes',
+  segments: 'Segments',
+  context: 'Context',
+};
+
+function updateInspectorTab() {
+  // Update tab buttons
+  ['sessions', 'recall', 'notes', 'segments', 'context'].forEach(t => {
+    $('inspector-tab-' + t).classList.toggle('active', inspectorTab === t);
+    $('inspector-content-' + t).classList.toggle('active', inspectorTab === t);
+  });
+  inspectorTitle.textContent = 'Memory';
+  inspectorStats.textContent = INSPECTOR_TAB_TITLES[inspectorTab];
+
+  // Build actions per tab — left: filters/toggles, right: action buttons
+  let leftHtml = '';
+  let rightHtml = '';
+  if (inspectorTab === 'notes') {
+    rightHtml = '<button class="action-btn" id="notes-regenerate"><span class="action-icon">↻</span> Regenerate</button>';
+  } else if (inspectorTab === 'segments') {
+    leftHtml = [
+      '<button class="action-btn' + (segmentFilterMode === 'all' ? ' active' : '') + '" id="segments-filter-all">All</button>',
+      '<button class="action-btn' + (segmentFilterMode === 'context' ? ' active' : '') + '" id="segments-filter-context">In context</button>',
+    ].join('');
+    rightHtml = [
+      '<button class="action-btn" id="segments-start"><span class="action-icon">▶</span> Start</button>',
+      '<button class="action-btn" id="segments-stop"><span class="action-icon">■</span> Stop</button>',
+      '<button class="action-btn" id="segments-rebuild"><span class="action-icon">↻</span> Rebuild</button>',
+      '<button class="action-btn danger" id="segments-clean"><span class="action-icon">✕</span> Clean</button>',
+    ].join('');
+  } else if (inspectorTab === 'context') {
+    leftHtml = [
+      '<button class="action-btn' + (promptViewMode === 'structured' ? ' active' : '') + '" id="prompt-mode-structured">Structured</button>',
+      '<button class="action-btn' + (promptViewMode === 'raw' ? ' active' : '') + '" id="prompt-mode-raw">Raw</button>',
+    ].join('');
+    rightHtml = '<button class="action-btn" id="prompt-refresh"><span class="action-icon">↻</span> Refresh</button>';
+  }
+  const actionsHtml = (leftHtml || rightHtml) ? '<div class="toolbar-left">' + leftHtml + '</div><div class="toolbar-right">' + rightHtml + '</div>' : '';
+  inspectorActions.innerHTML = actionsHtml;
+  $('inspector-toolbar').style.display = actionsHtml ? '' : 'none';
+
+  // Re-bind dynamic action buttons
+  if (inspectorTab === 'notes') {
+    $('notes-regenerate').addEventListener('click', async () => {
+      const btn = $('notes-regenerate');
+      btn.textContent = 'Regenerating...';
+      btn.disabled = true;
+      try { await AgentClient.regenerateSummary(BASE_URL, AUTH_TOKEN); await fetchSummaries(); }
+      catch (e) { console.error('regenerate failed:', e); }
+      finally { btn.textContent = 'Regenerate'; btn.disabled = false; }
+    });
+  } else if (inspectorTab === 'segments') {
+    $('segments-filter-all').addEventListener('click', async () => { segmentFilterMode = 'all'; updateInspectorTab(); await fetchAndRenderSegments(); });
+    $('segments-filter-context').addEventListener('click', async () => { segmentFilterMode = 'context'; updateInspectorTab(); await fetchAndRenderSegments(); });
+    $('segments-start').addEventListener('click', async () => {
+      if (!BASE_URL) return;
+      try { await fetch(`${BASE_URL}/segments/start`, { method: 'POST', headers: AgentClient._headers(AUTH_TOKEN) }); inspectorStats.textContent = 'indexing...'; } catch (e) { console.error('start failed:', e); }
+    });
+    $('segments-stop').addEventListener('click', async () => {
+      if (!BASE_URL) return;
+      try { await fetch(`${BASE_URL}/segments/stop`, { method: 'POST', headers: AgentClient._headers(AUTH_TOKEN) }); inspectorStats.textContent = 'stopped'; } catch (e) { console.error('stop failed:', e); }
+    });
+    $('segments-clean').addEventListener('click', async () => {
+      if (!BASE_URL) return;
+      if (!confirm('Clean all segments?')) return;
+      try { await fetch(`${BASE_URL}/segments/clean`, { method: 'POST', headers: AgentClient._headers(AUTH_TOKEN) }); inspectorStats.textContent = 'cleaned'; segTimeline.innerHTML = ''; } catch (e) { console.error('clean failed:', e); }
+    });
+    $('segments-rebuild').addEventListener('click', async () => {
+      if (!BASE_URL) return;
+      if (!confirm('Rebuild segments from scratch?')) return;
+      const btn = $('segments-rebuild');
+      btn.textContent = 'Rebuilding...'; btn.disabled = true;
+      try { await fetch(`${BASE_URL}/segments/rebuild`, { method: 'POST', headers: AgentClient._headers(AUTH_TOKEN) }); inspectorStats.textContent = 'rebuilding...'; segTimeline.innerHTML = '<div style="color:var(--text-muted);padding:20px;">Rebuild started. Refresh in a minute.</div>'; }
+      catch (e) { console.error('rebuild failed:', e); }
+      finally { btn.textContent = 'Rebuild'; btn.disabled = false; }
+    });
+  } else if (inspectorTab === 'context') {
+    $('prompt-mode-structured').addEventListener('click', () => { promptViewMode = 'structured'; updatePromptModeButtons(); });
+    $('prompt-mode-raw').addEventListener('click', () => { promptViewMode = 'raw'; updatePromptModeButtons(); });
+    $('prompt-refresh').addEventListener('click', fetchAndRenderPrompt);
+  }
+}
+
+function openInspector(tab) {
+  inspectorTab = tab || 'sessions';
+  const agentLabel = document.getElementById('inspector-agent-name');
+  if (agentLabel) agentLabel.textContent = getActiveAgent() || '';
+  updateInspectorTab();
+  inspectorOverlay.classList.add('open');
+  // Load data for the active tab
+  loadInspectorTabData();
+}
+
+function closeInspector() {
+  inspectorOverlay.classList.remove('open');
+  if (segPollTimer) { clearInterval(segPollTimer); segPollTimer = null; }
+}
+
+async function loadInspectorTabData() {
+  if (segPollTimer) { clearInterval(segPollTimer); segPollTimer = null; }
+  if (inspectorTab === 'sessions') { await fetchSessions(); }
+  else if (inspectorTab === 'recall') { await fetchRecallStats(); $('recall-search-input').focus(); }
+  else if (inspectorTab === 'notes') { await fetchSummaries(); }
+  else if (inspectorTab === 'segments') { await fetchAndRenderSegments(); segPollTimer = setInterval(fetchAndRenderSegments, 3000); }
+  else if (inspectorTab === 'context') { await fetchAndRenderPrompt(); }
+}
+
+$('inspector-btn').addEventListener('click', () => {
+  if (inspectorOverlay.classList.contains('open')) { closeInspector(); return; }
+  openInspector('sessions');
+});
+
+$('inspector-close').addEventListener('click', closeInspector);
+inspectorOverlay.addEventListener('click', (e) => { if (e.target === inspectorOverlay) closeInspector(); });
+
+['sessions', 'recall', 'notes', 'segments', 'context'].forEach(t => {
+  $('inspector-tab-' + t).addEventListener('click', async () => {
+    inspectorTab = t;
+    updateInspectorTab();
+    await loadInspectorTabData();
+  });
+});
 
 
 // Color encodes token density (tokens/message) — cool to warm
@@ -2228,17 +2386,7 @@ async function fetchAndRenderSegments() {
   }
 }
 
-$('segments-btn').addEventListener('click', async () => {
-  if (segOverlay.classList.contains('open')) {
-    segOverlay.classList.remove('open');
-    if (segPollTimer) { clearInterval(segPollTimer); segPollTimer = null; }
-    return;
-  }
-  updateSegmentFilterButtons();
-  await fetchAndRenderSegments();
-  segOverlay.classList.add('open');
-  segPollTimer = setInterval(fetchAndRenderSegments, 3000);
-});
+
 
 const SECTION_COLORS = {
   document: '#58a6ff',
@@ -2401,8 +2549,10 @@ function renderPromptStructured(text, status) {
 }
 
 function updatePromptModeButtons() {
-  $('prompt-mode-structured').classList.toggle('active', promptViewMode === 'structured');
-  $('prompt-mode-raw').classList.toggle('active', promptViewMode === 'raw');
+  const s = document.getElementById('prompt-mode-structured');
+  const r = document.getElementById('prompt-mode-raw');
+  if (s) s.classList.toggle('active', promptViewMode === 'structured');
+  if (r) r.classList.toggle('active', promptViewMode === 'raw');
   promptStructured.style.display = promptViewMode === 'structured' ? 'block' : 'none';
   promptText.style.display = promptViewMode === 'raw' ? 'block' : 'none';
 }
@@ -2428,146 +2578,33 @@ async function fetchAndRenderPrompt() {
     const trimmed = cb ? cb.trimmedCount : null;
     const total = sysTokens + sumTokens + msgTokens;
     const budgetStr = maxTokens ? ` / ${(maxTokens / 1000).toFixed(0)}k` : '';
-    promptStats.textContent = `~${Math.round(total / 1000)}k${budgetStr} tokens · system ~${Math.round(sysTokens / 1000)}k · summary ~${Math.round(sumTokens / 1000)}k · messages ~${Math.round(msgTokens / 1000)}k · ${ctxMsgs} msgs${trimmed ? ` · ${trimmed.toLocaleString()} trimmed` : ''}`;
+    inspectorStats.textContent = `~${Math.round(total / 1000)}k${budgetStr} tokens · system ~${Math.round(sysTokens / 1000)}k · summary ~${Math.round(sumTokens / 1000)}k · messages ~${Math.round(msgTokens / 1000)}k · ${ctxMsgs} msgs${trimmed ? ` · ${trimmed.toLocaleString()} trimmed` : ''}`;
     updatePromptModeButtons();
   } catch (e) {
     console.error('prompt fetch failed:', e);
     promptText.textContent = 'Failed to load system prompt';
     promptStructured.innerHTML = '<p>Failed to load system prompt</p>';
-    promptStats.textContent = '';
+    inspectorStats.textContent = '';
     updatePromptModeButtons();
   }
 }
 
-$('prompt-btn').addEventListener('click', async () => {
-  if (promptOverlay.classList.contains('open')) {
-    promptOverlay.classList.remove('open');
-    return;
-  }
-  updatePromptModeButtons();
-  await fetchAndRenderPrompt();
-  promptOverlay.classList.add('open');
-});
 
-$('prompt-mode-structured').addEventListener('click', () => { promptViewMode = 'structured'; updatePromptModeButtons(); });
-$('prompt-mode-raw').addEventListener('click', () => { promptViewMode = 'raw'; updatePromptModeButtons(); });
-$('prompt-refresh').addEventListener('click', fetchAndRenderPrompt);
-$('prompt-close').addEventListener('click', () => promptOverlay.classList.remove('open'));
-promptOverlay.addEventListener('click', (e) => {
-  if (e.target === promptOverlay) promptOverlay.classList.remove('open');
-});
 
-$('segments-start').addEventListener('click', async () => {
-  if (!BASE_URL) return;
-  try {
-    await fetch(`${BASE_URL}/segments/start`, {
-      method: 'POST',
-      headers: AgentClient._headers(AUTH_TOKEN),
-    });
-    segStats.textContent = 'indexing...';
-  } catch (e) {
-    console.error('start failed:', e);
-  }
-});
 
-$('segments-clean').addEventListener('click', async () => {
-  if (!BASE_URL) return;
-  if (!confirm('Clean all segments?')) return;
-  try {
-    await fetch(`${BASE_URL}/segments/clean`, {
-      method: 'POST',
-      headers: AgentClient._headers(AUTH_TOKEN),
-    });
-    segStats.textContent = 'cleaned';
-    segTimeline.innerHTML = '';
-  } catch (e) {
-    console.error('clean failed:', e);
-  }
-});
 
-$('segments-stop').addEventListener('click', async () => {
-  if (!BASE_URL) return;
-  try {
-    await fetch(`${BASE_URL}/segments/stop`, {
-      method: 'POST',
-      headers: AgentClient._headers(AUTH_TOKEN),
-    });
-    segStats.textContent = 'stopped';
-  } catch (e) {
-    console.error('stop failed:', e);
-  }
-});
-
-$('segments-rebuild').addEventListener('click', async () => {
-  if (!BASE_URL) return;
-  if (!confirm('Rebuild segments from scratch?')) return;
-  const btn = $('segments-rebuild');
-  btn.textContent = '↻ Rebuilding...';
-  btn.disabled = true;
-  try {
-    await fetch(`${BASE_URL}/segments/rebuild`, {
-      method: 'POST',
-      headers: AgentClient._headers(AUTH_TOKEN),
-    });
-    segStats.textContent = 'rebuilding in background...';
-    segTimeline.innerHTML = '<div style="color:var(--text-muted);padding:20px;">Rebuild started. Refresh in a minute to see results.</div>';
-  } catch (e) {
-    console.error('rebuild failed:', e);
-  } finally {
-    btn.textContent = '↻ Rebuild';
-    btn.disabled = false;
-  }
-});
-
-function closeSegOverlay() {
-  segOverlay.classList.remove('open');
-  if (segPollTimer) { clearInterval(segPollTimer); segPollTimer = null; }
-}
-
-function updateSegmentFilterButtons() {
-  $('segments-filter-all').classList.toggle('active', segmentFilterMode === 'all');
-  $('segments-filter-context').classList.toggle('active', segmentFilterMode === 'context');
-}
-
-$('segments-close').addEventListener('click', closeSegOverlay);
-$('segments-filter-all').addEventListener('click', async () => { segmentFilterMode = 'all'; updateSegmentFilterButtons(); await fetchAndRenderSegments(); });
-$('segments-filter-context').addEventListener('click', async () => { segmentFilterMode = 'context'; updateSegmentFilterButtons(); await fetchAndRenderSegments(); });
-
-segOverlay.addEventListener('click', (e) => {
-  if (e.target === segOverlay) closeSegOverlay();
-});
-
-// ==========================================================================
-// Memory Overlay (Notes Summaries + Recall Search)
-// ==========================================================================
-
-const memOverlay = $('memory-overlay');
-const memStats = $('memory-stats');
 const memSummariesContent = $('memory-content-summaries');
-const memRecallContent = $('memory-content-recall');
 const memSessionsContent = $('memory-content-sessions');
 const recallResults = $('recall-results');
 const recallStatsEl = $('recall-stats');
-let memoryTab = 'summaries';
-
-function updateMemoryTabs() {
-  $('memory-tab-summaries').classList.toggle('active', memoryTab === 'summaries');
-  $('memory-tab-recall').classList.toggle('active', memoryTab === 'recall');
-  $('memory-tab-sessions').classList.toggle('active', memoryTab === 'sessions');
-  memSummariesContent.classList.toggle('active', memoryTab === 'summaries');
-  memRecallContent.classList.toggle('active', memoryTab === 'recall');
-  memSessionsContent.classList.toggle('active', memoryTab === 'sessions');
-  // Show regenerate button only on summaries tab
-  $('memory-regenerate').style.display = memoryTab === 'summaries' ? '' : 'none';
-}
 
 function renderSummaries(summaries) {
   if (!summaries || summaries.length === 0) {
     memSummariesContent.innerHTML = '<div class="recall-empty">No notes summaries generated yet</div>';
-    memStats.textContent = '';
+    inspectorStats.textContent = '';
     return;
   }
-  memStats.textContent = `${summaries.length} ${summaries.length === 1 ? 'summary' : 'summaries'}`;
+  inspectorStats.textContent = `${summaries.length} ${summaries.length === 1 ? 'summary' : 'summaries'}`;
   memSummariesContent.innerHTML = summaries.map((s, i) => {
     const isCurrent = i === 0;
     const dateRange = s.date_start && s.date_end ? `${s.date_start} → ${s.date_end}` : '';
@@ -2734,52 +2771,7 @@ async function fetchSessions() {
   }
 }
 
-$('memory-btn').addEventListener('click', async () => {
-  if (memOverlay.classList.contains('open')) {
-    memOverlay.classList.remove('open');
-    return;
-  }
-  updateMemoryTabs();
-  if (memoryTab === 'summaries') await fetchSummaries();
-  memOverlay.classList.add('open');
-});
 
-$('memory-tab-summaries').addEventListener('click', async () => {
-  memoryTab = 'summaries';
-  updateMemoryTabs();
-  await fetchSummaries();
-});
-$('memory-tab-recall').addEventListener('click', async () => {
-  memoryTab = 'recall';
-  updateMemoryTabs();
-  await fetchRecallStats();
-  $('recall-search-input').focus();
-});
-$('memory-tab-sessions').addEventListener('click', async () => {
-  memoryTab = 'sessions';
-  updateMemoryTabs();
-  await fetchSessions();
-});
-
-$('memory-regenerate').addEventListener('click', async () => {
-  const btn = $('memory-regenerate');
-  btn.textContent = 'Regenerating...';
-  btn.disabled = true;
-  try {
-    await AgentClient.regenerateSummary(BASE_URL, AUTH_TOKEN);
-    await fetchSummaries();
-  } catch (e) {
-    console.error('regenerate failed:', e);
-  } finally {
-    btn.textContent = 'Regenerate';
-    btn.disabled = false;
-  }
-});
-
-$('memory-close').addEventListener('click', () => memOverlay.classList.remove('open'));
-memOverlay.addEventListener('click', (e) => {
-  if (e.target === memOverlay) memOverlay.classList.remove('open');
-});
 
 $('recall-search-btn').addEventListener('click', doRecallSearch);
 $('recall-search-input').addEventListener('keydown', (e) => {
@@ -2787,14 +2779,12 @@ $('recall-search-input').addEventListener('keydown', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && segOverlay.classList.contains('open')) closeSegOverlay();
-  if (e.key === 'Escape' && promptOverlay.classList.contains('open')) promptOverlay.classList.remove('open');
-  if (e.key === 'Escape' && memOverlay.classList.contains('open')) memOverlay.classList.remove('open');
+  if (e.key === 'Escape' && inspectorOverlay.classList.contains('open')) closeInspector();
 });
 
 const segDetail = $('segments-detail');
 let segDataMap = {};
-let segmentFilterMode = 'all';
+let segmentFilterMode = 'context';
 let contextSegmentIds = new Set();
 let expandedSegmentLevels = new Set();
 let activeSegmentId = null;
@@ -2817,7 +2807,7 @@ function renderSegments(data) {
     : 0;
   const avgSummary = statSegments.length > 0 ? Math.round(totalSummaryTokens / statSegments.length) : 0;
   const label = segmentFilterMode === 'context' ? 'context' : 'all';
-  segStats.textContent = statSegments.length > 0
+  inspectorStats.textContent = statSegments.length > 0
     ? `${statSegments.length} ${label} segments · ${levelCount} level${levelCount > 1 ? 's' : ''}`
     : `${label}: 0 segments`;
 
