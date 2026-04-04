@@ -5,6 +5,7 @@
 ### Changes
 - **USERS.md injection** ([#33](https://github.com/oguzbilgic/kern-ai/pull/33)) — `USERS.md` is now auto-injected into the system prompt. Agents always know their paired users without reading the file manually.
 - **Notes filtering** ([#34](https://github.com/oguzbilgic/kern-ai/pull/34)) — only `YYYY-MM-DD.md` files in `notes/` are recognized as daily notes. Stray files are ignored.
+- **Browser title** ([#35](https://github.com/oguzbilgic/kern-ai/pull/35)) — tab title shows active agent name instead of "kern", with `⋯` indicator while agent is thinking.
 
 ## v0.18.0
 
