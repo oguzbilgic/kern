@@ -224,8 +224,15 @@ export function formatStatus(data: StatusData): string {
     data.telegram ? `telegram: ${data.telegram}` : "",
     data.slack ? `slack: ${data.slack}` : "",
     `session: ${data.session}`,
-    data.context ? `context: ${data.context}` : "",
-    data.history ? `  history: ${data.history}` : "",
+    data.contextBreakdown ? `context: ~${Math.round((data.contextBreakdown.messageTokens + data.contextBreakdown.historyTokens) / 1000)}k / ${Math.round(data.contextBreakdown.maxTokens / 1000)}k tokens (${data.contextBreakdown.messageCount} messages, ${data.contextBreakdown.trimmedCount} trimmed)` : (data.context ? `context: ${data.context}` : ""),
+    data.contextBreakdown ? `  messages: ~${Math.round(data.contextBreakdown.messageTokens / 1000)}k tokens` : "",
+    data.contextBreakdown && data.contextBreakdown.historyTokens > 0 ? (() => {
+      const lvlStr = Object.entries(data.contextBreakdown!.historyLevelCounts)
+        .sort(([a], [b]) => Number(a) - Number(b))
+        .map(([l, n]) => `${n}×L${l}`)
+        .join(", ");
+      return `  history: ~${Math.round(data.contextBreakdown!.historyTokens / 1000)}k tokens (${lvlStr})`;
+    })() : (data.history ? `  history: ${data.history}` : ""),
     data.recall ? `recall: ${data.recall}` : "",
     data.segments ? `segments: ${data.segments}` : "",
     `api usage: ${data.apiUsage}`,
