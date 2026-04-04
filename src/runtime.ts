@@ -137,9 +137,9 @@ export class Runtime {
         messages: allMessages,
         sessionId,
       });
-      const trimmedCount = stats.totalMessages - stats.windowMessages + (stats.historyTokens > 0 ? 1 : 0);
+      const trimmedCount = stats.totalMessages - stats.windowMessages + (stats.summaryTokens > 0 ? 1 : 0);
       if (trimmedCount > 0) {
-        log("context", `trimmed: ${trimmedCount} old messages excluded${stats.historyTokens > 0 ? `, history injected (~${stats.historyTokens} tokens)` : ''}`);
+        log("context", `trimmed: ${trimmedCount} old messages excluded${stats.summaryTokens > 0 ? `, summary injected (~${stats.summaryTokens} tokens)` : ''}`);
       }
 
       const { messages: contextMessages, recall } = await injectRecall(

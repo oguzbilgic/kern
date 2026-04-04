@@ -269,11 +269,11 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
     const messages = runtime.getMessages();
     const built = runtime.buildPromptContext();
-    const historyBudget = Math.round(config.maxContextTokens * (config.historyBudget || 0));
+    const summaryBudget = Math.round(config.maxContextTokens * (config.summaryBudget || 0));
     const trimmedCount = Math.max(0, messages.length - (built.messages?.length || messages.length));
-    if (trimmedCount <= 0 || historyBudget <= 0) return { segments: [], tokenCount: 0 };
+    if (trimmedCount <= 0 || summaryBudget <= 0) return { segments: [], tokenCount: 0 };
 
-    const history = segmentIndex.composeHistory(sessionId, trimmedCount, historyBudget);
+    const history = segmentIndex.composeHistory(sessionId, trimmedCount, summaryBudget);
     if (!history) return { segments: [], tokenCount: 0 };
 
     return {
