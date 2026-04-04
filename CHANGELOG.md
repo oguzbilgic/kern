@@ -2,6 +2,9 @@
 
 ## next
 
+### Features
+- **Session DB writes** ([#31](https://github.com/oguzbilgic/kern-ai/pull/31)) — messages written to SQLite synchronously on append. Recall indexing skips messages already in DB. First step toward DB as source of truth for sessions.
+
 ## v0.17.0
 
 ### Features
@@ -27,6 +30,7 @@
   - Segment overlay shows `All` / `Context` filters, clearer modal styling, and confirmation prompts for `Clean` / `Rebuild`
 - **Cross-platform shell** ([#25](https://github.com/oguzbilgic/kern-ai/pull/25)) — `bash` tool on Unix, `pwsh` tool on Windows. One shell tool per platform, selected automatically. No config needed.
   - `grep` works on Unix only; on Windows suggests `Select-String` via pwsh
+- **Session DB writes** ([#31](https://github.com/oguzbilgic/kern-ai/pull/31)) — messages written to SQLite synchronously on append. Recall indexing skips messages already in DB. First step toward DB as source of truth for sessions.
 
 ### Changes
 - **Logging** ([#24](https://github.com/oguzbilgic/kern-ai/pull/24)) — structured, leveled, colored log output. All levels written to file, filtering only at read time.
