@@ -16,6 +16,7 @@ import { setRecallIndex } from "./tools/recall.js";
 import { RecallIndex } from "./recall.js";
 import { SegmentIndex } from "./segments.js";
 import { MemoryDB } from "./memory.js";
+import { regenerateNotesSummary } from "./notes.js";
 import { MessageQueue } from "./queue.js";
 import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, setSegmentStatsFn, type InterfaceStatus } from "./tools/kern.js";
 import { log } from "./log.js";
@@ -343,6 +344,24 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     if (!segmentIndex) throw new Error("segments not enabled");
     return segmentIndex.resummarizeSegment(id);
   });
+
+  // Notes summaries API
+  server.setSummariesFn(() => {
+    return memoryDB.getAllSummaries("daily_notes");
+  });
+
+  server.setSummaryRegenerateFn(async () => {
+    return regenerateNotesSummary(agentDir, config, memoryDB);
+  });
+
+  // Recall search API
+  if (recallIndex) {
+    server.setRecallSearchFn(async (query: string, limit: number) => {
+      const results = await recallIndex!.search(query, limit);
+      const stats = recallIndex!.getStats();
+      return { query, results, stats };
+    });
+  }
 
   const port = await server.start("127.0.0.1");
   await setPortAndToken(agentName, port, process.env.KERN_AUTH_TOKEN || null);
