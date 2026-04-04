@@ -37,14 +37,8 @@
   - Segment overlay shows `All` / `Context` filters, clearer modal styling, and confirmation prompts for `Clean` / `Rebuild`
 - **Cross-platform shell** ([#25](https://github.com/oguzbilgic/kern-ai/pull/25)) — `bash` tool on Unix, `pwsh` tool on Windows. One shell tool per platform, selected automatically. No config needed.
   - `grep` works on Unix only; on Windows suggests `Select-String` via pwsh
-- **Memory overlay** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — web UI for inspecting agent memory: notes summaries with regeneration, recall search, session list with daily/hourly activity charts.
-- **Context overlay** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — structured view of the full system prompt. Parses XML tags into collapsible sections with token cost bars. Shows real token breakdown (system + summary + messages) from `/status`.
 
 ### Changes
-- **Token estimation** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — improved from chars/4 to chars/3.3 with per-message overhead (~25% more accurate).
-- **Context breakdown** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — `/status` reports system prompt + summary + messages token counts across all consumers (HTTP, slash cmd, kern tool, web UI).
-- **Rename `historyBudget` → `summaryBudget`** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — renamed throughout codebase and docs.
-- **Docs reorganized** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — split `memory.md` into `memory.md` and `context.md`.
 - **Logging** ([#24](https://github.com/oguzbilgic/kern-ai/pull/24)) — structured, leveled, colored log output. All levels written to file, filtering only at read time.
   - `kern logs` — follow mode by default. `-n 50` for last N lines. `--level warn` to filter.
   - `kern({ action: "logs" })` — agent can inspect its own logs (default warn+).
