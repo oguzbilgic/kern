@@ -11,7 +11,7 @@ Most agent frameworks give you sessions that reset, memory that's a black box, o
 - **One brain** — a single continuous session across every interface. Message from Telegram, pick up in the terminal, continue in the browser. The agent always knows what happened.
 - **Context-aware** — the agent knows who's talking and where. It sees the user, the channel, and the interface — so it can adjust tone, filter context, and keep track of different conversations within the same session.
 - **A folder is the agent** — AGENTS.md defines behavior, IDENTITY.md defines who it is, knowledge/ and notes/ are its memory. Everything is plain text, git-tracked, and inspectable.
-- **No infra** — no server, no database, no vector store. A folder, an API key, and `npm install -g kern-ai`.
+- **No external infra** — no hosted server or managed database required. Runs locally with a folder, SQLite, an API key, and `npm install -g kern-ai`.
 
 kern pairs with [agent-kernel](https://github.com/oguzbilgic/agent-kernel) — the kernel defines how an agent remembers, kern runs it.
 
