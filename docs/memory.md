@@ -10,9 +10,16 @@ kern agents remember things between sessions through plain text files in a git r
 
 `notes/` — daily logs of what happened, decisions made, and open items. One file per day named `YYYY-MM-DD.md`. Notes are historical records — the agent never modifies a previous day's file. Only files matching the date pattern are recognized — other files in `notes/` are ignored.
 
+Two things are injected into the system prompt automatically on every message:
+
+- **Latest daily note** — the most recent file from `notes/`, included in full. This gives the agent immediate access to today's (or the last active day's) context without reading any files.
+- **Rolling notes summary** — an LLM-generated summary of the previous 5 daily notes, providing a compressed window of recent history beyond just today.
+
+Together these mean the agent boots with awareness of what happened recently — no warmup, no manual file reads needed.
+
 ### Notes summary
 
-The previous 5 daily notes are summarized into a short context block, cached in the memory database. The summary regenerates when the latest note filename changes (once per day). On cache miss, the stale summary is served immediately while regeneration runs in the background — the first message of the day is never blocked.
+The rolling summary is cached in the memory database. It regenerates when the latest note filename changes (once per day). On cache miss, the stale summary is served immediately while regeneration runs in the background — the first message of the day is never blocked.
 
 ## Heartbeat
 
