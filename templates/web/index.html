@@ -2420,8 +2420,8 @@ async function fetchAndRenderPrompt() {
     const sysTokensTotal = Math.ceil(text.length / 3.3);
     // conversation_summary is summary — don't count in system prompt
     const sumSectionChars = (text.match(/<conversation_summary\b[^>]*>([\s\S]*?)<\/conversation_summary>/)?.[0] || '').length;
-    const sysTokensPure = Math.ceil((text.length - sumSectionChars) / 4);
-    const sumTokens = cb ? cb.summaryTokens : Math.ceil(sumSectionChars / 4);
+    const sysTokensPure = Math.ceil((text.length - sumSectionChars) / 3.3);
+    const sumTokens = cb ? cb.summaryTokens : Math.ceil(sumSectionChars / 3.3);
     const msgTokens = cb ? cb.messageTokens : 0;
     const maxTokens = cb ? cb.maxTokens : null;
     const ctxMsgs = cb ? cb.messageCount : '?';
@@ -2809,7 +2809,7 @@ function renderSegments(data) {
 
   const statSegments = filteredSegments;
   const totalTokens = statSegments.reduce((s, seg) => s + (seg.token_count || 0), 0);
-  const totalSummaryTokens = statSegments.reduce((s, seg) => s + (seg.summary_token_count || Math.ceil((seg.summary || '').length / 4)), 0);
+  const totalSummaryTokens = statSegments.reduce((s, seg) => s + (seg.summary_token_count || Math.ceil((seg.summary || '').length / 3.3)), 0);
   const ratio = totalSummaryTokens > 0 ? Math.round(totalTokens / totalSummaryTokens) : 0;
   const levelCount = new Set(statSegments.map(s => s.level || 0)).size;
   const messageSpan = statSegments.length > 0
@@ -2993,7 +2993,7 @@ function showSegDetail(el) {
 
   const span = seg.msg_end - seg.msg_start;
   const tokens = (seg.token_count || 0).toLocaleString();
-  const summaryTokens = seg.summary_token_count || Math.ceil((seg.summary || '').length / 4);
+  const summaryTokens = seg.summary_token_count || Math.ceil((seg.summary || '').length / 3.3);
   const compression = summaryTokens > 0 ? Math.round(seg.token_count / summaryTokens) : '?';
   const title = `Msgs ${seg.msg_start}–${seg.msg_end}`;
   const subtitle = `${span} messages${seg.level != null ? ` · L${seg.level}` : ''}${seg.parent_id ? ` · parent ${seg.parent_id}` : ''}`;
