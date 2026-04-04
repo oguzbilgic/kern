@@ -48,8 +48,7 @@
 - **Segments visualization** — proportional colored blocks representing token density and message spans. Hover detail panel with full summary text, message range, timestamps, token counts.
 - **Level toggle** — switch between L0, L1, L2 views with collapsible rolled-up child segments.
 - **Segment controls** — Start, Stop, Rebuild, Clean buttons for managing segmentation lifecycle.
-- **System prompt overlay** — button opens the full composed system prompt in a scrollable panel with Markdown/Raw toggle.
-- **Context-aware segments overlay** — highlights the exact segments currently injected into prompt context and supports per-segment resummarization.
+- **System prompt overlay** — button opens full composed system prompt in a scrollable panel.
 
 ### Config
 - `historyBudget` (default `0.2`) — fraction of `maxContextTokens` allocated to compressed history. Set to `0` to disable.
