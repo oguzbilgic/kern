@@ -55,7 +55,7 @@ my-agent/
     config.json          # model, provider, toolScope (committed)
     .env                 # API keys, bot tokens (gitignored)
     sessions/            # conversation history (gitignored)
-    recall.db            # semantic search index (gitignored)
+    recall.db            # memory database (gitignored)
 ```
 
 Everything the agent needs is in this folder. Move it, zip it, clone it — the agent comes with it. Run `kern init` on any existing repo to adopt it as a kern agent.
