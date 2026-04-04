@@ -31,8 +31,8 @@
   - `kern logs` — follow mode by default. `-n 50` for last N lines. `--level warn` to filter.
   - `kern({ action: "logs" })` — agent can inspect its own logs (default warn+).
 - **Status overhaul** ([#28](https://github.com/oguzbilgic/kern-ai/pull/28)) — `kern status` now shows the web daemon alongside agents. New `mode` field (systemd/daemon/—) shows how each process is managed.
-- **Config validation** — warns on unknown fields and wrong types at startup. Invalid values ignored, defaults apply.
-- **Config cleanup** — `kern init` now writes minimal config and stale legacy fields are ignored.
+- **Config validation** ([#23](https://github.com/oguzbilgic/kern-ai/pull/23)) — warns on unknown fields and wrong types at startup. Invalid values ignored, defaults apply.
+- **Config cleanup** ([#23](https://github.com/oguzbilgic/kern-ai/pull/23)) — `kern init` now writes minimal config and stale legacy fields are ignored.
   - `kern init` writes `model`, `provider`, and `toolScope` only
   - Removed stale `telegram.allowedUsers` and `telegram.showTools` config fields
   - Dropped legacy `tools` array support (use `toolScope` instead)
