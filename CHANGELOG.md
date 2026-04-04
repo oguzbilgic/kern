@@ -3,7 +3,7 @@
 ## next
 
 ### Features
-- **Memory inspector** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — unified web UI overlay for inspecting all agent memory. Five tabs: Sessions, Segments, Notes, Recall, and Context. Tab switcher with underline-style navigation and per-tab action buttons.
+- **Memory UI** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — unified web UI overlay for inspecting all agent memory. Five tabs: Sessions, Segments, Notes, Recall, and Context. Tab switcher with underline-style navigation and per-tab action buttons.
   - **Sessions**: session list with message counts, durations, role breakdowns, daily/hourly activity charts. Live session indicator. Click to expand details.
   - **Segments**: hierarchical segment tree with L0/L1/L2 levels. Fixed L1 segment visibility bug (segments with parent_id were excluded from level index). Collapsible rolled-up groups. Detail pane with dark background, markdown summaries, token compression stats, and resummarize action.
   - **Notes**: notes summaries with regeneration trigger. Rendered as markdown.

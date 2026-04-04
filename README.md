@@ -146,9 +146,9 @@ On startup, the agent's system prompt is automatically injected with:
 
 This means the agent boots with recent context — no manual reading required. Summaries are cached in SQLite and regenerated in the background on day rollover.
 
-### Memory inspector
+### Memory UI
 
-The web UI includes a Memory inspector overlay with five tabs for examining all aspects of agent memory: sessions, segments, notes, recall, and context. See the full context pipeline — from raw messages through segment hierarchy to the final system prompt — with token breakdowns and compression ratios.
+The web UI includes a Memory overlay with five tabs for examining all aspects of agent memory: sessions, segments, notes, recall, and context. See the full context pipeline — from raw messages through segment hierarchy to the final system prompt — with token breakdowns and compression ratios.
 
 ## Heartbeat
 

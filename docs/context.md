@@ -81,7 +81,7 @@ Only fires when messages have been trimmed (long sessions). Capped at ~2000 toke
 
 ## Inspection
 
-The web UI includes a Memory inspector overlay with five tabs:
+The web UI includes a Memory overlay with five tabs:
 
 - **Sessions** — session list with message counts, durations, role breakdowns, and activity charts. Live session indicator. Click any session to expand.
 - **Segments** — hierarchical segment tree (L0/L1/L2). Click any segment to see its markdown summary, token compression stats, and metadata. Filter by "All" or "In context". Collapsible rolled-up groups for child segments.
