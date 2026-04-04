@@ -24,7 +24,7 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 | `maxToolResultChars` | `20000` | Max characters per tool result in context. Oversized results are truncated in context only. Full results stay in session storage. Set to `0` to disable. |
 | `heartbeatInterval` | `60` | Minutes between heartbeat prompts. Agent reviews notes, updates knowledge. 0 to disable. |
 | `recall` | `true` | Enable recall and segments (embedding-based features). Set to `false` to disable. Requires an embedding API key. Session storage and notes summaries work regardless. |
-| `historyBudget` | `0.2` | Fraction of `maxContextTokens` for compressed history from segments. Set to `0` to disable. See [Context](context.md#conversation-summary). |
+| `summaryBudget` | `0.2` | Fraction of `maxContextTokens` for compressed conversation summaries from segments. Set to `0` to disable. See [Context](context.md#conversation-summary). |
 | `autoRecall` | `false` | Automatically inject relevant old context before each turn. Requires recall enabled. |
 
 ### Tool scopes

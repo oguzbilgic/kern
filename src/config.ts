@@ -16,7 +16,7 @@ export interface KernConfig {
   // Context window
   maxContextTokens: number;
   maxToolResultChars: number;
-  historyBudget: number;
+  summaryBudget: number;
 
   // Memory
   recall: boolean;
@@ -41,7 +41,7 @@ export const configDefaults: KernConfig = {
   maxSteps: 30,
   maxContextTokens: 50000,
   maxToolResultChars: 20000,
-  historyBudget: 0.2,
+  summaryBudget: 0.2,
   recall: true,
   autoRecall: false,
   heartbeatInterval: 60,
@@ -54,7 +54,7 @@ const FIELD_TYPES: Record<string, string> = {
   maxSteps: "number",
   maxContextTokens: "number",
   maxToolResultChars: "number",
-  historyBudget: "number",
+  summaryBudget: "number",
   recall: "boolean",
   autoRecall: "boolean",
   heartbeatInterval: "number",

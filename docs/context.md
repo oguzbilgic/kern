@@ -15,7 +15,7 @@ Reloaded on every message. Composed from the agent's repo files and runtime stat
 | Latest daily note | `<document path="notes/...">` | Most recent `notes/` file |
 | Notes summary | `<notes_summary>` | LLM summary of previous 5 daily notes, cached in DB |
 | Available tools | `<tools>` | Based on `toolScope` config |
-| Conversation summary | `<conversation_summary>` | Compressed history from segments (only when messages are trimmed) |
+| Conversation summary | `<conversation_summary>` | Compressed summaries from segments (only when messages are trimmed) |
 
 Changes to notes or knowledge files are picked up immediately — no restart needed.
 
@@ -31,7 +31,7 @@ Tool results (command output, file contents, web pages) can be large. `maxToolRe
 
 The total budget is split between:
 
-- **Conversation summary** — `historyBudget` fraction (default 0.2 = 20%) for compressed history from segments
+- **Conversation summary** — `summaryBudget` fraction (default 0.2 = 20%) for compressed conversation summaries from segments
 - **Raw messages** — the remaining budget for actual conversation messages
 
 ## Conversation summary
@@ -43,7 +43,7 @@ When old messages are trimmed, the agent loses direct access to that history. Se
 1. **Segmentation** — messages are grouped into semantic segments (L0) based on embedding similarity. Topic shifts create boundaries. Runs incrementally after each turn.
 2. **Summarization** — each segment is summarized by an LLM (~10-20:1 compression).
 3. **Rollup** — every 10 L0 segments are rolled up into an L1 parent. 10 L1s → L2, etc. This builds a hierarchical tree.
-4. **Injection** — `composeHistory` fills the history budget with summaries from the tree. Old history uses high-level summaries (cheap), recent history near the trim boundary expands to lower levels (more detail).
+4. **Injection** — `composeHistory` fills the summary budget with summaries from the tree. Old conversations use high-level summaries (cheap), recent conversation near the trim boundary expands to lower levels (more detail).
 
 The result is a `<conversation_summary>` block in the system prompt:
 
@@ -53,7 +53,7 @@ The result is a `<conversation_summary>` block in the system prompt:
 level: L2
 messages: 0-4500
 
-...high-level summary of early history...
+...high-level summary of early conversation...
 </summary>
 
 <summary>
@@ -67,7 +67,7 @@ last: 2026-04-03T06:44:25.437Z
 </conversation_summary>
 ```
 
-**Requires:** `recall` enabled (uses embeddings for segmentation). Controlled by `historyBudget` — set to `0` to disable.
+**Requires:** `recall` enabled (uses embeddings for segmentation). Controlled by `summaryBudget` — set to `0` to disable.
 
 **Segmentation thresholds:**
 - Triggers when 10+ unsegmented messages AND 10k+ unsegmented tokens accumulate

@@ -217,8 +217,8 @@ export interface SessionStats {
   windowTokens: number;
   windowMessages: number;
   truncatedCount: number;
-  historyTokens: number;
-  historyLevelCounts: Record<number, number>;
+  summaryTokens: number;
+  summaryLevelCounts: Record<number, number>;
 }
 
 export interface PrepareContextOptions {
@@ -234,27 +234,27 @@ export interface PreparedContext {
   stats: SessionStats;
 }
 
-// Unified pipeline: truncate → trim → inject history → stats.
+// Unified pipeline: truncate → trim → inject summary → stats.
 export function prepareContext({ messages, config, sessionId, segmentIndex }: PrepareContextOptions): PreparedContext {
   const totalTokens = estimateTokens(messages);
   const { messages: truncated, truncatedCount } = truncateLargeToolResults(messages, config.maxToolResultChars, config.maxContextTokens);
-  const rawBudget = segmentIndex && config.historyBudget > 0
-    ? Math.round(config.maxContextTokens * (1 - config.historyBudget))
+  const rawBudget = segmentIndex && config.summaryBudget > 0
+    ? Math.round(config.maxContextTokens * (1 - config.summaryBudget))
     : config.maxContextTokens;
   const { messages: window, trimmedCount } = trimToTokenBudget(truncated, rawBudget);
 
-  // Inject compressed history at trim boundary
-  let historyTokens = 0;
-  let historyLevelCounts: Record<number, number> = {};
-  let historySystemAddition = "";
+  // Inject compressed summary at trim boundary
+  let summaryTokens = 0;
+  let summaryLevelCounts: Record<number, number> = {};
+  let summarySystemAddition = "";
   const finalMessages = window;
-  if (trimmedCount > 0 && segmentIndex && sessionId && config.historyBudget > 0) {
-    const budgetTokens = Math.round(config.maxContextTokens * config.historyBudget);
+  if (trimmedCount > 0 && segmentIndex && sessionId && config.summaryBudget > 0) {
+    const budgetTokens = Math.round(config.maxContextTokens * config.summaryBudget);
     const history = segmentIndex.composeHistory(sessionId, trimmedCount, budgetTokens);
     if (history) {
-      historyTokens = history.tokens;
-      historyLevelCounts = history.levelCounts;
-      historySystemAddition = `<conversation_summary>\nCompressed conversation summary of trimmed earlier messages (oldest → newest). Use recall tool to load full messages by range.\n\n${history.text}\n</conversation_summary>`;
+      summaryTokens = history.tokens;
+      summaryLevelCounts = history.levelCounts;
+      summarySystemAddition = `<conversation_summary>\nCompressed conversation summary of trimmed earlier messages (oldest → newest). Use recall tool to load full messages by range.\n\n${history.text}\n</conversation_summary>`;
     }
   }
 
@@ -270,7 +270,7 @@ export function prepareContext({ messages, config, sessionId, segmentIndex }: Pr
       }, 0)
     : 0;
   return {
-    systemAdditions: historySystemAddition ? [historySystemAddition] : [],
+    systemAdditions: summarySystemAddition ? [summarySystemAddition] : [],
     messages: finalMessages,
     stats: {
       totalMessages: messages.length,
@@ -278,8 +278,8 @@ export function prepareContext({ messages, config, sessionId, segmentIndex }: Pr
       windowTokens: estimateTokens(finalMessages),
       windowMessages: finalMessages.length,
       truncatedCount: trimmedTruncated,
-      historyTokens,
-      historyLevelCounts,
+      summaryTokens,
+      summaryLevelCounts,
     },
   };
 }
