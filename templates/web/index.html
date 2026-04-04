@@ -1158,7 +1158,66 @@
     font-size: 13px;
     font-family: var(--font-sans);
     line-height: 1.6;
-    white-space: pre-wrap;
+  }
+  .seg-detail-summary ul,
+  .seg-detail-summary ol,
+  .prompt-markdown ul,
+  .prompt-markdown ol {
+    margin: 8px 0 8px 20px;
+  }
+  .seg-detail-summary p,
+  .prompt-markdown p {
+    margin: 0 0 10px 0;
+  }
+  .seg-detail-summary code,
+  .prompt-markdown code {
+    background: rgba(255,255,255,0.08);
+    padding: 1px 5px;
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .seg-detail-summary pre,
+  .prompt-markdown pre {
+    background: #0d1117;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 14px;
+    overflow: auto;
+    margin: 10px 0;
+  }
+  .seg-detail-summary blockquote,
+  .prompt-markdown blockquote {
+    border-left: 3px solid rgba(88,166,255,0.45);
+    padding-left: 12px;
+    color: var(--text-dim);
+    margin: 10px 0;
+  }
+  .seg-detail-summary h1, .seg-detail-summary h2, .seg-detail-summary h3,
+  .seg-detail-summary h4, .seg-detail-summary h5, .seg-detail-summary h6,
+  .prompt-markdown h1, .prompt-markdown h2, .prompt-markdown h3,
+  .prompt-markdown h4, .prompt-markdown h5, .prompt-markdown h6 {
+    margin: 14px 0 8px;
+    line-height: 1.3;
+  }
+  .prompt-content-toggle {
+    display: flex;
+    gap: 8px;
+  }
+  .prompt-content-toggle .modal-btn.active {
+    background: rgba(88, 166, 255, 0.16);
+    border-color: rgba(88, 166, 255, 0.45);
+    color: #dbeafe;
+  }
+  .prompt-markdown {
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.6;
+    background: #0d1117;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 18px;
+    overflow: auto;
   }
   .segments-level {
     margin-bottom: 16px;
@@ -1236,10 +1295,10 @@
         <button class="modal-btn" id="segments-filter-context">Context</button>
       </div>
       <div class="modal-actions">
-        <button class="modal-btn" id="segments-start">▶ Start</button>
-        <button class="modal-btn" id="segments-stop">⏹ Stop</button>
-        <button class="modal-btn modal-btn-danger" id="segments-clean">🗑 Clean</button>
-        <button class="modal-btn" id="segments-rebuild">↻ Rebuild</button>
+        <button class="modal-btn" id="segments-start">Start</button>
+        <button class="modal-btn" id="segments-stop">Stop</button>
+        <button class="modal-btn modal-btn-danger" id="segments-clean">Clean</button>
+        <button class="modal-btn" id="segments-rebuild">Rebuild</button>
       </div>
     </div>
     <div class="segments-body">
@@ -1259,13 +1318,17 @@
       <button class="modal-btn modal-btn-close" id="prompt-close">&times;</button>
     </div>
     <div class="segments-toolbar">
-      <div class="modal-filters"></div>
+      <div class="prompt-content-toggle">
+        <button class="modal-btn active" id="prompt-mode-md">Markdown</button>
+        <button class="modal-btn" id="prompt-mode-raw">Raw</button>
+      </div>
       <div class="modal-actions">
-        <button class="modal-btn" id="prompt-refresh">↻ Refresh</button>
+        <button class="modal-btn" id="prompt-refresh">Refresh</button>
       </div>
     </div>
     <div class="segments-body" style="display:block;overflow:auto;padding:20px;">
-      <pre id="prompt-text" style="margin:0;white-space:pre-wrap;word-break:break-word;overflow:auto;background:#0d1117;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px;color:var(--text);"></pre>
+      <div id="prompt-rendered" class="prompt-markdown"></div>
+      <pre id="prompt-text" style="display:none;margin:0;white-space:pre-wrap;word-break:break-word;overflow:auto;background:#0d1117;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px;color:var(--text);"></pre>
     </div>
   </div>
 </div>
@@ -1669,7 +1732,9 @@ const segTimeline = $('segments-timeline');
 const segStats = $('segments-stats');
 const promptOverlay = $('prompt-overlay');
 const promptText = $('prompt-text');
+const promptRendered = $('prompt-rendered');
 const promptStats = $('prompt-stats');
+let promptViewMode = 'md';
 
 
 // Color encodes token density (tokens/message) — cool to warm
@@ -1711,17 +1776,28 @@ $('segments-btn').addEventListener('click', async () => {
   segPollTimer = setInterval(fetchAndRenderSegments, 3000);
 });
 
+function updatePromptModeButtons() {
+  $('prompt-mode-md').classList.toggle('active', promptViewMode === 'md');
+  $('prompt-mode-raw').classList.toggle('active', promptViewMode === 'raw');
+  promptRendered.style.display = promptViewMode === 'md' ? 'block' : 'none';
+  promptText.style.display = promptViewMode === 'raw' ? 'block' : 'none';
+}
+
 async function fetchAndRenderPrompt() {
   if (!BASE_URL) return;
   try {
     const text = await AgentClient.getSystemPrompt(BASE_URL, AUTH_TOKEN);
     promptText.textContent = text;
+    promptRendered.innerHTML = renderMarkdown(text);
     const approxTokens = Math.ceil(text.length / 4);
     promptStats.textContent = `${text.length.toLocaleString()} chars · ~${approxTokens.toLocaleString()} tokens`;
+    updatePromptModeButtons();
   } catch (e) {
     console.error('prompt fetch failed:', e);
     promptText.textContent = 'Failed to load system prompt';
+    promptRendered.innerHTML = '<p>Failed to load system prompt</p>';
     promptStats.textContent = '';
+    updatePromptModeButtons();
   }
 }
 
@@ -1730,10 +1806,13 @@ $('prompt-btn').addEventListener('click', async () => {
     promptOverlay.classList.remove('open');
     return;
   }
+  updatePromptModeButtons();
   await fetchAndRenderPrompt();
   promptOverlay.classList.add('open');
 });
 
+$('prompt-mode-md').addEventListener('click', () => { promptViewMode = 'md'; updatePromptModeButtons(); });
+$('prompt-mode-raw').addEventListener('click', () => { promptViewMode = 'raw'; updatePromptModeButtons(); });
 $('prompt-refresh').addEventListener('click', fetchAndRenderPrompt);
 $('prompt-close').addEventListener('click', () => promptOverlay.classList.remove('open'));
 promptOverlay.addEventListener('click', (e) => {
@@ -1829,6 +1908,8 @@ const segDetail = $('segments-detail');
 let segDataMap = {};
 let segmentFilterMode = 'all';
 let contextSegmentIds = new Set();
+let expandedSegmentLevels = new Set();
+let activeSegmentId = null;
 
 function renderSegments(data) {
   const { segments, stats } = data;
@@ -1945,14 +2026,30 @@ function renderSegments(data) {
       row.style.display = open ? 'none' : 'flex';
       el.textContent = el.textContent.replace(/^[▸▾]/, open ? '▸' : '▾');
       el.classList.toggle('open', !open);
+      if (open) expandedSegmentLevels.delete(String(lvl));
+      else expandedSegmentLevels.add(String(lvl));
     });
   });
+
+  for (const lvl of expandedSegmentLevels) {
+    const toggle = segTimeline.querySelector(`.seg-collapsed[data-level="${lvl}"]`);
+    const row = segTimeline.querySelector(`.seg-children-row[data-level="${lvl}"]`);
+    if (!toggle || !row) continue;
+    row.style.display = 'flex';
+    toggle.textContent = toggle.textContent.replace(/^[▸▾]/, '▾');
+    toggle.classList.add('open');
+  }
 
   // Hover to show detail panel
   segTimeline.querySelectorAll('.seg-block').forEach(el => {
     el.addEventListener('mouseenter', () => showSegDetail(el));
     el.addEventListener('click', () => showSegDetail(el));
   });
+
+  if (activeSegmentId != null) {
+    const active = segTimeline.querySelector(`.seg-block[data-seg-id="${activeSegmentId}"]`);
+    if (active) showSegDetail(active);
+  }
 }
 
 async function resummarizeSegment(segId) {
@@ -1988,6 +2085,7 @@ async function resummarizeSegment(segId) {
 function showSegDetail(el) {
   segTimeline.querySelectorAll('.seg-block.active').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
+  activeSegmentId = Number(el.dataset.segId);
 
   const seg = segDataMap[el.dataset.segId];
   if (!seg) return;
@@ -2007,7 +2105,7 @@ function showSegDetail(el) {
     <div class="seg-detail-actions">
       <button id="seg-resummarize-${seg.id}" class="modal-btn">Resummarize</button>
     </div>
-    <div class="seg-detail-summary">${escHtml(seg.summary || '') || '<span style="color:var(--text-muted);font-style:italic;">no summary</span>'}</div>
+    <div class="seg-detail-summary">${seg.summary ? renderMarkdown(seg.summary) : '<span style="color:var(--text-muted);font-style:italic;">no summary</span>'}</div>
   `;
 
   const btn = document.getElementById(`seg-resummarize-${seg.id}`);
