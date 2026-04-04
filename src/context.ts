@@ -98,6 +98,10 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig, mem
 const CHARS_PER_TOKEN = 3.3;
 const PER_MESSAGE_OVERHEAD = 4; // role/separator tokens per message
 
+export function estimateTextTokens(text: string): number {
+  return Math.ceil(text.length / CHARS_PER_TOKEN);
+}
+
 function estimateTokens(messages: ModelMessage[]): number {
   let chars = 0;
   for (const msg of messages) {
@@ -224,6 +228,7 @@ export interface SessionStats {
   truncatedCount: number;
   summaryTokens: number;
   summaryLevelCounts: Record<number, number>;
+  systemPromptTokens?: number;
 }
 
 export interface PrepareContextOptions {

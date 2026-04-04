@@ -3,6 +3,7 @@ import { log } from "./log.js";
 import { createModel } from "./model.js";
 import { allTools, type ToolName } from "./tools/index.js";
 import { SessionManager } from "./session.js";
+import { estimateTextTokens } from "./context.js";
 import { loadConfig, getToolsForScope, type KernConfig } from "./config.js";
 import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern.js";
 import type { RecallIndex } from "./recall.js";
@@ -96,6 +97,9 @@ export class Runtime {
     const effectiveSystemPrompt = prepared.systemAdditions.length > 0
       ? `${this.systemPrompt}\n\n${prepared.systemAdditions.join("\n\n")}`
       : this.systemPrompt;
+    // Estimate system prompt tokens (minus summary which is tracked separately)
+    const summaryAdditionChars = prepared.systemAdditions.join("\n\n").length;
+    prepared.stats.systemPromptTokens = estimateTextTokens(effectiveSystemPrompt) - (summaryAdditionChars > 0 ? Math.ceil(summaryAdditionChars / 3.3) : 0);
     return {
       system: effectiveSystemPrompt,
       messages: prepared.messages,
