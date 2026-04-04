@@ -2308,9 +2308,13 @@ function renderPromptStructured(text, status) {
   const cb = status?.contextBreakdown;
 
   // Use real token counts from contextBreakdown
+  // conversation_summary is already inside the system prompt text, so don't double-count
   const msgTokens = cb ? cb.messageTokens : 0;
-  // Total = system prompt + context window (messages + history)
-  const totalContextTokens = systemTokens + msgTokens + (cb ? cb.historyTokens : 0);
+  const historyTokens = cb ? cb.historyTokens : 0;
+  // System prompt estimate minus the history portion (which is tracked separately)
+  const historySectionTokens = sections.filter(s => s.type === 'conversation_summary').reduce((sum, s) => sum + tokEst(s.content), 0);
+  const pureSystemTokens = systemTokens - historySectionTokens;
+  const totalContextTokens = pureSystemTokens + historyTokens + msgTokens;
 
   // Count messages from the DOM
   const msgContainer = $('messages');
@@ -2410,14 +2414,18 @@ async function fetchAndRenderPrompt() {
     promptText.textContent = text;
     promptStructured.innerHTML = renderPromptStructured(text, status);
     const cb = status?.contextBreakdown;
-    const sysTokens = Math.ceil(text.length / 4);
-    const windowTokens = cb ? (cb.messageTokens + cb.historyTokens) : 0;
+    const sysTokensTotal = Math.ceil(text.length / 4);
+    // conversation_summary is history — don't count in system prompt
+    const histSectionChars = (text.match(/<conversation_summary\b[^>]*>([\s\S]*?)<\/conversation_summary>/)?.[0] || '').length;
+    const sysTokensPure = Math.ceil((text.length - histSectionChars) / 4);
+    const histTokens = cb ? cb.historyTokens : Math.ceil(histSectionChars / 4);
+    const msgTokens = cb ? cb.messageTokens : 0;
     const maxTokens = cb ? cb.maxTokens : null;
     const ctxMsgs = cb ? cb.messageCount : '?';
     const trimmed = cb ? cb.trimmedCount : null;
+    const total = sysTokensPure + histTokens + msgTokens;
     const budgetStr = maxTokens ? ` / ${(maxTokens / 1000).toFixed(0)}k` : '';
-    const totalStr = cb ? `~${Math.round(windowTokens / 1000)}k${budgetStr}` : `~${Math.round(sysTokens / 1000)}k`;
-    promptStats.textContent = `system ~${Math.round(sysTokens / 1000)}k + context ${totalStr} tokens · ${ctxMsgs} messages${trimmed ? ` · ${trimmed.toLocaleString()} trimmed` : ''}`;
+    promptStats.textContent = `~${Math.round(total / 1000)}k${budgetStr} tokens · system ~${Math.round(sysTokensPure / 1000)}k · history ~${Math.round(histTokens / 1000)}k · messages ~${Math.round(msgTokens / 1000)}k · ${ctxMsgs} msgs${trimmed ? ` · ${trimmed.toLocaleString()} trimmed` : ''}`;
     updatePromptModeButtons();
   } catch (e) {
     console.error('prompt fetch failed:', e);
