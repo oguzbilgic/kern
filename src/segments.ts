@@ -67,6 +67,9 @@ Style:
 - No section headers.
 - No boilerplate like "Participants and Roles", "What I Did", "Results", "Open Items", or "Additional Notes".
 - Do not explain the environment unless it directly affected what happened in this segment.
+- Keep the specific details that give the event its identity.
+- Avoid turning identifiable events into generic summaries.
+- Remove repetition first; keep the details that will help future me recognize what this was.
 - Omit low-value detail and repeated chatter.
 
 Perspective and identity:
@@ -101,6 +104,7 @@ Style:
 - No boilerplate or executive-summary framing.
 - Prefer dense factual notes that compress well for future rollups.
 - Preserve important causal links: why a change happened, what I did, and what came out of it.
+- Keep the specific details that make an event recognizable later; compress prose before compressing identity.
 
 Perspective and identity:
 - Use first person when describing my actions or decisions.
@@ -714,7 +718,23 @@ export class SegmentIndex {
    * Fills a token budget with segment summaries from the trimmed region.
    * Recency bias: expands most recent segments to lower (more detailed) levels first.
    */
-  composeHistory(sessionId: string, trimmedBeforeMsg: number, budgetTokens: number): { text: string; levelCounts: Record<number, number>; tokens: number } | null {
+  composeHistory(sessionId: string, trimmedBeforeMsg: number, budgetTokens: number): {
+    text: string;
+    levelCounts: Record<number, number>;
+    tokens: number;
+    segments: Array<{
+      id: number;
+      level: number;
+      msg_start: number;
+      msg_end: number;
+      start_time: string | null;
+      end_time: string | null;
+      summary: string;
+      token_count: number;
+      summary_token_count: number;
+      parent_id: number | null;
+    }>;
+  } | null {
     // Get all summarized segments for this session
     const allSegments = this.db.prepare(
       `SELECT id, msg_start, msg_end, start_time, end_time, parent_id, level, summary, token_count, summary_token_count
@@ -802,7 +822,7 @@ export class SegmentIndex {
       lines.push(summaryLines.join("\n"));
     }
 
-    return { text: lines.join('\n\n'), levelCounts, tokens: usedTokens };
+    return { text: lines.join('\n\n'), levelCounts, tokens: usedTokens, segments: selected };
   }
 
   getStats(): { segments: number; level0: number; levels: Record<number, number> } {

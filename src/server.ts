@@ -23,6 +23,7 @@ export class AgentServer {
   private statusFn: (() => any | Promise<any>) | null = null;
   private historyFn: ((limit: number, before?: number) => any[]) | null = null;
   private segmentsFn: ((sessionId?: string) => any) | null = null;
+  private contextSegmentsFn: (() => any | Promise<any>) | null = null;
   private systemPromptFn: (() => any | Promise<any>) | null = null;
   private segmentsRebuildFn: (() => Promise<any>) | null = null;
   private segmentsStopFn: (() => void) | null = null;
@@ -49,6 +50,10 @@ export class AgentServer {
 
   setSegmentsFn(fn: (sessionId?: string) => any) {
     this.segmentsFn = fn;
+  }
+
+  setContextSegmentsFn(fn: () => any | Promise<any>) {
+    this.contextSegmentsFn = fn;
   }
 
   setSystemPromptFn(fn: () => any | Promise<any>) {
@@ -258,11 +263,19 @@ export class AgentServer {
       return;
     }
 
-    // System prompt debug dump
-    if (url === "/prompt/system" && req.method === "GET") {
+    // Context system prompt debug dump
+    if (url === "/context/system" && req.method === "GET") {
       const data = this.systemPromptFn ? await this.systemPromptFn() : { system: "" };
       res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
       res.end(typeof data === "string" ? data : (data.system || ""));
+      return;
+    }
+
+    // Context-selected segments currently used for history injection
+    if (url === "/context/segments" && req.method === "GET") {
+      const data = this.contextSegmentsFn ? await this.contextSegmentsFn() : { segments: [], tokenCount: 0 };
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
       return;
     }
 
