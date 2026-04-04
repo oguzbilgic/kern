@@ -58,7 +58,12 @@ export class Runtime {
       agentDir: this.agentDir,
       config: this.config,
       sessionId: this.session.getSessionId() || "unknown",
-      getSessionStats: () => prepareContext({ messages: this.session.getMessages(), config: this.config, sessionId: this.session.getSessionId() || undefined, segmentIndex: this.segmentIndex }).stats,
+      getSessionStats: () => {
+        const prepared = prepareContext({ messages: this.session.getMessages(), config: this.config, sessionId: this.session.getSessionId() || undefined, segmentIndex: this.segmentIndex });
+        const summaryChars = prepared.systemAdditions.join("\n\n").length;
+        prepared.stats.systemPromptTokens = estimateTextTokens(this.systemPrompt) + (summaryChars > 0 ? estimateTextTokens("\n\n") : 0);
+        return prepared.stats;
+      },
       pairingManager: pairing,
     });
   }
@@ -74,7 +79,12 @@ export class Runtime {
       agentDir: this.agentDir,
       config: this.config,
       sessionId: this.session.getSessionId() || "unknown",
-      getSessionStats: () => prepareContext({ messages: this.session.getMessages(), config: this.config, sessionId: this.session.getSessionId() || undefined, segmentIndex: this.segmentIndex }).stats,
+      getSessionStats: () => {
+        const prepared = prepareContext({ messages: this.session.getMessages(), config: this.config, sessionId: this.session.getSessionId() || undefined, segmentIndex: this.segmentIndex });
+        const summaryChars = prepared.systemAdditions.join("\n\n").length;
+        prepared.stats.systemPromptTokens = estimateTextTokens(this.systemPrompt) + (summaryChars > 0 ? estimateTextTokens("\n\n") : 0);
+        return prepared.stats;
+      },
     });
   }
 
