@@ -97,6 +97,18 @@ export interface InterfaceStatus {
   detail?: string;
 }
 
+export interface ContextBreakdown {
+  maxTokens: number;
+  systemPromptTokens: number;
+  messageTokens: number;
+  summaryTokens: number;
+  messageCount: number;
+  totalMessages: number;
+  trimmedCount: number;
+  truncatedCount: number;
+  summaryLevelCounts: Record<number, number>;
+}
+
 export interface StatusData {
   version: string;
   agent: string;
@@ -106,7 +118,8 @@ export interface StatusData {
   uptime: string;
   session: string;
   context: string | null;
-  history: string | null;
+  contextBreakdown: ContextBreakdown | null;
+  summary: string | null;
   apiUsage: string;
   promptTokens: number;
   completionTokens: number;
@@ -133,17 +146,17 @@ export function getStatusData(): StatusData {
   const session = stats
     ? `${stats.totalMessages} messages (~${Math.round(stats.estimatedTokens / 1000)}k tokens)`
     : `${_messageCount} messages`;
-  const trimmed = stats ? stats.totalMessages - stats.windowMessages + (stats.historyTokens > 0 ? 1 : 0) : 0;
+  const trimmed = stats ? stats.totalMessages - stats.windowMessages + (stats.summaryTokens > 0 ? 1 : 0) : 0;
   const context = stats
     ? `~${Math.round(stats.windowTokens / 1000)}k / ${Math.round(_config.maxContextTokens / 1000)}k tokens (${stats.windowMessages} messages${trimmed > 0 ? `, ${trimmed} trimmed` : ""}${stats.truncatedCount > 0 ? `, ${stats.truncatedCount} truncated` : ""})`
     : null;
-  const history = stats && stats.historyTokens > 0
+  const summary = stats && stats.summaryTokens > 0
     ? (() => {
-        const lvlStr = Object.entries(stats.historyLevelCounts)
+        const lvlStr = Object.entries(stats.summaryLevelCounts)
           .sort(([a], [b]) => Number(a) - Number(b))
           .map(([l, n]) => `${n}×L${l}`)
           .join(", ");
-        return `~${Math.round(stats.historyTokens / 1000)}k tokens (${lvlStr})`;
+        return `~${Math.round(stats.summaryTokens / 1000)}k tokens (${lvlStr})`;
       })()
     : null;
   const totalTokens = _totalPromptTokens + _totalCompletionTokens;
@@ -158,6 +171,19 @@ export function getStatusData(): StatusData {
   const tg = ifaces.find(i => i.name === "telegram");
   const sl = ifaces.find(i => i.name === "slack");
 
+  // Numeric context breakdown for UI
+  const contextBreakdown = stats ? {
+    maxTokens: _config.maxContextTokens,
+    systemPromptTokens: stats.systemPromptTokens || 0,
+    messageTokens: stats.windowTokens,
+    summaryTokens: stats.summaryTokens,
+    messageCount: stats.windowMessages,
+    totalMessages: stats.totalMessages,
+    trimmedCount: trimmed,
+    truncatedCount: stats.truncatedCount,
+    summaryLevelCounts: stats.summaryLevelCounts,
+  } : null;
+
   return {
     version: _version,
     agent: _agentDir,
@@ -167,7 +193,8 @@ export function getStatusData(): StatusData {
     uptime: uptimeStr,
     session,
     context,
-    history,
+    contextBreakdown,
+    summary,
     apiUsage,
     promptTokens: _totalPromptTokens,
     completionTokens: _totalCompletionTokens,
@@ -199,8 +226,20 @@ export function formatStatus(data: StatusData): string {
     data.telegram ? `telegram: ${data.telegram}` : "",
     data.slack ? `slack: ${data.slack}` : "",
     `session: ${data.session}`,
-    data.context ? `context: ${data.context}` : "",
-    data.history ? `  history: ${data.history}` : "",
+    data.contextBreakdown ? (() => {
+      const cb = data.contextBreakdown!;
+      const total = cb.systemPromptTokens + cb.messageTokens + cb.summaryTokens;
+      return `context: ~${Math.round(total / 1000)}k tokens (${cb.messageCount} messages, ${cb.trimmedCount} trimmed)`;
+    })() : (data.context ? `context: ${data.context}` : ""),
+    data.contextBreakdown ? `  system: ~${Math.round(data.contextBreakdown.systemPromptTokens / 1000)}k tokens` : "",
+    data.contextBreakdown ? `  messages: ~${Math.round(data.contextBreakdown.messageTokens / 1000)}k tokens` : "",
+    data.contextBreakdown && data.contextBreakdown.summaryTokens > 0 ? (() => {
+      const lvlStr = Object.entries(data.contextBreakdown!.summaryLevelCounts)
+        .sort(([a], [b]) => Number(a) - Number(b))
+        .map(([l, n]) => `${n}×L${l}`)
+        .join(", ");
+      return `  summary: ~${Math.round(data.contextBreakdown!.summaryTokens / 1000)}k tokens (${lvlStr})`;
+    })() : (data.summary ? `  summary: ${data.summary}` : ""),
     data.recall ? `recall: ${data.recall}` : "",
     data.segments ? `segments: ${data.segments}` : "",
     `api usage: ${data.apiUsage}`,

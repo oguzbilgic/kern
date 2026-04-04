@@ -20,11 +20,11 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 | `provider` | `openrouter` | API provider: `openrouter`, `anthropic`, `openai` |
 | `toolScope` | `full` | Tool access level: `full`, `write`, `read` |
 | `maxSteps` | `30` | Max tool-use steps per message |
-| `maxContextTokens` | `50000` | Estimated token budget for context window. Messages beyond this are trimmed from the front (oldest first). Full history stays in JSONL. |
-| `maxToolResultChars` | `20000` | Max characters per tool result in context. Oversized results are truncated (keeping the start). Full results stay in JSONL and are searchable via recall. Set to `0` to disable. |
+| `maxContextTokens` | `50000` | Token budget for context window. Messages beyond this are trimmed oldest-first. Full history stays in session JSONL files. |
+| `maxToolResultChars` | `20000` | Max characters per tool result in context. Oversized results are truncated in context only. Full results stay in session storage. Set to `0` to disable. |
 | `heartbeatInterval` | `60` | Minutes between heartbeat prompts. Agent reviews notes, updates knowledge. 0 to disable. |
-| `recall` | `true` | Enable recall (long-term memory). Set to `false` to disable. Requires an embedding API key. |
-| `historyBudget` | `0.2` | Fraction of `maxContextTokens` allocated to compressed history from segments. Set to `0` to disable history injection. See [Memory](/docs/memory#segments-and-conversation-summary). |
+| `recall` | `true` | Enable recall and segments (embedding-based features). Set to `false` to disable. Requires an embedding API key. Session storage and notes summaries work regardless. |
+| `summaryBudget` | `0.2` | Fraction of `maxContextTokens` for compressed conversation summaries from segments. Set to `0` to disable. See [Context](context.md#conversation-summary). |
 | `autoRecall` | `false` | Automatically inject relevant old context before each turn. Requires recall enabled. |
 
 ### Tool scopes
@@ -93,33 +93,6 @@ Agent registry. Managed automatically — do not edit by hand.
 
 Tracks all registered agents with their name, path, PID, port, and auth token. Updated when agents start/stop.
 
-## .kern/recall.db
+## .kern/ local files
 
-SQLite database for agent memory. Always created on startup. Contains:
-
-- `messages` — raw message content
-- `chunks` — turn-level summaries for recall search
-- `vec_chunks` — embeddings (sqlite-vec)
-- `index_state` — tracks indexing progress per session
-- `summaries` — cached notes summaries
-- `semantic_segments` — hierarchical segment tree (L0, L1, L2...)
-- `vec_segments` — segment embeddings
-- `segment_state` — tracks segmentation progress per session
-
-Gitignored. Safe to delete — rebuilds from session JSONL files on next start, summaries regenerate on next cache miss.
-
-## .kern/sessions/
-
-Conversation history as JSONL files. One file per session. First line is metadata, rest are messages. Gitignored.
-
-## .kern/pairing.json
-
-Pending and paired user data. Transient — codes expire on restart. Paired users persist.
-
-## .kern/usage.json
-
-Cumulative API token usage. Persists across restarts.
-
-## .kern/logs/
-
-Log files from daemon mode (`kern start`). `kern.log` contains stdout/stderr.
+Local files (sessions, database, logs) live in `.kern/` and are gitignored.

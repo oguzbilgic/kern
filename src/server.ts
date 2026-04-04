@@ -30,6 +30,13 @@ export class AgentServer {
   private segmentsCleanFn: (() => void) | null = null;
   private segmentsStartFn: (() => Promise<any>) | null = null;
   private segmentResummarizeFn: ((id: number) => Promise<any>) | null = null;
+  private summariesFn: (() => any) | null = null;
+  private summaryRegenerateFn: (() => Promise<any>) | null = null;
+  private recallSearchFn: ((query: string, limit: number) => Promise<any>) | null = null;
+  private recallStatsFn: (() => any) | null = null;
+  private sessionListFn: (() => any) | null = null;
+  private sessionActivityFn: ((sessionId: string) => any) | null = null;
+  private currentSessionIdFn: (() => string | null) | null = null;
   private port = 0;
 
   constructor() {
@@ -78,6 +85,34 @@ export class AgentServer {
 
   setSegmentResummarizeFn(fn: (id: number) => Promise<any>) {
     this.segmentResummarizeFn = fn;
+  }
+
+  setSummariesFn(fn: () => any) {
+    this.summariesFn = fn;
+  }
+
+  setSummaryRegenerateFn(fn: () => Promise<any>) {
+    this.summaryRegenerateFn = fn;
+  }
+
+  setRecallSearchFn(fn: (query: string, limit: number) => Promise<any>) {
+    this.recallSearchFn = fn;
+  }
+
+  setRecallStatsFn(fn: () => any) {
+    this.recallStatsFn = fn;
+  }
+
+  setSessionListFn(fn: () => any) {
+    this.sessionListFn = fn;
+  }
+
+  setSessionActivityFn(fn: (sessionId: string) => any) {
+    this.sessionActivityFn = fn;
+  }
+
+  setCurrentSessionIdFn(fn: () => string | null) {
+    this.currentSessionIdFn = fn;
   }
 
   async start(host: string = "127.0.0.1"): Promise<number> {
@@ -351,6 +386,93 @@ export class AgentServer {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err.message || "resummarize failed" }));
       }
+      return;
+    }
+
+    // Notes summaries — list all cached summaries
+    if (url === "/summaries" && req.method === "GET") {
+      const data = this.summariesFn ? this.summariesFn() : [];
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
+      return;
+    }
+
+    // Notes summary regenerate
+    if (url === "/summaries/regenerate" && req.method === "POST") {
+      if (!this.summaryRegenerateFn) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "summaries not available" }));
+        return;
+      }
+      try {
+        const result = await this.summaryRegenerateFn();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result));
+      } catch (err: any) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message || "regeneration failed" }));
+      }
+      return;
+    }
+
+    // Recall stats
+    if (url === "/recall/stats" && req.method === "GET") {
+      if (!this.recallStatsFn) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ enabled: false }));
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ enabled: true, ...this.recallStatsFn() }));
+      return;
+    }
+
+    // Recall search preview
+    if (url === "/recall/search" && req.method === "GET") {
+      if (!this.recallSearchFn) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "recall not enabled" }));
+        return;
+      }
+      const params = new URL(rawUrl, "http://localhost").searchParams;
+      const query = params.get("q") || "";
+      const limit = parseInt(params.get("limit") || "10", 10);
+      if (!query) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "q parameter required" }));
+        return;
+      }
+      try {
+        const results = await this.recallSearchFn(query, limit);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(results));
+      } catch (err: any) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message || "search failed" }));
+      }
+      return;
+    }
+
+    // Sessions list with stats
+    if (url === "/sessions" && req.method === "GET") {
+      const sessions = this.sessionListFn ? this.sessionListFn() : [];
+      const currentSessionId = this.currentSessionIdFn ? this.currentSessionIdFn() : null;
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ sessions, currentSessionId }));
+      return;
+    }
+
+    // Session activity (daily + hourly)
+    const sessionActivityMatch = url.match(/^\/sessions\/([^/]+)\/activity$/);
+    if (sessionActivityMatch && req.method === "GET") {
+      if (!this.sessionActivityFn) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "not available" }));
+        return;
+      }
+      const data = this.sessionActivityFn(sessionActivityMatch[1]);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
       return;
     }
 

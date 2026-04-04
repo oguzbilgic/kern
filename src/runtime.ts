@@ -3,6 +3,7 @@ import { log } from "./log.js";
 import { createModel } from "./model.js";
 import { allTools, type ToolName } from "./tools/index.js";
 import { SessionManager } from "./session.js";
+import { estimateTextTokens } from "./context.js";
 import { loadConfig, getToolsForScope, type KernConfig } from "./config.js";
 import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern.js";
 import type { RecallIndex } from "./recall.js";
@@ -57,7 +58,12 @@ export class Runtime {
       agentDir: this.agentDir,
       config: this.config,
       sessionId: this.session.getSessionId() || "unknown",
-      getSessionStats: () => prepareContext({ messages: this.session.getMessages(), config: this.config, sessionId: this.session.getSessionId() || undefined, segmentIndex: this.segmentIndex }).stats,
+      getSessionStats: () => {
+        const prepared = prepareContext({ messages: this.session.getMessages(), config: this.config, sessionId: this.session.getSessionId() || undefined, segmentIndex: this.segmentIndex });
+        const summaryChars = prepared.systemAdditions.join("\n\n").length;
+        prepared.stats.systemPromptTokens = estimateTextTokens(this.systemPrompt) + (summaryChars > 0 ? estimateTextTokens("\n\n") : 0);
+        return prepared.stats;
+      },
       pairingManager: pairing,
     });
   }
@@ -73,7 +79,12 @@ export class Runtime {
       agentDir: this.agentDir,
       config: this.config,
       sessionId: this.session.getSessionId() || "unknown",
-      getSessionStats: () => prepareContext({ messages: this.session.getMessages(), config: this.config, sessionId: this.session.getSessionId() || undefined, segmentIndex: this.segmentIndex }).stats,
+      getSessionStats: () => {
+        const prepared = prepareContext({ messages: this.session.getMessages(), config: this.config, sessionId: this.session.getSessionId() || undefined, segmentIndex: this.segmentIndex });
+        const summaryChars = prepared.systemAdditions.join("\n\n").length;
+        prepared.stats.systemPromptTokens = estimateTextTokens(this.systemPrompt) + (summaryChars > 0 ? estimateTextTokens("\n\n") : 0);
+        return prepared.stats;
+      },
     });
   }
 
@@ -96,6 +107,9 @@ export class Runtime {
     const effectiveSystemPrompt = prepared.systemAdditions.length > 0
       ? `${this.systemPrompt}\n\n${prepared.systemAdditions.join("\n\n")}`
       : this.systemPrompt;
+    // Estimate system prompt tokens (minus summary which is tracked separately)
+    const summaryAdditionChars = prepared.systemAdditions.join("\n\n").length;
+    prepared.stats.systemPromptTokens = estimateTextTokens(effectiveSystemPrompt) - (summaryAdditionChars > 0 ? Math.ceil(summaryAdditionChars / 3.3) : 0);
     return {
       system: effectiveSystemPrompt,
       messages: prepared.messages,
@@ -137,9 +151,9 @@ export class Runtime {
         messages: allMessages,
         sessionId,
       });
-      const trimmedCount = stats.totalMessages - stats.windowMessages + (stats.historyTokens > 0 ? 1 : 0);
+      const trimmedCount = stats.totalMessages - stats.windowMessages + (stats.summaryTokens > 0 ? 1 : 0);
       if (trimmedCount > 0) {
-        log("context", `trimmed: ${trimmedCount} old messages excluded${stats.historyTokens > 0 ? `, history injected (~${stats.historyTokens} tokens)` : ''}`);
+        log("context", `trimmed: ${trimmedCount} old messages excluded${stats.summaryTokens > 0 ? `, summary injected (~${stats.summaryTokens} tokens)` : ''}`);
       }
 
       const { messages: contextMessages, recall } = await injectRecall(

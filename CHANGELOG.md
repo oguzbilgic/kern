@@ -2,6 +2,19 @@
 
 ## next
 
+### Features
+- **Memory UI** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — unified web UI overlay for inspecting all agent memory. Five tabs: Sessions, Segments, Notes, Recall, and Context. Tab switcher with underline-style navigation and per-tab action buttons.
+  - **Sessions**: session list with message counts, durations, role breakdowns, daily/hourly activity charts. Live session indicator. Click to expand details.
+  - **Segments**: hierarchical segment tree with L0/L1/L2 levels. Fixed L1 segment visibility bug (segments with parent_id were excluded from level index). Collapsible rolled-up groups. Detail pane with dark background, markdown summaries, token compression stats, and resummarize action.
+  - **Notes**: notes summaries with regeneration trigger. Rendered as markdown.
+  - **Recall**: stats cards (messages, chunks, sessions, date range) and search interface.
+  - **Context**: structured view parsing XML prompt tags into collapsible sections with token cost bars. Raw message count and timestamp. Real token breakdown from `/status`.
+
+### Changes
+- **New APIs** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — `/sessions` (with `currentSessionId`), `/context/system`, `/context/segments`, `/recall/stats`. Context breakdown in `/status` reports system + summary + messages token counts.
+- **Token estimation** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — improved from chars/4 to chars/3.3 with per-message overhead (~25% more accurate).
+- **Config rename** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — `historyBudget` → `summaryBudget`.
+
 ## v0.17.0
 
 ### Features

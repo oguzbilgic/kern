@@ -353,11 +353,13 @@ export class RecallIndex {
     return JSON.stringify(msg.content);
   }
 
-  getStats(): { chunks: number; sessions: number; messages: number } {
+  getStats(): { chunks: number; sessions: number; messages: number; firstTimestamp: string | null; lastTimestamp: string | null } {
     const chunks = (this.db.prepare("SELECT COUNT(*) as count FROM chunks").get() as any).count;
     const sessions = (this.db.prepare("SELECT COUNT(*) as count FROM index_state").get() as any).count;
     const messages = (this.db.prepare("SELECT COUNT(*) as count FROM messages").get() as any).count;
-    return { chunks, sessions, messages };
+    const first = (this.db.prepare("SELECT MIN(timestamp) as ts FROM messages WHERE timestamp IS NOT NULL").get() as any)?.ts || null;
+    const last = (this.db.prepare("SELECT MAX(timestamp) as ts FROM messages WHERE timestamp IS NOT NULL").get() as any)?.ts || null;
+    return { chunks, sessions, messages, firstTimestamp: first, lastTimestamp: last };
   }
 
 }

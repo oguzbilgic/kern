@@ -55,7 +55,7 @@ my-agent/
     config.json          # model, provider, toolScope (committed)
     .env                 # API keys, bot tokens (gitignored)
     sessions/            # conversation history (gitignored)
-    recall.db            # semantic search index (gitignored)
+    recall.db            # memory database (gitignored)
 ```
 
 Everything the agent needs is in this folder. Move it, zip it, clone it — the agent comes with it. Run `kern init` on any existing repo to adopt it as a kern agent.
@@ -146,6 +146,10 @@ On startup, the agent's system prompt is automatically injected with:
 
 This means the agent boots with recent context — no manual reading required. Summaries are cached in SQLite and regenerated in the background on day rollover.
 
+### Memory UI
+
+The web UI includes a Memory overlay with five tabs for examining all aspects of agent memory: sessions, segments, notes, recall, and context. See the full context pipeline — from raw messages through segment hierarchy to the final system prompt — with token breakdowns and compression ratios.
+
 ## Heartbeat
 
 Kern sends a periodic `[heartbeat]` to the agent. The agent reviews notes, updates knowledge files, and messages the operator if something needs attention. Visible in the TUI only — Telegram and Slack never see it.
@@ -179,11 +183,11 @@ Structured, leveled logs with colored labels. Stored in `.kern/logs/kern.log`. A
   "toolScope": "full",
   "maxContextTokens": 50000,
   "maxToolResultChars": 20000,
-  "historyBudget": 0.2
+  "summaryBudget": 0.2
 }
 ```
 
-`maxContextTokens` controls the sliding context window — older messages are trimmed to stay within budget. `maxToolResultChars` caps individual tool results in context (full results stay in session JSONL and are searchable via recall). `historyBudget` controls what fraction of the context window is reserved for compressed segment summaries when old messages are trimmed (default 20%). Set to `0` to disable.
+`maxContextTokens` controls the sliding context window — older messages are trimmed to stay within budget. `maxToolResultChars` caps individual tool results in context (full results stay in session JSONL and are searchable via recall). `summaryBudget` controls what fraction of the context window is reserved for compressed segment summaries when old messages are trimmed (default 20%). Set to `0` to disable.
 
 Agent auth tokens are auto-generated on first start and stored in `.kern/.env`. The web proxy injects them automatically — no manual setup needed.
 

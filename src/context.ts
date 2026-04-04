@@ -92,13 +92,22 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig, mem
   return parts.join("\n\n");
 }
 
-// Token estimate: stringify everything, ~4 chars per token
+// Token estimate: stringify everything, ~3.3 chars per token + per-message overhead.
+// chars/4 underestimates by ~25% vs actual tokenizer output.
+// Per-message overhead accounts for API framing not captured in JSON.stringify.
+const CHARS_PER_TOKEN = 3.3;
+const PER_MESSAGE_OVERHEAD = 4; // role/separator tokens per message
+
+export function estimateTextTokens(text: string): number {
+  return Math.ceil(text.length / CHARS_PER_TOKEN);
+}
+
 function estimateTokens(messages: ModelMessage[]): number {
   let chars = 0;
   for (const msg of messages) {
     chars += JSON.stringify(msg).length;
   }
-  return Math.ceil(chars / 4);
+  return Math.ceil(chars / CHARS_PER_TOKEN) + (messages.length * PER_MESSAGE_OVERHEAD);
 }
 
 // Per-message token size cache
@@ -107,7 +116,7 @@ const msgSizeCache = new WeakMap<ModelMessage, number>();
 function getMsgSize(msg: ModelMessage): number {
   let size = msgSizeCache.get(msg);
   if (size === undefined) {
-    size = Math.ceil(JSON.stringify(msg).length / 4);
+    size = Math.ceil(JSON.stringify(msg).length / CHARS_PER_TOKEN) + PER_MESSAGE_OVERHEAD;
     msgSizeCache.set(msg, size);
   }
   return size;
@@ -217,8 +226,9 @@ export interface SessionStats {
   windowTokens: number;
   windowMessages: number;
   truncatedCount: number;
-  historyTokens: number;
-  historyLevelCounts: Record<number, number>;
+  summaryTokens: number;
+  summaryLevelCounts: Record<number, number>;
+  systemPromptTokens?: number;
 }
 
 export interface PrepareContextOptions {
@@ -234,27 +244,27 @@ export interface PreparedContext {
   stats: SessionStats;
 }
 
-// Unified pipeline: truncate → trim → inject history → stats.
+// Unified pipeline: truncate → trim → inject summary → stats.
 export function prepareContext({ messages, config, sessionId, segmentIndex }: PrepareContextOptions): PreparedContext {
   const totalTokens = estimateTokens(messages);
   const { messages: truncated, truncatedCount } = truncateLargeToolResults(messages, config.maxToolResultChars, config.maxContextTokens);
-  const rawBudget = segmentIndex && config.historyBudget > 0
-    ? Math.round(config.maxContextTokens * (1 - config.historyBudget))
+  const rawBudget = segmentIndex && config.summaryBudget > 0
+    ? Math.round(config.maxContextTokens * (1 - config.summaryBudget))
     : config.maxContextTokens;
   const { messages: window, trimmedCount } = trimToTokenBudget(truncated, rawBudget);
 
-  // Inject compressed history at trim boundary
-  let historyTokens = 0;
-  let historyLevelCounts: Record<number, number> = {};
-  let historySystemAddition = "";
+  // Inject compressed summary at trim boundary
+  let summaryTokens = 0;
+  let summaryLevelCounts: Record<number, number> = {};
+  let summarySystemAddition = "";
   const finalMessages = window;
-  if (trimmedCount > 0 && segmentIndex && sessionId && config.historyBudget > 0) {
-    const budgetTokens = Math.round(config.maxContextTokens * config.historyBudget);
+  if (trimmedCount > 0 && segmentIndex && sessionId && config.summaryBudget > 0) {
+    const budgetTokens = Math.round(config.maxContextTokens * config.summaryBudget);
     const history = segmentIndex.composeHistory(sessionId, trimmedCount, budgetTokens);
     if (history) {
-      historyTokens = history.tokens;
-      historyLevelCounts = history.levelCounts;
-      historySystemAddition = `<conversation_summary>\nCompressed conversation summary of trimmed earlier messages (oldest → newest). Use recall tool to load full messages by range.\n\n${history.text}\n</conversation_summary>`;
+      summaryTokens = history.tokens;
+      summaryLevelCounts = history.levelCounts;
+      summarySystemAddition = `<conversation_summary>\nCompressed conversation summary of trimmed earlier messages (oldest → newest). Use recall tool to load full messages by range.\n\n${history.text}\n</conversation_summary>`;
     }
   }
 
@@ -270,7 +280,7 @@ export function prepareContext({ messages, config, sessionId, segmentIndex }: Pr
       }, 0)
     : 0;
   return {
-    systemAdditions: historySystemAddition ? [historySystemAddition] : [],
+    systemAdditions: summarySystemAddition ? [summarySystemAddition] : [],
     messages: finalMessages,
     stats: {
       totalMessages: messages.length,
@@ -278,8 +288,8 @@ export function prepareContext({ messages, config, sessionId, segmentIndex }: Pr
       windowTokens: estimateTokens(finalMessages),
       windowMessages: finalMessages.length,
       truncatedCount: trimmedTruncated,
-      historyTokens,
-      historyLevelCounts,
+      summaryTokens,
+      summaryLevelCounts,
     },
   };
 }
