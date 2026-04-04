@@ -81,25 +81,29 @@ export class RecallIndex {
     const sessionCreated = new Date(meta.createdAt).getTime();
     const sessionUpdated = new Date(meta.updatedAt).getTime();
 
-    // Store raw messages in sqlite
-    const insertMsg = this.db.prepare(
-      "INSERT OR IGNORE INTO messages (session_id, msg_index, role, content, timestamp) VALUES (?, ?, ?, ?, ?)"
-    );
-    const msgTx = this.db.transaction(() => {
-      for (let i = 0; i < newMessages.length; i++) {
-        const msg = newMessages[i];
-        const msgIndex = lastIndexed + i;
-        const msgContent = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
+    // Messages are now written to DB by SessionManager.append().
+    // Backfill any that might be missing (e.g. from older sessions before this change).
+    const existingCount = (this.db.prepare(
+      "SELECT COUNT(*) as count FROM messages WHERE session_id = ? AND msg_index >= ? AND msg_index < ?"
+    ).get(sessionId, lastIndexed, totalMessages) as { count: number }).count;
 
-        // Extract timestamp from message metadata
-        let timestamp: string | null = null;
-        const timeMatch = msgContent.match(/time: (\d{4}-\d{2}-\d{2}T[\d:.]+Z)/);
-        if (timeMatch) timestamp = timeMatch[1];
-
-        insertMsg.run(sessionId, msgIndex, msg.role, msgContent, timestamp);
-      }
-    });
-    msgTx();
+    if (existingCount < newMessages.length) {
+      const insertMsg = this.db.prepare(
+        "INSERT OR IGNORE INTO messages (session_id, msg_index, role, content, timestamp) VALUES (?, ?, ?, ?, ?)"
+      );
+      const msgTx = this.db.transaction(() => {
+        for (let i = 0; i < newMessages.length; i++) {
+          const msg = newMessages[i];
+          const msgIndex = lastIndexed + i;
+          const msgContent = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
+          let timestamp: string | null = null;
+          const timeMatch = msgContent.match(/time: (\d{4}-\d{2}-\d{2}T[\d:.]+Z)/);
+          if (timeMatch) timestamp = timeMatch[1];
+          insertMsg.run(sessionId, msgIndex, msg.role, msgContent, timestamp);
+        }
+      });
+      msgTx();
+    }
 
     // Chunk new messages into turns
     // We need context: if lastIndexed lands mid-turn (after a user msg, before next user msg),
