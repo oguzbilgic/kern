@@ -16,10 +16,6 @@
 - **Cross-platform shell** — `bash` tool on Unix, `pwsh` tool on Windows. One shell tool per platform, selected automatically. No config needed.
   - `grep` works on Unix only; on Windows suggests `Select-String` via pwsh
 - **Config validation** — warns on unknown fields and wrong types at startup. Invalid values ignored, defaults apply.
-- **Config cleanup** — `kern init` now writes minimal config and stale legacy fields are ignored.
-  - `kern init` writes `model`, `provider`, and `toolScope` only
-  - Removed stale `telegram.allowedUsers` and `telegram.showTools` config fields
-  - Dropped legacy `tools` array support (use `toolScope` instead)
 - **Context inspection** — new APIs and web UI make prompt composition inspectable.
   - `/prompt/system` replaced by `GET /context/system`
   - Added `GET /context/segments` for the exact segments currently injected into prompt history
@@ -34,6 +30,12 @@
   - Connects to any `kern web` server (local, LAN, Tailscale, or tunnel)
   - Improves mobile streaming reliability
   - Adds voice input and text-to-speech
+
+### Changes
+- **Config cleanup** — `kern init` now writes minimal config and stale legacy fields are ignored.
+  - `kern init` writes `model`, `provider`, and `toolScope` only
+  - Removed stale `telegram.allowedUsers` and `telegram.showTools` config fields
+  - Dropped legacy `tools` array support (use `toolScope` instead)
 
 ## v0.16.0
 
