@@ -99,6 +99,7 @@ export interface InterfaceStatus {
 
 export interface ContextBreakdown {
   maxTokens: number;
+  systemPromptTokens: number;
   messageTokens: number;
   summaryTokens: number;
   messageCount: number;
@@ -173,6 +174,7 @@ export function getStatusData(): StatusData {
   // Numeric context breakdown for UI
   const contextBreakdown = stats ? {
     maxTokens: _config.maxContextTokens,
+    systemPromptTokens: stats.systemPromptTokens || 0,
     messageTokens: stats.windowTokens,
     summaryTokens: stats.summaryTokens,
     messageCount: stats.windowMessages,
@@ -224,7 +226,12 @@ export function formatStatus(data: StatusData): string {
     data.telegram ? `telegram: ${data.telegram}` : "",
     data.slack ? `slack: ${data.slack}` : "",
     `session: ${data.session}`,
-    data.contextBreakdown ? `context: ~${Math.round((data.contextBreakdown.messageTokens + data.contextBreakdown.summaryTokens) / 1000)}k / ${Math.round(data.contextBreakdown.maxTokens / 1000)}k tokens (${data.contextBreakdown.messageCount} messages, ${data.contextBreakdown.trimmedCount} trimmed)` : (data.context ? `context: ${data.context}` : ""),
+    data.contextBreakdown ? (() => {
+      const cb = data.contextBreakdown!;
+      const total = cb.systemPromptTokens + cb.messageTokens + cb.summaryTokens;
+      return `context: ~${Math.round(total / 1000)}k tokens (${cb.messageCount} messages, ${cb.trimmedCount} trimmed)`;
+    })() : (data.context ? `context: ${data.context}` : ""),
+    data.contextBreakdown ? `  system: ~${Math.round(data.contextBreakdown.systemPromptTokens / 1000)}k tokens` : "",
     data.contextBreakdown ? `  messages: ~${Math.round(data.contextBreakdown.messageTokens / 1000)}k tokens` : "",
     data.contextBreakdown && data.contextBreakdown.summaryTokens > 0 ? (() => {
       const lvlStr = Object.entries(data.contextBreakdown!.summaryLevelCounts)
