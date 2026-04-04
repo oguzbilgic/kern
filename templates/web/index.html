@@ -1250,6 +1250,98 @@
     border-color: rgba(88, 166, 255, 0.45);
     color: #dbeafe;
   }
+  /* Structured prompt view */
+  .prompt-size-bar {
+    display: flex;
+    height: 24px;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    gap: 2px;
+  }
+  .prompt-size-bar-segment {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-family: var(--font-mono);
+    color: rgba(255,255,255,0.85);
+    overflow: hidden;
+    white-space: nowrap;
+    cursor: default;
+    min-width: 2px;
+    transition: opacity 0.15s;
+  }
+  .prompt-size-bar-segment:hover { opacity: 0.8; }
+  .prompt-section {
+    background: #0d1117;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .prompt-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+    gap: 12px;
+  }
+  .prompt-section-header:hover { background: rgba(255,255,255,0.03); }
+  .prompt-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .prompt-section-title .icon {
+    font-size: 11px;
+    color: var(--text-muted);
+    transition: transform 0.15s;
+    display: inline-block;
+  }
+  .prompt-section-title .icon.open { transform: rotate(90deg); }
+  .prompt-section-meta {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .prompt-section-body {
+    display: none;
+    padding: 0 14px 14px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .prompt-section-body.open { display: block; }
+  .prompt-section-body .prompt-markdown {
+    border: none;
+    padding: 12px 0 0;
+    background: transparent;
+  }
+  .prompt-section.type-document .prompt-section-header { border-left: 3px solid #58a6ff; }
+  .prompt-section.type-notes_summary .prompt-section-header { border-left: 3px solid #8b5cf6; }
+  .prompt-section.type-tools .prompt-section-header { border-left: 3px solid #f59e0b; }
+  .prompt-section.type-conversation_summary .prompt-section-header { border-left: 3px solid #10b981; }
+  .prompt-section.type-summary .prompt-section-header { border-left: 3px solid #10b981; }
+  .prompt-section.type-unknown .prompt-section-header { border-left: 3px solid #6b7280; }
+  .prompt-summary-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-top: 8px;
+  }
+  .prompt-summary-card-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    margin-bottom: 6px;
+  }
   .prompt-markdown {
     color: var(--text);
     font-size: 13px;
@@ -1610,7 +1702,8 @@
     </div>
     <div class="segments-toolbar">
       <div class="prompt-content-toggle">
-        <button class="modal-btn active" id="prompt-mode-md">Markdown</button>
+        <button class="modal-btn active" id="prompt-mode-structured">Structured</button>
+        <button class="modal-btn" id="prompt-mode-md">Markdown</button>
         <button class="modal-btn" id="prompt-mode-raw">Raw</button>
       </div>
       <div class="modal-actions">
@@ -1618,7 +1711,8 @@
       </div>
     </div>
     <div class="segments-body" style="display:block;overflow:auto;padding:20px;">
-      <div id="prompt-rendered" class="prompt-markdown"></div>
+      <div id="prompt-structured"></div>
+      <div id="prompt-rendered" class="prompt-markdown" style="display:none;"></div>
       <pre id="prompt-text" style="display:none;margin:0;white-space:pre-wrap;word-break:break-word;overflow:auto;background:#0d1117;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px;color:var(--text);"></pre>
     </div>
   </div>
@@ -2093,8 +2187,9 @@ const segStats = $('segments-stats');
 const promptOverlay = $('prompt-overlay');
 const promptText = $('prompt-text');
 const promptRendered = $('prompt-rendered');
+const promptStructured = $('prompt-structured');
 const promptStats = $('prompt-stats');
-let promptViewMode = 'md';
+let promptViewMode = 'structured';
 
 
 // Color encodes token density (tokens/message) — cool to warm
@@ -2136,9 +2231,125 @@ $('segments-btn').addEventListener('click', async () => {
   segPollTimer = setInterval(fetchAndRenderSegments, 3000);
 });
 
+const SECTION_COLORS = {
+  document: '#58a6ff',
+  notes_summary: '#8b5cf6',
+  tools: '#f59e0b',
+  conversation_summary: '#10b981',
+  summary: '#10b981',
+  unknown: '#6b7280',
+};
+
+function parsePromptSections(text) {
+  const sections = [];
+  let pos = 0;
+  // Match top-level XML-like tags
+  const tagRe = /<(document|notes_summary|tools|conversation_summary)\b([^>]*)>([\s\S]*?)<\/\1>/g;
+  let m;
+  while ((m = tagRe.exec(text)) !== null) {
+    // Capture any text before this tag as "unknown"
+    if (m.index > pos) {
+      const before = text.slice(pos, m.index).trim();
+      if (before) sections.push({ type: 'unknown', label: 'Text', attrs: {}, content: before });
+    }
+    const type = m[1];
+    const attrStr = m[2];
+    let content = m[3];
+
+    // Parse attributes
+    const attrs = {};
+    const attrRe = /(\w+)="([^"]*)"/g;
+    let am;
+    while ((am = attrRe.exec(attrStr)) !== null) attrs[am[1]] = am[2];
+
+    // For conversation_summary, parse child <summary> blocks
+    let children = null;
+    if (type === 'conversation_summary') {
+      children = [];
+      const sumRe = /<summary\b([^>]*)>([\s\S]*?)<\/summary>/g;
+      let sm;
+      while ((sm = sumRe.exec(content)) !== null) {
+        const sAttrs = {};
+        const saRe = /(\w+)="([^"]*)"/g;
+        let sa;
+        while ((sa = saRe.exec(sm[1])) !== null) sAttrs[sa[1]] = sa[2];
+        children.push({ attrs: sAttrs, content: sm[2].trim() });
+      }
+    }
+
+    let label = type;
+    if (type === 'document') label = attrs.path || 'document';
+    else if (type === 'notes_summary') label = 'Notes Summary';
+    else if (type === 'tools') label = 'Tools';
+    else if (type === 'conversation_summary') label = 'Conversation Summary';
+
+    sections.push({ type, label, attrs, content: content.trim(), children });
+    pos = m.index + m[0].length;
+  }
+  // Trailing text
+  if (pos < text.length) {
+    const after = text.slice(pos).trim();
+    if (after) sections.push({ type: 'unknown', label: 'Text', attrs: {}, content: after });
+  }
+  return sections;
+}
+
+function tokEst(text) { return Math.ceil((text || '').length / 4); }
+
+function renderPromptStructured(text) {
+  const sections = parsePromptSections(text);
+  const totalTokens = tokEst(text);
+
+  // Size bar
+  const sizeBar = sections.map(s => {
+    const tokens = tokEst(s.content);
+    const pct = totalTokens > 0 ? (tokens / totalTokens * 100) : 0;
+    if (pct < 1) return '';
+    const color = SECTION_COLORS[s.type] || SECTION_COLORS.unknown;
+    const shortLabel = s.type === 'document' ? (s.attrs.path || '').split('/').pop() : s.label;
+    return `<div class="prompt-size-bar-segment" style="width:${pct}%;background:${color};" title="${escapeHtml(s.label)}: ~${tokens.toLocaleString()} tokens (${pct.toFixed(1)}%)">${pct > 6 ? escapeHtml(shortLabel) : ''}</div>`;
+  }).join('');
+
+  // Section cards
+  const cards = sections.map((s, i) => {
+    const tokens = tokEst(s.content);
+    const color = SECTION_COLORS[s.type] || SECTION_COLORS.unknown;
+    let bodyContent = '';
+
+    if (s.type === 'conversation_summary' && s.children && s.children.length > 0) {
+      bodyContent = s.children.map(c => {
+        const cTokens = tokEst(c.content);
+        const level = c.attrs.level || '?';
+        const msgs = c.attrs.messages || '';
+        const first = c.attrs.first ? new Date(c.attrs.first).toLocaleString() : '';
+        const last = c.attrs.last ? new Date(c.attrs.last).toLocaleString() : '';
+        const timeRange = first && last ? ` · ${first} → ${last}` : first ? ` · from ${first}` : '';
+        return `<div class="prompt-summary-card">
+          <div class="prompt-summary-card-meta">${level} · msgs ${msgs} · ~${cTokens.toLocaleString()} tokens${timeRange}</div>
+          <div class="summary-text prompt-markdown" onclick="this.classList.toggle('expanded')">${renderMarkdown(c.content)}</div>
+        </div>`;
+      }).join('');
+    } else {
+      bodyContent = `<div class="prompt-markdown">${renderMarkdown(s.content)}</div>`;
+    }
+
+    return `<div class="prompt-section type-${s.type}">
+      <div class="prompt-section-header" onclick="const b=this.nextElementSibling;b.classList.toggle('open');this.querySelector('.icon').classList.toggle('open');">
+        <div class="prompt-section-title"><span class="icon">&#9656;</span>${escapeHtml(s.label)}</div>
+        <div class="prompt-section-meta">~${tokens.toLocaleString()} tokens · ${s.content.length.toLocaleString()} chars</div>
+      </div>
+      <div class="prompt-section-body">${bodyContent}</div>
+    </div>`;
+  }).join('');
+
+  return `<div class="prompt-size-bar">${sizeBar}</div>${cards}`;
+}
+
 function updatePromptModeButtons() {
+  $('prompt-mode-structured').classList.toggle('active', promptViewMode === 'structured');
   $('prompt-mode-md').classList.toggle('active', promptViewMode === 'md');
   $('prompt-mode-raw').classList.toggle('active', promptViewMode === 'raw');
+  promptStructured.style.display = promptViewMode === 'structured' ? 'block' : 'none';
   promptRendered.style.display = promptViewMode === 'md' ? 'block' : 'none';
   promptText.style.display = promptViewMode === 'raw' ? 'block' : 'none';
 }
@@ -2149,6 +2360,7 @@ async function fetchAndRenderPrompt() {
     const text = await AgentClient.getSystemPrompt(BASE_URL, AUTH_TOKEN);
     promptText.textContent = text;
     promptRendered.innerHTML = renderMarkdown(text);
+    promptStructured.innerHTML = renderPromptStructured(text);
     const approxTokens = Math.ceil(text.length / 4);
     promptStats.textContent = `${text.length.toLocaleString()} chars · ~${approxTokens.toLocaleString()} tokens`;
     updatePromptModeButtons();
@@ -2156,6 +2368,7 @@ async function fetchAndRenderPrompt() {
     console.error('prompt fetch failed:', e);
     promptText.textContent = 'Failed to load system prompt';
     promptRendered.innerHTML = '<p>Failed to load system prompt</p>';
+    promptStructured.innerHTML = '<p>Failed to load system prompt</p>';
     promptStats.textContent = '';
     updatePromptModeButtons();
   }
@@ -2171,6 +2384,7 @@ $('prompt-btn').addEventListener('click', async () => {
   promptOverlay.classList.add('open');
 });
 
+$('prompt-mode-structured').addEventListener('click', () => { promptViewMode = 'structured'; updatePromptModeButtons(); });
 $('prompt-mode-md').addEventListener('click', () => { promptViewMode = 'md'; updatePromptModeButtons(); });
 $('prompt-mode-raw').addEventListener('click', () => { promptViewMode = 'raw'; updatePromptModeButtons(); });
 $('prompt-refresh').addEventListener('click', fetchAndRenderPrompt);
