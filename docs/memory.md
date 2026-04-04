@@ -66,7 +66,15 @@ When messages are trimmed from the context window, the agent loses direct access
 3. **Rollup** — every 10 L0 segments are summarized into an L1 parent. 10 L1s → L2, etc. This builds a hierarchical tree.
 4. **Injection** — when messages are trimmed, `composeHistory` fills a token budget (`historyBudget`, default 20% of context) with summaries from the tree. Highest-level summaries cover old history cheaply, recent segments near the trim boundary are expanded to lower (more detailed) levels.
 
-The result is injected as a `<conversation_summary>` block in the system prompt, containing `<summary>` entries for each segment:
+The result is injected as a `<conversation_summary>` block in the system prompt, containing `<summary>` entries for each segment.
+
+For inspection and debugging, the web UI can also show:
+- the full composed system prompt via `GET /context/system`
+- the exact segment IDs currently selected by `composeHistory()` via `GET /context/segments`
+
+This makes it possible to compare the segment tree to the subset actually injected into context.
+
+Example:
 
 ```xml
 <conversation_summary>

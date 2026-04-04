@@ -17,6 +17,12 @@
 
 - **Cross-platform shell** — `bash` tool on Unix, `pwsh` tool on Windows. One shell tool per platform, selected automatically. No config needed.
   - `grep` works on Unix only; on Windows suggests `Select-String` via pwsh
+- **Context inspection UI** — segments and system prompt overlays are now practical debugging tools instead of raw dumps.
+  - New context inspection endpoints: `GET /context/system` and `GET /context/segments`
+  - System prompt overlay supports `Markdown` / `Raw` views
+  - Segment detail panel renders markdown summaries, has cleaner metadata layout, and preserves expanded/selected state during live refresh
+  - Segment overlay shows `All` / `Context` filters, clearer modal styling, and confirmation prompts for `Clean` / `Rebuild`
+  - Single-segment `Resummarize` action has explicit in-progress button state
 
 ### Changes
 - `kern init` writes minimal config: `model`, `provider`, `toolScope` only
@@ -35,14 +41,15 @@
   - `<tools>` for tool list
   - `<conversation_summary>` with nested `<summary>` blocks for compressed history
   - No more `---` delimiters between sections.
-- **System prompt endpoint** — `GET /prompt/system` returns the full composed system prompt for inspection.
+- **System prompt endpoint** — `GET /context/system` returns the full composed system prompt for inspection.
 - **Status enrichment** — `/status` now reports history tokens injected, segment level counts, and total segments per level.
 
 ### Web UI
 - **Segments visualization** — proportional colored blocks representing token density and message spans. Hover detail panel with full summary text, message range, timestamps, token counts.
 - **Level toggle** — switch between L0, L1, L2 views with collapsible rolled-up child segments.
 - **Segment controls** — Start, Stop, Rebuild, Clean buttons for managing segmentation lifecycle.
-- **System prompt overlay** — button opens full composed system prompt in a scrollable panel.
+- **System prompt overlay** — button opens the full composed system prompt in a scrollable panel with Markdown/Raw toggle.
+- **Context-aware segments overlay** — highlights the exact segments currently injected into prompt context and supports per-segment resummarization.
 
 ### Config
 - `historyBudget` (default `0.2`) — fraction of `maxContextTokens` allocated to compressed history. Set to `0` to disable.
