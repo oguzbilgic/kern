@@ -1013,68 +1013,125 @@
   }
   .switcher-server-header .switcher-item-remove { display: inline; font-size: 12px; }
 
-  /* --- Segments Overlay --- */
+  /* --- Overlay Modals --- */
   .segments-overlay {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.85);
+    background: rgba(3, 6, 10, 0.68);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     z-index: 2000;
-    overflow-y: auto;
-    padding: 24px;
+    padding: 28px;
+    overflow: auto;
   }
-  .segments-overlay.open { display: block; }
+  .segments-overlay.open {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  .segments-modal {
+    width: min(1400px, calc(100vw - 56px));
+    max-height: calc(100vh - 56px);
+    background: linear-gradient(180deg, rgba(24, 28, 35, 0.98), rgba(17, 21, 28, 0.98));
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.45);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
   .segments-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    position: sticky;
-    top: 0;
-    background: rgba(0,0,0,0.9);
-    padding: 8px 0;
-    z-index: 1;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.02);
   }
   .segments-header h2 {
     color: var(--text);
     font-size: 16px;
     font-weight: 600;
     font-family: var(--font-sans);
+    margin-bottom: 6px;
   }
   .segments-header .stats {
     color: var(--text-muted);
     font-size: 12px;
     font-family: var(--font-mono);
   }
-  .segments-close {
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    font-size: 18px;
-    cursor: pointer;
-    padding: 4px 10px;
-    border-radius: 4px;
+  .segments-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.015);
+    flex-wrap: wrap;
   }
-  .segments-close:hover { color: var(--text); border-color: var(--text-muted); }
+  .modal-actions,
+  .modal-filters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .modal-btn {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-dim);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 6px 11px;
+    border-radius: 8px;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.05s;
+  }
+  .modal-btn:hover {
+    color: var(--text);
+    border-color: rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.06);
+  }
+  .modal-btn:active { transform: translateY(1px); }
+  .modal-btn.active {
+    background: rgba(88, 166, 255, 0.16);
+    border-color: rgba(88, 166, 255, 0.45);
+    color: #dbeafe;
+  }
+  .modal-btn-danger:hover {
+    color: #ffd7d3;
+    border-color: rgba(252, 83, 58, 0.45);
+    background: rgba(252, 83, 58, 0.12);
+  }
+  .modal-btn-close {
+    padding: 4px 10px;
+    font-size: 18px;
+    line-height: 1;
+    border-radius: 10px;
+  }
   .segments-body {
     display: flex;
     gap: 0;
     min-height: 200px;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
   }
   .segments-timeline {
     flex: 1;
     min-width: 0;
     overflow: auto;
+    padding: 18px 20px 20px;
   }
   .segments-detail {
     width: 540px;
     flex-shrink: 0;
-    border-left: 1px solid var(--border);
-    padding: 16px;
+    border-left: 1px solid rgba(255,255,255,0.06);
+    padding: 18px 20px;
     overflow-y: auto;
-    position: sticky;
-    top: 0;
-    max-height: calc(100vh - 80px);
+    background: rgba(255,255,255,0.015);
   }
   .segments-detail.empty {
     display: flex;
@@ -1084,19 +1141,124 @@
     font-size: 12px;
     font-family: var(--font-mono);
   }
+  .seg-detail-heading {
+    margin-bottom: 14px;
+  }
+  .seg-detail-title {
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.3;
+    margin-bottom: 8px;
+  }
+  .seg-detail-subtitle {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    line-height: 1.6;
+  }
+  .seg-detail-time {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
   .seg-detail-meta {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .seg-detail-meta-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .seg-detail-meta-card .k {
     color: var(--text-muted);
     font-size: 11px;
     font-family: var(--font-mono);
-    margin-bottom: 10px;
-    line-height: 1.6;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 4px;
+  }
+  .seg-detail-meta-card .v {
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .seg-detail-actions {
+    margin-bottom: 12px;
+    display: flex;
+    gap: 8px;
   }
   .seg-detail-summary {
     color: var(--text);
     font-size: 13px;
     font-family: var(--font-sans);
     line-height: 1.6;
-    white-space: pre-wrap;
+  }
+  .seg-detail-summary ul,
+  .seg-detail-summary ol,
+  .prompt-markdown ul,
+  .prompt-markdown ol {
+    margin: 8px 0 8px 20px;
+  }
+  .seg-detail-summary p,
+  .prompt-markdown p {
+    margin: 0 0 10px 0;
+  }
+  .seg-detail-summary code,
+  .prompt-markdown code {
+    background: rgba(255,255,255,0.08);
+    padding: 1px 5px;
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .seg-detail-summary pre,
+  .prompt-markdown pre {
+    background: #0d1117;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 14px;
+    overflow: auto;
+    margin: 10px 0;
+  }
+  .seg-detail-summary blockquote,
+  .prompt-markdown blockquote {
+    border-left: 3px solid rgba(88,166,255,0.45);
+    padding-left: 12px;
+    color: var(--text-dim);
+    margin: 10px 0;
+  }
+  .seg-detail-summary h1, .seg-detail-summary h2, .seg-detail-summary h3,
+  .seg-detail-summary h4, .seg-detail-summary h5, .seg-detail-summary h6,
+  .prompt-markdown h1, .prompt-markdown h2, .prompt-markdown h3,
+  .prompt-markdown h4, .prompt-markdown h5, .prompt-markdown h6 {
+    margin: 14px 0 8px;
+    line-height: 1.3;
+  }
+  .prompt-content-toggle {
+    display: flex;
+    gap: 8px;
+  }
+  .prompt-content-toggle .modal-btn.active {
+    background: rgba(88, 166, 255, 0.16);
+    border-color: rgba(88, 166, 255, 0.45);
+    color: #dbeafe;
+  }
+  .prompt-markdown {
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.6;
+    background: #0d1117;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 18px;
+    overflow: auto;
   }
   .segments-level {
     margin-bottom: 16px;
@@ -1108,6 +1270,31 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 6px;
+  }
+  .segments-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .segments-stat-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .segments-stat-card .k {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 4px;
+  }
+  .segments-stat-card .v {
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 600;
   }
   .segments-row {
     display: flex;
@@ -1160,34 +1347,55 @@
 <body>
 
 <div class="segments-overlay" id="segments-overlay">
-  <div class="segments-header">
-    <h2>Semantic Segments</h2>
-    <div style="display:flex;align-items:center;gap:12px;">
-      <span class="stats" id="segments-stats"></span>
-      <button class="segments-close" id="segments-start" style="font-size:12px;">▶ Start</button>
-      <button class="segments-close" id="segments-stop" style="font-size:12px;">⏹ Stop</button>
-      <button class="segments-close" id="segments-clean" style="font-size:12px;">🗑 Clean</button>
-      <button class="segments-close" id="segments-rebuild" style="font-size:12px;">↻ Rebuild</button>
-      <button class="segments-close" id="segments-close">&times;</button>
+  <div class="segments-modal">
+    <div class="segments-header">
+      <div>
+        <h2>Semantic Segments</h2>
+        <span class="stats" id="segments-stats"></span>
+      </div>
+      <button class="modal-btn modal-btn-close" id="segments-close">&times;</button>
     </div>
-  </div>
-  <div class="segments-body">
-    <div class="segments-timeline" id="segments-timeline"></div>
-    <div class="segments-detail empty" id="segments-detail">hover a segment</div>
+    <div class="segments-toolbar">
+      <div class="modal-filters">
+        <button class="modal-btn active" id="segments-filter-all">All</button>
+        <button class="modal-btn" id="segments-filter-context">Context</button>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn" id="segments-start">Start</button>
+        <button class="modal-btn" id="segments-stop">Stop</button>
+        <button class="modal-btn modal-btn-danger" id="segments-clean">Clean</button>
+        <button class="modal-btn" id="segments-rebuild">Rebuild</button>
+      </div>
+    </div>
+    <div class="segments-body">
+      <div class="segments-timeline" id="segments-timeline"></div>
+      <div class="segments-detail empty" id="segments-detail">hover a segment</div>
+    </div>
   </div>
 </div>
 
 <div class="segments-overlay" id="prompt-overlay">
-  <div class="segments-header">
-    <h2>System Prompt</h2>
-    <div style="display:flex;align-items:center;gap:12px;">
-      <span class="stats" id="prompt-stats"></span>
-      <button class="segments-close" id="prompt-refresh" style="font-size:12px;">↻ Refresh</button>
-      <button class="segments-close" id="prompt-close">&times;</button>
+  <div class="segments-modal" style="width:min(1200px, calc(100vw - 56px));">
+    <div class="segments-header">
+      <div>
+        <h2>System Prompt</h2>
+        <span class="stats" id="prompt-stats"></span>
+      </div>
+      <button class="modal-btn modal-btn-close" id="prompt-close">&times;</button>
     </div>
-  </div>
-  <div class="segments-body" style="display:block;">
-    <pre id="prompt-text" style="margin:0;white-space:pre-wrap;word-break:break-word;max-height:70vh;overflow:auto;background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:16px;color:var(--text);"></pre>
+    <div class="segments-toolbar">
+      <div class="prompt-content-toggle">
+        <button class="modal-btn active" id="prompt-mode-md">Markdown</button>
+        <button class="modal-btn" id="prompt-mode-raw">Raw</button>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn" id="prompt-refresh">Refresh</button>
+      </div>
+    </div>
+    <div class="segments-body" style="display:block;overflow:auto;padding:20px;">
+      <div id="prompt-rendered" class="prompt-markdown"></div>
+      <pre id="prompt-text" style="display:none;margin:0;white-space:pre-wrap;word-break:break-word;overflow:auto;background:#0d1117;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px;color:var(--text);"></pre>
+    </div>
   </div>
 </div>
 
@@ -1374,8 +1582,13 @@ const AgentClient = {
   },
 
   async getSystemPrompt(baseUrl, token) {
-    const res = await fetch(`${baseUrl}/prompt/system`, { headers: this._headers(token) });
+    const res = await fetch(`${baseUrl}/context/system`, { headers: this._headers(token) });
     return res.text();
+  },
+
+  async getContextSegments(baseUrl, token) {
+    const res = await fetch(`${baseUrl}/context/segments`, { headers: this._headers(token) });
+    return res.json();
   },
 };
 
@@ -1585,7 +1798,9 @@ const segTimeline = $('segments-timeline');
 const segStats = $('segments-stats');
 const promptOverlay = $('prompt-overlay');
 const promptText = $('prompt-text');
+const promptRendered = $('prompt-rendered');
 const promptStats = $('prompt-stats');
+let promptViewMode = 'md';
 
 
 // Color encodes token density (tokens/message) — cool to warm
@@ -1602,9 +1817,13 @@ let segPollTimer = null;
 async function fetchAndRenderSegments() {
   if (!BASE_URL) return;
   try {
-    const res = await fetch(`${BASE_URL}/segments`, { headers: AgentClient._headers(AUTH_TOKEN) });
+    const [res, contextData] = await Promise.all([
+      fetch(`${BASE_URL}/segments`, { headers: AgentClient._headers(AUTH_TOKEN) }),
+      AgentClient.getContextSegments(BASE_URL, AUTH_TOKEN).catch(() => ({ segments: [] })),
+    ]);
     if (!res.ok) return;
     const data = await res.json();
+    contextSegmentIds = new Set((contextData.segments || []).map(s => s.id));
     renderSegments(data);
   } catch (e) {
     console.error('segments fetch failed:', e);
@@ -1617,22 +1836,34 @@ $('segments-btn').addEventListener('click', async () => {
     if (segPollTimer) { clearInterval(segPollTimer); segPollTimer = null; }
     return;
   }
+  updateSegmentFilterButtons();
   await fetchAndRenderSegments();
   segOverlay.classList.add('open');
   segPollTimer = setInterval(fetchAndRenderSegments, 3000);
 });
+
+function updatePromptModeButtons() {
+  $('prompt-mode-md').classList.toggle('active', promptViewMode === 'md');
+  $('prompt-mode-raw').classList.toggle('active', promptViewMode === 'raw');
+  promptRendered.style.display = promptViewMode === 'md' ? 'block' : 'none';
+  promptText.style.display = promptViewMode === 'raw' ? 'block' : 'none';
+}
 
 async function fetchAndRenderPrompt() {
   if (!BASE_URL) return;
   try {
     const text = await AgentClient.getSystemPrompt(BASE_URL, AUTH_TOKEN);
     promptText.textContent = text;
+    promptRendered.innerHTML = renderMarkdown(text);
     const approxTokens = Math.ceil(text.length / 4);
     promptStats.textContent = `${text.length.toLocaleString()} chars · ~${approxTokens.toLocaleString()} tokens`;
+    updatePromptModeButtons();
   } catch (e) {
     console.error('prompt fetch failed:', e);
     promptText.textContent = 'Failed to load system prompt';
+    promptRendered.innerHTML = '<p>Failed to load system prompt</p>';
     promptStats.textContent = '';
+    updatePromptModeButtons();
   }
 }
 
@@ -1641,10 +1872,13 @@ $('prompt-btn').addEventListener('click', async () => {
     promptOverlay.classList.remove('open');
     return;
   }
+  updatePromptModeButtons();
   await fetchAndRenderPrompt();
   promptOverlay.classList.add('open');
 });
 
+$('prompt-mode-md').addEventListener('click', () => { promptViewMode = 'md'; updatePromptModeButtons(); });
+$('prompt-mode-raw').addEventListener('click', () => { promptViewMode = 'raw'; updatePromptModeButtons(); });
 $('prompt-refresh').addEventListener('click', fetchAndRenderPrompt);
 $('prompt-close').addEventListener('click', () => promptOverlay.classList.remove('open'));
 promptOverlay.addEventListener('click', (e) => {
@@ -1666,6 +1900,7 @@ $('segments-start').addEventListener('click', async () => {
 
 $('segments-clean').addEventListener('click', async () => {
   if (!BASE_URL) return;
+  if (!confirm('Clean all segments?')) return;
   try {
     await fetch(`${BASE_URL}/segments/clean`, {
       method: 'POST',
@@ -1693,6 +1928,7 @@ $('segments-stop').addEventListener('click', async () => {
 
 $('segments-rebuild').addEventListener('click', async () => {
   if (!BASE_URL) return;
+  if (!confirm('Rebuild segments from scratch?')) return;
   const btn = $('segments-rebuild');
   btn.textContent = '↻ Rebuilding...';
   btn.disabled = true;
@@ -1716,7 +1952,14 @@ function closeSegOverlay() {
   if (segPollTimer) { clearInterval(segPollTimer); segPollTimer = null; }
 }
 
+function updateSegmentFilterButtons() {
+  $('segments-filter-all').classList.toggle('active', segmentFilterMode === 'all');
+  $('segments-filter-context').classList.toggle('active', segmentFilterMode === 'context');
+}
+
 $('segments-close').addEventListener('click', closeSegOverlay);
+$('segments-filter-all').addEventListener('click', async () => { segmentFilterMode = 'all'; updateSegmentFilterButtons(); await fetchAndRenderSegments(); });
+$('segments-filter-context').addEventListener('click', async () => { segmentFilterMode = 'context'; updateSegmentFilterButtons(); await fetchAndRenderSegments(); });
 
 segOverlay.addEventListener('click', (e) => {
   if (e.target === segOverlay) closeSegOverlay();
@@ -1729,30 +1972,53 @@ document.addEventListener('keydown', (e) => {
 
 const segDetail = $('segments-detail');
 let segDataMap = {};
+let segmentFilterMode = 'all';
+let contextSegmentIds = new Set();
+let expandedSegmentLevels = new Set();
+let activeSegmentId = null;
 
 function renderSegments(data) {
   const { segments, stats } = data;
 
-  // Stats: compute from top-level only (no parent)
-  const topLevel = segments ? segments.filter(s => !s.parent_id) : [];
-  const totalTokens = topLevel.reduce((s, seg) => s + (seg.token_count || 0), 0);
-  const totalSummaryTokens = topLevel.reduce((s, seg) => s + (seg.summary_token_count || Math.ceil((seg.summary || '').length / 4)), 0);
-  const ratio = totalSummaryTokens > 0 ? Math.round(totalTokens / totalSummaryTokens) : 0;
-  const levelCount = new Set(topLevel.map(s => s.level || 0)).size;
-  segStats.textContent = topLevel.length > 0
-    ? `${topLevel.length} segments · ${levelCount} level${levelCount > 1 ? 's' : ''} · ${(totalTokens / 1000).toFixed(0)}k tokens · ${(totalSummaryTokens / 1000).toFixed(1)}k summary · ${ratio}:1`
-    : `${stats.segments || 0} segments`;
+  const allSegments = segments || [];
+  const filteredSegments = segmentFilterMode === 'context'
+    ? allSegments.filter(s => contextSegmentIds.has(s.id))
+    : allSegments;
 
-  if (!segments || segments.length === 0) {
+  const statSegments = filteredSegments;
+  const totalTokens = statSegments.reduce((s, seg) => s + (seg.token_count || 0), 0);
+  const totalSummaryTokens = statSegments.reduce((s, seg) => s + (seg.summary_token_count || Math.ceil((seg.summary || '').length / 4)), 0);
+  const ratio = totalSummaryTokens > 0 ? Math.round(totalTokens / totalSummaryTokens) : 0;
+  const levelCount = new Set(statSegments.map(s => s.level || 0)).size;
+  const messageSpan = statSegments.length > 0
+    ? (Math.max(...statSegments.map(s => s.msg_end || 0)) - Math.min(...statSegments.map(s => s.msg_start || 0)) + 1)
+    : 0;
+  const avgSummary = statSegments.length > 0 ? Math.round(totalSummaryTokens / statSegments.length) : 0;
+  const label = segmentFilterMode === 'context' ? 'context' : 'all';
+  segStats.textContent = statSegments.length > 0
+    ? `${statSegments.length} ${label} segments · ${levelCount} level${levelCount > 1 ? 's' : ''}`
+    : `${label}: 0 segments`;
+
+  if (!filteredSegments || filteredSegments.length === 0) {
     segTimeline.innerHTML = '<div style="color:var(--text-muted);padding:20px;">No segments yet. Use Start or Rebuild to index.</div>';
     return;
   }
 
+  let html = '';
+  html += `<div class="segments-overview">`;
+  html += `<div class="segments-stat-card"><div class="k">Messages</div><div class="v">${messageSpan.toLocaleString()}</div></div>`;
+  html += `<div class="segments-stat-card"><div class="k">Source tokens</div><div class="v">${totalTokens.toLocaleString()}</div></div>`;
+  html += `<div class="segments-stat-card"><div class="k">Summary tokens</div><div class="v">${totalSummaryTokens.toLocaleString()}</div></div>`;
+  html += `<div class="segments-stat-card"><div class="k">Compression</div><div class="v">${ratio}:1</div></div>`;
+  html += `<div class="segments-stat-card"><div class="k">Segments</div><div class="v">${statSegments.length.toLocaleString()}</div></div>`;
+  html += `<div class="segments-stat-card"><div class="k">Avg summary / seg</div><div class="v">${avgSummary.toLocaleString()} tok</div></div>`;
+  html += `</div>`;
+
   // Group by level
-  const levels = {};       // orphans per level
-  const children = {};     // children (have parent_id) per level
+  const levels = {};
+  const children = {};
   let maxMsgEnd = 0;
-  for (const seg of segments) {
+  for (const seg of filteredSegments) {
     const lvl = seg.level || 0;
     if (seg.parent_id) {
       if (!children[lvl]) children[lvl] = [];
@@ -1765,7 +2031,6 @@ function renderSegments(data) {
   }
 
   segDataMap = {};
-  let html = '';
   const sortedLevels = Object.keys(levels).map(Number).sort();
 
   const MIN_BLOCK_PX = 40;
@@ -1775,6 +2040,7 @@ function renderSegments(data) {
     const segs = levels[lvl] || [];
     const childSegs = children[lvl] || [];
     const allSegs = [...childSegs, ...segs];
+    if (allSegs.length === 0) continue;
     // Scale widths within this level: smallest → MIN, largest → MAX
     const spans = allSegs.map(s => s.msg_end - s.msg_start);
     const minSpan = Math.min(...spans);
@@ -1839,19 +2105,66 @@ function renderSegments(data) {
       row.style.display = open ? 'none' : 'flex';
       el.textContent = el.textContent.replace(/^[▸▾]/, open ? '▸' : '▾');
       el.classList.toggle('open', !open);
+      if (open) expandedSegmentLevels.delete(String(lvl));
+      else expandedSegmentLevels.add(String(lvl));
     });
   });
+
+  for (const lvl of expandedSegmentLevels) {
+    const toggle = segTimeline.querySelector(`.seg-collapsed[data-level="${lvl}"]`);
+    const row = segTimeline.querySelector(`.seg-children-row[data-level="${lvl}"]`);
+    if (!toggle || !row) continue;
+    row.style.display = 'flex';
+    toggle.textContent = toggle.textContent.replace(/^[▸▾]/, '▾');
+    toggle.classList.add('open');
+  }
 
   // Hover to show detail panel
   segTimeline.querySelectorAll('.seg-block').forEach(el => {
     el.addEventListener('mouseenter', () => showSegDetail(el));
     el.addEventListener('click', () => showSegDetail(el));
   });
+
+  if (activeSegmentId != null) {
+    const active = segTimeline.querySelector(`.seg-block[data-seg-id="${activeSegmentId}"]`);
+    if (active) showSegDetail(active);
+  }
+}
+
+async function resummarizeSegment(segId) {
+  if (!BASE_URL) return;
+  const btn = document.getElementById(`seg-resummarize-${segId}`);
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Resummarizing...';
+  }
+  try {
+    const res = await fetch(`${BASE_URL}/segments/${segId}/resummarize`, {
+      method: 'POST',
+      headers: AgentClient._headers(AUTH_TOKEN),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'resummarize failed');
+    await fetchAndRenderSegments();
+    const active = segTimeline.querySelector(`.seg-block[data-seg-id="${segId}"]`);
+    if (active) showSegDetail(active);
+  } catch (e) {
+    console.error('resummarize failed:', e);
+    if (btn) btn.textContent = 'Failed';
+    setTimeout(() => {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Resummarize';
+      }
+    }, 1500);
+    return;
+  }
 }
 
 function showSegDetail(el) {
   segTimeline.querySelectorAll('.seg-block.active').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
+  activeSegmentId = Number(el.dataset.segId);
 
   const seg = segDataMap[el.dataset.segId];
   if (!seg) return;
@@ -1859,17 +2172,33 @@ function showSegDetail(el) {
   const span = seg.msg_end - seg.msg_start;
   const tokens = (seg.token_count || 0).toLocaleString();
   const summaryTokens = seg.summary_token_count || Math.ceil((seg.summary || '').length / 4);
+  const compression = summaryTokens > 0 ? Math.round(seg.token_count / summaryTokens) : '?';
+  const title = `Msgs ${seg.msg_start}–${seg.msg_end}`;
+  const subtitle = `${span} messages${seg.level != null ? ` · L${seg.level}` : ''}${seg.parent_id ? ` · parent ${seg.parent_id}` : ''}`;
+  const timeRange = `${seg.start_time ? new Date(seg.start_time).toLocaleString() : '—'}${seg.start_time && seg.end_time ? ' – ' : ''}${seg.end_time ? new Date(seg.end_time).toLocaleString() : ''}`;
 
   segDetail.classList.remove('empty');
   segDetail.innerHTML = `
-    <div class="seg-detail-meta">
-      msgs ${seg.msg_start}–${seg.msg_end} (${span} messages)<br>
-      ${tokens} tokens → ${summaryTokens} summary tokens (${summaryTokens > 0 ? Math.round(seg.token_count / summaryTokens) : '?'}:1)<br>
-      ${seg.start_time ? new Date(seg.start_time).toLocaleString() : ''}${seg.start_time && seg.end_time ? ' – ' : ''}${seg.end_time ? new Date(seg.end_time).toLocaleString() : ''}
-      ${!seg.summarized ? '<br><span style="color:var(--orange);">⏳ not yet summarized</span>' : ''}
+    <div class="seg-detail-heading">
+      <div class="seg-detail-title">${title}</div>
+      <div class="seg-detail-subtitle">${subtitle}</div>
     </div>
-    <div class="seg-detail-summary">${escHtml(seg.summary || '') || '<span style="color:var(--text-muted);font-style:italic;">no summary</span>'}</div>
+    <div class="seg-detail-time">${timeRange}</div>
+    <div class="seg-detail-meta">
+      <div class="seg-detail-meta-card">
+        <div class="k">Compression</div>
+        <div class="v">${tokens} → ${summaryTokens} summary tokens (${compression}:1)</div>
+      </div>
+    </div>
+    ${!seg.summarized ? '<div style="color:var(--orange);font-size:12px;font-family:var(--font-mono);margin-bottom:10px;">not yet summarized</div>' : ''}
+    <div class="seg-detail-actions">
+      <button id="seg-resummarize-${seg.id}" class="modal-btn">Resummarize</button>
+    </div>
+    <div class="seg-detail-summary">${seg.summary ? renderMarkdown(seg.summary) : '<span style="color:var(--text-muted);font-style:italic;">no summary</span>'}</div>
   `;
+
+  const btn = document.getElementById(`seg-resummarize-${seg.id}`);
+  if (btn) btn.addEventListener('click', () => resummarizeSegment(seg.id));
 }
 
 function escHtml(s) {

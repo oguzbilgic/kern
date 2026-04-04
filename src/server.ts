@@ -23,11 +23,13 @@ export class AgentServer {
   private statusFn: (() => any | Promise<any>) | null = null;
   private historyFn: ((limit: number, before?: number) => any[]) | null = null;
   private segmentsFn: ((sessionId?: string) => any) | null = null;
+  private contextSegmentsFn: (() => any | Promise<any>) | null = null;
   private systemPromptFn: (() => any | Promise<any>) | null = null;
   private segmentsRebuildFn: (() => Promise<any>) | null = null;
   private segmentsStopFn: (() => void) | null = null;
   private segmentsCleanFn: (() => void) | null = null;
   private segmentsStartFn: (() => Promise<any>) | null = null;
+  private segmentResummarizeFn: ((id: number) => Promise<any>) | null = null;
   private port = 0;
 
   constructor() {
@@ -50,6 +52,10 @@ export class AgentServer {
     this.segmentsFn = fn;
   }
 
+  setContextSegmentsFn(fn: () => any | Promise<any>) {
+    this.contextSegmentsFn = fn;
+  }
+
   setSystemPromptFn(fn: () => any | Promise<any>) {
     this.systemPromptFn = fn;
   }
@@ -68,6 +74,10 @@ export class AgentServer {
 
   setSegmentsStartFn(fn: () => Promise<any>) {
     this.segmentsStartFn = fn;
+  }
+
+  setSegmentResummarizeFn(fn: (id: number) => Promise<any>) {
+    this.segmentResummarizeFn = fn;
   }
 
   async start(host: string = "127.0.0.1"): Promise<number> {
@@ -253,11 +263,19 @@ export class AgentServer {
       return;
     }
 
-    // System prompt debug dump
-    if (url === "/prompt/system" && req.method === "GET") {
+    // Context system prompt debug dump
+    if (url === "/context/system" && req.method === "GET") {
       const data = this.systemPromptFn ? await this.systemPromptFn() : { system: "" };
       res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
       res.end(typeof data === "string" ? data : (data.system || ""));
+      return;
+    }
+
+    // Context-selected segments currently used for history injection
+    if (url === "/context/segments" && req.method === "GET") {
+      const data = this.contextSegmentsFn ? await this.contextSegmentsFn() : { segments: [], tokenCount: 0 };
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
       return;
     }
 
@@ -311,6 +329,27 @@ export class AgentServer {
       } else {
         res.writeHead(404, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "segments not enabled" }));
+      }
+      return;
+    }
+
+    // Segment resummarize — regenerate one segment summary in place
+    const resummarizeMatch = url.match(/^\/segments\/(\d+)\/resummarize$/);
+    if (resummarizeMatch && req.method === "POST") {
+      if (!this.segmentResummarizeFn) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "segments not enabled" }));
+        return;
+      }
+      try {
+        const id = parseInt(resummarizeMatch[1] || "", 10);
+        if (!Number.isFinite(id)) throw new Error("invalid segment id");
+        const result = await this.segmentResummarizeFn(id);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result));
+      } catch (err: any) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message || "resummarize failed" }));
       }
       return;
     }

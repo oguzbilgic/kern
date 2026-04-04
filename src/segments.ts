@@ -3,6 +3,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { log } from "./log.js";
 import type { MemoryDB } from "./memory.js";
 import type Database from "better-sqlite3";
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
 
 const EMBEDDING_MODEL = "openai/text-embedding-3-small";
 const SUMMARY_MODEL = "openai/gpt-4.1-mini";
@@ -22,6 +24,104 @@ const EMBED_BATCH_SIZE = 100;
 
 // Max messages to process per indexSession call (prevents OOM on large backfills)
 const MAX_CHUNK_SIZE = 500;
+
+function readPromptFile(path: string): string | null {
+  try {
+    if (!existsSync(path)) return null;
+    return readFileSync(path, "utf-8").trim();
+  } catch {
+    return null;
+  }
+}
+
+function buildSummarizerContext(): string {
+  const cwd = process.cwd();
+  const identity = readPromptFile(join(cwd, "IDENTITY.md"));
+  const users = readPromptFile(join(cwd, "USERS.md"));
+
+  const parts = [
+    "Agent context:",
+    identity ? `\n<identity>\n${identity}\n</identity>` : "",
+    users ? `\n<users>\n${users}\n</users>` : "",
+    `\nIdentity preservation rules:\n- Preserve speaker distinctions when relevant. Do not flatten every inbound human into \"the user\".\n- Distinguish operator, system messages, and other people in channels/DMs.\n- Prefer names or roles when known (for example: operator, David on Slack, a participant in #di-agent-chat).\n- Do not include opaque platform user IDs unless they are the only identifier available and truly necessary.\n- Keep channel/interface context only when it matters to what happened.`,
+  ].filter(Boolean);
+
+  return parts.join("\n").trim();
+}
+
+const SUMMARIZER_CONTEXT = buildSummarizerContext();
+
+function segmentSummaryPrompt(inputText: string, targetTokens: number): string {
+  return `You are writing compact internal memory notes for your future self.
+
+Task:
+- Summarize only what happened in this conversation segment.
+- Focus on: requests, actions taken, decisions made, concrete outcomes, and unresolved follow-ups.
+- Keep this tightly scoped to the segment. Do not turn it into a multi-day or project-wide recap.
+
+Style:
+- Write concise bullet points.
+- Prefer dense factual notes over polished narrative prose.
+- Keep a light sense of narrative when useful: preserve why something happened, not just what happened.
+- Prefer bullets that connect request or intent -> action -> outcome when that context matters.
+- No section headers.
+- No boilerplate like "Participants and Roles", "What I Did", "Results", "Open Items", or "Additional Notes".
+- Do not explain the environment unless it directly affected what happened in this segment.
+- Keep the specific details that give the event its identity.
+- Avoid turning identifiable events into generic summaries.
+- Remove repetition first; keep the details that will help future me recognize what this was.
+- Omit low-value detail and repeated chatter.
+
+Perspective and identity:
+- Use first person when describing my actions or decisions.
+- Preserve who said or wanted what when relevant.
+- Do not collapse distinct humans/agents/channels into a generic "user".
+- Prefer names or roles over raw IDs.
+
+Compression:
+- Favor 4-10 bullets unless the segment truly contains only one topic.
+- Keep only details that would matter for future recall or rollups.
+- IMPORTANT: Keep your response under ${targetTokens} tokens.
+
+${SUMMARIZER_CONTEXT}
+
+<conversation_segment>
+${inputText}
+</conversation_segment>`;
+}
+
+function rollupSummaryPrompt(inputText: string, targetTokens: number, childCount: number): string {
+  return `You are writing compact internal memory notes for your future self.
+
+Task:
+- The input is ${childCount} sequential lower-level conversation summaries.
+- Produce a higher-level rollup of the main themes, decisions, outcomes, and unresolved follow-ups across them.
+- Stay faithful to the children. Do not introduce broad project recap or background that is not clearly supported.
+
+Style:
+- Write concise bullet points.
+- No section headers.
+- No boilerplate or executive-summary framing.
+- Prefer dense factual notes that compress well for future rollups.
+- Preserve important causal links: why a change happened, what I did, and what came out of it.
+- Keep the specific details that make an event recognizable later; compress prose before compressing identity.
+
+Perspective and identity:
+- Use first person when describing my actions or decisions.
+- Preserve important distinctions between operator, other humans, agents, and channels when they matter.
+- Prefer names or roles over raw IDs.
+
+Compression:
+- Keep only details that matter at the higher level.
+- Merge repetition.
+- IMPORTANT: Keep your response under ${targetTokens} tokens.
+
+${SUMMARIZER_CONTEXT}
+
+<conversation_summaries>
+${inputText}
+</conversation_summaries>`;
+}
 
 interface MessageRow {
   id: number;
@@ -198,6 +298,69 @@ export class SegmentIndex {
     });
   }
 
+  async resummarizeSegment(id: number): Promise<{ ok: true; id: number; level: number }> {
+    const seg = this.db.prepare(
+      `SELECT id, session_id, msg_start, msg_end, level, summary, token_count
+       FROM semantic_segments
+       WHERE id = ?`
+    ).get(id) as {
+      id: number;
+      session_id: string;
+      msg_start: number;
+      msg_end: number;
+      level: number;
+      summary: string;
+      token_count: number;
+    } | undefined;
+
+    if (!seg) throw new Error(`segment ${id} not found`);
+
+    let inputText = "";
+    let targetTokens = 0;
+    let prompt = "";
+
+    if (seg.level === 0) {
+      const rows = this.db.prepare(
+        `SELECT role, content FROM messages
+         WHERE session_id = ? AND msg_index >= ? AND msg_index < ?
+         ORDER BY msg_index`
+      ).all(seg.session_id, seg.msg_start, seg.msg_end) as Array<{ role: string; content: string }>;
+
+      inputText = rows.map((m) => `${m.role}: ${m.content}`).join("\n");
+      inputText = inputText.replace(/^tool: .{500,}$/gm, (m) => m.slice(0, 300) + '... [truncated]').slice(0, 60000);
+      targetTokens = Math.max(200, Math.min(1500, Math.round(seg.token_count / 10)));
+      prompt = segmentSummaryPrompt(inputText, targetTokens);
+    } else {
+      const children = this.db.prepare(
+        `SELECT msg_start, msg_end, summary
+         FROM semantic_segments
+         WHERE parent_id = ?
+         ORDER BY msg_start`
+      ).all(id) as Array<{ msg_start: number; msg_end: number; summary: string }>;
+
+      if (children.length === 0) throw new Error(`segment ${id} has no children`);
+      inputText = children.map((seg, i) => `[Segment ${i + 1}, msgs ${seg.msg_start}-${seg.msg_end}]\n${seg.summary}`).join("\n\n");
+      targetTokens = 1500;
+      prompt = rollupSummaryPrompt(inputText, targetTokens, children.length);
+    }
+
+    const result = await generateText({
+      model: this.summaryModel,
+      prompt,
+      maxOutputTokens: targetTokens,
+    });
+
+    const summaryText = result.text.trim();
+    if (!summaryText) throw new Error(`empty summary for segment ${id}`);
+
+    const summaryTokens = result.usage?.outputTokens ?? Math.ceil(summaryText.length / 4);
+    this.db.prepare(
+      "UPDATE semantic_segments SET summary = ?, summarized = 1, summary_token_count = ? WHERE id = ?"
+    ).run(summaryText, summaryTokens, id);
+
+    return { ok: true, id, level: seg.level };
+  }
+
   /**
    * Summarize all unsummarized segments.
    * Idempotent — safe to call repeatedly. Picks up segments from any session
@@ -228,7 +391,7 @@ export class SegmentIndex {
 
         const result = await generateText({
           model: this.summaryModel,
-          prompt: `You are an AI agent writing notes for your future self. Summarize what happened in this conversation: what the user wanted, what you did, what the results and outcomes were, and what's still unresolved. Write in first person ("I did X", "User asked Y"). Focus on intent and outcomes, not individual commands. Be specific — include names, values, and key results. No filler. Bullet points if multiple topics. IMPORTANT: Keep your response under ${targetTokens} tokens.\n\n${inputText}`,
+          prompt: segmentSummaryPrompt(inputText, targetTokens),
           maxOutputTokens: targetTokens,
         });
 
@@ -316,7 +479,7 @@ export class SegmentIndex {
           try {
             const result = await generateText({
               model: this.summaryModel,
-              prompt: `You are an AI agent writing notes for your future self. Below are ${group.length} sequential conversation summaries. Write a higher-level summary that captures the key themes, decisions, and outcomes across all of them. Write in first person. Be specific. Bullet points. Keep under ${targetTokens} tokens.\n\n${childSummaries}`,
+              prompt: rollupSummaryPrompt(childSummaries, targetTokens, group.length),
               maxOutputTokens: targetTokens,
             });
 
@@ -555,7 +718,23 @@ export class SegmentIndex {
    * Fills a token budget with segment summaries from the trimmed region.
    * Recency bias: expands most recent segments to lower (more detailed) levels first.
    */
-  composeHistory(sessionId: string, trimmedBeforeMsg: number, budgetTokens: number): { text: string; levelCounts: Record<number, number>; tokens: number } | null {
+  composeHistory(sessionId: string, trimmedBeforeMsg: number, budgetTokens: number): {
+    text: string;
+    levelCounts: Record<number, number>;
+    tokens: number;
+    segments: Array<{
+      id: number;
+      level: number;
+      msg_start: number;
+      msg_end: number;
+      start_time: string | null;
+      end_time: string | null;
+      summary: string;
+      token_count: number;
+      summary_token_count: number;
+      parent_id: number | null;
+    }>;
+  } | null {
     // Get all summarized segments for this session
     const allSegments = this.db.prepare(
       `SELECT id, msg_start, msg_end, start_time, end_time, parent_id, level, summary, token_count, summary_token_count
@@ -643,7 +822,7 @@ export class SegmentIndex {
       lines.push(summaryLines.join("\n"));
     }
 
-    return { text: lines.join('\n\n'), levelCounts, tokens: usedTokens };
+    return { text: lines.join('\n\n'), levelCounts, tokens: usedTokens, segments: selected };
   }
 
   getStats(): { segments: number; level0: number; levels: Record<number, number> } {

@@ -79,6 +79,9 @@ Two layers:
 - **Full history** on connect, including tool call results
 - **Agent info panel** — version, model, tools, Telegram/Slack connection status, uptime, session stats, API usage, queue state, connection string with copy
 - **Auto-reconnect** — re-discovers agent port after restart
+- **Context inspection overlays** — inspect semantic segments and the fully composed system prompt from the info panel
+  - Segments overlay supports `All` / `Context` filters, live refresh during rebuilds, per-segment resummarization, and markdown-rendered summaries
+  - System prompt overlay supports `Markdown` and `Raw` views for the composed prompt
 - **Dark theme**, mobile-friendly, PWA support
 
 ### Global config

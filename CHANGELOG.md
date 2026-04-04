@@ -17,11 +17,22 @@
 
 - **Cross-platform shell** — `bash` tool on Unix, `pwsh` tool on Windows. One shell tool per platform, selected automatically. No config needed.
   - `grep` works on Unix only; on Windows suggests `Select-String` via pwsh
+- **Segment summary quality** — segment and rollup prompts now preserve request → action → outcome causality while keeping the concrete details that make an event recognizable later.
+  - Summaries are grounded with `IDENTITY.md` and `USERS.md` so operator, channel, and participant distinctions survive compression better
+  - Single-segment `Resummarize` action regenerates one summary in place for fast prompt iteration and debugging
+- **Context inspection** — new APIs and web UI make prompt composition inspectable.
+  - New context inspection endpoints: `GET /context/system` and `GET /context/segments`
+  - `composeHistory()` now returns the exact selected segment metadata, not just rendered text
+  - System prompt overlay supports `Markdown` / `Raw` views
+  - Segment detail panel renders markdown summaries, has cleaner metadata layout, and preserves expanded/selected state during live refresh
+  - Segment overlay shows `All` / `Context` filters, clearer modal styling, and confirmation prompts for `Clean` / `Rebuild`
+  - Single-segment `Resummarize` action has explicit in-progress button state
 
 ### Changes
 - `kern init` writes minimal config: `model`, `provider`, `toolScope` only
 - Removed stale `telegram.allowedUsers` and `telegram.showTools` config fields
 - Dropped legacy `tools` array support (use `toolScope` instead)
+- `/prompt/system` replaced by `/context/system`
 
 ## v0.16.0
 

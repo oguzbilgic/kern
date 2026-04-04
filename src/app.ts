@@ -261,6 +261,31 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     return { system: built.system || latestSystem };
   });
 
+  server.setContextSegmentsFn(() => {
+    if (!segmentIndex) return { segments: [], tokenCount: 0 };
+    const sessionId = runtime.getSessionId();
+    if (!sessionId) return { segments: [], tokenCount: 0 };
+
+    const messages = runtime.getMessages();
+    const built = runtime.buildPromptContext();
+    const historyBudget = Math.round(config.maxContextTokens * (config.historyBudget || 0));
+    const trimmedCount = Math.max(0, messages.length - (built.messages?.length || messages.length));
+    if (trimmedCount <= 0 || historyBudget <= 0) return { segments: [], tokenCount: 0 };
+
+    const history = segmentIndex.composeHistory(sessionId, trimmedCount, historyBudget);
+    if (!history) return { segments: [], tokenCount: 0 };
+
+    return {
+      tokenCount: history.tokens,
+      segments: history.segments.map((seg) => ({
+        id: seg.id,
+        level: seg.level,
+        msg_start: seg.msg_start,
+        msg_end: seg.msg_end,
+      })),
+    };
+  });
+
   server.setSegmentsFn((sessionId?: string) => {
     if (!segmentIndex) return { segments: [], stats: { segments: 0, level0: 0 } };
     return segmentIndex.getSegments(sessionId);
@@ -312,6 +337,11 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     } finally {
       segmentRunning = false;
     }
+  });
+
+  server.setSegmentResummarizeFn(async (id: number) => {
+    if (!segmentIndex) throw new Error("segments not enabled");
+    return segmentIndex.resummarizeSegment(id);
   });
 
   const port = await server.start("127.0.0.1");
