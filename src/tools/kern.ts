@@ -97,6 +97,17 @@ export interface InterfaceStatus {
   detail?: string;
 }
 
+export interface ContextBreakdown {
+  maxTokens: number;
+  messageTokens: number;
+  historyTokens: number;
+  messageCount: number;
+  totalMessages: number;
+  trimmedCount: number;
+  truncatedCount: number;
+  historyLevelCounts: Record<number, number>;
+}
+
 export interface StatusData {
   version: string;
   agent: string;
@@ -106,6 +117,7 @@ export interface StatusData {
   uptime: string;
   session: string;
   context: string | null;
+  contextBreakdown: ContextBreakdown | null;
   history: string | null;
   apiUsage: string;
   promptTokens: number;
@@ -158,6 +170,18 @@ export function getStatusData(): StatusData {
   const tg = ifaces.find(i => i.name === "telegram");
   const sl = ifaces.find(i => i.name === "slack");
 
+  // Numeric context breakdown for UI
+  const contextBreakdown = stats ? {
+    maxTokens: _config.maxContextTokens,
+    messageTokens: stats.windowTokens,
+    historyTokens: stats.historyTokens,
+    messageCount: stats.windowMessages,
+    totalMessages: stats.totalMessages,
+    trimmedCount: trimmed,
+    truncatedCount: stats.truncatedCount,
+    historyLevelCounts: stats.historyLevelCounts,
+  } : null;
+
   return {
     version: _version,
     agent: _agentDir,
@@ -167,6 +191,7 @@ export function getStatusData(): StatusData {
     uptime: uptimeStr,
     session,
     context,
+    contextBreakdown,
     history,
     apiUsage,
     promptTokens: _totalPromptTokens,
