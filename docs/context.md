@@ -21,7 +21,7 @@ Changes to notes or knowledge files are picked up immediately — no restart nee
 
 ## Context window
 
-`maxContextTokens` (default 50000) sets the token budget. When the full message history exceeds this, the oldest messages are trimmed from the front. Nothing is lost — full history stays in [session storage](sessions.md).
+`maxContextTokens` (default 50000) sets the token budget. When the full message history exceeds this, the oldest messages are trimmed from the front. Nothing is lost — full history stays in session JSONL files.
 
 ### Tool result truncation
 

@@ -20,7 +20,7 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 | `provider` | `openrouter` | API provider: `openrouter`, `anthropic`, `openai` |
 | `toolScope` | `full` | Tool access level: `full`, `write`, `read` |
 | `maxSteps` | `30` | Max tool-use steps per message |
-| `maxContextTokens` | `50000` | Token budget for context window. Messages beyond this are trimmed oldest-first. Full history stays in [session storage](sessions.md). |
+| `maxContextTokens` | `50000` | Token budget for context window. Messages beyond this are trimmed oldest-first. Full history stays in session JSONL files. |
 | `maxToolResultChars` | `20000` | Max characters per tool result in context. Oversized results are truncated in context only. Full results stay in session storage. Set to `0` to disable. |
 | `heartbeatInterval` | `60` | Minutes between heartbeat prompts. Agent reviews notes, updates knowledge. 0 to disable. |
 | `recall` | `true` | Enable recall and segments (embedding-based features). Set to `false` to disable. Requires an embedding API key. Session storage and notes summaries work regardless. |
@@ -95,4 +95,4 @@ Tracks all registered agents with their name, path, PID, port, and auth token. U
 
 ## .kern/ local files
 
-See [Sessions](sessions.md) for details on session storage, the memory database, and local file layout.
+Local files (sessions, database, logs) live in `.kern/` and are gitignored.

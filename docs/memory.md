@@ -37,4 +37,4 @@ This keeps memory current during long sessions.
 
 These are the agent's portable memory. Clone the repo and the agent picks up where it left off.
 
-See [Sessions](sessions.md) for conversation storage and [Context](context.md) for how memory is injected into the prompt.
+See [Context](context.md) for how memory is injected into the prompt.
