@@ -2,6 +2,8 @@
 
 ## next
 
+## v0.17.0
+
 ### Features
 - **Android app** ([#15](https://github.com/oguzbilgic/kern-ai/pull/15)) — native mobile app for chatting with kern from Android devices.
   - Connects to any `kern web` server (local, LAN, Tailscale, or tunnel)
