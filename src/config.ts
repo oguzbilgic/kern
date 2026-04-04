@@ -26,8 +26,10 @@ export interface KernConfig {
   heartbeatInterval: number;
 }
 
+const shell = process.platform === "win32" ? "pwsh" : "bash";
+
 const TOOL_SCOPES: Record<ToolScope, string[]> = {
-  full: ["bash", "read", "write", "edit", "glob", "grep", "webfetch", "kern", "message", "recall"],
+  full: [shell, "read", "write", "edit", "glob", "grep", "webfetch", "kern", "message", "recall"],
   write: ["read", "write", "edit", "glob", "grep", "webfetch", "kern", "message", "recall"],
   read: ["read", "glob", "grep", "webfetch", "kern", "recall"],
 };

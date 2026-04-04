@@ -200,9 +200,11 @@ Controls the `kern web` server. Optional — defaults apply if the file doesn't 
 
 ### Tool scopes
 
-- **full** — bash, read, write, edit, glob, grep, webfetch, kern, message, recall
+- **full** — shell (bash/pwsh), read, write, edit, glob, grep, webfetch, kern, message, recall
 - **write** — read, write, edit, glob, grep, webfetch, kern, message, recall
 - **read** — read, glob, grep, webfetch, kern, recall
+
+Shell tool is platform-specific: `bash` on Unix/Linux, `pwsh` on Windows. Selected automatically.
 
 ### Providers
 

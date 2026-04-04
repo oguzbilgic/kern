@@ -1,10 +1,10 @@
 # Tools
 
-kern provides 11 built-in tools. Availability depends on `toolScope` in config.
+kern provides built-in tools. Availability depends on `toolScope` in config.
 
 ## bash
 
-Run shell commands. Full access to the system.
+Run shell commands on Unix/Linux. Full access to the system.
 
 ```
 bash({ command: "ls -la", timeout: 120000 })
@@ -13,7 +13,20 @@ bash({ command: "ls -la", timeout: 120000 })
 - `command` — shell command to execute
 - `timeout` — optional, milliseconds (default 120000)
 
-Scope: `full` only.
+Scope: `full` only. Unix/Linux only — on Windows, `pwsh` is provided instead.
+
+## pwsh
+
+Run PowerShell commands on Windows. Full access to the system.
+
+```
+pwsh({ command: "Get-Process", timeout: 120000 })
+```
+
+- `command` — PowerShell command to execute
+- `timeout` — optional, milliseconds (default 120000)
+
+Scope: `full` only. Windows only — on Unix/Linux, `bash` is provided instead. Detects `pwsh` (PS 7+) with fallback to `powershell` (5.1).
 
 ## read
 
