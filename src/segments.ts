@@ -43,13 +43,81 @@ function buildSummarizerContext(): string {
     "Agent context:",
     identity ? `\n<identity>\n${identity}\n</identity>` : "",
     users ? `\n<users>\n${users}\n</users>` : "",
-    `\nSummarization rules:\n- Preserve speaker distinctions when relevant. Do not flatten every inbound human into \"the user\".\n- Distinguish operator, system messages, and other people in channels/DMs.\n- Prefer names or roles when known (for example: operator, David on Slack, a participant in #di-agent-chat).\n- Do not include opaque platform user IDs unless they are the only identifier available and truly necessary.\n- Keep channel/interface context when it matters to what happened.`,
+    `\nIdentity preservation rules:\n- Preserve speaker distinctions when relevant. Do not flatten every inbound human into \"the user\".\n- Distinguish operator, system messages, and other people in channels/DMs.\n- Prefer names or roles when known (for example: operator, David on Slack, a participant in #di-agent-chat).\n- Do not include opaque platform user IDs unless they are the only identifier available and truly necessary.\n- Keep channel/interface context only when it matters to what happened.`,
   ].filter(Boolean);
 
   return parts.join("\n").trim();
 }
 
 const SUMMARIZER_CONTEXT = buildSummarizerContext();
+
+function segmentSummaryPrompt(inputText: string, targetTokens: number): string {
+  return `You are writing compact internal memory notes for your future self.
+
+Task:
+- Summarize only what happened in this conversation segment.
+- Focus on: requests, actions taken, decisions made, concrete outcomes, and unresolved follow-ups.
+- Keep this tightly scoped to the segment. Do not turn it into a multi-day or project-wide recap.
+
+Style:
+- Write concise bullet points.
+- Prefer dense factual notes over polished narrative prose.
+- Keep a light sense of narrative when useful: preserve why something happened, not just what happened.
+- Prefer bullets that connect request or intent -> action -> outcome when that context matters.
+- No section headers.
+- No boilerplate like "Participants and Roles", "What I Did", "Results", "Open Items", or "Additional Notes".
+- Do not explain the environment unless it directly affected what happened in this segment.
+- Omit low-value detail and repeated chatter.
+
+Perspective and identity:
+- Use first person when describing my actions or decisions.
+- Preserve who said or wanted what when relevant.
+- Do not collapse distinct humans/agents/channels into a generic "user".
+- Prefer names or roles over raw IDs.
+
+Compression:
+- Favor 4-10 bullets unless the segment truly contains only one topic.
+- Keep only details that would matter for future recall or rollups.
+- IMPORTANT: Keep your response under ${targetTokens} tokens.
+
+${SUMMARIZER_CONTEXT}
+
+<conversation_segment>
+${inputText}
+</conversation_segment>`;
+}
+
+function rollupSummaryPrompt(inputText: string, targetTokens: number, childCount: number): string {
+  return `You are writing compact internal memory notes for your future self.
+
+Task:
+- The input is ${childCount} sequential lower-level conversation summaries.
+- Produce a higher-level rollup of the main themes, decisions, outcomes, and unresolved follow-ups across them.
+- Stay faithful to the children. Do not introduce broad project recap or background that is not clearly supported.
+
+Style:
+- Write concise bullet points.
+- No section headers.
+- No boilerplate or executive-summary framing.
+- Prefer dense factual notes that compress well for future rollups.
+- Preserve important causal links: why a change happened, what I did, and what came out of it.
+
+Perspective and identity:
+- Use first person when describing my actions or decisions.
+- Preserve important distinctions between operator, other humans, agents, and channels when they matter.
+- Prefer names or roles over raw IDs.
+
+Compression:
+- Keep only details that matter at the higher level.
+- Merge repetition.
+- IMPORTANT: Keep your response under ${targetTokens} tokens.
+
+${SUMMARIZER_CONTEXT}
+
+<conversation_summaries>
+${inputText}
+</conversation_summaries>`;
+}
 
 interface MessageRow {
   id: number;
@@ -257,7 +325,7 @@ export class SegmentIndex {
       inputText = rows.map((m) => `${m.role}: ${m.content}`).join("\n");
       inputText = inputText.replace(/^tool: .{500,}$/gm, (m) => m.slice(0, 300) + '... [truncated]').slice(0, 60000);
       targetTokens = Math.max(200, Math.min(1500, Math.round(seg.token_count / 10)));
-      prompt = `You are an AI agent writing notes for your future self. Summarize what happened in this conversation: what different people wanted, what I did, what the results and outcomes were, and what's still unresolved. Write in first person ("I did X"). Focus on intent and outcomes, not individual commands. Be specific — include names, roles, channels, and key results when relevant. Preserve speaker distinctions across operator/system/channel participants. No filler. Bullet points if multiple topics. IMPORTANT: Keep your response under ${targetTokens} tokens.\n\n${SUMMARIZER_CONTEXT}\n\n<conversation_segment>\n${inputText}\n</conversation_segment>`;
+      prompt = segmentSummaryPrompt(inputText, targetTokens);
     } else {
       const children = this.db.prepare(
         `SELECT msg_start, msg_end, summary
@@ -269,7 +337,7 @@ export class SegmentIndex {
       if (children.length === 0) throw new Error(`segment ${id} has no children`);
       inputText = children.map((seg, i) => `[Segment ${i + 1}, msgs ${seg.msg_start}-${seg.msg_end}]\n${seg.summary}`).join("\n\n");
       targetTokens = 1500;
-      prompt = `You are an AI agent writing notes for your future self. Below are ${children.length} sequential conversation summaries. Write a higher-level summary that captures the key themes, decisions, and outcomes across all of them. Preserve important speaker/channel distinctions when they matter. Write in first person. Be specific. Bullet points. Keep under ${targetTokens} tokens.\n\n${SUMMARIZER_CONTEXT}\n\n<conversation_summaries>\n${inputText}\n</conversation_summaries>`;
+      prompt = rollupSummaryPrompt(inputText, targetTokens, children.length);
     }
 
     const result = await generateText({
@@ -319,7 +387,7 @@ export class SegmentIndex {
 
         const result = await generateText({
           model: this.summaryModel,
-          prompt: `You are an AI agent writing notes for your future self. Summarize what happened in this conversation: what different people wanted, what I did, what the results and outcomes were, and what's still unresolved. Write in first person ("I did X"). Focus on intent and outcomes, not individual commands. Be specific — include names, roles, channels, and key results when relevant. Preserve speaker distinctions across operator/system/channel participants. No filler. Bullet points if multiple topics. IMPORTANT: Keep your response under ${targetTokens} tokens.\n\n${SUMMARIZER_CONTEXT}\n\n<conversation_segment>\n${inputText}\n</conversation_segment>`,
+          prompt: segmentSummaryPrompt(inputText, targetTokens),
           maxOutputTokens: targetTokens,
         });
 
@@ -407,7 +475,7 @@ export class SegmentIndex {
           try {
             const result = await generateText({
               model: this.summaryModel,
-              prompt: `You are an AI agent writing notes for your future self. Below are ${group.length} sequential conversation summaries. Write a higher-level summary that captures the key themes, decisions, and outcomes across all of them. Preserve important speaker/channel distinctions when they matter. Write in first person. Be specific. Bullet points. Keep under ${targetTokens} tokens.\n\n${SUMMARIZER_CONTEXT}\n\n<conversation_summaries>\n${childSummaries}\n</conversation_summaries>`,
+              prompt: rollupSummaryPrompt(childSummaries, targetTokens, group.length),
               maxOutputTokens: targetTokens,
             });
 
