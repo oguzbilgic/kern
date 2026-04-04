@@ -3,34 +3,34 @@
 ## next
 
 ### Features
-- **Android app** — native mobile app for chatting with kern from Android devices.
+- **Android app** (#15) — native mobile app for chatting with kern from Android devices.
   - Connects to any `kern web` server (local, LAN, Tailscale, or tunnel)
   - Improves mobile streaming reliability
   - Adds voice input and text-to-speech
-- **Segment summary improvements** — summaries preserve request → action → outcome causality while keeping the concrete details that make an event recognizable later.
+- **Segment summary improvements** (#29) — summaries preserve request → action → outcome causality while keeping the concrete details that make an event recognizable later.
   - Summaries are grounded with `IDENTITY.md` and `USERS.md` so operator, channel, and participant distinctions survive compression better
   - Added single-segment `Resummarize` to regenerate one summary in place
   - `composeHistory()` now returns the exact selected segment metadata, not just rendered text
-- **Service management** — `kern install` sets up user-level systemd services for agents and the web daemon. Crash recovery, boot persistence, one command.
+- **Service management** (#28) — `kern install` sets up user-level systemd services for agents and the web daemon. Crash recovery, boot persistence, one command.
   - `kern install` — all agents + web. `kern install <name>` or `kern install --web` for individual.
   - `kern uninstall [name]` — remove services.
   - `kern start/stop/restart` automatically delegate to systemd when installed, fall back to PID daemon otherwise.
   - `kern remove` cleans up the systemd service before unregistering.
   - Hints shown after `kern init`, `kern start`, and in `kern status` when systemd is available but not installed.
-- **Context inspection** — new APIs and web UI make prompt composition inspectable.
+- **Context inspection** (#29) — new APIs and web UI make prompt composition inspectable.
   - `/prompt/system` replaced by `GET /context/system`
   - Added `GET /context/segments` for the exact segments currently injected into prompt history
   - System prompt overlay supports `Markdown` / `Raw` views
   - Segment detail panel renders markdown summaries, has cleaner metadata layout, and preserves expanded/selected state during live refresh
   - Segment overlay shows `All` / `Context` filters, clearer modal styling, and confirmation prompts for `Clean` / `Rebuild`
-- **Cross-platform shell** — `bash` tool on Unix, `pwsh` tool on Windows. One shell tool per platform, selected automatically. No config needed.
+- **Cross-platform shell** (#25) — `bash` tool on Unix, `pwsh` tool on Windows. One shell tool per platform, selected automatically. No config needed.
   - `grep` works on Unix only; on Windows suggests `Select-String` via pwsh
 
 ### Changes
-- **Logging** — structured, leveled, colored log output. All levels written to file, filtering only at read time.
+- **Logging** (#24) — structured, leveled, colored log output. All levels written to file, filtering only at read time.
   - `kern logs` — follow mode by default. `-n 50` for last N lines. `--level warn` to filter.
   - `kern({ action: "logs" })` — agent can inspect its own logs (default warn+).
-- **Status overhaul** — `kern status` now shows the web daemon alongside agents. New `mode` field (systemd/daemon/—) shows how each process is managed.
+- **Status overhaul** (#28) — `kern status` now shows the web daemon alongside agents. New `mode` field (systemd/daemon/—) shows how each process is managed.
 - **Config validation** — warns on unknown fields and wrong types at startup. Invalid values ignored, defaults apply.
 - **Config cleanup** — `kern init` now writes minimal config and stale legacy fields are ignored.
   - `kern init` writes `model`, `provider`, and `toolScope` only
