@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.18.0
 
 ### Features
 - **Memory UI** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — unified web UI overlay for inspecting all agent memory. Five tabs: Sessions, Segments, Notes, Recall, and Context. Tab switcher with underline-style navigation and per-tab action buttons.
