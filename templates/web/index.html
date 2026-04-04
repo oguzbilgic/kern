@@ -3907,7 +3907,7 @@ function setBusy(b) {
 
 function updateTitle(busy) {
   const name = getActiveAgent() || 'kern';
-  document.title = busy ? `✍️ ${name}` : name;
+  document.title = busy ? `${name} ✍️` : name;
 }
 
 function showThinking() {
