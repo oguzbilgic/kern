@@ -12,6 +12,7 @@ Reloaded on every message. Composed from the agent's repo files and runtime stat
 | Agent identity | `<document path="IDENTITY.md">` | Repo file |
 | Runtime docs | `<document path="KERN.md">` | Template from kern |
 | Knowledge index | `<document path="KNOWLEDGE.md">` | Repo file |
+| Paired users | `<document path="USERS.md">` | Repo file |
 | Latest daily note | `<document path="notes/...">` | Most recent `notes/` file |
 | Notes summary | `<notes_summary>` | LLM summary of previous 5 daily notes, cached in DB |
 | Available tools | `<tools>` | Based on `toolScope` config |

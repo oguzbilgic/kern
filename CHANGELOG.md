@@ -1,5 +1,10 @@
 # Changelog
 
+## next
+
+### Changes
+- **USERS.md injection** ([#33](https://github.com/oguzbilgic/kern-ai/pull/33)) — `USERS.md` is now auto-injected into the system prompt. Agents always know their paired users without reading the file manually.
+
 ## v0.18.0
 
 ### Features

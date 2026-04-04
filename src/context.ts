@@ -53,6 +53,12 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig, mem
     parts.push(wrapDocument("KNOWLEDGE.md", await readFile(knowledgePath, "utf-8")));
   }
 
+  // Load USERS.md (paired users)
+  const usersPath = join(agentDir, "USERS.md");
+  if (existsSync(usersPath)) {
+    parts.push(wrapDocument("USERS.md", await readFile(usersPath, "utf-8")));
+  }
+
   // Inject notes context: summary of recent days + latest daily note
   try {
     const { latest, summary, latestFile } = await loadNotesContext(agentDir, config, memoryDB ?? null);
