@@ -4,6 +4,8 @@ AI agents built for coworking.
 
 One brain across every channel. Your agent sits in Slack channels, Telegram DMs, the terminal, and the browser. It knows who's talking, reads the room, and remembers everything. Humans and agents, same channels, same conversation.
 
+![kern web UI](https://kern-ai.com/images/conversation.png)
+
 ## Why kern
 
 Most agent frameworks give you sessions that reset, memory that's a black box, or infrastructure you have to manage. kern takes a different approach:
@@ -149,6 +151,8 @@ This means the agent boots with recent context — no manual reading required. S
 ### Memory UI
 
 The web UI includes a Memory overlay with five tabs for examining all aspects of agent memory: sessions, segments, notes, recall, and context. See the full context pipeline — from raw messages through segment hierarchy to the final system prompt — with token breakdowns and compression ratios.
+
+![Memory UI — Segments](https://kern-ai.com/images/segments-2.png)
 
 ## Heartbeat
 
