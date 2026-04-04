@@ -94,62 +94,6 @@ Web server port and host are configured in `~/.kern/config.json`:
 
 Optional — defaults apply if the file doesn't exist.
 
-## Web UI
-
-Browser-based chat interface. Served directly from the agent's HTTP server — no separate deployment needed.
-
-### Access
-
-Open the agent's URL in any browser:
-
-```
-http://localhost:8080/
-```
-
-On a local network or Tailscale, use the machine's IP:
-
-```
-http://192.168.1.100:8080/
-```
-
-### Authentication
-
-Set `KERN_AUTH_TOKEN` in `.kern/.env` to require a token:
-
-```
-KERN_AUTH_TOKEN=your-secret-token
-```
-
-Without it, the web UI is open to anyone who can reach the port.
-
-With it, users authenticate by either:
-- Adding `?token=your-secret-token` to the URL (stored in browser localStorage automatically)
-- Entering the token in the login prompt on first visit
-
-The token is stripped from the URL bar after being stored. Subsequent visits auto-connect.
-
-### Behavior
-
-- Connects as the operator (same user identity as TUI)
-- Messages from TUI appear as user bubbles in real time
-- Messages from Telegram/Slack appear with interface labels
-- Full conversation history loaded on connect (including tool calls)
-- Streaming responses with live cursor
-- Auto-reconnect on disconnect
-- Dark theme, mobile-friendly (works on phones over LAN/Tailscale)
-- `?url=` param to connect to a remote agent (e.g., `?url=http://other-host:8080`)
-
-### Network access
-
-By default, the agent binds to `127.0.0.1` (localhost only). To access from other devices:
-
-```
-KERN_HOST=0.0.0.0
-KERN_PORT=8080
-```
-
-Set these in `.kern/.env`. Use with `KERN_AUTH_TOKEN` when binding to non-loopback addresses.
-
 ## Telegram
 
 Long polling bot. Works behind NAT, no public URL needed.
