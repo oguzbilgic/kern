@@ -13,7 +13,7 @@
 ### Changes
 - **New APIs** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — `/sessions` (with `currentSessionId`), `/context/system`, `/context/segments`, `/recall/stats`. Context breakdown in `/status` reports system + summary + messages token counts.
 - **Token estimation** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — improved from chars/4 to chars/3.3 with per-message overhead (~25% more accurate).
-- **Config rename** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — `historyBudget` → `summaryBudget`. Old name still works.
+- **Config rename** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — `historyBudget` → `summaryBudget`.
 
 ## v0.17.0
 
