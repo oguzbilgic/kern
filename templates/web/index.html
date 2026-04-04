@@ -1870,6 +1870,11 @@ const AgentClient = {
     return res.json();
   },
 
+  async getRecallStats(baseUrl, token) {
+    const res = await fetch(`${baseUrl}/recall/stats`, { headers: this._headers(token) });
+    return res.json();
+  },
+
   async getSessions(baseUrl, token) {
     const res = await fetch(`${baseUrl}/sessions`, { headers: this._headers(token) });
     return res.json();
@@ -2311,6 +2316,22 @@ async function fetchSummaries() {
   }
 }
 
+async function fetchRecallStats() {
+  if (!BASE_URL) return;
+  try {
+    const data = await AgentClient.getRecallStats(BASE_URL, AUTH_TOKEN);
+    if (!data.enabled) {
+      recallStatsEl.style.display = 'block';
+      recallStatsEl.textContent = 'Recall is disabled (set recall: true in config)';
+      return;
+    }
+    recallStatsEl.style.display = 'block';
+    recallStatsEl.textContent = `${(data.messages || 0).toLocaleString()} messages · ${(data.chunks || 0).toLocaleString()} chunks · ${(data.sessions || 0).toLocaleString()} sessions${data.building ? ' · indexing...' : ''}`;
+  } catch {
+    recallStatsEl.style.display = 'none';
+  }
+}
+
 async function doRecallSearch() {
   const query = $('recall-search-input').value.trim();
   if (!query) return;
@@ -2330,11 +2351,7 @@ async function doRecallSearch() {
 }
 
 function renderRecallResults(data) {
-  const { results, stats, query } = data;
-  if (stats) {
-    recallStatsEl.style.display = 'block';
-    recallStatsEl.textContent = `${stats.messages || 0} messages · ${stats.chunks || 0} chunks indexed${stats.building ? ' · building...' : ''}`;
-  }
+  const { results } = data;
   if (!results || results.length === 0) {
     recallResults.innerHTML = '<div class="recall-empty">No results found</div>';
     return;
@@ -2454,9 +2471,10 @@ $('memory-tab-summaries').addEventListener('click', async () => {
   updateMemoryTabs();
   await fetchSummaries();
 });
-$('memory-tab-recall').addEventListener('click', () => {
+$('memory-tab-recall').addEventListener('click', async () => {
   memoryTab = 'recall';
   updateMemoryTabs();
+  await fetchRecallStats();
   $('recall-search-input').focus();
 });
 $('memory-tab-sessions').addEventListener('click', async () => {
