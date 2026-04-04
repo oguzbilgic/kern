@@ -2309,8 +2309,8 @@ function renderPromptStructured(text, status) {
 
   // Use real token counts from contextBreakdown
   const msgTokens = cb ? cb.messageTokens : 0;
-  const historyTokens = cb ? cb.historyTokens : 0;
-  const totalContextTokens = systemTokens + msgTokens + historyTokens;
+  // Total = system prompt + context window (messages + history)
+  const totalContextTokens = systemTokens + msgTokens + (cb ? cb.historyTokens : 0);
 
   // Count messages from the DOM
   const msgContainer = $('messages');
@@ -2411,12 +2411,13 @@ async function fetchAndRenderPrompt() {
     promptStructured.innerHTML = renderPromptStructured(text, status);
     const cb = status?.contextBreakdown;
     const sysTokens = Math.ceil(text.length / 4);
-    const totalTokens = cb ? (sysTokens + cb.messageTokens + cb.historyTokens) : sysTokens;
+    const windowTokens = cb ? (cb.messageTokens + cb.historyTokens) : 0;
     const maxTokens = cb ? cb.maxTokens : null;
     const ctxMsgs = cb ? cb.messageCount : '?';
     const trimmed = cb ? cb.trimmedCount : null;
     const budgetStr = maxTokens ? ` / ${(maxTokens / 1000).toFixed(0)}k` : '';
-    promptStats.textContent = `~${(totalTokens / 1000).toFixed(0)}k${budgetStr} tokens · ${ctxMsgs} messages${trimmed ? ` · ${trimmed.toLocaleString()} trimmed` : ''}`;
+    const totalStr = cb ? `~${Math.round(windowTokens / 1000)}k${budgetStr}` : `~${Math.round(sysTokens / 1000)}k`;
+    promptStats.textContent = `system ~${Math.round(sysTokens / 1000)}k + context ${totalStr} tokens · ${ctxMsgs} messages${trimmed ? ` · ${trimmed.toLocaleString()} trimmed` : ''}`;
     updatePromptModeButtons();
   } catch (e) {
     console.error('prompt fetch failed:', e);
