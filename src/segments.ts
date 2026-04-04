@@ -3,6 +3,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { log } from "./log.js";
 import type { MemoryDB } from "./memory.js";
 import type Database from "better-sqlite3";
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
 
 const EMBEDDING_MODEL = "openai/text-embedding-3-small";
 const SUMMARY_MODEL = "openai/gpt-4.1-mini";
@@ -22,6 +24,32 @@ const EMBED_BATCH_SIZE = 100;
 
 // Max messages to process per indexSession call (prevents OOM on large backfills)
 const MAX_CHUNK_SIZE = 500;
+
+function readPromptFile(path: string): string | null {
+  try {
+    if (!existsSync(path)) return null;
+    return readFileSync(path, "utf-8").trim();
+  } catch {
+    return null;
+  }
+}
+
+function buildSummarizerContext(): string {
+  const cwd = process.cwd();
+  const identity = readPromptFile(join(cwd, "IDENTITY.md"));
+  const users = readPromptFile(join(cwd, "USERS.md"));
+
+  const parts = [
+    "Agent context:",
+    identity ? `\n<identity>\n${identity}\n</identity>` : "",
+    users ? `\n<users>\n${users}\n</users>` : "",
+    `\nSummarization rules:\n- Preserve speaker distinctions when relevant. Do not flatten every inbound human into \"the user\".\n- Distinguish operator, system messages, and other people in channels/DMs.\n- Prefer names or roles when known (for example: operator, David on Slack, a participant in #di-agent-chat).\n- Do not include opaque platform user IDs unless they are the only identifier available and truly necessary.\n- Keep channel/interface context when it matters to what happened.`,
+  ].filter(Boolean);
+
+  return parts.join("\n").trim();
+}
+
+const SUMMARIZER_CONTEXT = buildSummarizerContext();
 
 interface MessageRow {
   id: number;
@@ -198,6 +226,69 @@ export class SegmentIndex {
     });
   }
 
+  async resummarizeSegment(id: number): Promise<{ ok: true; id: number; level: number }> {
+    const seg = this.db.prepare(
+      `SELECT id, session_id, msg_start, msg_end, level, summary, token_count
+       FROM semantic_segments
+       WHERE id = ?`
+    ).get(id) as {
+      id: number;
+      session_id: string;
+      msg_start: number;
+      msg_end: number;
+      level: number;
+      summary: string;
+      token_count: number;
+    } | undefined;
+
+    if (!seg) throw new Error(`segment ${id} not found`);
+
+    let inputText = "";
+    let targetTokens = 0;
+    let prompt = "";
+
+    if (seg.level === 0) {
+      const rows = this.db.prepare(
+        `SELECT role, content FROM messages
+         WHERE session_id = ? AND msg_index >= ? AND msg_index < ?
+         ORDER BY msg_index`
+      ).all(seg.session_id, seg.msg_start, seg.msg_end) as Array<{ role: string; content: string }>;
+
+      inputText = rows.map((m) => `${m.role}: ${m.content}`).join("\n");
+      inputText = inputText.replace(/^tool: .{500,}$/gm, (m) => m.slice(0, 300) + '... [truncated]').slice(0, 60000);
+      targetTokens = Math.max(200, Math.min(1500, Math.round(seg.token_count / 10)));
+      prompt = `You are an AI agent writing notes for your future self. Summarize what happened in this conversation: what different people wanted, what I did, what the results and outcomes were, and what's still unresolved. Write in first person ("I did X"). Focus on intent and outcomes, not individual commands. Be specific — include names, roles, channels, and key results when relevant. Preserve speaker distinctions across operator/system/channel participants. No filler. Bullet points if multiple topics. IMPORTANT: Keep your response under ${targetTokens} tokens.\n\n${SUMMARIZER_CONTEXT}\n\n<conversation_segment>\n${inputText}\n</conversation_segment>`;
+    } else {
+      const children = this.db.prepare(
+        `SELECT msg_start, msg_end, summary
+         FROM semantic_segments
+         WHERE parent_id = ?
+         ORDER BY msg_start`
+      ).all(id) as Array<{ msg_start: number; msg_end: number; summary: string }>;
+
+      if (children.length === 0) throw new Error(`segment ${id} has no children`);
+      inputText = children.map((seg, i) => `[Segment ${i + 1}, msgs ${seg.msg_start}-${seg.msg_end}]\n${seg.summary}`).join("\n\n");
+      targetTokens = 1500;
+      prompt = `You are an AI agent writing notes for your future self. Below are ${children.length} sequential conversation summaries. Write a higher-level summary that captures the key themes, decisions, and outcomes across all of them. Preserve important speaker/channel distinctions when they matter. Write in first person. Be specific. Bullet points. Keep under ${targetTokens} tokens.\n\n${SUMMARIZER_CONTEXT}\n\n<conversation_summaries>\n${inputText}\n</conversation_summaries>`;
+    }
+
+    const result = await generateText({
+      model: this.summaryModel,
+      prompt,
+      maxOutputTokens: targetTokens,
+    });
+
+    const summaryText = result.text.trim();
+    if (!summaryText) throw new Error(`empty summary for segment ${id}`);
+
+    const summaryTokens = result.usage?.outputTokens ?? Math.ceil(summaryText.length / 4);
+    this.db.prepare(
+      "UPDATE semantic_segments SET summary = ?, summarized = 1, summary_token_count = ? WHERE id = ?"
+    ).run(summaryText, summaryTokens, id);
+
+    return { ok: true, id, level: seg.level };
+  }
+
   /**
    * Summarize all unsummarized segments.
    * Idempotent — safe to call repeatedly. Picks up segments from any session
@@ -228,7 +319,7 @@ export class SegmentIndex {
 
         const result = await generateText({
           model: this.summaryModel,
-          prompt: `You are an AI agent writing notes for your future self. Summarize what happened in this conversation: what the user wanted, what you did, what the results and outcomes were, and what's still unresolved. Write in first person ("I did X", "User asked Y"). Focus on intent and outcomes, not individual commands. Be specific — include names, values, and key results. No filler. Bullet points if multiple topics. IMPORTANT: Keep your response under ${targetTokens} tokens.\n\n${inputText}`,
+          prompt: `You are an AI agent writing notes for your future self. Summarize what happened in this conversation: what different people wanted, what I did, what the results and outcomes were, and what's still unresolved. Write in first person ("I did X"). Focus on intent and outcomes, not individual commands. Be specific — include names, roles, channels, and key results when relevant. Preserve speaker distinctions across operator/system/channel participants. No filler. Bullet points if multiple topics. IMPORTANT: Keep your response under ${targetTokens} tokens.\n\n${SUMMARIZER_CONTEXT}\n\n<conversation_segment>\n${inputText}\n</conversation_segment>`,
           maxOutputTokens: targetTokens,
         });
 
@@ -316,7 +407,7 @@ export class SegmentIndex {
           try {
             const result = await generateText({
               model: this.summaryModel,
-              prompt: `You are an AI agent writing notes for your future self. Below are ${group.length} sequential conversation summaries. Write a higher-level summary that captures the key themes, decisions, and outcomes across all of them. Write in first person. Be specific. Bullet points. Keep under ${targetTokens} tokens.\n\n${childSummaries}`,
+              prompt: `You are an AI agent writing notes for your future self. Below are ${group.length} sequential conversation summaries. Write a higher-level summary that captures the key themes, decisions, and outcomes across all of them. Preserve important speaker/channel distinctions when they matter. Write in first person. Be specific. Bullet points. Keep under ${targetTokens} tokens.\n\n${SUMMARIZER_CONTEXT}\n\n<conversation_summaries>\n${childSummaries}\n</conversation_summaries>`,
               maxOutputTokens: targetTokens,
             });
 

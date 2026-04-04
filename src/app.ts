@@ -302,6 +302,11 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     }
   });
 
+  server.setSegmentResummarizeFn(async (id: number) => {
+    if (!segmentIndex) throw new Error("segments not enabled");
+    return segmentIndex.resummarizeSegment(id);
+  });
+
   const port = await server.start("127.0.0.1");
   await setPortAndToken(agentName, port, process.env.KERN_AUTH_TOKEN || null);
   await setPid(agentName, process.pid);

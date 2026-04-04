@@ -1091,6 +1091,11 @@
     margin-bottom: 10px;
     line-height: 1.6;
   }
+  .seg-detail-actions {
+    margin-bottom: 12px;
+    display: flex;
+    gap: 8px;
+  }
   .seg-detail-summary {
     color: var(--text);
     font-size: 13px;
@@ -1849,6 +1854,36 @@ function renderSegments(data) {
   });
 }
 
+async function resummarizeSegment(segId) {
+  if (!BASE_URL) return;
+  const btn = document.getElementById(`seg-resummarize-${segId}`);
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Resummarizing...';
+  }
+  try {
+    const res = await fetch(`${BASE_URL}/segments/${segId}/resummarize`, {
+      method: 'POST',
+      headers: AgentClient._headers(AUTH_TOKEN),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'resummarize failed');
+    await fetchAndRenderSegments();
+    const active = segTimeline.querySelector(`.seg-block[data-seg-id="${segId}"]`);
+    if (active) showSegDetail(active);
+  } catch (e) {
+    console.error('resummarize failed:', e);
+    if (btn) btn.textContent = 'Failed';
+    setTimeout(() => {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Resummarize';
+      }
+    }, 1500);
+    return;
+  }
+}
+
 function showSegDetail(el) {
   segTimeline.querySelectorAll('.seg-block.active').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
@@ -1868,8 +1903,14 @@ function showSegDetail(el) {
       ${seg.start_time ? new Date(seg.start_time).toLocaleString() : ''}${seg.start_time && seg.end_time ? ' – ' : ''}${seg.end_time ? new Date(seg.end_time).toLocaleString() : ''}
       ${!seg.summarized ? '<br><span style="color:var(--orange);">⏳ not yet summarized</span>' : ''}
     </div>
+    <div class="seg-detail-actions">
+      <button id="seg-resummarize-${seg.id}" class="modal-btn">Resummarize</button>
+    </div>
     <div class="seg-detail-summary">${escHtml(seg.summary || '') || '<span style="color:var(--text-muted);font-style:italic;">no summary</span>'}</div>
   `;
+
+  const btn = document.getElementById(`seg-resummarize-${seg.id}`);
+  if (btn) btn.addEventListener('click', () => resummarizeSegment(seg.id));
 }
 
 function escHtml(s) {

@@ -28,6 +28,7 @@ export class AgentServer {
   private segmentsStopFn: (() => void) | null = null;
   private segmentsCleanFn: (() => void) | null = null;
   private segmentsStartFn: (() => Promise<any>) | null = null;
+  private segmentResummarizeFn: ((id: number) => Promise<any>) | null = null;
   private port = 0;
 
   constructor() {
@@ -68,6 +69,10 @@ export class AgentServer {
 
   setSegmentsStartFn(fn: () => Promise<any>) {
     this.segmentsStartFn = fn;
+  }
+
+  setSegmentResummarizeFn(fn: (id: number) => Promise<any>) {
+    this.segmentResummarizeFn = fn;
   }
 
   async start(host: string = "127.0.0.1"): Promise<number> {
@@ -311,6 +316,27 @@ export class AgentServer {
       } else {
         res.writeHead(404, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "segments not enabled" }));
+      }
+      return;
+    }
+
+    // Segment resummarize — regenerate one segment summary in place
+    const resummarizeMatch = url.match(/^\/segments\/(\d+)\/resummarize$/);
+    if (resummarizeMatch && req.method === "POST") {
+      if (!this.segmentResummarizeFn) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "segments not enabled" }));
+        return;
+      }
+      try {
+        const id = parseInt(resummarizeMatch[1] || "", 10);
+        if (!Number.isFinite(id)) throw new Error("invalid segment id");
+        const result = await this.segmentResummarizeFn(id);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result));
+      } catch (err: any) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message || "resummarize failed" }));
       }
       return;
     }
