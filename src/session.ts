@@ -2,6 +2,8 @@ import { readFile, writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 import type { ModelMessage } from "ai";
+import type { MemoryDB } from "./memory.js";
+import { log } from "./log.js";
 
 export interface Session {
   id: string;
@@ -13,9 +15,11 @@ export interface Session {
 export class SessionManager {
   private dir: string;
   private session: Session | null = null;
+  private db: MemoryDB["db"] | null = null;
 
-  constructor(agentDir: string) {
+  constructor(agentDir: string, memoryDB?: MemoryDB) {
     this.dir = join(agentDir, ".kern", "sessions");
+    this.db = memoryDB?.db ?? null;
   }
 
   async init(): Promise<void> {
@@ -86,8 +90,35 @@ export class SessionManager {
 
   async append(messages: ModelMessage[]): Promise<void> {
     if (!this.session) throw new Error("No active session");
+    const startIndex = this.session.messages.length;
     this.session.messages.push(...messages);
     this.session.updatedAt = new Date().toISOString();
+
+    // Write to DB first (atomic, crash-safe)
+    if (this.db) {
+      try {
+        const insert = this.db.prepare(
+          "INSERT OR IGNORE INTO messages (session_id, msg_index, role, content, timestamp) VALUES (?, ?, ?, ?, ?)"
+        );
+        const tx = this.db.transaction(() => {
+          for (let i = 0; i < messages.length; i++) {
+            const msg = messages[i];
+            const msgIndex = startIndex + i;
+            const content = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
+            // Extract timestamp from message metadata
+            let timestamp: string | null = null;
+            const timeMatch = content.match(/time: (\d{4}-\d{2}-\d{2}T[\d:.]+Z)/);
+            if (timeMatch) timestamp = timeMatch[1];
+            insert.run(this.session!.id, msgIndex, msg.role, content, timestamp);
+          }
+        });
+        tx();
+      } catch (err: any) {
+        log.error("session", `DB write failed: ${err.message}`);
+      }
+    }
+
+    // Write JSONL (still primary for reads)
     await this.save();
   }
 
