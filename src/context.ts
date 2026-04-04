@@ -92,13 +92,18 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig, mem
   return parts.join("\n\n");
 }
 
-// Token estimate: stringify everything, ~4 chars per token
+// Token estimate: stringify everything, ~3.3 chars per token + per-message overhead.
+// chars/4 underestimates by ~25% vs actual tokenizer output.
+// Per-message overhead accounts for API framing not captured in JSON.stringify.
+const CHARS_PER_TOKEN = 3.3;
+const PER_MESSAGE_OVERHEAD = 4; // role/separator tokens per message
+
 function estimateTokens(messages: ModelMessage[]): number {
   let chars = 0;
   for (const msg of messages) {
     chars += JSON.stringify(msg).length;
   }
-  return Math.ceil(chars / 4);
+  return Math.ceil(chars / CHARS_PER_TOKEN) + (messages.length * PER_MESSAGE_OVERHEAD);
 }
 
 // Per-message token size cache
@@ -107,7 +112,7 @@ const msgSizeCache = new WeakMap<ModelMessage, number>();
 function getMsgSize(msg: ModelMessage): number {
   let size = msgSizeCache.get(msg);
   if (size === undefined) {
-    size = Math.ceil(JSON.stringify(msg).length / 4);
+    size = Math.ceil(JSON.stringify(msg).length / CHARS_PER_TOKEN) + PER_MESSAGE_OVERHEAD;
     msgSizeCache.set(msg, size);
   }
   return size;

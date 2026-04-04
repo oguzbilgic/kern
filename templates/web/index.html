@@ -2303,7 +2303,7 @@ function parsePromptSections(text) {
   return sections;
 }
 
-function tokEst(text) { return Math.ceil((text || '').length / 4); }
+function tokEst(text) { return Math.ceil((text || '').length / 3.3); }
 
 function renderPromptStructured(text, status) {
   const sections = parsePromptSections(text);
@@ -2417,7 +2417,7 @@ async function fetchAndRenderPrompt() {
     promptText.textContent = text;
     promptStructured.innerHTML = renderPromptStructured(text, status);
     const cb = status?.contextBreakdown;
-    const sysTokensTotal = Math.ceil(text.length / 4);
+    const sysTokensTotal = Math.ceil(text.length / 3.3);
     // conversation_summary is summary — don't count in system prompt
     const sumSectionChars = (text.match(/<conversation_summary\b[^>]*>([\s\S]*?)<\/conversation_summary>/)?.[0] || '').length;
     const sysTokensPure = Math.ceil((text.length - sumSectionChars) / 4);
