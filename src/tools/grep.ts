@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { exec } from "child_process";
+import { shellExec } from "./shell.js";
 
 export const grepTool = tool({
   description:
@@ -21,6 +21,10 @@ export const grepTool = tool({
       .describe('Additional grep flags (e.g. "-C 3 -i -l")'),
   }),
   execute: async ({ pattern, path, include, options }) => {
+    if (process.platform === "win32") {
+      return "grep tool requires Unix (uses /bin/sh). Use pwsh with Select-String instead.";
+    }
+
     const target = path || process.cwd();
     const escapedPattern = pattern.replace(/'/g, "'\\''");
     const extra = options || "";
@@ -32,20 +36,17 @@ export const grepTool = tool({
     const excludeDirs = isFile ? "" : "--exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist";
     const cmd = `grep ${recursive} -n --color=always ${excludeDirs} ${includeArg} ${extra} '${escapedPattern}' '${target}' 2>/dev/null`;
 
-    return new Promise<string>((resolve) => {
-      exec(cmd, { maxBuffer: 1024 * 1024 * 5 }, (_err, stdout) => {
-        if (stdout && stdout.trim()) {
-          const lines = stdout.trim().split("\n");
-          resolve(
-            lines.length > 100
-              ? lines.slice(0, 100).join("\n") +
-                  `\n... (${lines.length - 100} more matches)`
-              : lines.join("\n"),
-          );
-        } else {
-          resolve("No matches found.");
-        }
-      });
-    });
+    const result = await shellExec(cmd);
+    const stdout = result.stdout.trim();
+
+    if (stdout) {
+      const lines = stdout.split("\n");
+      return lines.length > 100
+        ? lines.slice(0, 100).join("\n") +
+            `\n... (${lines.length - 100} more matches)`
+        : lines.join("\n");
+    } else {
+      return "No matches found.";
+    }
   },
 });

@@ -1,4 +1,5 @@
 import { bashTool } from "./bash.js";
+import { pwshTool } from "./pwsh.js";
 import { readTool } from "./read.js";
 import { writeTool } from "./write.js";
 import { editTool } from "./edit.js";
@@ -9,8 +10,11 @@ import { kernTool } from "./kern.js";
 import { messageTool } from "./message.js";
 import { recallTool } from "./recall.js";
 
+const isWindows = process.platform === "win32";
+
 export const allTools = {
-  bash: bashTool,
+  // Platform-specific shell tool — one per platform
+  ...(isWindows ? { pwsh: pwshTool } : { bash: bashTool }),
   read: readTool,
   write: writeTool,
   edit: editTool,

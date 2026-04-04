@@ -70,6 +70,7 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig, mem
   const tools = getToolsForScope(config.toolScope);
   const toolDescriptions: Record<string, string> = {
     bash: "run shell commands",
+    pwsh: "run PowerShell commands (Windows)",
     read: "read files and directories",
     write: "create or overwrite files",
     edit: "find and replace in files",
