@@ -25,8 +25,7 @@ async function handleSlashCommand(cmd: string, userId: string, iface: string, ag
     case "/restart": {
       log("kern", `restart requested by ${userId} via ${iface}`);
       const { spawn } = await import("child_process");
-      const kernBin = join(import.meta.dirname, "index.js");
-      const child = spawn("node", [kernBin, "restart", agentName], { stdio: "pipe" });
+      const child = spawn("kern", ["restart", agentName], { stdio: "pipe" });
 
       const result = await new Promise<{ code: number | null; stderr: string }>((resolve) => {
         let stderr = "";
@@ -42,7 +41,6 @@ async function handleSlashCommand(cmd: string, userId: string, iface: string, ag
       }
 
       return `Restart failed: ${result.stderr || `exit code ${result.code}`}`;
-
     }
 
     case "/status": {
