@@ -136,6 +136,44 @@ export class MemoryDB {
     ).run(type, dateStart, dateEnd, sourceKey, text);
   }
 
+  // --- Session stats ---
+
+  getSessionList(): Array<{ session_id: string; messages: number; first_ts: string | null; last_ts: string | null; roles: Record<string, number> }> {
+    const rows = this.db.prepare(`
+      SELECT session_id, COUNT(*) as messages,
+        MIN(timestamp) as first_ts, MAX(timestamp) as last_ts
+      FROM messages GROUP BY session_id ORDER BY first_ts
+    `).all() as Array<{ session_id: string; messages: number; first_ts: string | null; last_ts: string | null }>;
+
+    return rows.map(r => {
+      const roleRows = this.db.prepare(
+        "SELECT role, COUNT(*) as count FROM messages WHERE session_id = ? GROUP BY role"
+      ).all(r.session_id) as Array<{ role: string; count: number }>;
+      const roles: Record<string, number> = {};
+      for (const rr of roleRows) roles[rr.role] = rr.count;
+      return { ...r, roles };
+    });
+  }
+
+  getSessionActivity(sessionId: string): Array<{ date: string; count: number }> {
+    return this.db.prepare(`
+      SELECT DATE(timestamp) as date, COUNT(*) as count
+      FROM messages
+      WHERE session_id = ? AND timestamp IS NOT NULL
+      GROUP BY DATE(timestamp)
+      ORDER BY date
+    `).all(sessionId) as Array<{ date: string; count: number }>;
+  }
+
+  getSessionHourlyActivity(sessionId: string): Array<{ hour: number; count: number }> {
+    return this.db.prepare(`
+      SELECT CAST(strftime('%H', timestamp) AS INTEGER) as hour, COUNT(*) as count
+      FROM messages
+      WHERE session_id = ? AND timestamp IS NOT NULL
+      GROUP BY hour ORDER BY hour
+    `).all(sessionId) as Array<{ hour: number; count: number }>;
+  }
+
   getAllSummaries(type?: string): Array<{ id: number; type: string; date_start: string; date_end: string; source_key: string; text: string; created_at: string }> {
     if (type) {
       return this.db.prepare(

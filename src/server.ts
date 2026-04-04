@@ -33,6 +33,8 @@ export class AgentServer {
   private summariesFn: (() => any) | null = null;
   private summaryRegenerateFn: (() => Promise<any>) | null = null;
   private recallSearchFn: ((query: string, limit: number) => Promise<any>) | null = null;
+  private sessionListFn: (() => any) | null = null;
+  private sessionActivityFn: ((sessionId: string) => any) | null = null;
   private port = 0;
 
   constructor() {
@@ -93,6 +95,14 @@ export class AgentServer {
 
   setRecallSearchFn(fn: (query: string, limit: number) => Promise<any>) {
     this.recallSearchFn = fn;
+  }
+
+  setSessionListFn(fn: () => any) {
+    this.sessionListFn = fn;
+  }
+
+  setSessionActivityFn(fn: (sessionId: string) => any) {
+    this.sessionActivityFn = fn;
   }
 
   async start(host: string = "127.0.0.1"): Promise<number> {
@@ -418,6 +428,28 @@ export class AgentServer {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err.message || "search failed" }));
       }
+      return;
+    }
+
+    // Sessions list with stats
+    if (url === "/sessions" && req.method === "GET") {
+      const data = this.sessionListFn ? this.sessionListFn() : [];
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
+      return;
+    }
+
+    // Session activity (daily + hourly)
+    const sessionActivityMatch = url.match(/^\/sessions\/([^/]+)\/activity$/);
+    if (sessionActivityMatch && req.method === "GET") {
+      if (!this.sessionActivityFn) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "not available" }));
+        return;
+      }
+      const data = this.sessionActivityFn(sessionActivityMatch[1]);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
       return;
     }
 

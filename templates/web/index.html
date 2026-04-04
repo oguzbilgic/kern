@@ -1405,6 +1405,86 @@
     margin-left: 6px;
   }
 
+  /* Session cards and charts */
+  .session-card {
+    background: #0d1117;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .session-card.active {
+    border-color: rgba(88, 166, 255, 0.35);
+  }
+  .session-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .session-id {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: #58a6ff;
+  }
+  .session-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+  .session-stats {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .session-stat {
+    text-align: center;
+  }
+  .session-stat-value {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  .session-stat-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .session-roles {
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    margin-bottom: 12px;
+  }
+  .session-roles span { color: var(--text); font-weight: 500; }
+  .activity-chart {
+    width: 100%;
+    height: 80px;
+    margin-top: 8px;
+  }
+  .activity-chart svg { width: 100%; height: 100%; }
+  .chart-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-family: var(--font-mono);
+  }
+  .activity-section {
+    margin-top: 12px;
+  }
+  .activity-section-title {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+
   .segments-level {
     margin-bottom: 16px;
   }
@@ -1557,6 +1637,7 @@
       <div class="memory-tabs">
         <button class="modal-btn active" id="memory-tab-summaries">Notes Summaries</button>
         <button class="modal-btn" id="memory-tab-recall">Recall Search</button>
+        <button class="modal-btn" id="memory-tab-sessions">Sessions</button>
       </div>
       <div class="modal-actions">
         <button class="modal-btn" id="memory-regenerate">Regenerate</button>
@@ -1564,6 +1645,7 @@
     </div>
     <div class="segments-body" style="display:block;overflow:auto;padding:20px;">
       <div class="memory-tab-content active" id="memory-content-summaries"></div>
+      <div class="memory-tab-content" id="memory-content-sessions"></div>
       <div class="memory-tab-content" id="memory-content-recall">
         <div class="recall-search-box">
           <input type="text" id="recall-search-input" placeholder="Search past conversations..." />
@@ -1785,6 +1867,16 @@ const AgentClient = {
   async recallSearch(baseUrl, token, query, limit = 10) {
     const params = new URLSearchParams({ q: query, limit: String(limit) });
     const res = await fetch(`${baseUrl}/recall/search?${params}`, { headers: this._headers(token) });
+    return res.json();
+  },
+
+  async getSessions(baseUrl, token) {
+    const res = await fetch(`${baseUrl}/sessions`, { headers: this._headers(token) });
+    return res.json();
+  },
+
+  async getSessionActivity(baseUrl, token, sessionId) {
+    const res = await fetch(`${baseUrl}/sessions/${sessionId}/activity`, { headers: this._headers(token) });
     return res.json();
   },
 };
@@ -2170,6 +2262,7 @@ const memOverlay = $('memory-overlay');
 const memStats = $('memory-stats');
 const memSummariesContent = $('memory-content-summaries');
 const memRecallContent = $('memory-content-recall');
+const memSessionsContent = $('memory-content-sessions');
 const recallResults = $('recall-results');
 const recallStatsEl = $('recall-stats');
 let memoryTab = 'summaries';
@@ -2177,8 +2270,10 @@ let memoryTab = 'summaries';
 function updateMemoryTabs() {
   $('memory-tab-summaries').classList.toggle('active', memoryTab === 'summaries');
   $('memory-tab-recall').classList.toggle('active', memoryTab === 'recall');
+  $('memory-tab-sessions').classList.toggle('active', memoryTab === 'sessions');
   memSummariesContent.classList.toggle('active', memoryTab === 'summaries');
   memRecallContent.classList.toggle('active', memoryTab === 'recall');
+  memSessionsContent.classList.toggle('active', memoryTab === 'sessions');
   // Show regenerate button only on summaries tab
   $('memory-regenerate').style.display = memoryTab === 'summaries' ? '' : 'none';
 }
@@ -2259,6 +2354,91 @@ function renderRecallResults(data) {
   }).join('');
 }
 
+function renderBarChart(data, keyFn, valFn, { width = 600, height = 70, barColor = '#58a6ff' } = {}) {
+  if (!data || data.length === 0) return '<div class="recall-empty" style="padding:10px 0;">No activity data</div>';
+  const max = Math.max(...data.map(valFn));
+  const barW = Math.max(2, Math.floor((width - data.length) / data.length));
+  const gap = 1;
+  const svgW = data.length * (barW + gap);
+  const bars = data.map((d, i) => {
+    const h = max > 0 ? Math.max(1, (valFn(d) / max) * height) : 0;
+    const x = i * (barW + gap);
+    const y = height - h;
+    return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="${barColor}" rx="1">
+      <title>${keyFn(d)}: ${valFn(d)} messages</title>
+    </rect>`;
+  }).join('');
+  return `<div class="activity-chart"><svg viewBox="0 0 ${svgW} ${height}" preserveAspectRatio="none">${bars}</svg></div>`;
+}
+
+function formatDuration(firstTs, lastTs) {
+  if (!firstTs || !lastTs) return '—';
+  const ms = new Date(lastTs) - new Date(firstTs);
+  const days = Math.floor(ms / 86400000);
+  const hours = Math.floor((ms % 86400000) / 3600000);
+  if (days > 0) return `${days}d ${hours}h`;
+  const mins = Math.floor((ms % 3600000) / 60000);
+  return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+}
+
+async function fetchSessions() {
+  if (!BASE_URL) return;
+  try {
+    const sessions = await AgentClient.getSessions(BASE_URL, AUTH_TOKEN);
+    if (!sessions || sessions.length === 0) {
+      memSessionsContent.innerHTML = '<div class="recall-empty">No sessions in database</div>';
+      return;
+    }
+    // Fetch activity for the first (usually only) session
+    let html = '';
+    for (const s of sessions) {
+      let activityHtml = '';
+      try {
+        const activity = await AgentClient.getSessionActivity(BASE_URL, AUTH_TOKEN, s.session_id);
+        if (activity.daily && activity.daily.length > 0) {
+          activityHtml += `<div class="activity-section">
+            <div class="activity-section-title">Daily activity</div>
+            ${renderBarChart(activity.daily, d => d.date, d => d.count)}
+            <div class="chart-label">${activity.daily[0].date} → ${activity.daily[activity.daily.length - 1].date}</div>
+          </div>`;
+        }
+        if (activity.hourly && activity.hourly.length > 0) {
+          // Fill all 24 hours
+          const hourMap = Object.fromEntries(activity.hourly.map(h => [h.hour, h.count]));
+          const full24 = Array.from({ length: 24 }, (_, i) => ({ hour: i, count: hourMap[i] || 0 }));
+          activityHtml += `<div class="activity-section">
+            <div class="activity-section-title">Hourly distribution (UTC)</div>
+            ${renderBarChart(full24, d => `${String(d.hour).padStart(2, '0')}:00`, d => d.count, { barColor: '#8b5cf6' })}
+            <div class="chart-label">00:00 → 23:00 UTC</div>
+          </div>`;
+        }
+      } catch {}
+
+      const roles = s.roles || {};
+      const duration = formatDuration(s.first_ts, s.last_ts);
+      const isActive = sessions.length === 1 || s === sessions[sessions.length - 1];
+
+      html += `<div class="session-card${isActive ? ' active' : ''}">
+        <div class="session-header">
+          <span class="session-id">${s.session_id.slice(0, 8)}...</span>
+          <span class="session-meta">${s.first_ts ? new Date(s.first_ts).toLocaleDateString() : '?'} — ${s.last_ts ? new Date(s.last_ts).toLocaleDateString() : '?'}</span>
+        </div>
+        <div class="session-stats">
+          <div class="session-stat"><div class="session-stat-value">${s.messages.toLocaleString()}</div><div class="session-stat-label">Messages</div></div>
+          <div class="session-stat"><div class="session-stat-value">${duration}</div><div class="session-stat-label">Duration</div></div>
+          <div class="session-stat"><div class="session-stat-value">${(roles.user || 0).toLocaleString()}</div><div class="session-stat-label">User</div></div>
+          <div class="session-stat"><div class="session-stat-value">${(roles.assistant || 0).toLocaleString()}</div><div class="session-stat-label">Assistant</div></div>
+          <div class="session-stat"><div class="session-stat-value">${(roles.tool || 0).toLocaleString()}</div><div class="session-stat-label">Tool</div></div>
+        </div>
+        ${activityHtml}
+      </div>`;
+    }
+    memSessionsContent.innerHTML = html;
+  } catch (e) {
+    memSessionsContent.innerHTML = `<div class="recall-empty">Failed to load sessions</div>`;
+  }
+}
+
 $('memory-btn').addEventListener('click', async () => {
   if (memOverlay.classList.contains('open')) {
     memOverlay.classList.remove('open');
@@ -2278,6 +2458,11 @@ $('memory-tab-recall').addEventListener('click', () => {
   memoryTab = 'recall';
   updateMemoryTabs();
   $('recall-search-input').focus();
+});
+$('memory-tab-sessions').addEventListener('click', async () => {
+  memoryTab = 'sessions';
+  updateMemoryTabs();
+  await fetchSessions();
 });
 
 $('memory-regenerate').addEventListener('click', async () => {

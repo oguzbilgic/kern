@@ -354,6 +354,18 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     return regenerateNotesSummary(agentDir, config, memoryDB);
   });
 
+  // Sessions API
+  server.setSessionListFn(() => {
+    return memoryDB.getSessionList();
+  });
+
+  server.setSessionActivityFn((sessionId: string) => {
+    return {
+      daily: memoryDB.getSessionActivity(sessionId),
+      hourly: memoryDB.getSessionHourlyActivity(sessionId),
+    };
+  });
+
   // Recall search API
   if (recallIndex) {
     server.setRecallSearchFn(async (query: string, limit: number) => {
