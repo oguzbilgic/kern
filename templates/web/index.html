@@ -2056,7 +2056,7 @@ async function init() {
   } catch {}
 
   // Connect SSE — if native bridge is active, skip EventSource (native handles SSE)
-  if (window._kernNativeBuild) {
+  if (window.KernNative) {
     connection = { close() {}, connectionId: null };
   } else {
     connection = AgentClient.connect(BASE_URL, AUTH_TOKEN, {
