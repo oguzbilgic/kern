@@ -14,6 +14,10 @@
   - `kern logs` — follow mode by default. `-n 50` for last N lines. `--level warn` to filter.
   - `kern({ action: "logs" })` — agent can inspect its own logs (default warn+).
 - **Config validation** — warns on unknown fields and wrong types at startup. Invalid values ignored, defaults apply.
+- **Android app** — native mobile app for chatting with kern from Android devices.
+  - Connects to any `kern web` server (local, LAN, Tailscale, or tunnel)
+  - Improves mobile streaming reliability
+  - Adds voice input and text-to-speech
 
 - **Cross-platform shell** — `bash` tool on Unix, `pwsh` tool on Windows. One shell tool per platform, selected automatically. No config needed.
   - `grep` works on Unix only; on Windows suggests `Select-String` via pwsh

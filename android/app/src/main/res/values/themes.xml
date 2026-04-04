@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Kern" parent="Theme.MaterialComponents.NoActionBar">
+        <item name="android:statusBarColor">#0d1117</item>
+        <item name="android:navigationBarColor">#0d1117</item>
+        <item name="android:windowBackground">#0d1117</item>
+        <item name="colorPrimary">#58a6ff</item>
+        <item name="colorPrimaryDark">#0d1117</item>
+        <item name="colorAccent">#1f6feb</item>
+    </style>
+</resources>

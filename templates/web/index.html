@@ -3217,21 +3217,29 @@ async function init() {
     }
   } catch {}
 
-  // Connect SSE
-  connection = AgentClient.connect(BASE_URL, AUTH_TOKEN, {
-    onEvent: handleEvent,
-    onConnect() {
-      setConnected('connected');
-    },
-    async onDisconnect() {
-      if (authFailed || intentionalClose) return;
-      setConnected('disconnected');
-      addMessage('system', 'disconnected — reconnecting...');
-      // Re-discover agents (proxy URL is stable, but agent may have stopped)
-      await discoverAllAgents();
-      reconnectTimer = setTimeout(init, 2000);
-    },
-  });
+  // Connect SSE — if native bridge is active, skip EventSource (native handles SSE)
+  if (window.KernNative) {
+    connection = { close() {}, connectionId: null };
+    // Tell native to start SSE — bridge script may not have run yet
+    if (window.KernNative.switchAgent) {
+      KernNative.switchAgent(BASE_URL, AUTH_TOKEN || '');
+    }
+  } else {
+    connection = AgentClient.connect(BASE_URL, AUTH_TOKEN, {
+      onEvent: handleEvent,
+      onConnect() {
+        setConnected('connected');
+      },
+      async onDisconnect() {
+        if (authFailed || intentionalClose) return;
+        setConnected('disconnected');
+        addMessage('system', 'disconnected — reconnecting...');
+        // Re-discover agents (proxy URL is stable, but agent may have stopped)
+        await discoverAllAgents();
+        reconnectTimer = setTimeout(init, 2000);
+      },
+    });
+  }
 }
 
 setupSwitcher();
@@ -3385,6 +3393,35 @@ function showTokenPrompt() {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
+
+// Bridge API for native clients (Android WebView)
+// Stable contract — web UI internals can change without breaking the bridge.
+window.KernBridge = {
+  connect: function(baseUrl, token, opts) { return AgentClient.connect(baseUrl, token, opts); },
+  send: function(text) {
+    if (text !== undefined) {
+      var input = document.getElementById('input');
+      if (input) { input.value = text; input.dispatchEvent(new Event('input')); }
+    }
+    send();
+  },
+  handleEvent: function(ev) { return handleEvent(ev); },
+  setConnected: function(status) { setConnected(status); },
+  getState: function() {
+    return {
+      connectionId: connection ? connection.connectionId : null,
+      streamingText: streamingText || '',
+      busy: !!busy,
+      connected: !!(connection && connection.connectionId)
+    };
+  },
+  setConnectionId: function(id) { if (connection) connection.connectionId = id; },
+  setConnection: function(stub) { connection = stub; },
+  renderMarkdown: function(text) { return renderMarkdown(text); },
+  init: function() { init(); },
+  getBaseUrl: function() { return BASE_URL; },
+  setBaseUrl: function(url) { BASE_URL = url; }
+};
 </script>
 </body>
 </html>

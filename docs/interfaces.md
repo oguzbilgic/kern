@@ -156,3 +156,14 @@ Socket Mode connection. No public URL needed.
 - Agent can send proactive messages via the `message` tool.
 - Connection status reported in `/status` (connected/disconnected/error).
 - Graceful shutdown: Socket Mode connection closes cleanly on SIGTERM.
+
+## Android
+
+Native Android app wrapping the web UI in a WebView with native SSE, voice input, and text-to-speech.
+
+- Connects to any kern web server (local, LAN, or remote via ngrok/Tailscale)
+- Native SSE via OkHttp — bypasses WebView EventSource buffering issues
+- Voice input (speech recognition) and TTS output for assistant responses
+- Communicates with the web UI through `window.KernBridge` — a stable API that decouples the app from web UI internals
+
+See [`android/README.md`](../android/README.md) for build instructions and architecture details.
