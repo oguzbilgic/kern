@@ -24,7 +24,7 @@ import com.google.android.material.textfield.TextInputEditText
 class MainActivity : AppCompatActivity() {
 
     companion object {
-        const val BUILD = 40
+        const val BUILD = 41
     }
 
     private lateinit var webView: WebView
