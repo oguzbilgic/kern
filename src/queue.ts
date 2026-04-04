@@ -1,4 +1,5 @@
 import type { StreamEvent } from "./runtime.js";
+import type { Attachment } from "./interfaces/types.js";
 
 export interface QueuedMessage {
   text: string;
@@ -9,6 +10,7 @@ export interface QueuedMessage {
   reject: (error: Error) => void;
   onEvent?: (event: StreamEvent) => void;
   isHeartbeat?: boolean;
+  attachments?: Attachment[];
 }
 
 import { log } from "./log.js";

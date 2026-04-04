@@ -10,6 +10,7 @@ import type { RecallIndex } from "./recall.js";
 import type { SegmentIndex } from "./segments.js";
 import type { MemoryDB } from "./memory.js";
 import { prepareContext, injectRecall, loadSystemPrompt, type PrepareContextOptions } from "./context.js";
+import type { Attachment } from "./interfaces/types.js";
 export type { SessionStats } from "./context.js";
 
 
@@ -120,14 +121,46 @@ export class Runtime {
   async handleMessage(
     userMessage: string,
     onEvent: StreamHandler,
+    attachments?: Attachment[],
   ): Promise<string> {
     // Reload system prompt (picks up new daily notes, summaries, knowledge changes)
     this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.memoryDB);
 
     // Add user message to session
     const preview = userMessage.slice(0, 80).replace(/\n/g, " ");
-    log("runtime", `handleMessage: ${preview}${userMessage.length > 80 ? "..." : ""}`);
-    const userMsg: ModelMessage = { role: "user", content: userMessage };
+    log("runtime", `handleMessage: ${preview}${userMessage.length > 80 ? "..." : ""}${attachments?.length ? ` +${attachments.length} attachment(s)` : ""}`);
+
+    // Build multi-modal content if attachments are present
+    let userMsg: ModelMessage;
+    if (attachments && attachments.length > 0) {
+      const contentParts: any[] = [];
+      for (const att of attachments) {
+        if (att.type === "image") {
+          contentParts.push({
+            type: "image",
+            image: att.data,
+            mimeType: att.mimeType,
+          });
+          log("runtime", `attached image: ${att.filename || "unknown"} (${att.size} bytes, ${att.mimeType})`);
+        } else {
+          // For non-image attachments, add a text description for now
+          // Audio transcription and document extraction can be added in Phase 2
+          const label = att.filename || `${att.type} file`;
+          contentParts.push({
+            type: "text",
+            text: `[Attached ${att.type}: ${label} (${att.mimeType}, ${att.size} bytes)]`,
+          });
+          log("runtime", `attached ${att.type}: ${label} (${att.size} bytes)`);
+        }
+      }
+      // Add text content last
+      if (userMessage) {
+        contentParts.push({ type: "text", text: userMessage });
+      }
+      userMsg = { role: "user", content: contentParts };
+    } else {
+      userMsg = { role: "user", content: userMessage };
+    }
     await this.session.append([userMsg]);
     incrementMessageCount();
 
