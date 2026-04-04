@@ -2,6 +2,8 @@
 
 Create your first kern agent in under a minute.
 
+![kern web UI](https://kern-ai.com/images/conversation.png)
+
 ## Install
 
 ```
