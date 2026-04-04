@@ -3321,6 +3321,7 @@ function getActiveAgent() {
 }
 function setActiveAgent(name) {
   sessionStorage.setItem('kern_active_agent', name);
+  updateTitle(!!$('thinking'));
 }
 
 // All discovered agents grouped by server — fetched fresh each time
@@ -3904,6 +3905,11 @@ function setBusy(b) {
   if (!b) hideThinking();
 }
 
+function updateTitle(busy) {
+  const name = getActiveAgent() || 'kern';
+  document.title = busy ? `✍️ ${name}` : name;
+}
+
 function showThinking() {
   if ($('thinking')) return;
   const el = document.createElement('div');
@@ -3912,11 +3918,13 @@ function showThinking() {
   el.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
   messagesEl.appendChild(el);
   scrollToBottom();
+  updateTitle(true);
 }
 
 function hideThinking() {
   const el = $('thinking');
   if (el) el.remove();
+  updateTitle(false);
 }
 
 function setConnected(state) {
