@@ -8,7 +8,7 @@ kern agents remember things between sessions through plain text files in a git r
 
 ## Notes
 
-`notes/` — daily logs of what happened, decisions made, and open items. Append-only, one file per day. Notes are historical records — the agent never modifies a previous day's file.
+`notes/` — daily logs of what happened, decisions made, and open items. Append-only, one file per day named `YYYY-MM-DD.md`. Notes are historical records — the agent never modifies a previous day's file. Only files matching the date pattern are recognized — other files in `notes/` are ignored.
 
 ### Notes summary
 

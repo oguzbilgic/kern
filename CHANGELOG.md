@@ -1,5 +1,10 @@
 # Changelog
 
+## next
+
+### Changes
+- **Notes filtering** ([#34](https://github.com/oguzbilgic/kern-ai/pull/34)) — only `YYYY-MM-DD.md` files in `notes/` are recognized as daily notes. Stray files are ignored.
+
 ## v0.18.0
 
 ### Features
