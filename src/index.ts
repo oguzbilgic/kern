@@ -114,7 +114,11 @@ async function main() {
     if (args[1]) {
       const { isServiceInstalled, serviceControl } = await import("./install.js");
       if (isServiceInstalled(args[1])) {
-        serviceControl("start", args[1]);
+        const ok = serviceControl("start", args[1]);
+        if (!ok) {
+          console.error(`Failed to start service-managed agent: ${args[1]}`);
+          process.exit(1);
+        }
         process.exit(0);
       }
     }
@@ -126,7 +130,11 @@ async function main() {
     if (args[1]) {
       const { isServiceInstalled, serviceControl } = await import("./install.js");
       if (isServiceInstalled(args[1])) {
-        serviceControl("stop", args[1]);
+        const ok = serviceControl("stop", args[1]);
+        if (!ok) {
+          console.error(`Failed to stop service-managed agent: ${args[1]}`);
+          process.exit(1);
+        }
         process.exit(0);
       }
     }
@@ -138,7 +146,11 @@ async function main() {
     if (args[1]) {
       const { isServiceInstalled, serviceControl } = await import("./install.js");
       if (isServiceInstalled(args[1])) {
-        serviceControl("restart", args[1]);
+        const ok = serviceControl("restart", args[1]);
+        if (!ok) {
+          console.error(`Failed to restart service-managed agent: ${args[1]}`);
+          process.exit(1);
+        }
         process.exit(0);
       }
     }
