@@ -1141,12 +1141,53 @@
     font-size: 12px;
     font-family: var(--font-mono);
   }
+  .seg-detail-heading {
+    margin-bottom: 14px;
+  }
+  .seg-detail-title {
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.3;
+    margin-bottom: 8px;
+  }
+  .seg-detail-subtitle {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    line-height: 1.6;
+  }
+  .seg-detail-time {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
   .seg-detail-meta {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .seg-detail-meta-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .seg-detail-meta-card .k {
     color: var(--text-muted);
     font-size: 11px;
     font-family: var(--font-mono);
-    margin-bottom: 10px;
-    line-height: 1.6;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 4px;
+  }
+  .seg-detail-meta-card .v {
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.45;
   }
   .seg-detail-actions {
     margin-bottom: 12px;
@@ -1229,6 +1270,31 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 6px;
+  }
+  .segments-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .segments-stat-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .segments-stat-card .k {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 4px;
+  }
+  .segments-stat-card .v {
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 600;
   }
   .segments-row {
     display: flex;
@@ -1924,15 +1990,29 @@ function renderSegments(data) {
   const totalSummaryTokens = statSegments.reduce((s, seg) => s + (seg.summary_token_count || Math.ceil((seg.summary || '').length / 4)), 0);
   const ratio = totalSummaryTokens > 0 ? Math.round(totalTokens / totalSummaryTokens) : 0;
   const levelCount = new Set(statSegments.map(s => s.level || 0)).size;
+  const messageSpan = statSegments.length > 0
+    ? (Math.max(...statSegments.map(s => s.msg_end || 0)) - Math.min(...statSegments.map(s => s.msg_start || 0)) + 1)
+    : 0;
+  const avgSummary = statSegments.length > 0 ? Math.round(totalSummaryTokens / statSegments.length) : 0;
   const label = segmentFilterMode === 'context' ? 'context' : 'all';
   segStats.textContent = statSegments.length > 0
-    ? `${statSegments.length} ${label} segments · ${levelCount} level${levelCount > 1 ? 's' : ''} · ${(totalTokens / 1000).toFixed(0)}k tokens · ${(totalSummaryTokens / 1000).toFixed(1)}k summary · ${ratio}:1`
+    ? `${statSegments.length} ${label} segments · ${levelCount} level${levelCount > 1 ? 's' : ''}`
     : `${label}: 0 segments`;
 
   if (!filteredSegments || filteredSegments.length === 0) {
     segTimeline.innerHTML = '<div style="color:var(--text-muted);padding:20px;">No segments yet. Use Start or Rebuild to index.</div>';
     return;
   }
+
+  let html = '';
+  html += `<div class="segments-overview">`;
+  html += `<div class="segments-stat-card"><div class="k">Messages</div><div class="v">${messageSpan.toLocaleString()}</div></div>`;
+  html += `<div class="segments-stat-card"><div class="k">Source tokens</div><div class="v">${totalTokens.toLocaleString()}</div></div>`;
+  html += `<div class="segments-stat-card"><div class="k">Summary tokens</div><div class="v">${totalSummaryTokens.toLocaleString()}</div></div>`;
+  html += `<div class="segments-stat-card"><div class="k">Compression</div><div class="v">${ratio}:1</div></div>`;
+  html += `<div class="segments-stat-card"><div class="k">Segments</div><div class="v">${statSegments.length.toLocaleString()}</div></div>`;
+  html += `<div class="segments-stat-card"><div class="k">Avg summary / seg</div><div class="v">${avgSummary.toLocaleString()} tok</div></div>`;
+  html += `</div>`;
 
   // Group by level
   const levels = {};
@@ -1951,7 +2031,6 @@ function renderSegments(data) {
   }
 
   segDataMap = {};
-  let html = '';
   const sortedLevels = Object.keys(levels).map(Number).sort();
 
   const MIN_BLOCK_PX = 40;
@@ -2093,15 +2172,25 @@ function showSegDetail(el) {
   const span = seg.msg_end - seg.msg_start;
   const tokens = (seg.token_count || 0).toLocaleString();
   const summaryTokens = seg.summary_token_count || Math.ceil((seg.summary || '').length / 4);
+  const compression = summaryTokens > 0 ? Math.round(seg.token_count / summaryTokens) : '?';
+  const title = `Msgs ${seg.msg_start}–${seg.msg_end}`;
+  const subtitle = `${span} messages${seg.level != null ? ` · L${seg.level}` : ''}${seg.parent_id ? ` · parent ${seg.parent_id}` : ''}`;
+  const timeRange = `${seg.start_time ? new Date(seg.start_time).toLocaleString() : '—'}${seg.start_time && seg.end_time ? ' – ' : ''}${seg.end_time ? new Date(seg.end_time).toLocaleString() : ''}`;
 
   segDetail.classList.remove('empty');
   segDetail.innerHTML = `
-    <div class="seg-detail-meta">
-      msgs ${seg.msg_start}–${seg.msg_end} (${span} messages)<br>
-      ${tokens} tokens → ${summaryTokens} summary tokens (${summaryTokens > 0 ? Math.round(seg.token_count / summaryTokens) : '?'}:1)<br>
-      ${seg.start_time ? new Date(seg.start_time).toLocaleString() : ''}${seg.start_time && seg.end_time ? ' – ' : ''}${seg.end_time ? new Date(seg.end_time).toLocaleString() : ''}
-      ${!seg.summarized ? '<br><span style="color:var(--orange);">⏳ not yet summarized</span>' : ''}
+    <div class="seg-detail-heading">
+      <div class="seg-detail-title">${title}</div>
+      <div class="seg-detail-subtitle">${subtitle}</div>
     </div>
+    <div class="seg-detail-time">${timeRange}</div>
+    <div class="seg-detail-meta">
+      <div class="seg-detail-meta-card">
+        <div class="k">Compression</div>
+        <div class="v">${tokens} → ${summaryTokens} summary tokens (${compression}:1)</div>
+      </div>
+    </div>
+    ${!seg.summarized ? '<div style="color:var(--orange);font-size:12px;font-family:var(--font-mono);margin-bottom:10px;">not yet summarized</div>' : ''}
     <div class="seg-detail-actions">
       <button id="seg-resummarize-${seg.id}" class="modal-btn">Resummarize</button>
     </div>
