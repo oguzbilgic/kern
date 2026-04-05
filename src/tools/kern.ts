@@ -242,10 +242,10 @@ export function formatStatus(data: StatusData): string {
     data.contextBreakdown ? (() => {
       const cb = data.contextBreakdown!;
       const total = cb.systemPromptTokens + cb.messageTokens + cb.summaryTokens;
-      return `context: ~${Math.round(total / 1000)}k tokens (${cb.messageCount} messages, ${cb.trimmedCount} trimmed)`;
+      return `context: ~${Math.round(total / 1000)}k tokens`;
     })() : (data.context ? `context: ${data.context}` : ""),
     data.contextBreakdown ? `  system: ~${Math.round(data.contextBreakdown.systemPromptTokens / 1000)}k tokens` : "",
-    data.contextBreakdown ? `  messages: ~${Math.round(data.contextBreakdown.messageTokens / 1000)}k tokens` : "",
+    data.contextBreakdown ? `  messages: ~${Math.round(data.contextBreakdown.messageTokens / 1000)}k tokens (${data.contextBreakdown.messageCount} messages, ${data.contextBreakdown.trimmedCount} trimmed)` : "",
     data.contextBreakdown && data.contextBreakdown.summaryTokens > 0 ? (() => {
       const lvlStr = Object.entries(data.contextBreakdown!.summaryLevelCounts)
         .sort(([a], [b]) => Number(a) - Number(b))
