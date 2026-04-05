@@ -32,12 +32,12 @@
     --yellow: #d29922;
     --cyan: #56d4dd;
     --tool-bash: #f85149;
-    --tool-read: #56d4dd;
+    --tool-read: #e6edf3;
     --tool-write: #3fb950;
     --tool-edit: #d29922;
     --tool-glob: #bc8cff;
     --tool-grep: #58a6ff;
-    --tool-webfetch: #56d4dd;
+    --tool-webfetch: #e6edf3;
     --tool-kern: #e6edf3;
     --tool-message: #3fb950;
     --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
@@ -67,6 +67,21 @@
     display: flex;
     flex-direction: column;
     height: 100dvh;
+    position: relative;
+  }
+  .sidebar-resize {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 10;
+  }
+  .sidebar-resize:hover,
+  .sidebar-resize.dragging {
+    background: var(--text-muted);
+    opacity: 0.2;
   }
   .sidebar-header {
     padding: 0 14px;
@@ -200,8 +215,20 @@
     overflow: hidden;
     min-width: 0;
     position: relative;
+    position: relative;
   }
 
+  .sidebar.mini { width: 72px; min-width: 72px; }
+  .sidebar.mini { overflow: hidden; }
+  .sidebar.mini .switcher-server-header span { visibility: hidden; font-size: 0; line-height: 0; }
+  .sidebar.mini .switcher-server-header { position: relative; margin-top: 12px; margin-bottom: 4px; padding: 8px 12px !important; min-height: 0; }
+  .sidebar.mini .switcher-server-header::after { content: ''; position: absolute; left: 10px; right: 10px; top: 50%; transform: translateY(-50%); height: 12px; border-radius: 4px; background: var(--text-muted); opacity: 0.12; }
+  .sidebar.mini .switcher-add-inline { display: none; }
+  .sidebar.mini #logout-btn { display: none; }
+  .sidebar.mini .switcher-item-remove { display: none !important; }
+  .sidebar.mini .sidebar-footer { display: none; }
+  .sidebar.mini .switcher-item:hover { background: rgba(255,255,255,0.06); }
+  .sidebar.mini .switcher-item.active { background: rgba(255,255,255,0.1); }
   .sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; border-right: none; }
 
   .sidebar-backdrop {
@@ -232,23 +259,33 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 16px;
-    padding-left: max(16px, env(safe-area-inset-left));
-    padding-right: max(16px, env(safe-area-inset-right));
-    height: 42px;
-    min-height: 42px;
-    border-bottom: 1px solid var(--border);
+    padding: 0 12px;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    height: 48px;
+    min-height: 48px;
     background: var(--bg);
     flex-shrink: 0;
   }
   .header-left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+  }
+  .header-center {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
   }
   .header-title {
     font-weight: 600;
-    font-size: 15px;
+    font-size: 16px;
+    color: var(--text);
+    pointer-events: auto;
   }
   .header-meta {
     font-size: 12px;
@@ -257,58 +294,46 @@
   .info-btn {
     background: none;
     border: none;
-    color: var(--text-muted);
-    font-size: 18px;
+    color: var(--text-dim);
+    font-size: 16px;
     cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
+    padding: 6px 8px;
+    border-radius: 6px;
     line-height: 1;
     letter-spacing: 1px;
   }
-  .info-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+  .info-btn:hover { color: var(--text-muted); background: rgba(255,255,255,0.04); }
 
-  /* --- Agent info panel --- */
-  .info-panel {
+  /* --- Header info expansion --- */
+  .header-title[role="button"] { cursor: pointer; }
+  .header-title[role="button"]:hover { opacity: 0.7; }
+  .header-info {
     display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
     background: var(--bg-surface);
     border-bottom: 1px solid var(--border);
-    padding: 12px 16px;
+    padding: 12px 20px 14px;
     font-size: 12px;
     font-family: var(--font-mono);
-    line-height: 1.8;
     color: var(--text-dim);
-    flex-shrink: 0;
+    z-index: 15;
   }
-  .info-panel.open { display: block; }
-  .info-panel .info-row {
+  .header-info.open { display: block; }
+  .header-info .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px 24px;
+  }
+  .header-info .info-row {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 1px;
   }
-  .info-panel .info-label { color: var(--text-muted); }
-  .info-panel .info-value { color: var(--text); }
-  .info-panel .info-section {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid var(--border);
-  }
-  .info-panel .info-copy {
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--text-muted);
-    font-size: 11px;
-    font-family: var(--font-mono);
-    padding: 2px 8px;
-    cursor: pointer;
-    margin-left: 8px;
-  }
-  .info-panel .info-copy:hover { color: var(--text); border-color: var(--text-muted); }
-  .info-panel .info-url {
-    font-size: 11px;
-    color: var(--text-dim);
-    word-break: break-all;
-  }
+  .header-info .info-label { color: var(--text-dim); font-size: 11px; }
+  .header-info .info-value { color: var(--text-muted); word-break: break-all; font-size: 12px; }
   .status-dot {
     width: 8px;
     height: 8px;
@@ -381,17 +406,22 @@
   .messages.hide-tui .timestamp.from-tui { display: none; }
 
   /* --- Messages --- */
-  .messages {
+  .messages-scroll {
     flex: 1;
     overflow-y: auto;
+  }
+  .messages {
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
+    max-width: 800px;
+    width: 100%;
+    margin: 0 auto;
   }
 
   .message {
-    max-width: 85%;
+    max-width: 72%;
     padding: 8px 12px;
     border-radius: 8px;
     word-wrap: break-word;
@@ -427,7 +457,7 @@
     align-self: flex-end;
     background: var(--bg-surface);
     color: #d4d4d4;
-    border-radius: 8px;
+    border-radius: 8px 8px 2px 8px;
   }
   .message.user-remote {
     align-self: flex-end;
@@ -482,6 +512,17 @@
     border-radius: 8px 8px 8px 2px;
     color: #d4d4d4;
   }
+  /* Extra spacing between turns (user↔assistant) */
+  .message.user + .message.assistant,
+  .message.user + .message.tool,
+  .message.user-media + .message.assistant,
+  .message.user-media + .message.tool,
+  .message.assistant + .message.user,
+  .message.assistant + .message.user-media,
+  .ts-right + .message.assistant,
+  .ts-right + .message.tool {
+    margin-top: 8px;
+  }
   .message.emoji-only {
     background: transparent;
     border: none;
@@ -493,6 +534,7 @@
     font-size: 10px;
     color: var(--text-muted);
     padding: 2px 4px;
+    margin-top: -4px;
   }
   .ts-right { align-self: flex-end; }
   .ts-left { align-self: flex-start; }
@@ -512,6 +554,7 @@
     color: var(--text-dim);
     padding: 4px 10px;
     max-width: 90%;
+    white-space: normal;
   }
   .message.tool { cursor: pointer; }
   .message.tool .tool-header { display: flex; align-items: center; gap: 6px; }
@@ -526,12 +569,17 @@
   }
   .message.tool .tool-prompt { color: var(--text-muted); user-select: none; }
   .message.tool .tool-detail { color: var(--text-muted); }
+  .message.tool.tool-bash-style .tool-header { align-items: flex-start; }
+  .message.tool.tool-bash-style .tool-detail { white-space: pre-wrap; }
+  .message.tool.tool-bash-style .hljs-string { color: #b5a98a; }
+  .message.tool.tool-bash-style .hljs-built_in { color: #e6edf3; }
+  .message.tool.tool-bash-style .hljs-keyword { color: #e6edf3; }
   .message.tool .tool-output {
     display: none;
-    margin-top: 6px;
-    padding: 8px;
-    background: var(--tool-bg);
-    border-radius: 4px;
+    margin-top: 10px;
+    padding: 6px 8px 6px 10px;
+    border-left: 2px solid var(--border);
+    border-radius: 0;
     font-size: 11px;
     line-height: 1.4;
     max-height: 300px;
@@ -541,6 +589,7 @@
     color: var(--text-dim);
   }
   .message.tool.expanded .tool-output { display: block; }
+  .message.tool.expanded { padding-bottom: 12px; }
   .diff-line-old, .diff-line-new { display: flex; gap: 0; }
   .diff-line-old { opacity: 0.4; }
   .diff-gutter { user-select: none; width: 16px; flex-shrink: 0; text-align: center; }
@@ -729,8 +778,6 @@
     border-right: 3px solid var(--magenta);
     border-radius: 8px 0 0 8px;
     color: var(--text-muted);
-    font-size: 12px;
-    padding: 4px 10px;
     text-align: right;
   }
   .message.command-result {
@@ -875,25 +922,34 @@
   .input-area {
     padding: 12px 16px;
     padding-bottom: max(12px, env(safe-area-inset-bottom));
-    padding-left: max(16px, env(safe-area-inset-left));
-    padding-right: max(16px, env(safe-area-inset-right));
     background: var(--bg);
     flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+  }
+  .input-area > * {
+    width: 100%;
+    max-width: 800px;
   }
   .input-row {
     display: flex;
-    gap: 0;
-    align-items: flex-end;
+    flex-direction: column;
     position: relative;
     background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 4px 6px 4px 4px;
+    border: 1.5px solid var(--border);
+    border-radius: 22px;
     transition: border-color 0.15s;
+    overflow: hidden;
   }
   .input-row:focus-within {
     border-color: var(--text-muted);
     box-shadow: 0 0 0 1px rgba(255,255,255,0.04);
+  }
+  .input-inner {
+    display: flex;
+    gap: 0;
+    align-items: center;
+    padding: 4px 6px 4px 4px;
   }
   .input-row textarea {
     flex: 1;
@@ -901,9 +957,9 @@
     color: var(--text);
     border: none;
     border-radius: 0;
-    padding: 8px 8px;
+    padding: 10px 10px;
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: 14.5px;
     line-height: 1.5;
     resize: none;
     outline: none;
@@ -1009,70 +1065,78 @@
   .attach-btn:hover { color: var(--text-muted); }
   .attachment-preview {
     display: none;
-    padding: 6px 8px;
-    gap: 6px;
+    padding: 12px 14px;
+    gap: 10px;
     flex-wrap: wrap;
-    margin-bottom: 4px;
-    background: var(--bg-surface);
-    border-radius: 8px;
-    border: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    align-items: flex-end;
   }
   .attachment-preview.has-items { display: flex; }
   .attachment-thumb {
     position: relative;
-    border-radius: 6px;
+    border-radius: 12px;
     overflow: hidden;
-    border: 1px solid var(--border);
-    background: var(--bg-surface);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
   }
   .attachment-thumb img {
     display: block;
-    max-height: 80px;
-    max-width: 120px;
+    width: 80px;
+    height: 80px;
     object-fit: cover;
   }
   .attachment-thumb .file-label {
-    padding: 6px 10px;
-    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 80px;
+    height: 80px;
+    padding: 8px;
+    font-size: 11px;
     color: var(--text-muted);
-    max-width: 120px;
+    text-align: center;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    word-break: break-all;
+    line-height: 1.3;
   }
   .attachment-thumb .remove-btn {
     position: absolute;
-    top: 2px;
-    right: 2px;
-    background: rgba(0,0,0,0.7);
-    color: #fff;
+    top: -1px;
+    right: -1px;
+    background: rgba(0,0,0,0.75);
+    color: var(--text-muted);
     border: none;
-    border-radius: 50%;
-    width: 18px;
-    height: 18px;
-    font-size: 12px;
+    border-radius: 0 12px 0 8px;
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     line-height: 1;
+    transition: background 0.1s, color 0.1s;
   }
-  .attachment-thumb .remove-btn:hover { background: rgba(200,0,0,0.8); }
+  .attachment-thumb .remove-btn:hover { background: rgba(200,0,0,0.8); color: #fff; }
   .drop-overlay {
-    display: none;
     position: absolute;
     inset: 0;
-    background: rgba(0,0,0,0.6);
-    border: 2px dashed var(--text-muted);
+    background: rgba(0,0,0,0.5);
+    border: 2px dashed var(--text-dim);
     border-radius: 12px;
     z-index: 100;
+    display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--text);
-    font-size: 16px;
+    color: var(--text-muted);
+    font-size: 15px;
+    letter-spacing: 0.5px;
     pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    backdrop-filter: blur(4px);
   }
-  .drop-overlay.visible { display: flex; }
+  .drop-overlay.visible { opacity: 1; }
 
   /* --- Scrollbar --- */
   .messages::-webkit-scrollbar { width: 6px; }
@@ -2197,6 +2261,7 @@
 <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
 <div class="sidebar" id="sidebar">
+  <div class="sidebar-resize" id="sidebar-resize"></div>
   <div class="sidebar-header">
     <a href="https://kern-ai.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">kern<span style="color:#58a6ff">.</span></a>
     <button class="filter-btn" id="logout-btn" title="Logout" style="font-size:14px;">&#x23FB;</button>
@@ -2233,35 +2298,40 @@
 </div>
 
 <div class="main">
-  <div class="header">
+  <div class="header" id="conv-header" style="position:relative;">
     <div class="header-left">
       <button class="menu-btn" id="menu-btn" title="Agents">&#9776;</button>
-      <span class="header-title" id="agent-name">kern</span>
-      <span class="status-dot connecting" id="status-dot"></span>
     </div>
-    <div style="display:flex;align-items:center;gap:4px;position:relative;">
+    <span class="status-dot connecting" id="status-dot" style="display:none;"></span>
+    <div class="header-center">
+      <span class="header-title" id="agent-name" role="button" tabindex="0">kern</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:2px;position:relative;">
       <button class="filter-btn" id="filter-btn" title="Filter messages">&#9881;</button>
       <div class="filter-dropdown" id="filter-dropdown"></div>
       <button class="info-btn" id="inspector-btn" title="Memory">&#9826;</button>
-      <button class="info-btn" id="info-btn" title="Agent info">&#8942;</button>
     </div>
+    <div class="header-info" id="header-info"></div>
   </div>
 
-  <div class="info-panel" id="info-panel"></div>
-  <div class="messages" id="messages"></div>
+  <div class="messages-scroll" id="messages-scroll">
+    <div class="messages" id="messages"></div>
+  </div>
 
   <button class="scroll-down-btn" id="scroll-down-btn" title="Scroll to bottom">&#8595;</button>
   <div class="input-area">
-    <div class="attachment-preview" id="attachment-preview"></div>
     <div class="input-row">
       <div class="cmd-popup" id="cmd-popup"></div>
       <input type="file" id="file-input" multiple hidden accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.json,.md" />
-      <button class="attach-btn" id="attach-btn" title="Attach files"><svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg></button>
-      <textarea id="input" placeholder="Send a message..." rows="1" autofocus autocomplete="off" autocorrect="off" spellcheck="false" autocapitalize="off"></textarea>
-      <button id="send" disabled><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+      <div class="attachment-preview" id="attachment-preview"></div>
+      <div class="input-inner">
+        <button class="attach-btn" id="attach-btn" title="Attach files"><svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg></button>
+        <textarea id="input" placeholder="Send a message..." rows="1" autofocus autocomplete="off" autocorrect="off" spellcheck="false" autocapitalize="off"></textarea>
+        <button id="send" disabled><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+      </div>
     </div>
-    <div class="drop-overlay" id="drop-overlay">Drop files here</div>
   </div>
+  <div class="drop-overlay" id="drop-overlay">Drop files here</div>
 </div>
 
 <script>
@@ -2590,7 +2660,7 @@ const inputEl = $('input');
 const sendBtn = $('send');
 const statusDot = $('status-dot');
 const agentNameEl = $('agent-name');
-const infoPanel = $('info-panel');
+const infoPanel = $('header-info');
 
 // --- Attachment management ---
 const fileInput = $('file-input');
@@ -2711,7 +2781,7 @@ document.addEventListener('drop', (e) => {
 });
 
 // Toggle agent info panel
-$('info-btn').addEventListener('click', async () => {
+agentNameEl.addEventListener('click', async () => {
   if (infoPanel.classList.contains('open')) {
     infoPanel.classList.remove('open');
     return;
@@ -2727,45 +2797,27 @@ $('info-btn').addEventListener('click', async () => {
 
     const esc = (s) => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     infoPanel.innerHTML = `
-      <div class="info-row"><span class="info-label">kern</span><span class="info-value">v${esc(status.version) || '?'}</span></div>
-      <div class="info-row"><span class="info-label">model</span><span class="info-value">${esc(status.provider)}/${esc(status.model)}</span></div>
-      <div class="info-row"><span class="info-label">tools</span><span class="info-value">${esc(status.toolScope)}</span></div>
-      ${status.telegram ? `<div class="info-row"><span class="info-label">telegram</span><span class="info-value">${esc(status.telegram)}</span></div>` : ''}
-      ${status.slack ? `<div class="info-row"><span class="info-label">slack</span><span class="info-value">${esc(status.slack)}</span></div>` : ''}
-      ${status.recall ? `<div class="info-row"><span class="info-label">recall</span><span class="info-value">${esc(status.recall)}</span></div>` : ''}
-      <div class="info-row"><span class="info-label">uptime</span><span class="info-value">${esc(status.uptime)}</span></div>
-      <div class="info-row"><span class="info-label">session</span><span class="info-value">${esc(status.session)}</span></div>
-      ${(() => {
-        const cb = status.contextBreakdown;
-        if (!cb) return status.context ? `<div class="info-row"><span class="info-label">context</span><span class="info-value">${esc(status.context)}</span></div>` : '';
-        const total = Math.round(((cb.systemPromptTokens || 0) + cb.messageTokens + cb.summaryTokens) / 1000);
-        return `<div class="info-row"><span class="info-label">context</span><span class="info-value">~${total}k tokens (${cb.messageCount} msgs, ${cb.trimmedCount.toLocaleString()} trimmed)</span></div>
-        <div class="info-row"><span class="info-label">&nbsp; system</span><span class="info-value">~${Math.round((cb.systemPromptTokens || 0) / 1000)}k tokens</span></div>
-        <div class="info-row"><span class="info-label">&nbsp; messages</span><span class="info-value">~${Math.round(cb.messageTokens / 1000)}k tokens</span></div>
-        ${cb.summaryTokens > 0 ? (() => {
-          const lvl = Object.entries(cb.summaryLevelCounts).sort(([a],[b])=>a-b).map(([l,n])=> n + '×L' + l).join(', ');
-          return '<div class="info-row"><span class="info-label">&nbsp; summary</span><span class="info-value">~' + Math.round(cb.summaryTokens / 1000) + 'k tokens (' + lvl + ')</span></div>';
-        })() : ''}`;
-      })()}
-      <div class="info-row"><span class="info-label">api usage</span><span class="info-value">${esc(status.apiUsage)}</span></div>
-      <div class="info-row"><span class="info-label">queue</span><span class="info-value">${esc(status.queue)}</span></div>
-      <div class="info-section">
-        <div class="info-row">
-          <span class="info-label">connection</span>
-          <button class="info-copy" id="copy-conn">copy</button>
-        </div>
-        <div class="info-url">${esc(connString)}</div>
+      <div class="info-grid">
+        <div class="info-row"><span class="info-label">version</span><span class="info-value">v${esc(status.version) || '?'}</span></div>
+        <div class="info-row"><span class="info-label">model</span><span class="info-value">${esc(status.provider)}/${esc(status.model)}</span></div>
+        <div class="info-row"><span class="info-label">uptime</span><span class="info-value">${esc(status.uptime)}</span></div>
+        <div class="info-row"><span class="info-label">session</span><span class="info-value">${esc(status.session)}</span></div>
+        ${(() => {
+          const cb = status.contextBreakdown;
+          if (!cb) return status.context ? `<div class="info-row"><span class="info-label">context</span><span class="info-value">${esc(status.context)}</span></div>` : '';
+          const total = Math.round(((cb.systemPromptTokens || 0) + cb.messageTokens + cb.summaryTokens) / 1000);
+          return `<div class="info-row"><span class="info-label">context</span><span class="info-value">~${total}k tokens (${cb.messageCount} msgs)</span></div>`;
+        })()}
+        <div class="info-row"><span class="info-label">api usage</span><span class="info-value">${esc(status.apiUsage)}</span></div>
+        ${status.cacheUsage ? `<div class="info-row"><span class="info-label">cache</span><span class="info-value">${esc(status.cacheUsage)}</span></div>` : ''}
+        ${status.telegram ? `<div class="info-row"><span class="info-label">telegram</span><span class="info-value">${esc(status.telegram)}</span></div>` : ''}
+        ${status.slack ? `<div class="info-row"><span class="info-label">slack</span><span class="info-value">${esc(status.slack)}</span></div>` : ''}
+        ${status.recall ? `<div class="info-row"><span class="info-label">recall</span><span class="info-value">${esc(status.recall)}</span></div>` : ''}
+        <div class="info-row"><span class="info-label">queue</span><span class="info-value">${esc(status.queue)}</span></div>
+        <div class="info-row"><span class="info-label">tools</span><span class="info-value">${esc(status.toolScope)}</span></div>
       </div>
     `;
     infoPanel.classList.add('open');
-
-    $('copy-conn').addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(connString);
-        $('copy-conn').textContent = 'copied';
-        setTimeout(() => { $('copy-conn').textContent = 'copy'; }, 1500);
-      } catch {}
-    });
   } catch {}
 });
 
@@ -2777,6 +2829,8 @@ const inspectorOverlay = $('inspector-overlay');
 const inspectorTitle = $('inspector-title');
 const inspectorStats = $('inspector-stats');
 const inspectorActions = $('inspector-actions');
+$('messages-scroll').addEventListener('click', () => { infoPanel.classList.remove('open'); });
+
 const segTimeline = $('segments-timeline');
 const promptText = $('prompt-text');
 const promptStructured = $('prompt-structured');
@@ -4032,15 +4086,71 @@ function toggleSidebar() {
   const isMobile = window.innerWidth <= 768;
   if (isMobile) {
     const isOpen = sidebar.classList.contains('open');
-    sidebar.classList.remove('collapsed');
+    sidebar.classList.remove('collapsed', 'mini');
     sidebar.classList.toggle('open', !isOpen);
     $('sidebar-backdrop').classList.toggle('open', !isOpen);
   } else {
+    // Hamburger cycles: full → mini → collapsed → full
     sidebar.classList.remove('open');
-    const collapsed = sidebar.classList.toggle('collapsed');
-    localStorage.setItem('kern_sidebar_collapsed', collapsed ? '1' : '');
+    const isFull = !sidebar.classList.contains('mini') && !sidebar.classList.contains('collapsed');
+    const isMini = sidebar.classList.contains('mini');
+    sidebar.classList.remove('mini', 'collapsed');
+    if (isFull) {
+      sidebar.classList.add('mini');
+      localStorage.setItem('kern_sidebar_state', 'mini');
+    } else if (isMini) {
+      sidebar.classList.add('collapsed');
+      localStorage.setItem('kern_sidebar_state', 'collapsed');
+    } else {
+      localStorage.setItem('kern_sidebar_state', 'full');
+    }
   }
 }
+
+// Sidebar drag-to-resize with snap points
+(function() {
+  const handle = $('sidebar-resize');
+  const sidebar = $('sidebar');
+  if (!handle) return;
+  let dragging = false;
+
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    dragging = true;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const x = e.clientX;
+    sidebar.classList.remove('mini', 'collapsed');
+    // Snap: <35px = collapsed, 35-120 = mini(62px), >120 = full(200px)
+    if (x < 35) {
+      sidebar.classList.add('collapsed');
+      localStorage.setItem('kern_sidebar_state', 'collapsed');
+    } else if (x < 120) {
+      sidebar.classList.add('mini');
+      localStorage.setItem('kern_sidebar_state', 'mini');
+    } else {
+      localStorage.setItem('kern_sidebar_state', 'full');
+    }
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+  // Double-click toggles between full and mini
+  handle.addEventListener('dblclick', () => {
+    sidebar.classList.remove('collapsed');
+    const isMini = sidebar.classList.contains('mini');
+    sidebar.classList.toggle('mini', !isMini);
+    localStorage.setItem('kern_sidebar_state', isMini ? 'full' : 'mini');
+  });
+})();
 function openSidebar() {
   const sidebar = $('sidebar');
   sidebar.classList.remove('collapsed');
@@ -4058,8 +4168,10 @@ function closeSidebar() {
 }
 
 // Restore sidebar state on load
-if (localStorage.getItem('kern_sidebar_collapsed') === '1' && window.innerWidth > 768) {
-  $('sidebar').classList.add('collapsed');
+if (window.innerWidth > 768) {
+  const sidebarState = localStorage.getItem('kern_sidebar_state') || localStorage.getItem('kern_sidebar_collapsed') === '1' && 'collapsed';
+  if (sidebarState === 'mini') $('sidebar').classList.add('mini');
+  else if (sidebarState === 'collapsed') $('sidebar').classList.add('collapsed');
 }
 
 // Fetch agents from a server URL, returns { agents, status }
@@ -4175,10 +4287,11 @@ let isLoadingHistory = false; // suppress auto-expand during history load
 let userScrolledUp = false;
 
 const scrollDownBtn = $('scroll-down-btn');
+const scrollContainer = $('messages-scroll');
 
-messagesEl.addEventListener('scroll', () => {
+scrollContainer.addEventListener('scroll', () => {
   const threshold = 80;
-  const atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < threshold;
+  const atBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < threshold;
   userScrolledUp = !atBottom;
   scrollDownBtn.classList.toggle('visible', userScrolledUp);
 });
@@ -4187,8 +4300,46 @@ scrollDownBtn.addEventListener('click', () => scrollToBottom(true));
 
 function scrollToBottom(force) {
   if (force || !userScrolledUp) {
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
   }
+}
+
+function formatBashCommand(cmd) {
+  // Syntax highlight with hljs if available
+  let html;
+  if (typeof hljs !== 'undefined') {
+    html = hljs.highlight(cmd, { language: 'bash' }).value;
+  } else {
+    html = escapeHtml(cmd);
+  }
+  // Break long commands at &&, ||, |, ; with indented continuation
+  if (cmd.length >= 60) {
+    html = html
+      .replace(/ &amp;&amp; /g, ' &amp;&amp;\n')
+      .replace(/ \|\| /g, ' ||\n')
+      .replace(/ \| /g, ' | ')
+      .replace(/ ; /g, ';\n')
+      .replace(/ \\\n/g, ' \\\n');
+  }
+  // Step 1: Break into lines first, then process each line
+  const lines = html.split('\n');
+  html = lines.map((line, i) => {
+    const trimmed = line.replace(/^ +/, '');
+    const indent = line.slice(0, line.length - trimmed.length);
+    if (i === 0) {
+      // First line: highlight leading command if not already in a span
+      return line.replace(/^([a-zA-Z0-9_./-]+)(?![^<]*<\/span)/, '<span class="hljs-built_in">$1</span>');
+    }
+    // Continuation lines: highlight first plain word (the command after separator)
+    return indent + trimmed.replace(/^([a-zA-Z0-9_./-]+)(?![^<]*<\/span)/, '<span class="hljs-built_in">$1</span>');
+  }).join('\n');
+  // Highlight separators in muted style
+  const sepStyle = 'color:#768390';
+  html = html.replace(/ (&amp;&amp;)(\n|$)/g, ` <span style="${sepStyle}">$1</span>$2`);
+  html = html.replace(/ (\|\|)(\n|$)/g, ` <span style="${sepStyle}">$1</span>$2`);
+  html = html.replace(/ (\|) /g, ` <span style="${sepStyle}">$1</span> `);
+  html = html.replace(/(;)(\n|$)/g, `<span style="${sepStyle}">$1</span>$2`);
+  return html;
 }
 
 const TOOL_COLORS = {
@@ -4401,7 +4552,8 @@ function addMessage(type, content, meta, toolInput, timestamp, iface) {
     if (toolInput && toolInput.path) el.dataset.toolPath = toolInput.path;
     if (toolName === 'bash') {
       el.classList.add('tool-bash-style');
-      el.innerHTML = `<div class="tool-header"><span class="tool-prompt">$</span><span class="tool-detail">${toolDetail}</span></div><div class="tool-output"></div>`;
+      const fmtCmd = formatBashCommand(toolDetail.trim());
+      el.innerHTML = `<div class="tool-header"><span class="tool-prompt">$</span><span class="tool-detail">${fmtCmd}</span></div><div class="tool-output"></div>`;
     } else {
       el.innerHTML = `<div class="tool-header"><span class="tool-arrow">&#9654;</span><span class="tool-name" style="color:${color}">${toolName}</span><span class="tool-detail">${toolDetail}</span></div><div class="tool-output"></div>`;
     }
