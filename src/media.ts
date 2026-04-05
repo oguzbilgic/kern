@@ -227,7 +227,7 @@ export function buildUserContent(
 export function resolveMediaRefs(
   agentDir: string,
   messages: ModelMessage[],
-  limit: number = 10,
+  limit: number = 1,
 ): ModelMessage[] {
   const mediaDir = join(agentDir, ".kern", "media");
 
@@ -339,7 +339,7 @@ const bufferToFilename = new Map<string, string>();
 export function resolveMediaRefsTracked(
   agentDir: string,
   messages: ModelMessage[],
-  limit: number = 10,
+  limit: number = 1,
 ): ModelMessage[] {
   bufferToFilename.clear();
   const mediaDir = join(agentDir, ".kern", "media");
