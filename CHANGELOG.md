@@ -3,7 +3,10 @@
 ## next
 
 ### Improvements
-- **Web UI redesign** — centered conversation (800px max), narrower bubbles, redesigned input pill with inline file attachments, resizable sidebar (drag to resize between full/mini/collapsed), syntax highlighting in code blocks, bash command formatting with line breaking, and refreshed header with inline info panel
+- **Web UI redesign** ([#59](https://github.com/oguzbilgic/kern-ai/pull/59))
+  - Centered conversation layout with narrower bubbles, redesigned input pill with inline file attachments
+  - Resizable sidebar — drag the edge to switch between full, mini (avatars only), and collapsed states
+  - Syntax highlighting in code blocks, bash command formatting with line breaking, refreshed header with info panel
 
 ## v0.20.0
 
