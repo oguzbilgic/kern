@@ -34,13 +34,18 @@ jobs:
             name: 'linux-x64'
             branchOnly: false
 
-    if: github.event_name == 'workflow_dispatch' || matrix.branchOnly == true
-
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
 
+      - name: Skip non-branch matrix jobs on push
+        if: github.event_name == 'push' && matrix.branchOnly != true
+        run: |
+          echo "Skipping ${{ matrix.name }} on branch push"
+          exit 0
+
       - name: Setup Node
+        if: github.event_name == 'workflow_dispatch' || matrix.branchOnly == true
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -48,31 +53,36 @@ jobs:
           cache-dependency-path: desktop/package-lock.json
 
       - name: Rust cache
+        if: github.event_name == 'workflow_dispatch' || matrix.branchOnly == true
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
             desktop/src-tauri -> target
 
       - name: Install Rust stable
+        if: github.event_name == 'workflow_dispatch' || matrix.branchOnly == true
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Install dependencies (Ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04'
+        if: (github.event_name == 'workflow_dispatch' || matrix.branchOnly == true) && matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - name: Install desktop npm dependencies
+        if: github.event_name == 'workflow_dispatch' || matrix.branchOnly == true
         working-directory: desktop
         run: npm ci
 
       - name: Build
+        if: github.event_name == 'workflow_dispatch' || matrix.branchOnly == true
         working-directory: desktop
         run: npx tauri build ${{ matrix.args }}
 
       - name: List build output
+        if: github.event_name == 'workflow_dispatch' || matrix.branchOnly == true
         run: |
           if [ -n "${{ matrix.target }}" ]; then
             find desktop/src-tauri/target/${{ matrix.target }}/release -maxdepth 3 -name "*.app" -o -name "kern-desktop" 2>/dev/null || true
@@ -81,7 +91,7 @@ jobs:
           fi
 
       - name: Package macOS app
-        if: matrix.platform == 'macos-latest'
+        if: (github.event_name == 'workflow_dispatch' || matrix.branchOnly == true) && matrix.platform == 'macos-latest'
         run: |
           mkdir -p desktop/dist
           APP_PATH=$(find desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos -maxdepth 1 -name "*.app" | head -n 1)
@@ -92,7 +102,7 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "desktop/dist/kern-${{ matrix.name }}.zip"
 
       - name: Upload macOS app
-        if: matrix.platform == 'macos-latest'
+        if: (github.event_name == 'workflow_dispatch' || matrix.branchOnly == true) && matrix.platform == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
           name: kern-${{ matrix.name }}
@@ -100,7 +110,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload Linux binary
-        if: matrix.platform == 'ubuntu-22.04'
+        if: (github.event_name == 'workflow_dispatch' || matrix.branchOnly == true) && matrix.platform == 'ubuntu-22.04'
         uses: actions/upload-artifact@v4
         with:
           name: kern-${{ matrix.name }}
