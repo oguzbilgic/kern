@@ -2,9 +2,15 @@
 
 ## next
 
+### Features
+- **Prompt caching for Anthropic models** — system prompt is marked with `cache_control: ephemeral` for Anthropic models (direct or via OpenRouter), enabling ~90% cost reduction on cached input tokens. Cache read/write stats logged per request.
+
 ### Improvements
 - **Syntax highlighting in chat** — fenced code blocks in assistant messages now get language-aware syntax highlighting via highlight.js (same theme as tool output)
 - **Auto-link bare URLs** — plain `https://` URLs in messages are now clickable links
+
+### Internal
+- Switched OpenRouter integration from generic `@ai-sdk/openai` to official `@openrouter/ai-sdk-provider` — enables native prompt caching, embeddings, and provider-specific features
 
 ## v0.19.0
 

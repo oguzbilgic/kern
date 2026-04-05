@@ -37,6 +37,7 @@
     "@ai-sdk/anthropic": "^2.0.0",
     "@ai-sdk/openai": "^3.0.48",
     "@inquirer/prompts": "^8.3.2",
+    "@openrouter/ai-sdk-provider": "^2.3.3",
     "@slack/bolt": "^4.6.0",
     "ai": "^6.0.0",
     "better-sqlite3": "^12.8.0",

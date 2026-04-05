@@ -261,7 +261,8 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   server.setSystemPromptFn(async () => {
     const latestSystem = await runtime.getSystemPrompt();
     const built = runtime.buildPromptContext();
-    return { system: built.system || latestSystem };
+    const systemText = typeof built.system === "string" ? built.system : built.system?.content;
+    return { system: systemText || latestSystem };
   });
 
   server.setContextSegmentsFn(() => {
