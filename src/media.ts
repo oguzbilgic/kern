@@ -466,7 +466,9 @@ export function createMediaDigestMiddleware(
               const cached = sidecar.getDescription(filename, mediaModelId);
               if (cached) {
                 digested++;
-                return { type: "text" as const, text: `[Image: ${cached}]` };
+                const entry = sidecar.get(filename);
+                const label = entry?.originalName ? `${entry.originalName} (${filename})` : filename;
+                return { type: "text" as const, text: `[Image: ${label} — ${cached}]` };
               }
 
               // Cache miss — call vision model
@@ -495,7 +497,9 @@ export function createMediaDigestMiddleware(
                 if (description) {
                   sidecar.updateDescription(filename, description, mediaModelId);
                   digested++;
-                  return { type: "text" as const, text: `[Image: ${description}]` };
+                  const entry = sidecar.get(filename);
+                  const label = entry?.originalName ? `${entry.originalName} (${filename})` : filename;
+                  return { type: "text" as const, text: `[Image: ${label} — ${description}]` };
                 }
               } catch (err) {
                 log.warn("media", `digest failed for ${filename}: ${err}`);
