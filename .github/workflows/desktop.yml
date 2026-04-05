@@ -99,6 +99,8 @@ jobs:
             echo "No .app found"
             exit 1
           fi
+          codesign --force --deep --sign - "$APP_PATH"
+          codesign --verify --deep --strict --verbose=4 "$APP_PATH"
           ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "desktop/dist/kern-${{ matrix.name }}.zip"
 
       - name: Upload macOS app
