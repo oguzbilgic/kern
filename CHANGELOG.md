@@ -3,11 +3,20 @@
 ## next
 
 ### Features
-- **Prompt caching for Anthropic models** — system prompt is marked with `cache_control: ephemeral` for Anthropic models (direct or via OpenRouter), enabling ~90% cost reduction on cached input tokens. Cache read/write stats logged per request.
+- **Prompt caching for Anthropic models** ([#54](https://github.com/oguzbilgic/kern-ai/pull/54)) — system prompt marked with `cache_control: ephemeral` for Anthropic models (direct or via OpenRouter), enabling ~90% cost reduction on cached input tokens
+  - Cache read/write stats logged per request with hit rate percentage
+  - Cache stats visible in `/status` output and persisted in `usage.json`
+- **Stable summary caching** ([#54](https://github.com/oguzbilgic/kern-ai/pull/54)) — trim boundary snapped to nearest L0 segment edge, keeping the conversation summary identical across consecutive turns and maximizing cache hits
+- **Breadth-first summary expansion** ([#54](https://github.com/oguzbilgic/kern-ai/pull/54)) — expand highest-level segments first (L2→L1 before L1→L0) for balanced coverage across full conversation history instead of over-detailing recent segments
 
 ### Improvements
 - **Syntax highlighting in chat** — fenced code blocks in assistant messages now get language-aware syntax highlighting via highlight.js (same theme as tool output)
 - **Auto-link bare URLs** — plain `https://` URLs in messages are now clickable links
+- **Status output cleanup** — message count and trimmed count moved to messages line; cache stats on separate line from API usage
+
+### Config changes
+- `maxContextTokens` default: 50k → 100k (affordable with prompt caching)
+- `summaryBudget` default: 20% → 75% (summary is cached, effectively free)
 
 ### Internal
 - Switched OpenRouter integration from generic `@ai-sdk/openai` to official `@openrouter/ai-sdk-provider` — enables native prompt caching, embeddings, and provider-specific features
