@@ -6,6 +6,7 @@ import { editTool } from "./edit.js";
 import { globTool } from "./glob.js";
 import { grepTool } from "./grep.js";
 import { webfetchTool } from "./webfetch.js";
+import { websearchTool } from "./websearch.js";
 import { kernTool } from "./kern.js";
 import { messageTool } from "./message.js";
 import { recallTool } from "./recall.js";
@@ -21,6 +22,7 @@ export const allTools = {
   glob: globTool,
   grep: grepTool,
   webfetch: webfetchTool,
+  websearch: websearchTool,
   kern: kernTool,
   message: messageTool,
   recall: recallTool,

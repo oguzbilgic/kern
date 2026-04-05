@@ -7,33 +7,34 @@ const turndown = new TurndownService({
   codeBlockStyle: "fenced",
 });
 
-// Remove noise elements that don't carry useful content
 turndown.remove(["script", "style", "noscript", "iframe"]);
 
 function htmlToMarkdown(html: string): string {
   return turndown.turndown(html);
 }
 
-export const webfetchTool = tool({
+export const websearchTool = tool({
   description:
-    "Fetch content from a URL. Returns the response body as text. Useful for reading web pages, APIs, documentation.",
+    "Search the web using DuckDuckGo. Returns search results as markdown with titles, URLs, and snippets.",
   inputSchema: z.object({
-    url: z.string().describe("The URL to fetch"),
+    query: z.string().describe("The search query"),
     timeout: z
       .number()
       .optional()
       .describe("Timeout in milliseconds (default: 30000)"),
   }),
-  execute: async ({ url, timeout = 30000 }) => {
+  execute: async ({ query, timeout = 30000 }) => {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeout);
 
+      const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
       const response = await fetch(url, {
+        method: "POST",
         signal: controller.signal,
         headers: {
           "User-Agent": "kern-ai/0.1",
-          Accept: "text/html,application/json,text/plain,*/*",
+          Accept: "text/html",
         },
       });
 
@@ -43,16 +44,8 @@ export const webfetchTool = tool({
         return `Error: HTTP ${response.status} ${response.statusText}`;
       }
 
-      const contentType = response.headers.get("content-type") || "";
-      const text = await response.text();
-
-      // Convert HTML to markdown for readability
-      let result: string;
-      if (contentType.includes("text/html")) {
-        result = htmlToMarkdown(text);
-      } else {
-        result = text;
-      }
+      const html = await response.text();
+      const result = htmlToMarkdown(html);
 
       // Truncate very large responses
       if (result.length > 50000) {
