@@ -1006,12 +1006,12 @@
     right: 8px;
     bottom: calc(100% + 8px);
     margin-bottom: 0;
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
+    background: rgba(32,32,32,0.98);
+    border: 1px solid var(--orange);
     border-radius: 10px;
     overflow: hidden;
-    z-index: 80;
-    box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+    z-index: 9999;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.45);
   }
   .cmd-popup.open { display: block; }
   .cmd-item {
@@ -4920,6 +4920,7 @@ function updateCmdPopup() {
   // Show popup only when input starts with / and is a single word (no spaces)
   if (!trigger.startsWith('/') || trigger.includes(' ')) {
     cmdPopup.classList.remove('open');
+    cmdPopup.style.display = 'none';
     cmdFiltered = [];
     return;
   }
@@ -4927,6 +4928,7 @@ function updateCmdPopup() {
   cmdFiltered = SLASH_COMMANDS.filter(c => c.name.startsWith(query));
   if (cmdFiltered.length === 0) {
     cmdPopup.classList.remove('open');
+    cmdPopup.style.display = 'none';
     return;
   }
   cmdSelectedIdx = Math.max(0, Math.min(cmdSelectedIdx, cmdFiltered.length - 1));
@@ -4937,6 +4939,7 @@ function updateCmdPopup() {
     `</div>`
   ).join('');
   cmdPopup.classList.add('open');
+  cmdPopup.style.display = 'block';
 }
 
 cmdPopup.addEventListener('click', (e) => {
@@ -4947,6 +4950,7 @@ cmdPopup.addEventListener('click', (e) => {
   if (cmd) {
     inputEl.value = cmd.name;
     cmdPopup.classList.remove('open');
+    cmdPopup.style.display = 'none';
     send();
   }
 });
@@ -4977,7 +4981,10 @@ inputEl.addEventListener('click', () => {
 });
 
 inputEl.addEventListener('blur', () => {
-  setTimeout(() => cmdPopup.classList.remove('open'), 120);
+  setTimeout(() => {
+    cmdPopup.classList.remove('open');
+    cmdPopup.style.display = 'none';
+  }, 120);
 });
 
 inputEl.addEventListener('keydown', (e) => {
@@ -5001,12 +5008,14 @@ inputEl.addEventListener('keydown', (e) => {
       if (cmd) {
         inputEl.value = cmd.name;
         cmdPopup.classList.remove('open');
+        cmdPopup.style.display = 'none';
         if (e.key === 'Enter') send();
       }
       return;
     }
     if (e.key === 'Escape') {
       cmdPopup.classList.remove('open');
+      cmdPopup.style.display = 'none';
       return;
     }
   }
