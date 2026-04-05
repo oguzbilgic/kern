@@ -46,7 +46,7 @@ export const configDefaults: KernConfig = {
   maxSteps: 30,
   maxContextTokens: 80000,
   maxToolResultChars: 20000,
-  summaryBudget: 0.35,
+  summaryBudget: 0.5,
   recall: true,
   autoRecall: false,
   mediaDigest: true,
