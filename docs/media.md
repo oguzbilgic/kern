@@ -8,7 +8,7 @@ kern supports images and files in conversations across all interfaces.
 2. **Store** — file saved to `.kern/media/` with a SHA-256 content-addressed filename (deduped)
 3. **Digest** — images are described by a vision model at ingest time, cached permanently
 4. **Message** — SDK-native content array stored in session with `kern-media://` URI references
-5. **Context** — middleware replaces media refs with cached text descriptions before model call
+5. **Resolve** — at model call time, a single middleware pass resolves all `kern-media://` refs: digested images become text descriptions, recent files become raw Buffers (per `mediaContext`), older files become text placeholders
 6. **Serve** — `GET /media/:filename` serves stored files with immutable caching
 
 ## Storage
