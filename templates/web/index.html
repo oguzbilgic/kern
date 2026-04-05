@@ -4265,7 +4265,7 @@ async function init() {
               addMessage('assistant', part.text);
             } else if (part.type === 'tool-call') {
               const input = part.input || {};
-              const detail = input.path || input.command || input.pattern || input.url || input.action || '';
+              const detail = input.path || input.command || input.pattern || input.url || input.action || input.query || input.userId || '';
               const el = addMessage('tool', `${part.toolName} ${detail}`, null, input);
               // Attach result if available (for non-edit tools, or append to edit diff)
               const result = toolResults[part.toolCallId];
