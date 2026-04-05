@@ -548,9 +548,9 @@
   .message.tool .tool-output {
     display: none;
     margin-top: 6px;
-    padding: 8px;
-    background: var(--tool-bg);
-    border-radius: 4px;
+    padding: 6px 8px 6px 10px;
+    border-left: 2px solid var(--border);
+    border-radius: 0;
     font-size: 11px;
     line-height: 1.4;
     max-height: 300px;
@@ -4228,12 +4228,30 @@ function formatBashCommand(cmd) {
   // Break long commands at &&, ||, |, ; with indented continuation
   if (cmd.length >= 60) {
     html = html
-      .replace(/ &amp;&amp; /g, ' &amp;&amp;\n    ')
-      .replace(/ \|\| /g, ' ||\n    ')
-      .replace(/ \| /g, ' |\n    ')
-      .replace(/ ; /g, ';\n    ')
-      .replace(/ \\\n/g, ' \\\n    ');
+      .replace(/ &amp;&amp; /g, ' &amp;&amp;\n')
+      .replace(/ \|\| /g, ' ||\n')
+      .replace(/ \| /g, ' | ')
+      .replace(/ ; /g, ';\n')
+      .replace(/ \\\n/g, ' \\\n');
   }
+  // Step 1: Break into lines first, then process each line
+  const lines = html.split('\n');
+  html = lines.map((line, i) => {
+    const trimmed = line.replace(/^ +/, '');
+    const indent = line.slice(0, line.length - trimmed.length);
+    if (i === 0) {
+      // First line: highlight leading command if not already in a span
+      return line.replace(/^([a-zA-Z0-9_./-]+)(?![^<]*<\/span)/, '<span class="hljs-built_in">$1</span>');
+    }
+    // Continuation lines: highlight first plain word (the command after separator)
+    return indent + trimmed.replace(/^([a-zA-Z0-9_./-]+)(?![^<]*<\/span)/, '<span class="hljs-built_in">$1</span>');
+  }).join('\n');
+  // Highlight separators in muted style
+  const sepStyle = 'color:#768390';
+  html = html.replace(/ (&amp;&amp;)(\n|$)/g, ` <span style="${sepStyle}">$1</span>$2`);
+  html = html.replace(/ (\|\|)(\n|$)/g, ` <span style="${sepStyle}">$1</span>$2`);
+  html = html.replace(/ (\|) /g, ` <span style="${sepStyle}">$1</span> `);
+  html = html.replace(/(;)(\n|$)/g, `<span style="${sepStyle}">$1</span>$2`);
   return html;
 }
 
