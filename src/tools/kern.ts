@@ -131,6 +131,7 @@ export interface StatusData {
   contextBreakdown: ContextBreakdown | null;
   summary: string | null;
   apiUsage: string;
+  cacheUsage: string | null;
   promptTokens: number;
   completionTokens: number;
   queue: string;
@@ -170,10 +171,10 @@ export function getStatusData(): StatusData {
       })()
     : null;
   const totalTokens = _totalPromptTokens + _totalCompletionTokens;
-  const cacheStr = _totalCacheReadTokens > 0 || _totalCacheWriteTokens > 0
-    ? `, cache: ${_totalCacheReadTokens} read, ${_totalCacheWriteTokens} written`
-    : "";
-  const apiUsage = `${totalTokens} tokens (in: ${_totalPromptTokens}, out: ${_totalCompletionTokens}${cacheStr})`;
+  const apiUsage = `${totalTokens} tokens (in: ${_totalPromptTokens}, out: ${_totalCompletionTokens})`;
+  const cacheUsage = _totalCacheReadTokens > 0 || _totalCacheWriteTokens > 0
+    ? `${_totalCacheReadTokens} read, ${_totalCacheWriteTokens} written`
+    : null;
 
   const qs = _getQueueStatus ? _getQueueStatus() : null;
   const queueStr = qs
@@ -209,6 +210,7 @@ export function getStatusData(): StatusData {
     contextBreakdown,
     summary,
     apiUsage,
+    cacheUsage,
     promptTokens: _totalPromptTokens,
     completionTokens: _totalCompletionTokens,
     queue: queueStr,
@@ -256,6 +258,7 @@ export function formatStatus(data: StatusData): string {
     data.recall ? `recall: ${data.recall}` : "",
     data.segments ? `segments: ${data.segments}` : "",
     `api usage: ${data.apiUsage}`,
+    data.cacheUsage ? `cache: ${data.cacheUsage}` : "",
     `queue: ${data.queue}`,
     `uptime: ${data.uptime}`,
   ].filter(Boolean).join("\n");
