@@ -1,13 +1,16 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use tauri::menu::{Menu, MenuItem};
+use tauri::webview::WebviewWindowBuilder;
 use tauri::{Emitter, Manager};
 
 #[tauri::command]
 fn navigate_to(window: tauri::WebviewWindow, url: String) -> Result<(), String> {
-    // Use eval to navigate in the same window — bypasses JS-level interception
     window
-        .eval(&format!("window.location.replace('{}')", url.replace('\'', "\\'")))
+        .eval(&format!(
+            "window.location.replace('{}')",
+            url.replace('\'', "\\'")
+        ))
         .map_err(|e| format!("Navigation failed: {}", e))
 }
 
@@ -17,16 +20,23 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![navigate_to])
         .setup(|app| {
-            let main_window = app.get_webview_window("main").unwrap();
-
-            // Allow navigation to any URL (local and external)
-            main_window.on_navigation(|url| {
-                // Allow all URLs — we trust the connect screen to validate
+            // Create window programmatically so we can set on_navigation
+            let window = WebviewWindowBuilder::new(
+                app,
+                "main",
+                tauri::WebviewUrl::App("index.html".into()),
+            )
+            .title("kern")
+            .inner_size(1000.0, 700.0)
+            .min_inner_size(600.0, 400.0)
+            .on_navigation(|url| {
+                // Allow all URLs — local and external
                 let _ = url;
                 true
-            });
+            })
+            .build()?;
 
-            main_window.open_devtools();
+            window.open_devtools();
 
             let logout = MenuItem::with_id(app, "logout", "Logout", true, None::<&str>)?;
             let reconnect =
@@ -42,31 +52,26 @@ fn main() {
             let window = app.get_webview_window("main");
             match event.id().as_ref() {
                 "logout" => {
-                    if let Some(window) = window {
-                        let _ = window.eval(
-                            r#"
-                            localStorage.removeItem('kern_servers');
-                            window.location.href = 'index.html';
-                            "#,
+                    if let Some(w) = window {
+                        let _ = w.eval(
+                            "localStorage.removeItem('kern_servers'); window.location.replace('index.html');",
                         );
                     }
                 }
                 "reconnect" => {
-                    if let Some(window) = window {
-                        let _ = window.eval("window.location.href = 'index.html';");
+                    if let Some(w) = window {
+                        let _ = w.eval("window.location.replace('index.html');");
                     }
                 }
                 "reload" => {
-                    if let Some(window) = window {
-                        let _ = window.eval("window.location.reload();");
+                    if let Some(w) = window {
+                        let _ = w.eval("window.location.reload();");
                     }
                 }
                 "open_browser" => {
-                    if let Some(window) = window {
-                        let _ = window.eval(
-                            r#"
-                            window.__TAURI_INTERNALS__?.invoke('plugin:opener|open_url', { url: window.location.href });
-                            "#,
+                    if let Some(w) = window {
+                        let _ = w.eval(
+                            "window.__TAURI_INTERNALS__?.invoke('plugin:opener|open_url', { url: window.location.href });",
                         );
                     }
                 }
