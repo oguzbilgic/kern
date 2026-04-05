@@ -1,13 +1,27 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use tauri::menu::{Menu, MenuItem};
+use tauri::webview::WebviewWindowBuilder;
 use tauri::{Emitter, Manager};
 
 #[tauri::command]
-fn navigate_to(window: tauri::WebviewWindow, url: String) -> Result<(), String> {
-    window
-        .navigate(url.parse().map_err(|e| format!("Invalid URL: {}", e))?)
-        .map_err(|e| format!("Navigation failed: {}", e))
+fn navigate_to(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    // Close the connect screen window
+    if let Some(main_window) = app.get_webview_window("main") {
+        let _ = main_window.close();
+    }
+
+    // Open a new window pointing to the remote server
+    WebviewWindowBuilder::new(&app, "app", tauri::WebviewUrl::External(
+        url.parse().map_err(|e| format!("Invalid URL: {}", e))?
+    ))
+    .title("kern")
+    .inner_size(1000.0, 700.0)
+    .min_inner_size(600.0, 400.0)
+    .build()
+    .map_err(|e| format!("Failed to open window: {}", e))?;
+
+    Ok(())
 }
 
 fn main() {
@@ -31,36 +45,48 @@ fn main() {
             Ok(())
         })
         .on_menu_event(|app, event| {
-            let window = app.get_webview_window("main");
+            // Menu events target the "app" window (remote UI) if it exists
+            let app_window = app.get_webview_window("app");
             match event.id().as_ref() {
                 "logout" => {
-                    if let Some(window) = window {
-                        let _ = window.eval(
-                            r#"
-                            localStorage.removeItem('kern_servers');
-                            window.location.href = 'index.html';
-                            "#,
-                        );
+                    // Close the remote window, reopen the connect screen
+                    if let Some(win) = app_window {
+                        let _ = win.close();
                     }
+                    let _ = WebviewWindowBuilder::new(
+                        app,
+                        "main",
+                        tauri::WebviewUrl::App("index.html".into()),
+                    )
+                    .title("kern")
+                    .inner_size(1000.0, 700.0)
+                    .min_inner_size(600.0, 400.0)
+                    .build();
                 }
                 "reconnect" => {
-                    if let Some(window) = window {
-                        let _ = window.eval("window.location.href = 'index.html';");
+                    if let Some(win) = app_window {
+                        let _ = win.close();
                     }
+                    let _ = WebviewWindowBuilder::new(
+                        app,
+                        "main",
+                        tauri::WebviewUrl::App("index.html".into()),
+                    )
+                    .title("kern")
+                    .inner_size(1000.0, 700.0)
+                    .min_inner_size(600.0, 400.0)
+                    .build();
                 }
                 "reload" => {
-                    if let Some(window) = window {
-                        let _ = window.eval("window.location.reload();");
+                    if let Some(win) = app_window {
+                        let _ = win.eval("window.location.reload();");
                     }
                 }
                 "open_browser" => {
-                    if let Some(window) = window {
-                        let _ = window.eval(
+                    if let Some(win) = app_window {
+                        let _ = win.eval(
                             r#"
-                            const saved = JSON.parse(localStorage.getItem('kern_servers') || '[]');
-                            if (saved[0]?.url && saved[0]?.token) {
-                              window.__TAURI_INTERNALS__.invoke('plugin:opener|open_url', { url: saved[0].url + '?token=' + encodeURIComponent(saved[0].token) });
-                            }
+                            window.__TAURI_INTERNALS__?.invoke('plugin:opener|open_url', { url: window.location.href });
                             "#,
                         );
                     }

@@ -7,13 +7,18 @@
   },
   "app": {
     "withGlobalTauri": true,
+    "security": {
+      "dangerousRemoteDomainIpcAccess": [],
+      "pattern": { "use": "brownfield" }
+    },
     "windows": [
       {
         "title": "kern",
         "width": 1000,
         "height": 700,
         "minWidth": 600,
-        "minHeight": 400
+        "minHeight": 400,
+        "url": "index.html"
       }
     ],
     "trayIcon": {
