@@ -1770,22 +1770,45 @@
     border-radius: 6px;
     margin-bottom: 12px;
   }
+  .media-detail-columns {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
   .media-detail-desc {
+    flex: 1;
+    min-width: 0;
     font-size: 13px;
     color: var(--text);
     line-height: 1.5;
     padding: 10px 12px;
     background: var(--bg);
     border-radius: 6px;
-    margin-bottom: 10px;
+    overflow-y: auto;
+    max-height: 300px;
   }
   .media-detail-meta {
+    flex: 0 0 220px;
     font-size: 11px;
     color: var(--text-muted);
-    font-family: var(--font-mono);
-    line-height: 1.8;
+    line-height: 1.6;
   }
-  .media-detail-meta span { color: var(--text); }
+  .meta-row {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 6px;
+  }
+  .meta-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 1px;
+  }
+  .meta-value {
+    color: var(--text);
+    word-break: break-all;
+  }
   .media-filter-bar {
     display: flex;
     gap: 6px;
@@ -3216,23 +3239,29 @@ function renderMediaDetail() {
     html += `<img class="media-detail-preview" src="${imgUrl}" alt="" />`;
   }
 
+  html += `<div class="media-detail-columns">`;
+
+  // Left: metadata
+  html += `<div class="media-detail-meta">`;
+  html += `<div class="meta-row"><span class="meta-label">Original</span><span class="meta-value">${escapeHtml(item.originalName || item.file)}</span></div>`;
+  html += `<div class="meta-row"><span class="meta-label">Hash</span><span class="meta-value" style="font-family:var(--font-mono);font-size:12px;">${item.file}</span></div>`;
+  html += `<div class="meta-row"><span class="meta-label">Type</span><span class="meta-value">${item.mimeType}</span></div>`;
+  html += `<div class="meta-row"><span class="meta-label">Size</span><span class="meta-value">${formatBytes(item.size)}</span></div>`;
+  html += `<div class="meta-row"><span class="meta-label">Saved</span><span class="meta-value">${date}</span></div>`;
+  if (item.describedBy) {
+    html += `<div class="meta-row"><span class="meta-label">Model</span><span class="meta-value">${escapeHtml(item.describedBy)}</span></div>`;
+  }
+  if (isImage) {
+    html += `<div class="meta-row"><span class="meta-label">Digest</span><span class="meta-value">${item.description ? '✓ cached' : '✗ pending'}</span></div>`;
+  }
+  html += `</div>`;
+
+  // Right: description
   if (item.description) {
     html += `<div class="media-detail-desc prompt-markdown">${renderMarkdown(item.description)}</div>`;
   }
 
-  html += `<div class="media-detail-meta">`;
-  html += `Original: <span>${escapeHtml(item.originalName || item.file)}</span><br>`;
-  html += `Hash: <span>${item.file}</span><br>`;
-  html += `Type: <span>${item.mimeType}</span><br>`;
-  html += `Size: <span>${formatBytes(item.size)}</span><br>`;
-  html += `Saved: <span>${date}</span><br>`;
-  if (item.describedBy) {
-    html += `Model: <span>${escapeHtml(item.describedBy)}</span><br>`;
-  }
-  if (isImage) {
-    html += `Digest: <span>${item.description ? '✓ cached' : '✗ pending'}</span>`;
-  }
-  html += `</div>`;
+  html += `</div>`; // end columns
 
   panel.innerHTML = html;
   panel.classList.add('open');
