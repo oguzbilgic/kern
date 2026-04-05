@@ -232,23 +232,33 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 16px;
-    padding-left: max(16px, env(safe-area-inset-left));
-    padding-right: max(16px, env(safe-area-inset-right));
-    height: 42px;
-    min-height: 42px;
-    border-bottom: 1px solid var(--border);
+    padding: 0 12px;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    height: 48px;
+    min-height: 48px;
     background: var(--bg);
     flex-shrink: 0;
   }
   .header-left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+  }
+  .header-center {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
   }
   .header-title {
     font-weight: 600;
-    font-size: 15px;
+    font-size: 16px;
+    color: var(--text);
+    pointer-events: auto;
   }
   .header-meta {
     font-size: 12px;
@@ -257,58 +267,46 @@
   .info-btn {
     background: none;
     border: none;
-    color: var(--text-muted);
-    font-size: 18px;
+    color: var(--text-dim);
+    font-size: 16px;
     cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
+    padding: 6px 8px;
+    border-radius: 6px;
     line-height: 1;
     letter-spacing: 1px;
   }
-  .info-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+  .info-btn:hover { color: var(--text-muted); background: rgba(255,255,255,0.04); }
 
-  /* --- Agent info panel --- */
-  .info-panel {
+  /* --- Header info expansion --- */
+  .header-title[role="button"] { cursor: pointer; }
+  .header-title[role="button"]:hover { opacity: 0.7; }
+  .header-info {
     display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
     background: var(--bg-surface);
     border-bottom: 1px solid var(--border);
-    padding: 12px 16px;
+    padding: 12px 20px 14px;
     font-size: 12px;
     font-family: var(--font-mono);
-    line-height: 1.8;
     color: var(--text-dim);
-    flex-shrink: 0;
+    z-index: 15;
   }
-  .info-panel.open { display: block; }
-  .info-panel .info-row {
+  .header-info.open { display: block; }
+  .header-info .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px 24px;
+  }
+  .header-info .info-row {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 1px;
   }
-  .info-panel .info-label { color: var(--text-muted); }
-  .info-panel .info-value { color: var(--text); }
-  .info-panel .info-section {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid var(--border);
-  }
-  .info-panel .info-copy {
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--text-muted);
-    font-size: 11px;
-    font-family: var(--font-mono);
-    padding: 2px 8px;
-    cursor: pointer;
-    margin-left: 8px;
-  }
-  .info-panel .info-copy:hover { color: var(--text); border-color: var(--text-muted); }
-  .info-panel .info-url {
-    font-size: 11px;
-    color: var(--text-dim);
-    word-break: break-all;
-  }
+  .header-info .info-label { color: var(--text-dim); font-size: 11px; }
+  .header-info .info-value { color: var(--text-muted); word-break: break-all; font-size: 12px; }
   .status-dot {
     width: 8px;
     height: 8px;
@@ -387,7 +385,10 @@
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 12px;
+    max-width: 800px;
+    width: 100%;
+    margin: 0 auto;
   }
 
   .message {
@@ -875,10 +876,14 @@
   .input-area {
     padding: 12px 16px;
     padding-bottom: max(12px, env(safe-area-inset-bottom));
-    padding-left: max(16px, env(safe-area-inset-left));
-    padding-right: max(16px, env(safe-area-inset-right));
     background: var(--bg);
     flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+  }
+  .input-area > * {
+    width: 100%;
+    max-width: 800px;
   }
   .input-row {
     display: flex;
@@ -2233,21 +2238,23 @@
 </div>
 
 <div class="main">
-  <div class="header">
+  <div class="header" id="conv-header" style="position:relative;">
     <div class="header-left">
       <button class="menu-btn" id="menu-btn" title="Agents">&#9776;</button>
-      <span class="header-title" id="agent-name">kern</span>
-      <span class="status-dot connecting" id="status-dot"></span>
     </div>
-    <div style="display:flex;align-items:center;gap:4px;position:relative;">
+    <span class="status-dot connecting" id="status-dot" style="display:none;"></span>
+    <div class="header-center">
+      <span class="header-title" id="agent-name" role="button" tabindex="0">kern</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:2px;position:relative;">
       <button class="filter-btn" id="filter-btn" title="Filter messages">&#9881;</button>
       <div class="filter-dropdown" id="filter-dropdown"></div>
       <button class="info-btn" id="inspector-btn" title="Memory">&#9826;</button>
       <button class="info-btn" id="info-btn" title="Agent info">&#8942;</button>
     </div>
+    <div class="header-info" id="header-info"></div>
   </div>
 
-  <div class="info-panel" id="info-panel"></div>
   <div class="messages" id="messages"></div>
 
   <button class="scroll-down-btn" id="scroll-down-btn" title="Scroll to bottom">&#8595;</button>
@@ -2590,7 +2597,7 @@ const inputEl = $('input');
 const sendBtn = $('send');
 const statusDot = $('status-dot');
 const agentNameEl = $('agent-name');
-const infoPanel = $('info-panel');
+const headerInfo = $('header-info');
 
 // --- Attachment management ---
 const fileInput = $('file-input');
@@ -2727,45 +2734,26 @@ $('info-btn').addEventListener('click', async () => {
 
     const esc = (s) => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     infoPanel.innerHTML = `
-      <div class="info-row"><span class="info-label">kern</span><span class="info-value">v${esc(status.version) || '?'}</span></div>
-      <div class="info-row"><span class="info-label">model</span><span class="info-value">${esc(status.provider)}/${esc(status.model)}</span></div>
-      <div class="info-row"><span class="info-label">tools</span><span class="info-value">${esc(status.toolScope)}</span></div>
-      ${status.telegram ? `<div class="info-row"><span class="info-label">telegram</span><span class="info-value">${esc(status.telegram)}</span></div>` : ''}
-      ${status.slack ? `<div class="info-row"><span class="info-label">slack</span><span class="info-value">${esc(status.slack)}</span></div>` : ''}
-      ${status.recall ? `<div class="info-row"><span class="info-label">recall</span><span class="info-value">${esc(status.recall)}</span></div>` : ''}
-      <div class="info-row"><span class="info-label">uptime</span><span class="info-value">${esc(status.uptime)}</span></div>
-      <div class="info-row"><span class="info-label">session</span><span class="info-value">${esc(status.session)}</span></div>
-      ${(() => {
-        const cb = status.contextBreakdown;
-        if (!cb) return status.context ? `<div class="info-row"><span class="info-label">context</span><span class="info-value">${esc(status.context)}</span></div>` : '';
-        const total = Math.round(((cb.systemPromptTokens || 0) + cb.messageTokens + cb.summaryTokens) / 1000);
-        return `<div class="info-row"><span class="info-label">context</span><span class="info-value">~${total}k tokens (${cb.messageCount} msgs, ${cb.trimmedCount.toLocaleString()} trimmed)</span></div>
-        <div class="info-row"><span class="info-label">&nbsp; system</span><span class="info-value">~${Math.round((cb.systemPromptTokens || 0) / 1000)}k tokens</span></div>
-        <div class="info-row"><span class="info-label">&nbsp; messages</span><span class="info-value">~${Math.round(cb.messageTokens / 1000)}k tokens</span></div>
-        ${cb.summaryTokens > 0 ? (() => {
-          const lvl = Object.entries(cb.summaryLevelCounts).sort(([a],[b])=>a-b).map(([l,n])=> n + '×L' + l).join(', ');
-          return '<div class="info-row"><span class="info-label">&nbsp; summary</span><span class="info-value">~' + Math.round(cb.summaryTokens / 1000) + 'k tokens (' + lvl + ')</span></div>';
-        })() : ''}`;
-      })()}
-      <div class="info-row"><span class="info-label">api usage</span><span class="info-value">${esc(status.apiUsage)}</span></div>
-      <div class="info-row"><span class="info-label">queue</span><span class="info-value">${esc(status.queue)}</span></div>
-      <div class="info-section">
-        <div class="info-row">
-          <span class="info-label">connection</span>
-          <button class="info-copy" id="copy-conn">copy</button>
-        </div>
-        <div class="info-url">${esc(connString)}</div>
+      <div class="info-grid">
+        <div class="info-row"><span class="info-label">version</span><span class="info-value">v${esc(status.version) || '?'}</span></div>
+        <div class="info-row"><span class="info-label">model</span><span class="info-value">${esc(status.provider)}/${esc(status.model)}</span></div>
+        <div class="info-row"><span class="info-label">uptime</span><span class="info-value">${esc(status.uptime)}</span></div>
+        <div class="info-row"><span class="info-label">session</span><span class="info-value">${esc(status.session)}</span></div>
+        ${(() => {
+          const cb = status.contextBreakdown;
+          if (!cb) return status.context ? `<div class="info-row"><span class="info-label">context</span><span class="info-value">${esc(status.context)}</span></div>` : '';
+          const total = Math.round(((cb.systemPromptTokens || 0) + cb.messageTokens + cb.summaryTokens) / 1000);
+          return `<div class="info-row"><span class="info-label">context</span><span class="info-value">~${total}k tokens (${cb.messageCount} msgs)</span></div>`;
+        })()}
+        <div class="info-row"><span class="info-label">api usage</span><span class="info-value">${esc(status.apiUsage)}</span></div>
+        ${status.telegram ? `<div class="info-row"><span class="info-label">telegram</span><span class="info-value">${esc(status.telegram)}</span></div>` : ''}
+        ${status.slack ? `<div class="info-row"><span class="info-label">slack</span><span class="info-value">${esc(status.slack)}</span></div>` : ''}
+        ${status.recall ? `<div class="info-row"><span class="info-label">recall</span><span class="info-value">${esc(status.recall)}</span></div>` : ''}
+        <div class="info-row"><span class="info-label">queue</span><span class="info-value">${esc(status.queue)}</span></div>
+        <div class="info-row"><span class="info-label">tools</span><span class="info-value">${esc(status.toolScope)}</span></div>
       </div>
     `;
     infoPanel.classList.add('open');
-
-    $('copy-conn').addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(connString);
-        $('copy-conn').textContent = 'copied';
-        setTimeout(() => { $('copy-conn').textContent = 'copy'; }, 1500);
-      } catch {}
-    });
   } catch {}
 });
 
@@ -2777,6 +2765,8 @@ const inspectorOverlay = $('inspector-overlay');
 const inspectorTitle = $('inspector-title');
 const inspectorStats = $('inspector-stats');
 const inspectorActions = $('inspector-actions');
+messagesEl.addEventListener('click', () => { infoPanel.classList.remove('open'); });
+
 const segTimeline = $('segments-timeline');
 const promptText = $('prompt-text');
 const promptStructured = $('prompt-structured');
