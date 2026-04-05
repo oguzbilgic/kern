@@ -14,6 +14,8 @@ let _sessionId = "";
 let _version = "unknown";
 let _totalPromptTokens = 0;
 let _totalCompletionTokens = 0;
+let _totalCacheReadTokens = 0;
+let _totalCacheWriteTokens = 0;
 let _usageFile = "";
 let _getSessionStats: (() => SessionStats) | null = null;
 let _reloadFn: (() => Promise<void>) | null = null;
@@ -61,9 +63,13 @@ export async function initKernTool(opts: {
     const usage = JSON.parse(await readFile(_usageFile, "utf-8"));
     _totalPromptTokens = usage.promptTokens || 0;
     _totalCompletionTokens = usage.completionTokens || 0;
+    _totalCacheReadTokens = usage.cacheReadTokens || 0;
+    _totalCacheWriteTokens = usage.cacheWriteTokens || 0;
   } catch {
     _totalPromptTokens = 0;
     _totalCompletionTokens = 0;
+    _totalCacheReadTokens = 0;
+    _totalCacheWriteTokens = 0;
   }
   try {
     const pkg = JSON.parse(await readFile(join(import.meta.dirname, "..", "..", "package.json"), "utf-8"));
@@ -77,15 +83,19 @@ export function incrementMessageCount() {
   _messageCount++;
 }
 
-export async function addTokenUsage(promptTokens: number, completionTokens: number) {
+export async function addTokenUsage(promptTokens: number, completionTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number) {
   _totalPromptTokens += promptTokens;
   _totalCompletionTokens += completionTokens;
+  _totalCacheReadTokens += cacheReadTokens || 0;
+  _totalCacheWriteTokens += cacheWriteTokens || 0;
   // Persist
   try {
     const { writeFile } = await import("fs/promises");
     await writeFile(_usageFile, JSON.stringify({
       promptTokens: _totalPromptTokens,
       completionTokens: _totalCompletionTokens,
+      cacheReadTokens: _totalCacheReadTokens,
+      cacheWriteTokens: _totalCacheWriteTokens,
       updatedAt: new Date().toISOString(),
     }, null, 2) + "\n");
   } catch {}
@@ -160,7 +170,10 @@ export function getStatusData(): StatusData {
       })()
     : null;
   const totalTokens = _totalPromptTokens + _totalCompletionTokens;
-  const apiUsage = `${totalTokens} tokens (in: ${_totalPromptTokens}, out: ${_totalCompletionTokens})`;
+  const cacheStr = _totalCacheReadTokens > 0 || _totalCacheWriteTokens > 0
+    ? `, cache: ${_totalCacheReadTokens} read, ${_totalCacheWriteTokens} written`
+    : "";
+  const apiUsage = `${totalTokens} tokens (in: ${_totalPromptTokens}, out: ${_totalCompletionTokens}${cacheStr})`;
 
   const qs = _getQueueStatus ? _getQueueStatus() : null;
   const queueStr = qs

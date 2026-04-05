@@ -341,12 +341,11 @@ export class Runtime {
 
       try {
         const usage = await result.totalUsage;
-        addTokenUsage(usage.inputTokens || 0, usage.outputTokens || 0);
-        // Log cache stats if available
-        const cacheRead = usage.inputTokenDetails?.cacheReadTokens;
-        const cacheWrite = usage.inputTokenDetails?.cacheWriteTokens;
+        const cacheRead = usage.inputTokenDetails?.cacheReadTokens || 0;
+        const cacheWrite = usage.inputTokenDetails?.cacheWriteTokens || 0;
+        addTokenUsage(usage.inputTokens || 0, usage.outputTokens || 0, cacheRead, cacheWrite);
         if (cacheRead || cacheWrite) {
-          log("runtime", `cache: ${cacheRead || 0} read, ${cacheWrite || 0} written`);
+          log("runtime", `cache: ${cacheRead} read, ${cacheWrite} written`);
         }
       } catch {
         // usage tracking failed — non-critical
