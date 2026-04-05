@@ -28,7 +28,7 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 | `autoRecall` | `false` | Automatically inject relevant old context before each turn. Requires recall enabled. |
 | `mediaDigest` | `true` | Describe images at ingest time using a vision model. Descriptions are cached permanently and replace raw images in context. Set to `false` to skip digestion. |
 | `mediaModel` | `""` | Vision model for media descriptions. Empty string falls back to the agent's main model. Example: `"openai/gpt-4o-mini"`. |
-| `mediaContext` | `0` | How many recent turns resolve raw media Buffers to the model. `0` = never send raw binary (text descriptions or placeholders only). Increase if you want the model to see raw images directly. |
+| `mediaContext` | `0` | How many recent turns resolve raw media Buffers to the model. `0` = never send raw binary (text descriptions or placeholders only). Applies to all media types — useful for non-image files like PDFs on models with native support. |
 
 ### Tool scopes
 

@@ -33,10 +33,20 @@ This means:
 
 ### Disabling pre-digest
 
-Set `mediaDigest: false` in `.kern/config.json` to skip digestion. Combined with `mediaContext` you can control what the model sees:
+Set `mediaDigest: false` to skip image digestion. Raw images are then controlled by `mediaContext`.
 
-- `mediaDigest: false, mediaContext: 1` — raw images sent for the latest turn only, older get text placeholders
-- `mediaDigest: false, mediaContext: 0` — no images sent to model at all, just `[attached image: hash.jpg]` placeholders
+### mediaContext
+
+Controls how many recent turns resolve raw media Buffers to the model. Applies to all media types:
+
+- **Pre-digested images**: middleware replaces with text description regardless — `mediaContext` has no effect
+- **Non-image files** (PDFs, audio, etc.): no digest yet, so `mediaContext` controls whether raw binary is sent. E.g. `mediaContext: 1` sends the current turn's PDF to Claude for native processing.
+- **Images with digest off**: `mediaContext` controls how many turns get raw image Buffers
+
+Examples:
+- `mediaContext: 0` (default) — no raw binary ever sent. All media becomes text descriptions or `[attached file: ...]` placeholders.
+- `mediaContext: 1` — latest turn's media sent raw, older becomes placeholders. Good for models with native PDF/audio support.
+- `mediaContext: 3` — last 3 turns' media sent raw.
 
 ## Configuration
 
