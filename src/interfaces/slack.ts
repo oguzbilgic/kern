@@ -4,6 +4,8 @@ import type { Attachment, Interface, StartOptions } from "./types.js";
 import type { PairingManager } from "../pairing.js";
 import { log } from "../log.js";
 
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
 function mdToSlack(text: string): string {
   let s = text;
   // Code blocks — leave as-is, Slack supports ```
@@ -56,8 +58,11 @@ export class SlackInterface implements Interface {
 
     // Listen to all messages
     this.app.message(async ({ message, say, client }: any) => {
-      // Skip bot messages and message_changed events
-      if (!("user" in message) || !("text" in message && message.text !== undefined || "files" in message)) return;
+      // Skip bot messages, message_changed events, and messages with no content
+      const hasUser = "user" in message;
+      const hasText = "text" in message && message.text !== undefined;
+      const hasFiles = "files" in message;
+      if (!hasUser || (!hasText && !hasFiles)) return;
       if (message.user === this.botUserId) return;
 
       const userId = message.user;
@@ -88,6 +93,10 @@ export class SlackInterface implements Interface {
       if (message.files && Array.isArray(message.files)) {
         for (const file of message.files) {
           try {
+            if (file.size && file.size > MAX_FILE_SIZE) {
+              log.warn("slack", `file too large (${(file.size / 1024 / 1024).toFixed(1)}MB), skipping: ${file.name}`);
+              continue;
+            }
             const url = file.url_private_download || file.url_private;
             if (!url) continue;
             const resp = await fetch(url, {

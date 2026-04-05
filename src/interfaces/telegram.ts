@@ -3,6 +3,8 @@ import type { Attachment, Interface, StartOptions } from "./types.js";
 import type { PairingManager } from "../pairing.js";
 import { log } from "../log.js";
 
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
 function mdToHtml(text: string): string {
   let html = text;
 
@@ -125,77 +127,108 @@ export class TelegramInterface implements Interface {
         }
       }
 
-      // Download attachments
+      // Download attachments (each type has its own try/catch so one failure doesn't skip the rest)
       const attachments: Attachment[] = [];
-      try {
-        if (ctx.message.photo) {
-          // Telegram sends multiple sizes — pick the largest
+
+      if (ctx.message.photo) {
+        try {
           const photo = ctx.message.photo[ctx.message.photo.length - 1];
           const file = await ctx.api.getFile(photo.file_id);
           const url = `https://api.telegram.org/file/bot${this.bot.token}/${file.file_path}`;
           const resp = await fetch(url);
           const buffer = Buffer.from(await resp.arrayBuffer());
-          attachments.push({
-            type: "image",
-            data: buffer,
-            mimeType: guessMime(file.file_path, "image/jpeg"),
-            filename: file.file_path?.split("/").pop(),
-            size: buffer.length,
-          });
+          if (buffer.length > MAX_FILE_SIZE) {
+            log.warn("telegram", `photo too large (${(buffer.length / 1024 / 1024).toFixed(1)}MB), skipping`);
+          } else {
+            attachments.push({
+              type: "image",
+              data: buffer,
+              mimeType: guessMime(file.file_path, "image/jpeg"),
+              filename: file.file_path?.split("/").pop(),
+              size: buffer.length,
+            });
+          }
+        } catch (err: any) {
+          log.warn("telegram", `failed to download photo: ${err.message}`);
         }
+      }
 
-        if (ctx.message.document) {
+      if (ctx.message.document) {
+        try {
           const doc = ctx.message.document;
-          const file = await ctx.api.getFile(doc.file_id);
-          const url = `https://api.telegram.org/file/bot${this.bot.token}/${file.file_path}`;
-          const resp = await fetch(url);
-          const buffer = Buffer.from(await resp.arrayBuffer());
-          const mime = doc.mime_type || guessMime(doc.file_name);
-          const type = mime.startsWith("image/") ? "image"
-            : mime.startsWith("video/") ? "video"
-            : mime.startsWith("audio/") ? "audio"
-            : "document";
-          attachments.push({
-            type,
-            data: buffer,
-            mimeType: mime,
-            filename: doc.file_name,
-            size: buffer.length,
-          });
+          if (doc.file_size && doc.file_size > MAX_FILE_SIZE) {
+            log.warn("telegram", `document too large (${(doc.file_size / 1024 / 1024).toFixed(1)}MB), skipping`);
+          } else {
+            const file = await ctx.api.getFile(doc.file_id);
+            const url = `https://api.telegram.org/file/bot${this.bot.token}/${file.file_path}`;
+            const resp = await fetch(url);
+            const buffer = Buffer.from(await resp.arrayBuffer());
+            const mime = doc.mime_type || guessMime(doc.file_name);
+            const type = mime.startsWith("image/") ? "image"
+              : mime.startsWith("video/") ? "video"
+              : mime.startsWith("audio/") ? "audio"
+              : "document";
+            attachments.push({
+              type,
+              data: buffer,
+              mimeType: mime,
+              filename: doc.file_name,
+              size: buffer.length,
+            });
+          }
+        } catch (err: any) {
+          log.warn("telegram", `failed to download document: ${err.message}`);
         }
+      }
 
-        if (ctx.message.voice || ctx.message.audio) {
+      if (ctx.message.voice || ctx.message.audio) {
+        try {
           const audio = ctx.message.voice || ctx.message.audio!;
           const file = await ctx.api.getFile(audio.file_id);
           const url = `https://api.telegram.org/file/bot${this.bot.token}/${file.file_path}`;
           const resp = await fetch(url);
           const buffer = Buffer.from(await resp.arrayBuffer());
-          attachments.push({
-            type: "audio",
-            data: buffer,
-            mimeType: ("mime_type" in audio && audio.mime_type) || guessMime(file.file_path, "audio/ogg"),
-            filename: file.file_path?.split("/").pop(),
-            size: buffer.length,
-          });
+          if (buffer.length > MAX_FILE_SIZE) {
+            log.warn("telegram", `audio too large (${(buffer.length / 1024 / 1024).toFixed(1)}MB), skipping`);
+          } else {
+            attachments.push({
+              type: "audio",
+              data: buffer,
+              mimeType: ("mime_type" in audio && audio.mime_type) || guessMime(file.file_path, "audio/ogg"),
+              filename: file.file_path?.split("/").pop(),
+              size: buffer.length,
+            });
+          }
+        } catch (err: any) {
+          log.warn("telegram", `failed to download audio: ${err.message}`);
         }
+      }
 
-        if (ctx.message.video || ctx.message.video_note) {
+      if (ctx.message.video || ctx.message.video_note) {
+        try {
           const video = ctx.message.video || ctx.message.video_note!;
           const file = await ctx.api.getFile(video.file_id);
           const url = `https://api.telegram.org/file/bot${this.bot.token}/${file.file_path}`;
           const resp = await fetch(url);
           const buffer = Buffer.from(await resp.arrayBuffer());
-          attachments.push({
-            type: "video",
-            data: buffer,
-            mimeType: ("mime_type" in video && video.mime_type) || guessMime(file.file_path, "video/mp4"),
-            filename: file.file_path?.split("/").pop(),
-            size: buffer.length,
-          });
+          if (buffer.length > MAX_FILE_SIZE) {
+            log.warn("telegram", `video too large (${(buffer.length / 1024 / 1024).toFixed(1)}MB), skipping`);
+          } else {
+            attachments.push({
+              type: "video",
+              data: buffer,
+              mimeType: ("mime_type" in video && video.mime_type) || guessMime(file.file_path, "video/mp4"),
+              filename: file.file_path?.split("/").pop(),
+              size: buffer.length,
+            });
+          }
+        } catch (err: any) {
+          log.warn("telegram", `failed to download video: ${err.message}`);
         }
+      }
 
-        if (ctx.message.sticker && !ctx.message.sticker.is_animated && !ctx.message.sticker.is_video) {
-          // Static stickers — treat as image
+      if (ctx.message.sticker && !ctx.message.sticker.is_animated && !ctx.message.sticker.is_video) {
+        try {
           const sticker = ctx.message.sticker;
           const file = await ctx.api.getFile(sticker.file_id);
           const url = `https://api.telegram.org/file/bot${this.bot.token}/${file.file_path}`;
@@ -208,9 +241,9 @@ export class TelegramInterface implements Interface {
             filename: file.file_path?.split("/").pop(),
             size: buffer.length,
           });
+        } catch (err: any) {
+          log.warn("telegram", `failed to download sticker: ${err.message}`);
         }
-      } catch (err: any) {
-        log.warn("telegram", `failed to download attachment: ${err.message}`);
       }
 
       // Keep typing indicator alive every 4s (Telegram expires it after 5s)
