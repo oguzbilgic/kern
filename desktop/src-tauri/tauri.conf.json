@@ -1,0 +1,28 @@
+{
+  "productName": "kern",
+  "version": "0.1.0",
+  "identifier": "com.kern-ai.desktop",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "kern",
+        "width": 1000,
+        "height": 700,
+        "minWidth": 600,
+        "minHeight": 400
+      }
+    ],
+    "trayIcon": {
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true,
+      "tooltip": "kern"
+    }
+  },
+  "plugins": {
+    "store": {}
+  }
+}

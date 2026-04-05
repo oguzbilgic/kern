@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>kern</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #161617;
+      color: #e6edf3;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .connect-card {
+      width: 360px;
+      padding: 32px;
+      border-radius: 16px;
+      background: #1c1c1e;
+      border: 1px solid #2a2a2c;
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .logo span { color: #fcd53a; }
+    .subtitle {
+      color: #8b949e;
+      font-size: 13px;
+      margin-bottom: 24px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      color: #8b949e;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #2a2a2c;
+      background: #161617;
+      color: #e6edf3;
+      font-size: 14px;
+      outline: none;
+      margin-bottom: 16px;
+    }
+    input:focus { border-color: #fcd53a; }
+    input::placeholder { color: #484f58; }
+    button {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      background: #fcd53a;
+      color: #161617;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: #e5c235; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    .error {
+      color: #f85149;
+      font-size: 12px;
+      margin-bottom: 12px;
+      display: none;
+    }
+    .saved-servers {
+      margin-top: 20px;
+      border-top: 1px solid #2a2a2c;
+      padding-top: 16px;
+    }
+    .saved-servers h3 {
+      font-size: 12px;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    .server-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .server-item:hover { background: rgba(255,255,255,0.05); }
+    .server-item .url { color: #e6edf3; }
+    .server-item .remove {
+      color: #484f58;
+      font-size: 16px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      width: auto;
+      padding: 0 4px;
+    }
+    .server-item .remove:hover { color: #f85149; }
+  </style>
+</head>
+<body>
+  <div class="connect-card">
+    <div class="logo">kern<span>.</span></div>
+    <div class="subtitle">Connect to your agent server</div>
+
+    <label>Server URL</label>
+    <input type="url" id="url" placeholder="http://100.115.98.30:8080" autocomplete="off" spellcheck="false">
+
+    <label>Access Token</label>
+    <input type="password" id="token" placeholder="paste your web token">
+
+    <div class="error" id="error"></div>
+    <button id="connect" onclick="connect()">Connect</button>
+
+    <div class="saved-servers" id="saved" style="display:none">
+      <h3>Saved Servers</h3>
+      <div id="server-list"></div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'kern_servers';
+
+    function getSavedServers() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+      catch { return []; }
+    }
+
+    function saveServer(url, token) {
+      const servers = getSavedServers().filter(s => s.url !== url);
+      servers.unshift({ url, token });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(servers.slice(0, 10)));
+    }
+
+    function removeServer(url) {
+      const servers = getSavedServers().filter(s => s.url !== url);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(servers));
+      renderSaved();
+    }
+
+    function renderSaved() {
+      const servers = getSavedServers();
+      const container = document.getElementById('saved');
+      const list = document.getElementById('server-list');
+      if (!servers.length) { container.style.display = 'none'; return; }
+      container.style.display = 'block';
+      list.innerHTML = servers.map(s => `
+        <div class="server-item" onclick="connectTo('${s.url}', '${s.token}')">
+          <span class="url">${s.url}</span>
+          <button class="remove" onclick="event.stopPropagation(); removeServer('${s.url}')">&times;</button>
+        </div>
+      `).join('');
+    }
+
+    async function connect() {
+      const url = document.getElementById('url').value.replace(/\/+$/, '');
+      const token = document.getElementById('token').value;
+      const error = document.getElementById('error');
+      const btn = document.getElementById('connect');
+
+      if (!url) { error.textContent = 'Enter a server URL'; error.style.display = 'block'; return; }
+
+      btn.disabled = true;
+      error.style.display = 'none';
+
+      try {
+        const res = await fetch(url + '/api/agents', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) throw new Error(res.status === 401 ? 'Invalid token' : 'Connection failed');
+        saveServer(url, token);
+        window.location.href = url + '?token=' + encodeURIComponent(token);
+      } catch (e) {
+        error.textContent = e.message;
+        error.style.display = 'block';
+        btn.disabled = false;
+      }
+    }
+
+    function connectTo(url, token) {
+      window.location.href = url + '?token=' + encodeURIComponent(token);
+    }
+
+    // Auto-connect if only one saved server
+    const saved = getSavedServers();
+    if (saved.length === 1) {
+      connectTo(saved[0].url, saved[0].token);
+    } else {
+      renderSaved();
+    }
+  </script>
+</body>
+</html>
