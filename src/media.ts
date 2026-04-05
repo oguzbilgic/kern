@@ -134,13 +134,11 @@ export class MediaSidecar {
     return entry.description;
   }
 
-  /** Update an existing entry with a description. */
+  /** Update an existing entry with a description. Creates entry if missing. */
   updateDescription(filename: string, description: string, describedBy: string): void {
     const existing = this.map.get(filename);
-    if (existing) {
-      const updated = { ...existing, description, describedBy };
-      this.append(updated);
-    }
+    const updated = { ...(existing || { file: filename, originalName: "", mimeType: "image/unknown", size: 0, timestamp: new Date().toISOString() }), description, describedBy };
+    this.append(updated);
   }
 
   get size(): number {
@@ -442,6 +440,55 @@ export function createMediaDigestMiddleware(
       const prompt = params.prompt;
       let digested = 0;
 
+      // In-flight dedup: if the same image appears in multiple messages,
+      // only call the vision model once
+      const inFlight = new Map<string, Promise<string | null>>();
+
+      function makeLabel(filename: string): string {
+        const entry = sidecar.get(filename);
+        return entry?.originalName ? `${entry.originalName} (${filename})` : filename;
+      }
+
+      async function digestImage(filename: string, part: any): Promise<string | null> {
+        if (inFlight.has(filename)) return inFlight.get(filename)!;
+
+        const promise = (async () => {
+          try {
+            log("media", `digesting ${filename} with ${mediaModelId}...`);
+            const digestModel = createModel({
+              ...config,
+              model: mediaModelId,
+            });
+
+            const result = await generateText({
+              model: digestModel,
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    { type: "image", image: part.data as any, mediaType: part.mediaType },
+                    { type: "text", text: "Describe this image." },
+                  ],
+                },
+              ],
+              maxOutputTokens: 300,
+            });
+
+            const description = result.text.trim();
+            if (description) {
+              sidecar.updateDescription(filename, description, mediaModelId);
+              return description;
+            }
+          } catch (err) {
+            log.warn("media", `digest failed for ${filename}: ${err}`);
+          }
+          return null;
+        })();
+
+        inFlight.set(filename, promise);
+        return promise;
+      }
+
       const newPrompt = await Promise.all(
         prompt.map(async (msg) => {
           if (msg.role !== "user") return msg;
@@ -466,43 +513,14 @@ export function createMediaDigestMiddleware(
               const cached = sidecar.getDescription(filename, mediaModelId);
               if (cached) {
                 digested++;
-                const entry = sidecar.get(filename);
-                const label = entry?.originalName ? `${entry.originalName} (${filename})` : filename;
-                return { type: "text" as const, text: `[Image: ${label} — ${cached}]` };
+                return { type: "text" as const, text: `[Image: ${makeLabel(filename)} — ${cached}]` };
               }
 
-              // Cache miss — call vision model
-              try {
-                log("media", `digesting ${filename} with ${mediaModelId}...`);
-                const digestModel = createModel({
-                  ...config,
-                  model: mediaModelId,
-                });
-
-                const result = await generateText({
-                  model: digestModel,
-                  messages: [
-                    {
-                      role: "user",
-                      content: [
-                        { type: "image", image: part.data as any, mediaType: part.mediaType },
-                        { type: "text", text: "Describe this image." },
-                      ],
-                    },
-                  ],
-                  maxOutputTokens: 300,
-                });
-
-                const description = result.text.trim();
-                if (description) {
-                  sidecar.updateDescription(filename, description, mediaModelId);
-                  digested++;
-                  const entry = sidecar.get(filename);
-                  const label = entry?.originalName ? `${entry.originalName} (${filename})` : filename;
-                  return { type: "text" as const, text: `[Image: ${label} — ${description}]` };
-                }
-              } catch (err) {
-                log.warn("media", `digest failed for ${filename}: ${err}`);
+              // Cache miss — call vision model (deduped)
+              const description = await digestImage(filename, part);
+              if (description) {
+                digested++;
+                return { type: "text" as const, text: `[Image: ${makeLabel(filename)} — ${description}]` };
               }
 
               // Fallback: pass image through as-is
