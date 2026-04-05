@@ -61,13 +61,24 @@ jobs:
             find desktop/src-tauri/target/release -maxdepth 3 -name "*.deb" -o -name "*.AppImage" -o -name "kern-desktop" 2>/dev/null || true
           fi
 
+      - name: Package macOS app
+        if: matrix.platform == 'macos-latest'
+        run: |
+          mkdir -p desktop/dist
+          APP_PATH=$(find desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos -maxdepth 1 -name "*.app" | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app found"
+            exit 1
+          fi
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "desktop/dist/kern-${{ matrix.name }}.zip"
+
       - name: Upload macOS app
         if: matrix.platform == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
           name: kern-${{ matrix.name }}
-          path: desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app
-          if-no-files-found: warn
+          path: desktop/dist/kern-${{ matrix.name }}.zip
+          if-no-files-found: error
 
       - name: Upload Linux binary
         if: matrix.platform == 'ubuntu-22.04'
