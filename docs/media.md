@@ -8,7 +8,7 @@ kern supports images and files in conversations across all interfaces.
 2. **Store** — file saved to `.kern/media/` with a SHA-256 content-addressed filename (deduped)
 3. **Digest** — images are described by a vision model at ingest time, cached permanently
 4. **Message** — SDK-native content array stored in session with `kern-media://` URI references
-5. **Resolve** — at model call time, a single middleware pass resolves all `kern-media://` refs: digested images become text descriptions, recent files become raw Buffers (per `mediaContext`), older files become text placeholders
+5. **Resolve** — before model call, all `kern-media://` refs are resolved: digested images become text descriptions, recent files become raw Buffers (per `mediaContext`), older files become text placeholders
 6. **Serve** — `GET /media/:filename` serves stored files with immutable caching
 
 ## Storage
@@ -23,8 +23,8 @@ When `mediaDigest` is enabled (default), kern describes images once at ingest ti
 
 - When a user sends an image, it's saved to disk and immediately described by a vision model (~300 tokens)
 - The description is cached permanently in the media sidecar — never regenerated
-- At model call time, middleware replaces image references with cached text: `[Image: photo.jpg (a1b2c3d4.jpg) — A terminal showing npm install output...]`
-- On cache miss (e.g. old images from before digest was enabled), middleware triggers digest on the fly
+- Before model call, image references are replaced with cached text: `[Image: photo.jpg (a1b2c3d4.jpg) — A terminal showing npm install output...]`
+- On cache miss (e.g. old images from before digest was enabled), digest is triggered on the fly
 
 This means:
 - **Text-only models work** — they see descriptions, not raw images
@@ -39,7 +39,7 @@ Set `mediaDigest: false` to skip image digestion. Raw images are then controlled
 
 Controls how many recent turns resolve raw media Buffers to the model. Applies to all media types:
 
-- **Pre-digested images**: middleware replaces with text description regardless — `mediaContext` has no effect
+- **Pre-digested images**: replaced with text description regardless — `mediaContext` has no effect
 - **Non-image files** (PDFs, audio, etc.): no digest yet, so `mediaContext` controls whether raw binary is sent. E.g. `mediaContext: 1` sends the current turn's PDF to Claude for native processing.
 - **Images with digest off**: `mediaContext` controls how many turns get raw image Buffers
 
