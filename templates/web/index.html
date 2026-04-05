@@ -67,6 +67,21 @@
     display: flex;
     flex-direction: column;
     height: 100dvh;
+    position: relative;
+  }
+  .sidebar-resize {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 10;
+  }
+  .sidebar-resize:hover,
+  .sidebar-resize.dragging {
+    background: var(--text-muted);
+    opacity: 0.2;
   }
   .sidebar-header {
     padding: 0 14px;
@@ -203,6 +218,16 @@
     position: relative;
   }
 
+  .sidebar.mini { width: 70px; min-width: 70px; }
+  .sidebar.mini { overflow: hidden; }
+  .sidebar.mini .switcher-server-header span { visibility: hidden; font-size: 0; line-height: 0; }
+  .sidebar.mini .switcher-server-header { position: relative; margin-top: 12px; margin-bottom: 4px; padding: 8px 12px !important; min-height: 0; }
+  .sidebar.mini .switcher-server-header::after { content: ''; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 36px; height: 12px; border-radius: 4px; background: var(--text-muted); opacity: 0.12; }
+  .sidebar.mini .switcher-add-inline { display: none; }
+  .sidebar.mini #logout-btn { display: none; }
+  .sidebar.mini .switcher-item-remove { display: none !important; }
+  .sidebar.mini .switcher-item:hover { background: rgba(255,255,255,0.06); }
+  .sidebar.mini .switcher-item.active { background: rgba(255,255,255,0.1); }
   .sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; border-right: none; }
 
   .sidebar-backdrop {
@@ -2235,6 +2260,7 @@
 <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
 <div class="sidebar" id="sidebar">
+  <div class="sidebar-resize" id="sidebar-resize"></div>
   <div class="sidebar-header">
     <a href="https://kern-ai.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">kern<span style="color:#58a6ff">.</span></a>
     <button class="filter-btn" id="logout-btn" title="Logout" style="font-size:14px;">&#x23FB;</button>
@@ -4059,15 +4085,70 @@ function toggleSidebar() {
   const isMobile = window.innerWidth <= 768;
   if (isMobile) {
     const isOpen = sidebar.classList.contains('open');
-    sidebar.classList.remove('collapsed');
+    sidebar.classList.remove('collapsed', 'mini');
     sidebar.classList.toggle('open', !isOpen);
     $('sidebar-backdrop').classList.toggle('open', !isOpen);
   } else {
+    // Hamburger cycles: full → mini → collapsed → full
     sidebar.classList.remove('open');
-    const collapsed = sidebar.classList.toggle('collapsed');
-    localStorage.setItem('kern_sidebar_collapsed', collapsed ? '1' : '');
+    const isFull = !sidebar.classList.contains('mini') && !sidebar.classList.contains('collapsed');
+    const isMini = sidebar.classList.contains('mini');
+    sidebar.classList.remove('mini', 'collapsed');
+    if (isFull) {
+      sidebar.classList.add('mini');
+      localStorage.setItem('kern_sidebar_state', 'mini');
+    } else if (isMini) {
+      sidebar.classList.add('collapsed');
+      localStorage.setItem('kern_sidebar_state', 'collapsed');
+    } else {
+      localStorage.setItem('kern_sidebar_state', 'full');
+    }
   }
 }
+
+// Sidebar drag-to-resize with snap points
+(function() {
+  const handle = $('sidebar-resize');
+  const sidebar = $('sidebar');
+  if (!handle) return;
+  let dragging = false;
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    dragging = true;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const x = e.clientX;
+    sidebar.classList.remove('mini', 'collapsed');
+    // Snap: <35px = collapsed, 35-120 = mini(62px), >120 = full(200px)
+    if (x < 35) {
+      sidebar.classList.add('collapsed');
+      localStorage.setItem('kern_sidebar_state', 'collapsed');
+    } else if (x < 120) {
+      sidebar.classList.add('mini');
+      localStorage.setItem('kern_sidebar_state', 'mini');
+    } else {
+      localStorage.setItem('kern_sidebar_state', 'full');
+    }
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+  // Double-click toggles between full and mini
+  handle.addEventListener('dblclick', () => {
+    sidebar.classList.remove('collapsed');
+    const isMini = sidebar.classList.contains('mini');
+    sidebar.classList.toggle('mini', !isMini);
+    localStorage.setItem('kern_sidebar_state', isMini ? 'full' : 'mini');
+  });
+})();
 function openSidebar() {
   const sidebar = $('sidebar');
   sidebar.classList.remove('collapsed');
@@ -4085,8 +4166,10 @@ function closeSidebar() {
 }
 
 // Restore sidebar state on load
-if (localStorage.getItem('kern_sidebar_collapsed') === '1' && window.innerWidth > 768) {
-  $('sidebar').classList.add('collapsed');
+if (window.innerWidth > 768) {
+  const sidebarState = localStorage.getItem('kern_sidebar_state') || localStorage.getItem('kern_sidebar_collapsed') === '1' && 'collapsed';
+  if (sidebarState === 'mini') $('sidebar').classList.add('mini');
+  else if (sidebarState === 'collapsed') $('sidebar').classList.add('collapsed');
 }
 
 // Fetch agents from a server URL, returns { agents, status }
