@@ -6,12 +6,7 @@ use tauri::{Emitter, Manager};
 
 #[tauri::command]
 fn navigate_to(app: tauri::AppHandle, url: String) -> Result<(), String> {
-    // Close the connect screen window
-    if let Some(main_window) = app.get_webview_window("main") {
-        let _ = main_window.close();
-    }
-
-    // Open a new window pointing to the remote server
+    // Create the new window FIRST (before closing old one, so app never has 0 windows)
     WebviewWindowBuilder::new(&app, "app", tauri::WebviewUrl::External(
         url.parse().map_err(|e| format!("Invalid URL: {}", e))?
     ))
@@ -20,6 +15,11 @@ fn navigate_to(app: tauri::AppHandle, url: String) -> Result<(), String> {
     .min_inner_size(600.0, 400.0)
     .build()
     .map_err(|e| format!("Failed to open window: {}", e))?;
+
+    // Now close the connect screen
+    if let Some(main_window) = app.get_webview_window("main") {
+        let _ = main_window.close();
+    }
 
     Ok(())
 }
