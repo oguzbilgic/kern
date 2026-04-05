@@ -102,7 +102,9 @@ export class MediaSidecar {
               entry.describedBy || null,
               entry.timestamp,
             );
-          } catch {}
+          } catch (err) {
+            log.debug("media", `backfill entry failed (${entry.file}): ${err}`);
+          }
         }
         log("media", `backfilled ${this.map.size} entries to SQLite`);
       }
