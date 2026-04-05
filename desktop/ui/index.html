@@ -250,13 +250,8 @@
       window.location.href = url + '?token=' + encodeURIComponent(token);
     }
 
-    // Auto-connect if only one saved server
-    const saved = getSavedServers();
-    if (saved.length === 1) {
-      connectTo(saved[0].url, saved[0].token);
-    } else {
-      renderSaved();
-    }
+    // No aggressive auto-connect to prevent loops
+    renderSaved();
   </script>
 </body>
 </html>
