@@ -2428,8 +2428,15 @@ function renderMarkdown(text) {
   const codeBlocks = [];
   src = src.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
     const idx = codeBlocks.length;
-    // Keep HTML-escaped content inside code blocks — safe against injection
-    codeBlocks.push(`<pre><code>${code}</code></pre>`);
+    // hljs.highlight expects raw text and does its own escaping
+    const raw = code.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+    let highlighted = code; // fallback: keep HTML-escaped
+    if (typeof hljs !== 'undefined') {
+      highlighted = lang && hljs.getLanguage(lang)
+        ? hljs.highlight(raw, { language: lang }).value
+        : hljs.highlightAuto(raw).value;
+    }
+    codeBlocks.push(`<pre><code class="hljs${lang ? ` language-${lang}` : ''}">${highlighted}</code></pre>`);
     return `\x00CODEBLOCK${idx}\x00`;
   });
 
