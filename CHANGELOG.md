@@ -17,10 +17,23 @@
   - SQLite `media` table mirrors sidecar for cross-session queries
   - Stale detection: re-describes when `mediaModel` config changes
   - Config: `mediaDigest` (boolean, default `true`), `mediaModel` (string, optional — falls back to main model)
+- **PDF tool** — `pdf(file, pages?, prompt?)` for reading and analyzing PDFs:
+  - `pages`: defaults to page 1 for reading, all pages when `prompt` is provided. Supports ranges like `1-5` or `2,4,7-9`
+  - `prompt`: sends extracted text to the AI model for analysis
+  - Header shows total page count so agent knows document scope
+  - Uses `unpdf` for text extraction — no external dependencies
+- **Image tool** — `image(file, prompt?)` for on-demand vision analysis:
+  - Analyze any image file on disk or in `.kern/media/`
+  - `prompt` defaults to "Describe this image." — agent can ask specific questions
+  - Uses the same chat model (no separate vision model config needed)
 - **Web tools** — two new built-in tools for web research:
   - `websearch` — search the web via DuckDuckGo, returns results as markdown with titles, URLs, and snippets
   - `webfetch` — fetch any URL with automatic HTML-to-markdown conversion. JSON and plain text returned as-is. New `raw` option to get original HTML.
 - **Finding answers** — new KERN.md section encouraging agents to use web tools instead of relying on stale training data
+- **Tool param display** — web UI now shows extra params in tool call headers:
+  - `pdf`: file path, pages, prompt (truncated to 60 chars)
+  - `read`: offset (`+N`) and non-default limit
+  - Tool colors added for `pdf`, `image`, `websearch`, `recall`
 
 ## v0.18.1
 
