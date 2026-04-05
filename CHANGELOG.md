@@ -3,10 +3,16 @@
 ## next
 
 ### Improvements
-- **Emoji-only messages** ([#55](https://github.com/oguzbilgic/kern-ai/issues/55)) — messages with 1-3 emoji and no text render large (48px) with no bubble, like iMessage and Telegram
-- **Web UI input redesign** — unified pill-shaped input container with attach, textarea, and send inside a single bordered capsule; SVG paperclip and arrow icons replace emoji/text; focus glow on the container; inverted send button when active; removed input area top border
-- **Syntax highlighting in assistant messages** ([#39](https://github.com/oguzbilgic/kern-ai/issues/39)) — fenced code blocks in assistant responses now get syntax highlighting via highlight.js
+- **Bash command formatting** — syntax highlighting via highlight.js, long commands break at `&&`/`||`/`;` with flush-left continuation, pipes stay inline, separators in muted gray, command names highlighted in command position
+- **Tool output border accent** — expanded tool output uses a left border instead of background fill, visually nesting output under the command
+- **Conversation layout** — max-width 800px centered conversation area, 12px message gaps, narrower bubbles (72%), user bubble with pinched corner
+- **Header redesign** — larger centered agent name, no status dot or bottom border; click agent name to toggle info panel with cache stats
+- **Inline file attachments** — drag-and-drop attachment preview inside the input pill with square thumbnails, iMessage-style
+- **Emoji-only messages** ([#55](https://github.com/oguzbilgic/kern-ai/issues/55)) — messages with 1-3 emoji render large with no bubble
+- **Input redesign** — unified pill-shaped container with SVG icons, focus glow, inverted send button
+- **Syntax highlighting in assistant messages** ([#39](https://github.com/oguzbilgic/kern-ai/issues/39)) — fenced code blocks get syntax highlighting via highlight.js
 - **Auto-link bare URLs** in assistant messages
+- **Tool colors** — unified neutral color for read/pdf/image/webfetch/websearch/kern/recall; distinct colors for action tools (bash, write, edit, grep, glob, message)
 
 ## v0.20.0
 
