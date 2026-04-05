@@ -4,6 +4,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { readFile } from "fs/promises";
 import { existsSync } from "fs";
 import { log } from "./log.js";
+import { extractText } from "./media.js";
 import type { ModelMessage } from "ai";
 import type { MemoryDB } from "./memory.js";
 
@@ -93,7 +94,8 @@ export class RecallIndex {
 
         // Extract timestamp from message metadata
         let timestamp: string | null = null;
-        const timeMatch = msgContent.match(/time: (\d{4}-\d{2}-\d{2}T[\d:.]+Z)/);
+        const textForTimestamp = typeof msg.content === "string" ? msg.content : extractText(msg.content);
+        const timeMatch = textForTimestamp.match(/time: (\d{4}-\d{2}-\d{2}T[\d:.]+Z)/);
         if (timeMatch) timestamp = timeMatch[1];
 
         insertMsg.run(sessionId, msgIndex, msg.role, msgContent, timestamp);
@@ -239,7 +241,7 @@ export class RecallIndex {
     const result: string[] = [];
     for (let i = from; i < actualTo; i++) {
       const msg: ModelMessage = JSON.parse(lines[i + 1]); // +1 for metadata line
-      const msgContent = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
+      const msgContent = extractText(msg.content);
       const preview = msgContent.length > 500 ? msgContent.slice(0, 500) + "..." : msgContent;
       result.push(`[${i}] ${msg.role}: ${preview}`);
     }
@@ -342,6 +344,8 @@ export class RecallIndex {
     if (Array.isArray(msg.content)) {
       return (msg.content as any[]).map((part) => {
         if (part.type === "text") return part.text;
+        if (part.type === "image") return `[image: ${part.mediaType || "image"}]`;
+        if (part.type === "file") return `[file: ${part.filename || part.mediaType || "file"}]`;
         if (part.type === "tool-call") return `[tool: ${part.toolName}]`;
         if (part.type === "tool-result") {
           const out = typeof part.output === "string" ? part.output : JSON.stringify(part.output);

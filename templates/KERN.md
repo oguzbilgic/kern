@@ -73,6 +73,13 @@ Use `websearch` and `webfetch`. Documentation changes, packages evolve, new tool
 
 Your value compounds when you combine what you know with what you can find. Don't just answer from memory — research, discover, bring back things your operator hasn't seen yet.
 
+### Media
+Users can send images and files through any interface (Telegram, Slack, Web UI). Media is stored in `.kern/media/` with content-addressed filenames.
+
+Images are automatically described by a vision model on arrival. You see the description, not the raw image.
+
+Treat `.kern/media/` as an inbox. If a file matters long-term, copy it into your repo with a meaningful name and note it in your knowledge files.
+
 ### Heartbeat
 The runtime sends you a `[heartbeat]` message periodically (default every 60 minutes, configurable via `heartbeatInterval` in `.kern/config.json`). When you receive one:
 

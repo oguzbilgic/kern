@@ -87,6 +87,22 @@ export class MemoryDB {
       CREATE UNIQUE INDEX IF NOT EXISTS idx_segments_unique ON semantic_segments(session_id, level, msg_start, msg_end);
     `);
 
+    // Media table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS media (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        file TEXT NOT NULL,
+        originalName TEXT,
+        mimeType TEXT NOT NULL,
+        size INTEGER NOT NULL,
+        description TEXT,
+        describedBy TEXT,
+        timestamp TEXT NOT NULL,
+        UNIQUE(session_id, file)
+      );
+    `);
+
     // Migrations — add columns to existing tables
     try { this.db.exec("ALTER TABLE semantic_segments ADD COLUMN start_time TEXT"); } catch {}
     try { this.db.exec("ALTER TABLE semantic_segments ADD COLUMN end_time TEXT"); } catch {}
@@ -183,6 +199,20 @@ export class MemoryDB {
     return this.db.prepare(
       "SELECT id, type, date_start, date_end, source_key, text, created_at FROM summaries ORDER BY id DESC"
     ).all() as any[];
+  }
+
+  getMediaList(): Array<{ file: string; originalName: string | null; mimeType: string; size: number; description: string | null; describedBy: string | null; timestamp: string; session_id: string }> {
+    return this.db.prepare(
+      "SELECT file, originalName, mimeType, size, description, describedBy, timestamp, session_id FROM media ORDER BY timestamp DESC"
+    ).all() as any[];
+  }
+
+  getMediaStats(): { total: number; images: number; digested: number; totalSize: number } {
+    const total = (this.db.prepare("SELECT COUNT(*) as c FROM media").get() as any).c;
+    const images = (this.db.prepare("SELECT COUNT(*) as c FROM media WHERE mimeType LIKE 'image/%'").get() as any).c;
+    const digested = (this.db.prepare("SELECT COUNT(*) as c FROM media WHERE description IS NOT NULL AND description != ''").get() as any).c;
+    const totalSize = (this.db.prepare("SELECT COALESCE(SUM(size), 0) as s FROM media").get() as any).s;
+    return { total, images, digested, totalSize };
   }
 
   close(): void {

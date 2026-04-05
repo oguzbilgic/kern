@@ -443,6 +443,38 @@
     display: block;
     margin-bottom: 2px;
   }
+  .media-attachments {
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .message.user-media {
+    align-self: flex-end;
+    background: transparent;
+    padding: 0;
+    max-width: 50%;
+    margin: 4px 0;
+  }
+  .message.user-media .media-attachments { margin-top: 0; }
+  .media-image {
+    max-width: 100%;
+    max-height: 400px;
+    border-radius: 8px;
+    cursor: pointer;
+    object-fit: contain;
+  }
+  .media-image:hover { opacity: 0.9; }
+  .media-file {
+    display: inline-block;
+    padding: 6px 10px;
+    background: var(--bg-sidebar);
+    border-radius: 6px;
+    color: var(--orange);
+    text-decoration: none;
+    font-size: 12px;
+  }
+  .media-file:hover { opacity: 0.8; }
   .message.assistant {
     align-self: flex-start;
     background: var(--bg-surface);
@@ -926,6 +958,87 @@
     opacity: 0.4;
     cursor: not-allowed;
   }
+
+  /* --- Attachment UI --- */
+  .attach-btn {
+    background: none !important;
+    border: none !important;
+    color: var(--text-muted);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 4px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .attach-btn:hover { color: var(--text); }
+  .attachment-preview {
+    display: none;
+    padding: 6px 8px;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+    background: var(--bg-surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .attachment-preview.has-items { display: flex; }
+  .attachment-thumb {
+    position: relative;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+  }
+  .attachment-thumb img {
+    display: block;
+    max-height: 80px;
+    max-width: 120px;
+    object-fit: cover;
+  }
+  .attachment-thumb .file-label {
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .attachment-thumb .remove-btn {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: rgba(0,0,0,0.7);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+  .attachment-thumb .remove-btn:hover { background: rgba(200,0,0,0.8); }
+  .drop-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    border: 2px dashed var(--text-muted);
+    border-radius: 12px;
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    color: var(--text);
+    font-size: 16px;
+    pointer-events: none;
+  }
+  .drop-overlay.visible { display: flex; }
 
   /* --- Scrollbar --- */
   .messages::-webkit-scrollbar { width: 6px; }
@@ -1575,6 +1688,144 @@
     font-family: var(--font-mono);
     margin-top: 2px;
   }
+  .media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+  }
+  .media-card {
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .media-card:hover { border-color: var(--ov-accent); }
+  .media-card.active { border-color: var(--ov-accent); box-shadow: 0 0 0 1px var(--ov-accent); }
+  .media-card-thumb {
+    width: 100%;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .media-card-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .media-card-thumb .file-icon {
+    font-size: 32px;
+    opacity: 0.5;
+  }
+  .media-card-info {
+    padding: 8px 10px;
+  }
+  .media-card-info .name {
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .media-card-info .meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    font-family: var(--font-mono);
+  }
+  .media-card-info .digest-badge {
+    display: inline-block;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-top: 4px;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .media-card-info .digest-badge.digested {
+    background: rgba(252, 213, 58, 0.15);
+    color: var(--ov-accent);
+  }
+  .media-card-info .digest-badge.pending {
+    background: rgba(255,255,255,0.05);
+    color: var(--text-muted);
+  }
+  .media-detail {
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    display: none;
+  }
+  .media-detail.open { display: block; }
+  .media-detail-preview {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+  }
+  .media-detail-columns {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .media-detail-desc {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+    padding: 10px 12px;
+    background: var(--bg);
+    border-radius: 6px;
+    overflow-y: auto;
+    max-height: 300px;
+  }
+  .media-detail-meta {
+    flex: 0 0 220px;
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+  .meta-row {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 6px;
+  }
+  .meta-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 1px;
+  }
+  .meta-value {
+    color: var(--text);
+    word-break: break-all;
+  }
+  .media-filter-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .media-filter-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+  }
+  .media-filter-btn:hover { border-color: var(--text-muted); }
+  .media-filter-btn.active { border-color: var(--ov-accent); color: var(--ov-accent); }
   .recall-empty {
     color: var(--text-muted);
     font-size: 13px;
@@ -1868,6 +2119,7 @@
       <button id="inspector-tab-segments">Segments</button>
       <button id="inspector-tab-notes">Notes</button>
       <button id="inspector-tab-recall">Recall</button>
+      <button id="inspector-tab-media">Media</button>
       <button id="inspector-tab-context">Context</button>
     </div>
     <div class="segments-toolbar" id="inspector-toolbar" style="display:none;">
@@ -1894,6 +2146,11 @@
     <div class="segments-body inspector-tab-content" id="inspector-content-segments">
       <div class="segments-timeline" id="segments-timeline"></div>
       <div class="segments-detail empty" id="segments-detail">hover a segment</div>
+    </div>
+    <!-- Media tab -->
+    <div class="segments-body inspector-tab-content" id="inspector-content-media">
+      <div class="recall-stats" id="media-stats" style="display:none;"></div>
+      <div id="media-grid-container"></div>
     </div>
     <!-- Context tab -->
     <div class="segments-body inspector-tab-content" id="inspector-content-context">
@@ -1961,11 +2218,15 @@
 
   <button class="scroll-down-btn" id="scroll-down-btn" title="Scroll to bottom">&#8595;</button>
   <div class="input-area">
+    <div class="attachment-preview" id="attachment-preview"></div>
     <div class="input-row">
       <div class="cmd-popup" id="cmd-popup"></div>
+      <input type="file" id="file-input" multiple hidden accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.json,.md" />
+      <button class="attach-btn" id="attach-btn" title="Attach files">📎</button>
       <textarea id="input" placeholder="Send a message..." rows="1" autofocus autocomplete="off" autocorrect="off" spellcheck="false" autocapitalize="off"></textarea>
       <button id="send" disabled>↑</button>
     </div>
+    <div class="drop-overlay" id="drop-overlay">Drop files here</div>
   </div>
 </div>
 
@@ -2044,16 +2305,21 @@ const AgentClient = {
    * @returns {Promise<{ok: boolean}>}
    */
   async sendMessage(baseUrl, token, text, opts = {}) {
+    const payload = {
+      text,
+      userId: opts.userId || 'tui',
+      interface: opts.interface || 'web',
+      channel: opts.channel || 'web',
+      connectionId: opts.connectionId,
+    };
+    // Attach base64-encoded files if present
+    if (opts.attachments && opts.attachments.length > 0) {
+      payload.attachments = opts.attachments;
+    }
     const res = await fetch(`${baseUrl}/message`, {
       method: 'POST',
       headers: this._headers(token),
-      body: JSON.stringify({
-        text,
-        userId: opts.userId || 'tui',
-        interface: opts.interface || 'web',
-        channel: opts.channel || 'web',
-        connectionId: opts.connectionId,
-      }),
+      body: JSON.stringify(payload),
     });
     return res.json();
   },
@@ -2283,6 +2549,124 @@ const statusDot = $('status-dot');
 const agentNameEl = $('agent-name');
 const infoPanel = $('info-panel');
 
+// --- Attachment management ---
+const fileInput = $('file-input');
+const attachBtn = $('attach-btn');
+const attachPreview = $('attachment-preview');
+const dropOverlay = $('drop-overlay');
+let pendingAttachments = []; // { file, type, mimeType, dataUrl, base64, filename, size }
+
+function fileToAttachment(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1];
+      const type = file.type.startsWith('image/') ? 'image'
+        : file.type.startsWith('video/') ? 'video'
+        : file.type.startsWith('audio/') ? 'audio'
+        : 'document';
+      resolve({
+        file,
+        type,
+        mimeType: file.type || 'application/octet-stream',
+        filename: file.name,
+        size: file.size,
+        dataUrl: reader.result,
+        base64,
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function addFiles(files) {
+  for (const file of files) {
+    if (file.size > 20 * 1024 * 1024) {
+      addMessage('error', `File too large: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB, max 20MB)`);
+      continue;
+    }
+    const att = await fileToAttachment(file);
+    pendingAttachments.push(att);
+  }
+  renderAttachmentPreviews();
+  updateSendState();
+}
+
+function removeAttachment(idx) {
+  pendingAttachments.splice(idx, 1);
+  renderAttachmentPreviews();
+  updateSendState();
+}
+
+function renderAttachmentPreviews() {
+  attachPreview.innerHTML = '';
+  if (pendingAttachments.length === 0) {
+    attachPreview.classList.remove('has-items');
+    return;
+  }
+  attachPreview.classList.add('has-items');
+  pendingAttachments.forEach((att, i) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'attachment-thumb';
+    if (att.type === 'image') {
+      thumb.innerHTML = `<img src="${att.dataUrl}" alt="${att.filename}" /><button class="remove-btn" data-idx="${i}">\u00d7</button>`;
+    } else {
+      const icon = att.type === 'video' ? '\ud83c\udfac' : att.type === 'audio' ? '\ud83c\udfb5' : '\ud83d\udcc4';
+      thumb.innerHTML = `<div class="file-label">${icon} ${att.filename}</div><button class="remove-btn" data-idx="${i}">\u00d7</button>`;
+    }
+    thumb.querySelector('.remove-btn').addEventListener('click', () => removeAttachment(i));
+    attachPreview.appendChild(thumb);
+  });
+}
+
+function updateSendState() {
+  sendBtn.disabled = !inputEl.value.trim() && pendingAttachments.length === 0;
+}
+
+// Paperclip button
+attachBtn.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length > 0) addFiles(Array.from(fileInput.files));
+  fileInput.value = '';
+});
+
+// Paste handler — images from clipboard
+inputEl.addEventListener('paste', (e) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  const files = [];
+  for (const item of items) {
+    if (item.kind === 'file') {
+      const file = item.getAsFile();
+      if (file) files.push(file);
+    }
+  }
+  if (files.length > 0) {
+    e.preventDefault();
+    addFiles(files);
+  }
+});
+
+// Drag and drop
+let dragCounter = 0;
+document.addEventListener('dragenter', (e) => {
+  e.preventDefault();
+  dragCounter++;
+  if (dragCounter === 1) dropOverlay.classList.add('visible');
+});
+document.addEventListener('dragleave', (e) => {
+  e.preventDefault();
+  dragCounter--;
+  if (dragCounter <= 0) { dragCounter = 0; dropOverlay.classList.remove('visible'); }
+});
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dragCounter = 0;
+  dropOverlay.classList.remove('visible');
+  if (e.dataTransfer?.files.length > 0) addFiles(Array.from(e.dataTransfer.files));
+});
+
 // Toggle agent info panel
 $('info-btn').addEventListener('click', async () => {
   if (infoPanel.classList.contains('open')) {
@@ -2361,12 +2745,13 @@ const INSPECTOR_TAB_TITLES = {
   recall: 'Recall',
   notes: 'Notes',
   segments: 'Segments',
+  media: 'Media',
   context: 'Context',
 };
 
 function updateInspectorTab() {
   // Update tab buttons
-  ['sessions', 'recall', 'notes', 'segments', 'context'].forEach(t => {
+  ['sessions', 'recall', 'notes', 'segments', 'media', 'context'].forEach(t => {
     $('inspector-tab-' + t).classList.toggle('active', inspectorTab === t);
     $('inspector-content-' + t).classList.toggle('active', inspectorTab === t);
   });
@@ -2388,6 +2773,12 @@ function updateInspectorTab() {
       '<button class="action-btn" id="segments-stop"><span class="action-icon">■</span> Stop</button>',
       '<button class="action-btn" id="segments-rebuild"><span class="action-icon">↻</span> Rebuild</button>',
       '<button class="action-btn danger" id="segments-clean"><span class="action-icon">✕</span> Clean</button>',
+    ].join('');
+  } else if (inspectorTab === 'media') {
+    leftHtml = [
+      '<button class="action-btn' + (mediaFilter === 'all' ? ' active' : '') + '" id="media-filter-all">All</button>',
+      '<button class="action-btn' + (mediaFilter === 'images' ? ' active' : '') + '" id="media-filter-images">Images</button>',
+      '<button class="action-btn' + (mediaFilter === 'documents' ? ' active' : '') + '" id="media-filter-documents">Documents</button>',
     ].join('');
   } else if (inspectorTab === 'context') {
     leftHtml = [
@@ -2435,6 +2826,10 @@ function updateInspectorTab() {
       catch (e) { console.error('rebuild failed:', e); }
       finally { btn.textContent = 'Rebuild'; btn.disabled = false; }
     });
+  } else if (inspectorTab === 'media') {
+    $('media-filter-all').addEventListener('click', () => { mediaFilter = 'all'; updateInspectorTab(); renderMediaGrid(); });
+    $('media-filter-images').addEventListener('click', () => { mediaFilter = 'images'; updateInspectorTab(); renderMediaGrid(); });
+    $('media-filter-documents').addEventListener('click', () => { mediaFilter = 'documents'; updateInspectorTab(); renderMediaGrid(); });
   } else if (inspectorTab === 'context') {
     $('prompt-mode-structured').addEventListener('click', () => { promptViewMode = 'structured'; updatePromptModeButtons(); });
     $('prompt-mode-raw').addEventListener('click', () => { promptViewMode = 'raw'; updatePromptModeButtons(); });
@@ -2463,6 +2858,7 @@ async function loadInspectorTabData() {
   else if (inspectorTab === 'recall') { await fetchRecallStats(); $('recall-search-input').focus(); }
   else if (inspectorTab === 'notes') { await fetchSummaries(); }
   else if (inspectorTab === 'segments') { await fetchAndRenderSegments(); segPollTimer = setInterval(fetchAndRenderSegments, 3000); }
+  else if (inspectorTab === 'media') { await fetchMediaList(); renderMediaGrid(); }
   else if (inspectorTab === 'context') { await fetchAndRenderPrompt(); }
 }
 
@@ -2474,7 +2870,7 @@ $('inspector-btn').addEventListener('click', () => {
 $('inspector-close').addEventListener('click', closeInspector);
 inspectorOverlay.addEventListener('click', (e) => { if (e.target === inspectorOverlay) closeInspector(); });
 
-['sessions', 'recall', 'notes', 'segments', 'context'].forEach(t => {
+['sessions', 'recall', 'notes', 'segments', 'media', 'context'].forEach(t => {
   $('inspector-tab-' + t).addEventListener('click', async () => {
     inspectorTab = t;
     updateInspectorTab();
@@ -2721,6 +3117,155 @@ const memSummariesContent = $('memory-content-summaries');
 const memSessionsContent = $('memory-content-sessions');
 const recallResults = $('recall-results');
 const recallStatsEl = $('recall-stats');
+const mediaStatsEl = $('media-stats');
+const mediaGridContainer = $('media-grid-container');
+
+// --- Media tab (mock data) ---
+let mediaFilter = 'all';
+let selectedMediaFile = null;
+
+let mediaData = { files: [], stats: { total: 0, images: 0, digested: 0, totalSize: 0 } };
+
+const FILE_ICONS = {
+  'application/pdf': '📄',
+  'text/csv': '📊',
+  'audio/mp3': '🎵',
+  'audio/ogg': '🎵',
+  'audio/wav': '🎵',
+  'video/mp4': '🎬',
+};
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+function getFilteredMedia() {
+  const files = mediaData.files || [];
+  if (mediaFilter === 'images') return files.filter(m => m.mimeType.startsWith('image/'));
+  if (mediaFilter === 'documents') return files.filter(m => !m.mimeType.startsWith('image/'));
+  return files;
+}
+
+async function fetchMediaList() {
+  if (!BASE_URL) return;
+  try {
+    const res = await fetch(`${BASE_URL}/media/list`, { headers: AgentClient._headers(AUTH_TOKEN) });
+    if (res.ok) mediaData = await res.json();
+  } catch (e) { console.error('fetchMediaList failed:', e); }
+}
+
+function renderMediaGrid() {
+  const items = getFilteredMedia();
+  const s = mediaData.stats || {};
+
+  mediaStatsEl.style.display = '';
+  mediaStatsEl.innerHTML = [
+    `<div class="recall-stat-card"><div class="v">${s.total || 0}</div><div class="k">Files</div></div>`,
+    `<div class="recall-stat-card"><div class="v">${s.images || 0}</div><div class="k">Images</div></div>`,
+    `<div class="recall-stat-card"><div class="v">${s.digested || 0}/${s.images || 0}</div><div class="k">Digested</div></div>`,
+    `<div class="recall-stat-card"><div class="v">${formatBytes(s.totalSize || 0)}</div><div class="k">Storage</div></div>`,
+  ].join('');
+
+  if (items.length === 0) {
+    mediaGridContainer.innerHTML = '<div class="recall-empty">No media files</div>';
+    return;
+  }
+
+  // Detail panel + grid
+  let html = '<div class="media-detail" id="media-detail-panel"></div>';
+  html += '<div class="media-grid">';
+  for (const item of items) {
+    const isImage = item.mimeType.startsWith('image/');
+    const icon = FILE_ICONS[item.mimeType] || '📎';
+    const date = new Date(item.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const active = selectedMediaFile === item.file ? ' active' : '';
+    html += `<div class="media-card${active}" data-file="${item.file}">`;
+    html += `<div class="media-card-thumb">`;
+    if (isImage) {
+      const thumbUrl = mediaProxyUrl(item.file);
+      html += `<img src="${thumbUrl}" alt="" loading="lazy" />`;
+    } else {
+      html += `<span class="file-icon">${icon}</span>`;
+    }
+    html += `</div>`;
+    html += `<div class="media-card-info">`;
+    html += `<div class="name" title="${escapeHtml(item.originalName || item.file)}">${escapeHtml(item.originalName || item.file)}</div>`;
+    html += `<div class="meta">${formatBytes(item.size)} · ${date}</div>`;
+    if (isImage) {
+      html += item.description
+        ? `<span class="digest-badge digested">digested</span>`
+        : `<span class="digest-badge pending">pending</span>`;
+    }
+    html += `</div></div>`;
+  }
+  html += '</div>';
+  mediaGridContainer.innerHTML = html;
+
+  // Card click handlers
+  mediaGridContainer.querySelectorAll('.media-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const file = card.dataset.file;
+      selectedMediaFile = selectedMediaFile === file ? null : file;
+      renderMediaDetail();
+      mediaGridContainer.querySelectorAll('.media-card').forEach(c => c.classList.toggle('active', c.dataset.file === selectedMediaFile));
+    });
+  });
+
+  // Show detail if one is selected
+  renderMediaDetail();
+}
+
+function mediaProxyUrl(file) {
+  return `${BASE_URL}/media/${file}${AUTH_TOKEN ? '?token=' + encodeURIComponent(AUTH_TOKEN) : ''}`;
+}
+
+function renderMediaDetail() {
+  const panel = document.getElementById('media-detail-panel');
+  if (!panel) return;
+  if (!selectedMediaFile) { panel.classList.remove('open'); return; }
+
+  const files = mediaData.files || [];
+  const item = files.find(m => m.file === selectedMediaFile);
+  if (!item) { panel.classList.remove('open'); return; }
+
+  const isImage = item.mimeType.startsWith('image/');
+  const date = new Date(item.timestamp).toLocaleString();
+  let html = '';
+
+  if (isImage) {
+    const imgUrl = mediaProxyUrl(item.file);
+    html += `<img class="media-detail-preview" src="${imgUrl}" alt="" />`;
+  }
+
+  html += `<div class="media-detail-columns">`;
+
+  // Left: metadata
+  html += `<div class="media-detail-meta">`;
+  html += `<div class="meta-row"><span class="meta-label">Original</span><span class="meta-value">${escapeHtml(item.originalName || item.file)}</span></div>`;
+  html += `<div class="meta-row"><span class="meta-label">Hash</span><span class="meta-value" style="font-family:var(--font-mono);font-size:12px;">${item.file}</span></div>`;
+  html += `<div class="meta-row"><span class="meta-label">Type</span><span class="meta-value">${item.mimeType}</span></div>`;
+  html += `<div class="meta-row"><span class="meta-label">Size</span><span class="meta-value">${formatBytes(item.size)}</span></div>`;
+  html += `<div class="meta-row"><span class="meta-label">Saved</span><span class="meta-value">${date}</span></div>`;
+  if (item.describedBy) {
+    html += `<div class="meta-row"><span class="meta-label">Model</span><span class="meta-value">${escapeHtml(item.describedBy)}</span></div>`;
+  }
+  if (isImage) {
+    html += `<div class="meta-row"><span class="meta-label">Digest</span><span class="meta-value">${item.description ? '✓ cached' : '✗ pending'}</span></div>`;
+  }
+  html += `</div>`;
+
+  // Right: description
+  if (item.description) {
+    html += `<div class="media-detail-desc prompt-markdown">${renderMarkdown(item.description)}</div>`;
+  }
+
+  html += `</div>`; // end columns
+
+  panel.innerHTML = html;
+  panel.classList.add('open');
+}
 
 function renderSummaries(summaries) {
   if (!summaries || summaries.length === 0) {
@@ -3607,6 +4152,7 @@ const TOOL_COLORS = {
   bash: 'var(--tool-bash)', read: 'var(--tool-read)', write: 'var(--tool-write)',
   edit: 'var(--tool-edit)', glob: 'var(--tool-glob)', grep: 'var(--tool-grep)',
   webfetch: 'var(--tool-webfetch)', kern: 'var(--tool-kern)', message: 'var(--tool-message)',
+  pdf: 'var(--tool-read)', websearch: 'var(--tool-webfetch)', recall: 'var(--tool-kern)', image: 'var(--tool-read)',
 };
 
 function escapeHtml(s) {
@@ -3906,7 +4452,7 @@ function flushStreaming() {
 
 function setBusy(b) {
   busy = b;
-  sendBtn.disabled = !inputEl.value.trim();
+  sendBtn.disabled = !inputEl.value.trim() && pendingAttachments.length === 0;
   if (!b) hideThinking();
 }
 
@@ -4072,13 +4618,54 @@ function handleEvent(event) {
 
 async function send() {
   const text = inputEl.value.trim();
-  if (!text) return;
+  const hasAttachments = pendingAttachments.length > 0;
+  if (!text && !hasAttachments) return;
+
+  // Collect attachments before clearing
+  const attachments = pendingAttachments.map(att => ({
+    type: att.type,
+    mimeType: att.mimeType,
+    filename: att.filename,
+    size: att.size,
+    data: att.base64,
+    dataUrl: att.dataUrl,
+  }));
 
   inputEl.value = '';
   inputEl.style.height = 'auto';
+  pendingAttachments = [];
+  renderAttachmentPreviews();
   sendBtn.disabled = true;
 
-  addMessage('user', text, null, null, new Date(), 'web');
+  // Show text bubble if there's text
+  if (text) {
+    addMessage('user', text, null, null, new Date(), 'web');
+  }
+  // Show media as separate bubble
+  if (hasAttachments) {
+    const mediaEl = document.createElement('div');
+    mediaEl.className = 'message user-media';
+    const mc = document.createElement('div');
+    mc.className = 'media-attachments';
+    for (const att of attachments) {
+      if ((att.type === 'image' || att.mimeType?.startsWith('image/')) && att.dataUrl) {
+        const img = document.createElement('img');
+        img.src = att.dataUrl;
+        img.className = 'media-image';
+        img.alt = att.filename;
+        img.onload = () => scrollToBottom();
+        mc.appendChild(img);
+      } else {
+        const icon = att.type === 'video' ? '🎬' : att.type === 'audio' ? '🎵' : '📄';
+        const lbl = document.createElement('span');
+        lbl.className = 'media-file';
+        lbl.textContent = `${icon} ${att.filename}`;
+        mc.appendChild(lbl);
+      }
+    }
+    mediaEl.appendChild(mc);
+    messagesEl.appendChild(mediaEl);
+  }
   scrollToBottom(true);
   if (!busy) {
     setBusy(true);
@@ -4086,7 +4673,9 @@ async function send() {
   }
 
   try {
-    await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text, { connectionId: connection?.connectionId });
+    const opts = { connectionId: connection?.connectionId };
+    if (attachments.length > 0) opts.attachments = attachments;
+    await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text || '', opts);
   } catch (err) {
     addMessage('error', `Failed to send: ${err.message}`);
     if (!busy) setBusy(false);
@@ -4149,7 +4738,7 @@ inputEl.addEventListener('input', () => {
   if (!_inputRaf) {
     _inputRaf = requestAnimationFrame(() => {
       _inputRaf = 0;
-      sendBtn.disabled = !inputEl.value.trim();
+      sendBtn.disabled = !inputEl.value.trim() && pendingAttachments.length === 0;
       updateCmdPopup();
       inputEl.style.height = 'auto';
       inputEl.style.height = inputEl.scrollHeight + 'px';
@@ -4260,9 +4849,58 @@ async function init() {
       }
     }
     for (const msg of history) {
-      if (msg.role === 'user' && typeof msg.content === 'string') {
-        const parsed = parseHistoryUserMessage(msg.content);
-        if (parsed) addMessage(parsed.type, parsed.text, parsed.meta, null, parsed.timestamp, parsed.iface);
+      if (msg.role === 'user') {
+        if (typeof msg.content === 'string') {
+          const parsed = parseHistoryUserMessage(msg.content);
+          if (parsed) addMessage(parsed.type, parsed.text, parsed.meta, null, parsed.timestamp, parsed.iface);
+        } else if (Array.isArray(msg.content)) {
+          // SDK-native content array (text + media parts)
+          let text = '';
+          const mediaParts = [];
+          for (const part of msg.content) {
+            if (part.type === 'text') text += (text ? '\n' : '') + part.text;
+            else if (part.type === 'image') mediaParts.push(part);
+            else if (part.type === 'file') mediaParts.push(part);
+          }
+          const parsed = parseHistoryUserMessage(text);
+          const hasMedia = mediaParts.length > 0;
+          if (parsed && !(hasMedia && (parsed.text === '(empty)' || !parsed.text.trim()))) {
+            addMessage(parsed.type, parsed.text, parsed.meta, null, parsed.timestamp, parsed.iface);
+          }
+          if (mediaParts.length > 0) {
+            const mediaEl = document.createElement('div');
+            mediaEl.className = 'message user-media';
+            const mediaContainer = document.createElement('div');
+            mediaContainer.className = 'media-attachments';
+            for (const mp of mediaParts) {
+              if (mp.type === 'image') {
+                const file = (typeof mp.image === 'string' && mp.image.startsWith('kern-media://'))
+                  ? mp.image.slice('kern-media://'.length) : null;
+                if (file) {
+                  const img = document.createElement('img');
+                  img.src = `${BASE_URL}/media/${file}${AUTH_TOKEN ? '?token=' + AUTH_TOKEN : ''}`;
+                  img.className = 'media-image';
+                  img.alt = file;
+                  img.loading = 'lazy';
+                  img.onload = () => scrollToBottom();
+                  mediaContainer.appendChild(img);
+                }
+              } else if (mp.type === 'file') {
+                const file = (typeof mp.data === 'string' && mp.data.startsWith('kern-media://'))
+                  ? mp.data.slice('kern-media://'.length) : null;
+                const label = mp.filename || file || 'file';
+                const link = document.createElement('a');
+                link.href = file ? `${BASE_URL}/media/${file}${AUTH_TOKEN ? '?token=' + AUTH_TOKEN : ''}` : '#';
+                link.className = 'media-file';
+                link.textContent = `📎 ${label}`;
+                link.target = '_blank';
+                mediaContainer.appendChild(link);
+              }
+            }
+            mediaEl.appendChild(mediaContainer);
+            messagesEl.appendChild(mediaEl);
+          }
+        }
       } else if (msg.role === 'assistant') {
         if (Array.isArray(msg.content)) {
           for (const part of msg.content) {
@@ -4270,7 +4908,11 @@ async function init() {
               addMessage('assistant', part.text);
             } else if (part.type === 'tool-call') {
               const input = part.input || {};
-              const detail = input.path || input.command || input.pattern || input.url || input.action || input.query || input.userId || '';
+              let detail = input.path || input.command || input.pattern || input.url || input.action || input.query || input.userId || input.file || '';
+              if (input.pages) detail += ` pages:${input.pages}`;
+              if (input.prompt && (part.toolName === 'pdf' || part.toolName === 'image')) detail += ` "${String(input.prompt).slice(0, 60)}"`;
+              if (input.offset) detail += ` +${input.offset}`;
+              if (input.limit && input.limit !== 2000) detail += ` limit:${input.limit}`;
               const el = addMessage('tool', `${part.toolName} ${detail}`, null, input);
               // Attach result if available (for non-edit tools, or append to edit diff)
               const result = toolResults[part.toolCallId];

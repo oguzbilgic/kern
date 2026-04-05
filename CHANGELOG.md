@@ -3,10 +3,21 @@
 ## next
 
 ### Features
-- **Web tools** — two new built-in tools for web research:
-  - `websearch` — search the web via DuckDuckGo, returns results as markdown with titles, URLs, and snippets
-  - `webfetch` — fetch any URL with automatic HTML-to-markdown conversion. JSON and plain text returned as-is. New `raw` option to get original HTML.
-- **Finding answers** — new KERN.md section encouraging agents to use web tools instead of relying on stale training data
+- **Multi-modal media** ([#38](https://github.com/oguzbilgic/kern-ai/pull/38)) — send images and files to your agent from any interface. Content-addressed storage in `.kern/media/` (SHA-256 hashed filenames).
+  - **Telegram**: photos, documents, stickers, voice, video, and audio
+  - **Slack**: files shared in messages
+  - **Web UI**: drag-and-drop or file picker upload with inline preview
+  - Inline image rendering and file download links in chat history
+  - Media served via `/media/:filename` endpoint, proxied with auth through web server
+- **Image pre-digest** ([#38](https://github.com/oguzbilgic/kern-ai/pull/38)) — images automatically described by a vision model on arrival. Descriptions cached and reused across turns, saving tokens and enabling text-only models.
+  - Model fallback chain: `mediaModel` config → agent's main model → provider default
+  - Config: `mediaDigest` (boolean, default `true`), `mediaModel` (string, optional)
+- **PDF tool** ([#38](https://github.com/oguzbilgic/kern-ai/pull/38)) — `pdf(file, pages?, prompt?)` for reading and analyzing PDFs.
+  - Text extraction via `unpdf`. Page ranges: `1-5`, `2,4,7-9`. Header shows total page count.
+  - Optional `prompt` sends extracted text to the AI model for analysis
+- **Image tool** ([#38](https://github.com/oguzbilgic/kern-ai/pull/38)) — `image(file, prompt?)` for on-demand vision analysis of any image on disk or in `.kern/media/`.
+- **Web search** ([#37](https://github.com/oguzbilgic/kern-ai/pull/37)) — `websearch` tool searches DuckDuckGo, returns markdown results with titles, URLs, and snippets.
+- **Web fetch** ([#37](https://github.com/oguzbilgic/kern-ai/pull/37)) — `webfetch` tool fetches any URL with automatic HTML-to-markdown conversion. JSON and plain text returned as-is. `raw` option for original HTML.
 
 ## v0.18.1
 

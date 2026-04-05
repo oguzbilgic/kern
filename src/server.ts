@@ -1,5 +1,8 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
+import { join } from "path";
+import { existsSync, readFileSync } from "fs";
 import type { StreamEvent } from "./runtime.js";
+import type { Attachment } from "./interfaces/types.js";
 import { log } from "./log.js";
 
 export interface ServerEvent extends StreamEvent {
@@ -19,7 +22,7 @@ type SSEClient = {
 export class AgentServer {
   private server: ReturnType<typeof createServer>;
   private clients: SSEClient[] = [];
-  private onMessage: ((text: string, userId: string, iface: string, channel: string) => Promise<void>) | null = null;
+  private onMessage: ((text: string, userId: string, iface: string, channel: string, attachments?: Attachment[]) => Promise<void>) | null = null;
   private statusFn: (() => any | Promise<any>) | null = null;
   private historyFn: ((limit: number, before?: number) => any[]) | null = null;
   private segmentsFn: ((sessionId?: string) => any) | null = null;
@@ -37,13 +40,19 @@ export class AgentServer {
   private sessionListFn: (() => any) | null = null;
   private sessionActivityFn: ((sessionId: string) => any) | null = null;
   private currentSessionIdFn: (() => string | null) | null = null;
+  private mediaListFn: (() => any) | null = null;
   private port = 0;
+  private agentDir = "";
 
   constructor() {
     this.server = createServer((req, res) => this.handleRequest(req, res));
   }
 
-  setMessageHandler(handler: (text: string, userId: string, iface: string, channel: string) => Promise<void>) {
+  setAgentDir(dir: string) {
+    this.agentDir = dir;
+  }
+
+  setMessageHandler(handler: (text: string, userId: string, iface: string, channel: string, attachments?: Attachment[]) => Promise<void>) {
     this.onMessage = handler;
   }
 
@@ -113,6 +122,10 @@ export class AgentServer {
 
   setCurrentSessionIdFn(fn: () => string | null) {
     this.currentSessionIdFn = fn;
+  }
+
+  setMediaListFn(fn: () => any) {
+    this.mediaListFn = fn;
   }
 
   async start(host: string = "127.0.0.1"): Promise<number> {
@@ -238,22 +251,35 @@ export class AgentServer {
     if (url === "/message" && req.method === "POST") {
       const body = await readBody(req);
       try {
-        const { text, userId, interface: iface, channel, connectionId } = JSON.parse(body);
-        if (!text) {
+        const { text, userId, interface: iface, channel, connectionId, attachments: rawAttachments } = JSON.parse(body);
+        if (!text && (!rawAttachments || rawAttachments.length === 0)) {
           res.writeHead(400);
-          res.end(JSON.stringify({ error: "text required" }));
+          res.end(JSON.stringify({ error: "text or attachments required" }));
           return;
         }
         res.writeHead(200);
         res.end(JSON.stringify({ ok: true }));
 
+        // Parse base64-encoded attachments from web clients
+        let attachments: Attachment[] | undefined;
+        if (rawAttachments && Array.isArray(rawAttachments) && rawAttachments.length > 0) {
+          attachments = rawAttachments.map((att: any) => ({
+            type: att.type || "document",
+            data: Buffer.from(att.data, "base64"),
+            mimeType: att.mimeType || "application/octet-stream",
+            filename: att.filename,
+            size: att.size || 0,
+          }));
+          log("server", `received ${attachments.length} attachment(s) from web`);
+        }
+
         // Broadcast incoming to all OTHER clients (exclude sender)
-        if (!this.isHeartbeat(text)) {
+        if (!this.isHeartbeat(text || "")) {
           const excludeId = connectionId || undefined;
           log("server", `incoming broadcast: interface=${iface || "web"} user=${userId || "tui"} exclude=${excludeId || "none"} clients=${this.clients.length}`);
           this.broadcast({
             type: "incoming" as any,
-            text,
+            text: text || "",
             fromInterface: iface || "web",
             fromUserId: userId || "tui",
             fromChannel: channel || "web",
@@ -262,7 +288,7 @@ export class AgentServer {
 
         // Handle async — don't await, response already sent
         if (this.onMessage) {
-          this.onMessage(text, userId || "tui", iface || "tui", channel || "tui").catch(() => {});
+          this.onMessage(text || "", userId || "tui", iface || "tui", channel || "tui", attachments).catch(() => {});
         }
       } catch {
         res.writeHead(400);
@@ -473,6 +499,40 @@ export class AgentServer {
       const data = this.sessionActivityFn(sessionActivityMatch[1]);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
+      return;
+    }
+
+    // Media list + stats: GET /media/list
+    if (url === "/media/list" && req.method === "GET") {
+      const data = this.mediaListFn ? this.mediaListFn() : { files: [], stats: { total: 0, images: 0, digested: 0, totalSize: 0 } };
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
+      return;
+    }
+
+    // Serve media files: GET /media/:filename
+    const mediaMatch = url.match(/^\/media\/([a-f0-9]+\.[a-z0-9]+)$/);
+    if (mediaMatch && req.method === "GET") {
+      const filename = mediaMatch[1];
+      const mediaPath = join(this.agentDir, ".kern", "media", filename);
+      if (existsSync(mediaPath)) {
+        const data = readFileSync(mediaPath);
+        const ext = filename.split(".").pop() || "";
+        const mimeMap: Record<string, string> = {
+          jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif",
+          webp: "image/webp", svg: "image/svg+xml", pdf: "application/pdf",
+          mp3: "audio/mpeg", ogg: "audio/ogg", wav: "audio/wav", m4a: "audio/mp4",
+          mp4: "video/mp4", mov: "video/quicktime", webm: "video/webm",
+        };
+        res.writeHead(200, {
+          "Content-Type": mimeMap[ext] || "application/octet-stream",
+          "Cache-Control": "public, max-age=31536000, immutable",
+        });
+        res.end(data);
+      } else {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: "media not found" }));
+      }
       return;
     }
 

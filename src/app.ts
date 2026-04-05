@@ -89,11 +89,12 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   }
 
   const runtime = new Runtime(agentDir);
-  await runtime.init();
 
-  // Initialize memory DB (always) and recall index (opt-out via "recall": false)
+  // Initialize memory DB before runtime.init() so media sidecar can backfill
   const memoryDB = new MemoryDB(agentDir);
   runtime.setMemoryDB(memoryDB);
+
+  await runtime.init();
 
   let recallIndex: RecallIndex | null = null;
   let recallBuilding = false;
@@ -162,6 +163,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   // Start HTTP server
   const server = new AgentServer();
+  server.setAgentDir(agentDir);
 
   // Message queue — serializes messages, same-channel injection
   const queue = new MessageQueue();
@@ -199,7 +201,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     const result = await runtime.handleMessage(context, (event: StreamEvent) => {
       server.broadcast(event);
       msg.onEvent?.(event);
-    });
+    }, msg.attachments);
 
     // Index new messages for recall + segments (async, non-blocking)
     const sessionId = runtime.getSessionId();
@@ -220,7 +222,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   });
 
   // Helper to enqueue from any interface
-  const enqueueMessage = async (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void) => {
+  const enqueueMessage = async (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void, attachments?: import("./interfaces/types.js").Attachment[]) => {
     // Slash commands bypass the queue — instant response even if queue is busy
     const cmd = text.trim();
     if (cmd.startsWith("/")) {
@@ -234,15 +236,15 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
         return result;
       }
     }
-    return queue.enqueue({ text, userId, interface: iface, channel }, onEvent);
+    return queue.enqueue({ text, userId, interface: iface, channel, attachments }, onEvent);
   };
 
   server.setStatusFn(() => {
     return { ...getStatusDataFn(), agentName };
   });
 
-  server.setMessageHandler(async (text, userId, iface, channel) => {
-    await enqueueMessage(text, userId, iface, channel);
+  server.setMessageHandler(async (text, userId, iface, channel, attachments) => {
+    await enqueueMessage(text, userId, iface, channel, undefined, attachments);
   });
 
   // History: return messages from session, paginated
@@ -370,6 +372,13 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     };
   });
 
+  // Media API
+  server.setMediaListFn(() => {
+    const files = memoryDB.getMediaList();
+    const stats = memoryDB.getMediaStats();
+    return { files, stats };
+  });
+
   // Recall API
   if (recallIndex) {
     server.setRecallStatsFn(() => {
@@ -394,7 +403,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     telegramBot = new TelegramInterface(telegramToken, pairing);
     await telegramBot.start({
       onMessage: async (msg, onEvent) => {
-        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "", onEvent);
+        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "", onEvent, msg.attachments);
       },
     });
   }
@@ -407,7 +416,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     slackBot = new SlackInterface(slackBotToken, slackAppToken, pairing);
     await slackBot.start({
       onMessage: async (msg, onEvent) => {
-        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "");
+        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "", undefined, msg.attachments);
       },
     });
   }
