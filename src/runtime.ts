@@ -1,4 +1,5 @@
 import { streamText, type ModelMessage, stepCountIs } from "ai";
+import { join } from "path";
 import { log } from "./log.js";
 import { createModel } from "./model.js";
 import { allTools, type ToolName } from "./tools/index.js";
@@ -11,7 +12,7 @@ import type { SegmentIndex } from "./segments.js";
 import type { MemoryDB } from "./memory.js";
 import { prepareContext, injectRecall, loadSystemPrompt, type PrepareContextOptions } from "./context.js";
 import type { Attachment } from "./interfaces/types.js";
-import { saveMedia, buildUserContent, resolveMediaRefs, extractText } from "./media.js";
+import { saveMedia, buildUserContent, resolveMediaRefsTracked, extractText, MediaSidecar, wrapWithMediaDigest } from "./media.js";
 export type { SessionStats } from "./context.js";
 
 
@@ -37,6 +38,7 @@ export class Runtime {
   private recallIndex: RecallIndex | null = null;
   private segmentIndex: SegmentIndex | null = null;
   private memoryDB: MemoryDB | null = null;
+  private mediaSidecar: MediaSidecar | null = null;
 
   constructor(agentDir: string) {
     this.agentDir = agentDir;
@@ -52,6 +54,14 @@ export class Runtime {
 
   setMemoryDB(db: MemoryDB) {
     this.memoryDB = db;
+  }
+
+  private initMediaSidecar(): void {
+    const sessionId = this.session.getSessionId();
+    if (!sessionId) return;
+    const sessionsDir = join(this.agentDir, ".kern", "sessions");
+    this.mediaSidecar = new MediaSidecar(sessionsDir, sessionId, this.memoryDB);
+    this.mediaSidecar.load();
   }
 
   async setPairingManager(pairing: any): Promise<void> {
@@ -76,6 +86,9 @@ export class Runtime {
     this.session = new SessionManager(this.agentDir);
     await this.session.init();
     await this.session.load();
+
+    // Initialize media sidecar for this session
+    this.initMediaSidecar();
 
     await initKernTool({
       agentDir: this.agentDir,
@@ -139,6 +152,16 @@ export class Runtime {
       const mediaRefs = attachments.map((att) => {
         const ref = saveMedia(this.agentDir, att.data, att.mimeType, att.filename);
         log("runtime", `saved media: ${ref.uri} (${ref.size} bytes)`);
+        // Record in sidecar
+        if (this.mediaSidecar) {
+          this.mediaSidecar.append({
+            file: ref.file,
+            originalName: att.filename,
+            mimeType: ref.mimeType,
+            size: ref.size,
+            timestamp: new Date().toISOString(),
+          });
+        }
         return ref;
       });
       userMsg = { role: "user", content: buildUserContent(userMessage, mediaRefs) };
@@ -156,7 +179,8 @@ export class Runtime {
       }
     }
 
-    const model = createModel(this.config);
+    const baseModel = createModel(this.config);
+    const model = wrapWithMediaDigest(baseModel, this.mediaSidecar, this.config);
     let streamError: any = null;
 
     try {
@@ -180,8 +204,8 @@ export class Runtime {
         onEvent({ type: "recall", recall });
       }
 
-      // Resolve kern-media:// refs to Buffers for model call
-      const modelMessages = resolveMediaRefs(this.agentDir, contextMessages);
+      // Resolve kern-media:// refs to Buffers for model call (tracked for digest middleware)
+      const modelMessages = resolveMediaRefsTracked(this.agentDir, contextMessages);
 
       log.debug("context", `${modelMessages.length} messages, ~${stats.windowTokens} tokens`);
       if (modelMessages.length > 0) {

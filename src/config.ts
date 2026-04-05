@@ -22,6 +22,10 @@ export interface KernConfig {
   recall: boolean;
   autoRecall: boolean;
 
+  // Media
+  mediaDigest: boolean;
+  mediaModel: string;
+
   // Runtime
   heartbeatInterval: number;
 }
@@ -44,6 +48,8 @@ export const configDefaults: KernConfig = {
   summaryBudget: 0.2,
   recall: true,
   autoRecall: false,
+  mediaDigest: true,
+  mediaModel: "",
   heartbeatInterval: 60,
 };
 
@@ -57,6 +63,8 @@ const FIELD_TYPES: Record<string, string> = {
   summaryBudget: "number",
   recall: "boolean",
   autoRecall: "boolean",
+  mediaDigest: "boolean",
+  mediaModel: "string",
   heartbeatInterval: "number",
 };
 

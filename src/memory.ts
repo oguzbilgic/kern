@@ -87,6 +87,22 @@ export class MemoryDB {
       CREATE UNIQUE INDEX IF NOT EXISTS idx_segments_unique ON semantic_segments(session_id, level, msg_start, msg_end);
     `);
 
+    // Media table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS media (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        file TEXT NOT NULL,
+        originalName TEXT,
+        mimeType TEXT NOT NULL,
+        size INTEGER NOT NULL,
+        description TEXT,
+        describedBy TEXT,
+        timestamp TEXT NOT NULL,
+        UNIQUE(session_id, file)
+      );
+    `);
+
     // Migrations — add columns to existing tables
     try { this.db.exec("ALTER TABLE semantic_segments ADD COLUMN start_time TEXT"); } catch {}
     try { this.db.exec("ALTER TABLE semantic_segments ADD COLUMN end_time TEXT"); } catch {}
