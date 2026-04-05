@@ -18,9 +18,6 @@
 - `maxContextTokens` default: 50k → 100k (affordable with prompt caching)
 - `summaryBudget` default: 20% → 75% (summary is cached, effectively free)
 
-### Internal
-- Switched OpenRouter integration from generic `@ai-sdk/openai` to official `@openrouter/ai-sdk-provider` — enables native prompt caching, embeddings, and provider-specific features
-
 ## v0.19.0
 
 ### Features
