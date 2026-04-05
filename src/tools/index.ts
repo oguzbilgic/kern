@@ -11,6 +11,7 @@ import { kernTool } from "./kern.js";
 import { messageTool } from "./message.js";
 import { recallTool } from "./recall.js";
 import { pdfTool } from "./pdf.js";
+import { imageTool } from "./image.js";
 
 const isWindows = process.platform === "win32";
 
@@ -28,6 +29,7 @@ export const allTools = {
   message: messageTool,
   recall: recallTool,
   pdf: pdfTool,
+  image: imageTool,
 };
 
 export type ToolName = keyof typeof allTools;
