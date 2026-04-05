@@ -41,7 +41,7 @@ export const pdfTool = tool({
       .optional()
       .describe("Question to ask about the PDF using the AI model. If provided, sends PDF content to the model."),
   }),
-  execute: async ({ file, pages = "1", prompt }) => {
+  execute: async ({ file, pages, prompt }) => {
     try {
       const { extractText } = await import("unpdf");
       const buffer = await readFile(file);
@@ -51,7 +51,9 @@ export const pdfTool = tool({
       });
       const pageTexts = text as string[];
 
-      const indices = parsePages(pages, totalPages);
+      // Default: all pages if prompt provided, page 1 if just reading
+      const effectivePages = pages || (prompt ? `1-${totalPages}` : "1");
+      const indices = parsePages(effectivePages, totalPages);
       if (indices.length === 0) {
         return `Error: no valid pages in range "${pages}" (PDF has ${totalPages} pages)`;
       }
