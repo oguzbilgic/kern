@@ -1075,7 +1075,7 @@
     border-bottom: 1px solid var(--border);
     align-items: flex-end;
   }
-  .cmd-popup.open + .attachment-preview.has-items {
+  .input-row.popup-open .attachment-preview.has-items {
     border-top: 1px solid var(--border);
   }
   .attachment-preview.has-items { display: flex; }
@@ -4927,6 +4927,7 @@ function updateCmdPopup() {
   if (!trigger.startsWith('/') || trigger.includes(' ')) {
     cmdPopup.classList.remove('open');
     cmdPopup.style.display = 'none';
+    inputEl.closest('.input-row')?.classList.remove('popup-open');
     cmdFiltered = [];
     return;
   }
@@ -4935,6 +4936,7 @@ function updateCmdPopup() {
   if (cmdFiltered.length === 0) {
     cmdPopup.classList.remove('open');
     cmdPopup.style.display = 'none';
+    inputEl.closest('.input-row')?.classList.remove('popup-open');
     return;
   }
   cmdSelectedIdx = Math.max(0, Math.min(cmdSelectedIdx, cmdFiltered.length - 1));
@@ -4946,6 +4948,7 @@ function updateCmdPopup() {
   ).join('');
   cmdPopup.classList.add('open');
   cmdPopup.style.display = 'block';
+  inputEl.closest('.input-row')?.classList.add('popup-open');
   const inputRect = inputEl.getBoundingClientRect();
   const rowRect = inputEl.closest('.input-row')?.getBoundingClientRect();
   const keyboardOffset = window.visualViewport
@@ -4968,6 +4971,7 @@ cmdPopup.addEventListener('click', (e) => {
     inputEl.value = cmd.name;
     cmdPopup.classList.remove('open');
     cmdPopup.style.display = 'none';
+    inputEl.closest('.input-row')?.classList.remove('popup-open');
     send();
   }
 });
@@ -5012,6 +5016,7 @@ inputEl.addEventListener('blur', () => {
   setTimeout(() => {
     cmdPopup.classList.remove('open');
     cmdPopup.style.display = 'none';
+    inputEl.closest('.input-row')?.classList.remove('popup-open');
   }, 120);
 });
 
@@ -5037,6 +5042,7 @@ inputEl.addEventListener('keydown', (e) => {
         inputEl.value = cmd.name;
         cmdPopup.classList.remove('open');
         cmdPopup.style.display = 'none';
+        inputEl.closest('.input-row')?.classList.remove('popup-open');
         if (e.key === 'Enter') send();
       }
       return;
@@ -5044,6 +5050,7 @@ inputEl.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       cmdPopup.classList.remove('open');
       cmdPopup.style.display = 'none';
+      inputEl.closest('.input-row')?.classList.remove('popup-open');
       return;
     }
   }
