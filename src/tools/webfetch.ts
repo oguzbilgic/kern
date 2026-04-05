@@ -23,12 +23,9 @@ export const webfetchTool = tool({
       .boolean()
       .optional()
       .describe("Return raw HTML instead of converting to markdown (default: false)"),
-    timeout: z
-      .number()
-      .optional()
-      .describe("Timeout in milliseconds (default: 30000)"),
   }),
-  execute: async ({ url, raw = false, timeout = 30000 }) => {
+  execute: async ({ url, raw = false }) => {
+    const timeout = 30000;
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeout);

@@ -18,12 +18,9 @@ export const websearchTool = tool({
     "Search the web using DuckDuckGo. Returns search results as markdown with titles, URLs, and snippets.",
   inputSchema: z.object({
     query: z.string().describe("The search query"),
-    timeout: z
-      .number()
-      .optional()
-      .describe("Timeout in milliseconds (default: 30000)"),
   }),
-  execute: async ({ query, timeout = 30000 }) => {
+  execute: async ({ query }) => {
+    const timeout = 30000;
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeout);
