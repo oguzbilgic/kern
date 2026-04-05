@@ -550,7 +550,7 @@
   .message.tool.tool-bash-style .hljs-keyword { color: #e6edf3; }
   .message.tool .tool-output {
     display: none;
-    margin-top: 6px;
+    margin-top: 10px;
     padding: 6px 8px 6px 10px;
     border-left: 2px solid var(--border);
     border-radius: 0;
@@ -563,6 +563,7 @@
     color: var(--text-dim);
   }
   .message.tool.expanded .tool-output { display: block; }
+  .message.tool.expanded { padding-bottom: 12px; }
   .diff-line-old, .diff-line-new { display: flex; gap: 0; }
   .diff-line-old { opacity: 0.4; }
   .diff-gutter { user-select: none; width: 16px; flex-shrink: 0; text-align: center; }
@@ -909,8 +910,8 @@
     flex-direction: column;
     position: relative;
     background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    border-radius: 22px;
     transition: border-color 0.15s;
     overflow: hidden;
   }
@@ -921,7 +922,7 @@
   .input-inner {
     display: flex;
     gap: 0;
-    align-items: flex-end;
+    align-items: center;
     padding: 4px 6px 4px 4px;
   }
   .input-row textarea {
@@ -930,9 +931,9 @@
     color: var(--text);
     border: none;
     border-radius: 0;
-    padding: 8px 8px;
+    padding: 10px 10px;
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: 14.5px;
     line-height: 1.5;
     resize: none;
     outline: none;
