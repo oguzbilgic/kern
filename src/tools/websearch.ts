@@ -2,27 +2,25 @@ import { tool } from "ai";
 import { z } from "zod";
 import { htmlToMarkdown } from "./markdown.js";
 
-export const webfetchTool = tool({
+export const websearchTool = tool({
   description:
-    "Fetch content from a URL. HTML pages are converted to markdown by default. JSON and plain text are returned as-is. Useful for reading web pages, APIs, documentation.",
+    "Search the web using DuckDuckGo. Returns search results as markdown with titles, URLs, and snippets.",
   inputSchema: z.object({
-    url: z.string().describe("The URL to fetch"),
-    raw: z
-      .boolean()
-      .optional()
-      .describe("Return raw HTML instead of converting to markdown (default: false)"),
+    query: z.string().describe("The search query"),
   }),
-  execute: async ({ url, raw = false }) => {
+  execute: async ({ query }) => {
     const timeout = 30000;
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeout);
 
+      const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
       const response = await fetch(url, {
+        method: "POST",
         signal: controller.signal,
         headers: {
           "User-Agent": "kern-ai/0.1",
-          Accept: "text/html,application/json,text/plain,*/*",
+          Accept: "text/html",
         },
       });
 
@@ -32,16 +30,15 @@ export const webfetchTool = tool({
         return `Error: HTTP ${response.status} ${response.statusText}`;
       }
 
-      const contentType = response.headers.get("content-type") || "";
-      const text = await response.text();
+      let html = await response.text();
 
-      // Convert HTML to markdown unless raw requested
-      let result: string;
-      if (!raw && contentType.includes("text/html")) {
-        result = htmlToMarkdown(text);
-      } else {
-        result = text;
+      // Strip DDG chrome — keep only the results section
+      const resultsStart = html.indexOf('<div class="serp__results">');
+      if (resultsStart !== -1) {
+        html = html.slice(resultsStart);
       }
+
+      const result = htmlToMarkdown(html);
 
       // Truncate very large responses
       if (result.length > 50000) {

@@ -1,5 +1,13 @@
 # Changelog
 
+## next
+
+### Features
+- **Web tools** — two new built-in tools for web research:
+  - `websearch` — search the web via DuckDuckGo, returns results as markdown with titles, URLs, and snippets
+  - `webfetch` — fetch any URL with automatic HTML-to-markdown conversion. JSON and plain text returned as-is. New `raw` option to get original HTML.
+- **Finding answers** — new KERN.md section encouraging agents to use web tools instead of relying on stale training data
+
 ## v0.18.1
 
 ### Changes

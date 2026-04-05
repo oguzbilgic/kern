@@ -29,9 +29,9 @@ export interface KernConfig {
 const shell = process.platform === "win32" ? "pwsh" : "bash";
 
 const TOOL_SCOPES: Record<ToolScope, string[]> = {
-  full: [shell, "read", "write", "edit", "glob", "grep", "webfetch", "kern", "message", "recall"],
-  write: ["read", "write", "edit", "glob", "grep", "webfetch", "kern", "message", "recall"],
-  read: ["read", "glob", "grep", "webfetch", "kern", "recall"],
+  full: [shell, "read", "write", "edit", "glob", "grep", "webfetch", "websearch", "kern", "message", "recall"],
+  write: ["read", "write", "edit", "glob", "grep", "webfetch", "websearch", "kern", "message", "recall"],
+  read: ["read", "glob", "grep", "webfetch", "websearch", "kern", "recall"],
 };
 
 export const configDefaults: KernConfig = {
