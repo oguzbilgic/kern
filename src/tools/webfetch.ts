@@ -16,15 +16,19 @@ function htmlToMarkdown(html: string): string {
 
 export const webfetchTool = tool({
   description:
-    "Fetch content from a URL. Returns the response body as text. Useful for reading web pages, APIs, documentation.",
+    "Fetch content from a URL. HTML pages are converted to markdown by default. JSON and plain text are returned as-is. Useful for reading web pages, APIs, documentation.",
   inputSchema: z.object({
     url: z.string().describe("The URL to fetch"),
+    raw: z
+      .boolean()
+      .optional()
+      .describe("Return raw HTML instead of converting to markdown (default: false)"),
     timeout: z
       .number()
       .optional()
       .describe("Timeout in milliseconds (default: 30000)"),
   }),
-  execute: async ({ url, timeout = 30000 }) => {
+  execute: async ({ url, raw = false, timeout = 30000 }) => {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeout);
@@ -46,9 +50,9 @@ export const webfetchTool = tool({
       const contentType = response.headers.get("content-type") || "";
       const text = await response.text();
 
-      // Convert HTML to markdown for readability
+      // Convert HTML to markdown unless raw requested
       let result: string;
-      if (contentType.includes("text/html")) {
+      if (!raw && contentType.includes("text/html")) {
         result = htmlToMarkdown(text);
       } else {
         result = text;
