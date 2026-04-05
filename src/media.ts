@@ -288,7 +288,12 @@ export function buildUserContent(
 
   for (const m of media) {
     if (m.mimeType.startsWith("image/")) {
-      parts.push({ type: "image", image: m.uri, mediaType: m.mimeType });
+      parts.push({
+        type: "image",
+        image: m.uri,
+        mediaType: m.mimeType,
+        ...(m.filename ? { filename: m.filename } : {}),
+      });
     } else {
       parts.push({
         type: "file",
