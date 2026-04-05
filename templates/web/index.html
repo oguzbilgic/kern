@@ -482,6 +482,13 @@
     border-radius: 8px 8px 8px 2px;
     color: #d4d4d4;
   }
+  .message.emoji-only {
+    background: transparent;
+    border: none;
+    padding: 2px 0;
+    font-size: 48px;
+    line-height: 1.2;
+  }
   .timestamp {
     font-size: 10px;
     color: var(--text-muted);
@@ -4341,6 +4348,12 @@ function openFullscreen(outputEl) {
   document.addEventListener('keydown', onKey);
 }
 
+function isEmojiOnly(text) {
+  const trimmed = text.trim();
+  const emojiPattern = /^(?:\p{Emoji_Presentation}|\p{Emoji}\uFE0F){1,3}$/u;
+  return emojiPattern.test(trimmed);
+}
+
 function addMessage(type, content, meta, toolInput, timestamp, iface) {
   const el = document.createElement('div');
   el.className = `message ${type}`;
@@ -4429,7 +4442,12 @@ function addMessage(type, content, meta, toolInput, timestamp, iface) {
   } else {
     const isMuted = type === 'assistant' && (content.trim() === 'NO_REPLY' || content.trim() === '(no text response)');
     if (isMuted) el.classList.add('muted');
-    el.innerHTML = renderMarkdown(content);
+    if ((type === 'user' || type === 'assistant') && isEmojiOnly(content)) {
+      el.classList.add('emoji-only');
+      el.textContent = content.trim();
+    } else {
+      el.innerHTML = renderMarkdown(content);
+    }
   }
   messagesEl.appendChild(el);
   if (timestamp && (type === 'user' || type === 'incoming' || type === 'outgoing')) {
@@ -4452,7 +4470,12 @@ function flushStreaming() {
     streamingEl.classList.remove('streaming-cursor');
     const isMuted = streamingText.trim() === 'NO_REPLY' || streamingText.trim() === '(no text response)';
     if (isMuted) streamingEl.classList.add('muted');
-    streamingEl.innerHTML = renderMarkdown(streamingText);
+    if (isEmojiOnly(streamingText)) {
+      streamingEl.classList.add('emoji-only');
+      streamingEl.textContent = streamingText.trim();
+    } else {
+      streamingEl.innerHTML = renderMarkdown(streamingText);
+    }
   }
   streamingText = '';
   streamingEl = null;
@@ -4507,7 +4530,15 @@ function handleEvent(event) {
       if (!_streamRaf) {
         _streamRaf = requestAnimationFrame(() => {
           _streamRaf = 0;
-          if (streamingEl) streamingEl.innerHTML = renderMarkdown(streamingText);
+          if (streamingEl) {
+            if (isEmojiOnly(streamingText)) {
+              streamingEl.classList.add('emoji-only');
+              streamingEl.textContent = streamingText.trim();
+            } else {
+              streamingEl.classList.remove('emoji-only');
+              streamingEl.innerHTML = renderMarkdown(streamingText);
+            }
+          }
           scrollToBottom();
         });
       }

@@ -1,5 +1,10 @@
 # Changelog
 
+## next
+
+### Improvements
+- **Emoji-only messages** ([#55](https://github.com/oguzbilgic/kern-ai/issues/55)) — messages with 1-3 emoji and no text render large (48px) with no bubble, like iMessage and Telegram
+
 ## v0.20.0
 
 ### Features
