@@ -81,13 +81,28 @@ grep({ pattern: "TODO", path: ".", include: "*.md" })
 
 ## webfetch
 
-Fetch a URL and return the response body.
+Fetch a URL. HTML pages are automatically converted to clean markdown. JSON and plain text are returned as-is.
 
 ```
 webfetch({ url: "https://example.com", timeout: 30000 })
 ```
 
+- `url` — the URL to fetch
+- `raw` — return raw HTML instead of markdown (default: false)
+- `timeout` — optional, milliseconds (default 30000)
+
 Truncates responses over 50000 chars.
+
+## websearch
+
+Search the web using DuckDuckGo. Returns results as markdown with titles, links, and snippets.
+
+```
+websearch({ query: "node.js html to markdown library", timeout: 30000 })
+```
+
+- `query` — the search query
+- `timeout` — optional, milliseconds (default 30000)
 
 ## kern
 
