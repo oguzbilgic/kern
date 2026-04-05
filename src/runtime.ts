@@ -12,7 +12,7 @@ import type { SegmentIndex } from "./segments.js";
 import type { MemoryDB } from "./memory.js";
 import { prepareContext, injectRecall, loadSystemPrompt, type PrepareContextOptions } from "./context.js";
 import type { Attachment } from "./interfaces/types.js";
-import { saveMedia, buildUserContent, resolveMediaRefsTracked, extractText, MediaSidecar, wrapWithMediaDigest } from "./media.js";
+import { saveMedia, buildUserContent, resolveMediaRefsTracked, extractText, MediaSidecar, wrapWithMediaDigest, digestMediaAtIngest } from "./media.js";
 export type { SessionStats } from "./context.js";
 
 
@@ -149,7 +149,8 @@ export class Runtime {
     // Save attachments to disk and build SDK-native content
     let userMsg: ModelMessage;
     if (attachments && attachments.length > 0) {
-      const mediaRefs = attachments.map((att) => {
+      const mediaRefs: Awaited<ReturnType<typeof saveMedia>>[] = [];
+      for (const att of attachments) {
         const ref = saveMedia(this.agentDir, att.data, att.mimeType, att.filename);
         log("runtime", `saved media: ${ref.uri} (${ref.size} bytes)`);
         // Record in sidecar
@@ -161,9 +162,13 @@ export class Runtime {
             size: ref.size,
             timestamp: new Date().toISOString(),
           });
+          // Digest at ingest time (vision call for images, etc.)
+          if (this.config.mediaDigest) {
+            await digestMediaAtIngest(this.mediaSidecar, this.agentDir, ref.file, ref.mimeType, this.config);
+          }
         }
-        return ref;
-      });
+        mediaRefs.push(ref);
+      }
       userMsg = { role: "user", content: buildUserContent(userMessage, mediaRefs) };
     } else {
       userMsg = { role: "user", content: userMessage };
@@ -180,7 +185,7 @@ export class Runtime {
     }
 
     const baseModel = createModel(this.config);
-    const model = wrapWithMediaDigest(baseModel, this.mediaSidecar, this.config);
+    const model = wrapWithMediaDigest(baseModel, this.mediaSidecar, this.agentDir, this.config);
     let streamError: any = null;
 
     try {
@@ -205,7 +210,7 @@ export class Runtime {
       }
 
       // Resolve kern-media:// refs to Buffers for model call (tracked for digest middleware)
-      const modelMessages = resolveMediaRefsTracked(this.agentDir, contextMessages);
+      const modelMessages = resolveMediaRefsTracked(this.agentDir, contextMessages, this.config.mediaContext);
 
       log.debug("context", `${modelMessages.length} messages, ~${stats.windowTokens} tokens`);
       if (modelMessages.length > 0) {

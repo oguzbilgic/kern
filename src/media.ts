@@ -126,11 +126,9 @@ export class MediaSidecar {
   }
 
   /** Get cached description if it exists and was made by the current model. */
-  getDescription(filename: string, currentModel?: string): string | null {
+  getDescription(filename: string): string | null {
     const entry = this.map.get(filename);
     if (!entry?.description) return null;
-    // If model changed, description is stale
-    if (currentModel && entry.describedBy && entry.describedBy !== currentModel) return null;
     return entry.description;
   }
 
@@ -182,6 +180,65 @@ export function saveMedia(
     filename,
     size: data.length,
   };
+}
+
+// --- Ingest-time digest ---
+
+/**
+ * Digest media at ingest time — runs once when media first arrives.
+ * For images: calls vision model to get text description.
+ * For other types: could extract text locally (PDF, etc.) in future.
+ * Results are cached in the sidecar.
+ */
+export async function digestMediaAtIngest(
+  sidecar: MediaSidecar,
+  agentDir: string,
+  file: string,
+  mimeType: string,
+  config: KernConfig,
+): Promise<string | null> {
+  // Only digest images for now
+  if (!mimeType.startsWith("image/")) return null;
+
+  // Already digested?
+  const cached = sidecar.getDescription(file);
+  if (cached) return cached;
+
+  const modelId = config.mediaModel || config.model;
+
+  const mediaDir = join(agentDir, ".kern", "media");
+  const fullPath = join(mediaDir, file);
+  if (!existsSync(fullPath)) return null;
+
+  try {
+    log("media", `digesting ${file} with ${modelId}...`);
+    const buf = readFileSync(fullPath);
+    const digestModel = createModel({ ...config, model: modelId });
+
+    const result = await generateText({
+      model: digestModel,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", image: buf, mediaType: mimeType },
+            { type: "text", text: "Describe this image." },
+          ],
+        },
+      ],
+      maxOutputTokens: 300,
+    });
+
+    const description = result.text.trim();
+    if (description) {
+      sidecar.updateDescription(file, description, modelId);
+      log("media", `digested ${file}: ${description.slice(0, 80)}...`);
+      return description;
+    }
+  } catch (err) {
+    log.warn("media", `digest failed for ${file}: ${err}`);
+  }
+  return null;
 }
 
 // --- Build user content ---
@@ -425,68 +482,23 @@ function hashData(data: unknown): string | null {
 }
 
 /**
- * Create middleware that replaces image Buffers with text descriptions.
- * Looks up cached descriptions in the sidecar; calls vision model on cache miss.
+ * Create middleware that replaces media Buffers with cached text descriptions.
+ * Descriptions are generated at ingest time — middleware only does lookups.
  */
 export function createMediaDigestMiddleware(
   sidecar: MediaSidecar,
+  agentDir: string,
   config: KernConfig,
 ): LanguageModelMiddleware {
-  const mediaModelId = config.mediaModel || config.model;
-
   return {
     specificationVersion: "v3",
     async transformParams({ params }) {
       const prompt = params.prompt;
       let digested = 0;
 
-      // In-flight dedup: if the same image appears in multiple messages,
-      // only call the vision model once
-      const inFlight = new Map<string, Promise<string | null>>();
-
       function makeLabel(filename: string): string {
         const entry = sidecar.get(filename);
         return entry?.originalName ? `${entry.originalName} (${filename})` : filename;
-      }
-
-      async function digestImage(filename: string, part: any): Promise<string | null> {
-        if (inFlight.has(filename)) return inFlight.get(filename)!;
-
-        const promise = (async () => {
-          try {
-            log("media", `digesting ${filename} with ${mediaModelId}...`);
-            const digestModel = createModel({
-              ...config,
-              model: mediaModelId,
-            });
-
-            const result = await generateText({
-              model: digestModel,
-              messages: [
-                {
-                  role: "user",
-                  content: [
-                    { type: "image", image: part.data as any, mediaType: part.mediaType },
-                    { type: "text", text: "Describe this image." },
-                  ],
-                },
-              ],
-              maxOutputTokens: 300,
-            });
-
-            const description = result.text.trim();
-            if (description) {
-              sidecar.updateDescription(filename, description, mediaModelId);
-              return description;
-            }
-          } catch (err) {
-            log.warn("media", `digest failed for ${filename}: ${err}`);
-          }
-          return null;
-        })();
-
-        inFlight.set(filename, promise);
-        return promise;
       }
 
       const newPrompt = await Promise.all(
@@ -498,8 +510,6 @@ export function createMediaDigestMiddleware(
             parts.map(async (part) => {
               // At middleware level, images become file parts with image/* mediaType
               if (part.type !== "file") return part;
-              if (!part.mediaType?.startsWith("image/")) return part;
-
               // Find the filename via buffer hash
               const hash = hashData(part.data);
               const filename = hash ? bufferToFilename.get(hash) : null;
@@ -509,21 +519,21 @@ export function createMediaDigestMiddleware(
                 return part;
               }
 
-              // Check sidecar for cached description
-              const cached = sidecar.getDescription(filename, mediaModelId);
-              if (cached) {
-                digested++;
-                return { type: "text" as const, text: `[Image: ${makeLabel(filename)} — ${cached}]` };
+              // Look up cached description from sidecar (generated at ingest time)
+              let description = sidecar.getDescription(filename);
+
+              // Cache miss — digest now (e.g. old media from before digest was enabled)
+              if (!description && part.mediaType) {
+                description = await digestMediaAtIngest(sidecar, agentDir, filename, part.mediaType, config);
               }
 
-              // Cache miss — call vision model (deduped)
-              const description = await digestImage(filename, part);
               if (description) {
                 digested++;
-                return { type: "text" as const, text: `[Image: ${makeLabel(filename)} — ${description}]` };
+                const prefix = part.mediaType?.startsWith("image/") ? "Image" : "File";
+                return { type: "text" as const, text: `[${prefix}: ${makeLabel(filename)} — ${description}]` };
               }
 
-              // Fallback: pass image through as-is
+              // Digest failed — pass through as-is
               return part;
             }),
           );
@@ -548,9 +558,10 @@ export function createMediaDigestMiddleware(
 export function wrapWithMediaDigest(
   model: any,
   sidecar: MediaSidecar | null,
+  agentDir: string,
   config: KernConfig,
 ): any {
   if (!config.mediaDigest || !sidecar) return model;
-  const middleware = createMediaDigestMiddleware(sidecar, config);
+  const middleware = createMediaDigestMiddleware(sidecar, agentDir, config);
   return wrapLanguageModel({ model, middleware });
 }

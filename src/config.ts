@@ -25,6 +25,7 @@ export interface KernConfig {
   // Media
   mediaDigest: boolean;
   mediaModel: string;
+  mediaContext: number;
 
   // Runtime
   heartbeatInterval: number;
@@ -50,6 +51,7 @@ export const configDefaults: KernConfig = {
   autoRecall: false,
   mediaDigest: true,
   mediaModel: "",
+  mediaContext: 0,
   heartbeatInterval: 60,
 };
 
@@ -65,6 +67,7 @@ const FIELD_TYPES: Record<string, string> = {
   autoRecall: "boolean",
   mediaDigest: "boolean",
   mediaModel: "string",
+  mediaContext: "number",
   heartbeatInterval: "number",
 };
 
