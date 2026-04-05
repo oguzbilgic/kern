@@ -275,88 +275,6 @@ export function buildUserContent(
   return parts;
 }
 
-// --- Resolve media refs ---
-
-/**
- * Resolve kern-media:// references in messages to Buffers for model calls.
- * Only resolves the last `limit` user messages with media (older ones get text placeholders).
- */
-export function resolveMediaRefs(
-  agentDir: string,
-  messages: ModelMessage[],
-  limit: number = 1,
-): ModelMessage[] {
-  const mediaDir = join(agentDir, ".kern", "media");
-
-  // Find user messages with array content (media), count from end
-  const mediaIndices: number[] = [];
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (msg.role === "user" && Array.isArray(msg.content)) {
-      const hasMedia = (msg.content as any[]).some(
-        (p) => p.type === "image" || p.type === "file",
-      );
-      if (hasMedia) mediaIndices.push(i);
-    }
-  }
-
-  const resolveSet = new Set(mediaIndices.slice(0, limit));
-
-  return messages.map((msg, idx) => {
-    if (msg.role !== "user" || !Array.isArray(msg.content)) return msg;
-
-    const parts = msg.content as any[];
-    const hasMediaRefs = parts.some(
-      (p) =>
-        (p.type === "image" && typeof p.image === "string" && p.image.startsWith(MEDIA_SCHEME)) ||
-        (p.type === "file" && typeof p.data === "string" && p.data.startsWith(MEDIA_SCHEME)),
-    );
-    if (!hasMediaRefs) return msg;
-
-    if (resolveSet.has(idx)) {
-      // Resolve to Buffers
-      const resolved = parts.map((p) => {
-        if (p.type === "image" && typeof p.image === "string" && p.image.startsWith(MEDIA_SCHEME)) {
-          const file = p.image.slice(MEDIA_SCHEME.length);
-          const fullPath = join(mediaDir, file);
-          if (existsSync(fullPath)) {
-            return { ...p, image: readFileSync(fullPath) };
-          }
-          log.warn("media", `file not found: ${file}`);
-          return { type: "text", text: `[image unavailable: ${file}]` };
-        }
-        if (p.type === "file" && typeof p.data === "string" && p.data.startsWith(MEDIA_SCHEME)) {
-          const file = p.data.slice(MEDIA_SCHEME.length);
-          const fullPath = join(mediaDir, file);
-          if (existsSync(fullPath)) {
-            return { ...p, data: readFileSync(fullPath) };
-          }
-          log.warn("media", `file not found: ${file}`);
-          return { type: "text", text: `[file unavailable: ${file}]` };
-        }
-        return p;
-      });
-      return { ...msg, content: resolved };
-    } else {
-      // Too old — replace media with text placeholders
-      const simplified = parts.map((p) => {
-        if (p.type === "image") {
-          const file = typeof p.image === "string" ? p.image.replace(MEDIA_SCHEME, "") : "image";
-          return { type: "text", text: `[attached image: ${file}]` };
-        }
-        if (p.type === "file") {
-          const name = p.filename || (typeof p.data === "string" ? p.data.replace(MEDIA_SCHEME, "") : "file");
-          return { type: "text", text: `[attached file: ${name}]` };
-        }
-        return p;
-      });
-      // Collapse to string if only text parts remain
-      const textOnly = simplified.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n");
-      return { ...msg, content: textOnly };
-    }
-  });
-}
-
 // --- Extract text ---
 
 /**
@@ -374,167 +292,111 @@ export function extractText(content: string | any[] | any): string {
   return String(content ?? "");
 }
 
-// --- Media digest middleware ---
+// --- Media middleware ---
 
 /**
- * Extract filename from a provider-level file part's data field.
- * At middleware level, SDK converts ImagePart → FilePart with data as Buffer/URL/string.
- * We need to match back to our kern-media:// filename for sidecar lookup.
+ * Create middleware that resolves all kern-media:// references before model call.
+ * Handles both digest (description replacement) and raw Buffer resolution in one pass.
  *
- * The data at this point is already a resolved Buffer (from resolveMediaRefs).
- * We can't extract the filename from it. Instead we track a mapping from
- * content hash → filename built during resolveMediaRefs.
+ * For each media part:
+ * 1. If digest enabled + description cached → replace with text
+ * 2. If digest enabled + no description → trigger digest, then replace with text
+ * 3. If within mediaContext limit → resolve to raw Buffer
+ * 4. Otherwise → text placeholder
  */
-
-/** Map from buffer content hash to kern-media filename, populated during resolution. */
-const bufferToFilename = new Map<string, string>();
-
-/**
- * Enhanced resolveMediaRefs that also populates the buffer→filename mapping
- * so the digest middleware can look up sidecar entries.
- */
-export function resolveMediaRefsTracked(
-  agentDir: string,
-  messages: ModelMessage[],
-  limit: number = 1,
-): ModelMessage[] {
-  bufferToFilename.clear();
-  const mediaDir = join(agentDir, ".kern", "media");
-
-  const mediaIndices: number[] = [];
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (msg.role === "user" && Array.isArray(msg.content)) {
-      const hasMedia = (msg.content as any[]).some(
-        (p) => p.type === "image" || p.type === "file",
-      );
-      if (hasMedia) mediaIndices.push(i);
-    }
-  }
-
-  const resolveSet = new Set(mediaIndices.slice(0, limit));
-
-  return messages.map((msg, idx) => {
-    if (msg.role !== "user" || !Array.isArray(msg.content)) return msg;
-
-    const parts = msg.content as any[];
-    const hasMediaRefs = parts.some(
-      (p) =>
-        (p.type === "image" && typeof p.image === "string" && p.image.startsWith(MEDIA_SCHEME)) ||
-        (p.type === "file" && typeof p.data === "string" && p.data.startsWith(MEDIA_SCHEME)),
-    );
-    if (!hasMediaRefs) return msg;
-
-    if (resolveSet.has(idx)) {
-      const resolved = parts.map((p) => {
-        if (p.type === "image" && typeof p.image === "string" && p.image.startsWith(MEDIA_SCHEME)) {
-          const file = p.image.slice(MEDIA_SCHEME.length);
-          const fullPath = join(mediaDir, file);
-          if (existsSync(fullPath)) {
-            const buf = readFileSync(fullPath);
-            // Track: hash the buffer so middleware can find the filename
-            const hash = createHash("sha256").update(buf).digest("hex");
-            bufferToFilename.set(hash, file);
-            return { ...p, image: buf };
-          }
-          log.warn("media", `file not found: ${file}`);
-          return { type: "text", text: `[image unavailable: ${file}]` };
-        }
-        if (p.type === "file" && typeof p.data === "string" && p.data.startsWith(MEDIA_SCHEME)) {
-          const file = p.data.slice(MEDIA_SCHEME.length);
-          const fullPath = join(mediaDir, file);
-          if (existsSync(fullPath)) {
-            const buf = readFileSync(fullPath);
-            const hash = createHash("sha256").update(buf).digest("hex");
-            bufferToFilename.set(hash, file);
-            return { ...p, data: buf };
-          }
-          log.warn("media", `file not found: ${file}`);
-          return { type: "text", text: `[file unavailable: ${file}]` };
-        }
-        return p;
-      });
-      return { ...msg, content: resolved };
-    } else {
-      const simplified = parts.map((p) => {
-        if (p.type === "image") {
-          const file = typeof p.image === "string" ? p.image.replace(MEDIA_SCHEME, "") : "image";
-          return { type: "text", text: `[attached image: ${file}]` };
-        }
-        if (p.type === "file") {
-          const name = p.filename || (typeof p.data === "string" ? p.data.replace(MEDIA_SCHEME, "") : "file");
-          return { type: "text", text: `[attached file: ${name}]` };
-        }
-        return p;
-      });
-      const textOnly = simplified.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n");
-      return { ...msg, content: textOnly };
-    }
-  });
-}
-
-/** Hash a buffer or Uint8Array for lookup in bufferToFilename map. */
-function hashData(data: unknown): string | null {
-  if (data instanceof Buffer || data instanceof Uint8Array) {
-    return createHash("sha256").update(data).digest("hex");
-  }
-  return null;
-}
-
-/**
- * Create middleware that replaces media Buffers with cached text descriptions.
- * Descriptions are generated at ingest time — middleware only does lookups.
- */
-export function createMediaDigestMiddleware(
+export function createMediaMiddleware(
   sidecar: MediaSidecar,
   agentDir: string,
   config: KernConfig,
 ): LanguageModelMiddleware {
+  const mediaDir = join(agentDir, ".kern", "media");
+  const digestEnabled = config.mediaDigest;
+  const contextLimit = config.mediaContext ?? 0;
+
   return {
     specificationVersion: "v3",
     async transformParams({ params }) {
       const prompt = params.prompt;
       let digested = 0;
+      let resolved = 0;
+      let placeholders = 0;
 
       function makeLabel(filename: string): string {
         const entry = sidecar.get(filename);
         return entry?.originalName ? `${entry.originalName} (${filename})` : filename;
       }
 
+      // Find user messages with media refs, count from end for mediaContext limit
+      const userMediaIndices: number[] = [];
+      for (let i = prompt.length - 1; i >= 0; i--) {
+        const msg = prompt[i];
+        if (msg.role !== "user") continue;
+        const hasMedia = msg.content.some(
+          (p: any) =>
+            (p.type === "image" && typeof p.image === "string" && (p.image as string).startsWith(MEDIA_SCHEME)) ||
+            (p.type === "file" && typeof p.data === "string" && (p.data as string).startsWith(MEDIA_SCHEME)),
+        );
+        if (hasMedia) userMediaIndices.push(i);
+      }
+      const resolveSet = new Set(userMediaIndices.slice(0, contextLimit));
+
       const newPrompt = await Promise.all(
-        prompt.map(async (msg) => {
+        prompt.map(async (msg, msgIdx) => {
           if (msg.role !== "user") return msg;
 
           const parts = msg.content;
           const newParts = await Promise.all(
-            parts.map(async (part) => {
-              // At middleware level, images become file parts with image/* mediaType
-              if (part.type !== "file") return part;
-              // Find the filename via buffer hash
-              const hash = hashData(part.data);
-              const filename = hash ? bufferToFilename.get(hash) : null;
-              if (!filename) {
-                // Can't identify this media — pass through as-is
-                log.debug("media", "digest: unknown buffer, passing through");
-                return part;
+            parts.map(async (part: any) => {
+              // Extract filename from kern-media:// URI
+              let filename: string | null = null;
+              let isImage = false;
+
+              if (part.type === "image" && typeof part.image === "string" && part.image.startsWith(MEDIA_SCHEME)) {
+                filename = part.image.slice(MEDIA_SCHEME.length);
+                isImage = true;
+              } else if (part.type === "file" && typeof part.data === "string" && part.data.startsWith(MEDIA_SCHEME)) {
+                filename = part.data.slice(MEDIA_SCHEME.length);
+                isImage = part.mediaType?.startsWith("image/") || false;
               }
 
-              // Look up cached description from sidecar (generated at ingest time)
-              let description = sidecar.getDescription(filename);
+              if (!filename) return part;
 
-              // Cache miss — digest now (e.g. old media from before digest was enabled)
-              if (!description && part.mediaType) {
-                description = await digestMediaAtIngest(sidecar, agentDir, filename, part.mediaType, config);
+              // 1. Try digest replacement (images only)
+              if (digestEnabled && isImage) {
+                let description = sidecar.getDescription(filename);
+
+                // Cache miss — digest now
+                if (!description) {
+                  const mimeType = part.mediaType || (isImage ? "image/unknown" : "application/octet-stream");
+                  description = await digestMediaAtIngest(sidecar, agentDir, filename, mimeType, config);
+                }
+
+                if (description) {
+                  digested++;
+                  return { type: "text" as const, text: `[Image: ${makeLabel(filename)} — ${description}]` };
+                }
               }
 
-              if (description) {
-                digested++;
-                const prefix = part.mediaType?.startsWith("image/") ? "Image" : "File";
-                return { type: "text" as const, text: `[${prefix}: ${makeLabel(filename)} — ${description}]` };
+              // 2. Within mediaContext limit — resolve to raw Buffer
+              if (resolveSet.has(msgIdx)) {
+                const fullPath = join(mediaDir, filename);
+                if (existsSync(fullPath)) {
+                  resolved++;
+                  const buf = readFileSync(fullPath);
+                  if (part.type === "image") {
+                    return { ...part, image: buf };
+                  } else {
+                    return { ...part, data: buf };
+                  }
+                }
+                log.warn("media", `file not found: ${filename}`);
               }
 
-              // Digest failed — pass through as-is
-              return part;
+              // 3. Text placeholder
+              placeholders++;
+              const label = makeLabel(filename);
+              const prefix = isImage ? "attached image" : "attached file";
+              return { type: "text" as const, text: `[${prefix}: ${label}]` };
             }),
           );
 
@@ -542,9 +404,9 @@ export function createMediaDigestMiddleware(
         }),
       );
 
-      if (digested > 0) {
-        log("media", `pre-digested ${digested} image(s)`);
-      }
+      if (digested > 0) log("media", `digested ${digested} image(s)`);
+      if (resolved > 0) log("media", `resolved ${resolved} file(s) to Buffer`);
+      if (placeholders > 0) log.debug("media", `${placeholders} media placeholder(s)`);
 
       return { ...params, prompt: newPrompt as any };
     },
@@ -552,16 +414,16 @@ export function createMediaDigestMiddleware(
 }
 
 /**
- * Wrap a model with media digest middleware if enabled.
- * Returns the original model if digest is disabled.
+ * Wrap a model with media middleware.
+ * Always wraps if sidecar exists — handles both digest and raw resolution.
  */
-export function wrapWithMediaDigest(
+export function wrapWithMediaMiddleware(
   model: any,
   sidecar: MediaSidecar | null,
   agentDir: string,
   config: KernConfig,
 ): any {
-  if (!config.mediaDigest || !sidecar) return model;
-  const middleware = createMediaDigestMiddleware(sidecar, agentDir, config);
+  if (!sidecar) return model;
+  const middleware = createMediaMiddleware(sidecar, agentDir, config);
   return wrapLanguageModel({ model, middleware });
 }

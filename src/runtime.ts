@@ -12,7 +12,7 @@ import type { SegmentIndex } from "./segments.js";
 import type { MemoryDB } from "./memory.js";
 import { prepareContext, injectRecall, loadSystemPrompt, type PrepareContextOptions } from "./context.js";
 import type { Attachment } from "./interfaces/types.js";
-import { saveMedia, buildUserContent, resolveMediaRefsTracked, extractText, MediaSidecar, wrapWithMediaDigest, digestMediaAtIngest } from "./media.js";
+import { saveMedia, buildUserContent, extractText, MediaSidecar, wrapWithMediaMiddleware, digestMediaAtIngest } from "./media.js";
 export type { SessionStats } from "./context.js";
 
 
@@ -132,7 +132,7 @@ export class Runtime {
     };
   }
 
-  // Media resolution is now handled by resolveMediaRefs() from media.ts
+  // Media resolution is handled by media middleware at model call time
 
   async handleMessage(
     userMessage: string,
@@ -185,7 +185,7 @@ export class Runtime {
     }
 
     const baseModel = createModel(this.config);
-    const model = wrapWithMediaDigest(baseModel, this.mediaSidecar, this.agentDir, this.config);
+    const model = wrapWithMediaMiddleware(baseModel, this.mediaSidecar, this.agentDir, this.config);
     let streamError: any = null;
 
     try {
@@ -209,13 +209,12 @@ export class Runtime {
         onEvent({ type: "recall", recall });
       }
 
-      // Resolve kern-media:// refs to Buffers for model call (tracked for digest middleware)
-      const modelMessages = resolveMediaRefsTracked(this.agentDir, contextMessages, this.config.mediaContext);
+      // Media refs (kern-media://) are resolved by the media middleware at model call time
 
-      log.debug("context", `${modelMessages.length} messages, ~${stats.windowTokens} tokens`);
-      if (modelMessages.length > 0) {
-        const first = modelMessages[0];
-        const last = modelMessages[modelMessages.length - 1];
+      log.debug("context", `${contextMessages.length} messages, ~${stats.windowTokens} tokens`);
+      if (contextMessages.length > 0) {
+        const first = contextMessages[0];
+        const last = contextMessages[contextMessages.length - 1];
         log.debug("context", `first msg: role=${first.role}, last msg: role=${last.role}`);
       }
 
@@ -225,7 +224,7 @@ export class Runtime {
       const result = streamText({
         model,
         system: effectiveSystemPrompt,
-        messages: modelMessages,
+        messages: contextMessages,
         tools,
         stopWhen: stepCountIs(this.config.maxSteps),
         onError: ({ error }) => {
