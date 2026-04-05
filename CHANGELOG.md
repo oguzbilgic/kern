@@ -30,10 +30,6 @@
   - `websearch` — search the web via DuckDuckGo, returns results as markdown with titles, URLs, and snippets
   - `webfetch` — fetch any URL with automatic HTML-to-markdown conversion. JSON and plain text returned as-is. New `raw` option to get original HTML.
 - **Finding answers** — new KERN.md section encouraging agents to use web tools instead of relying on stale training data
-- **Tool param display** — web UI now shows extra params in tool call headers:
-  - `pdf`: file path, pages, prompt (truncated to 60 chars)
-  - `read`: offset (`+N`) and non-default limit
-  - Tool colors added for `pdf`, `image`, `websearch`, `recall`
 
 ## v0.18.1
 
