@@ -939,7 +939,7 @@
     border: 1.5px solid var(--border);
     border-radius: 22px;
     transition: border-color 0.15s;
-    overflow: hidden;
+    overflow: visible;
   }
   .input-row:focus-within {
     border-color: var(--text-muted);
@@ -950,6 +950,9 @@
     gap: 0;
     align-items: center;
     padding: 4px 6px 4px 4px;
+    background: var(--bg-input);
+    border-radius: 22px;
+    overflow: hidden;
   }
   .input-row textarea {
     flex: 1;
@@ -1002,15 +1005,16 @@
   .cmd-popup {
     display: none;
     position: absolute;
-    bottom: 100%;
-    left: 0;
-    right: 0;
-    margin-bottom: 4px;
+    left: 8px;
+    right: 8px;
+    bottom: calc(100% + 8px);
+    margin-bottom: 0;
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 10px;
     overflow: hidden;
-    z-index: 50;
+    z-index: 80;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.35);
   }
   .cmd-popup.open { display: block; }
   .cmd-item {
@@ -1070,6 +1074,9 @@
     flex-wrap: wrap;
     border-bottom: 1px solid var(--border);
     align-items: flex-end;
+  }
+  .input-row.popup-open .attachment-preview.has-items {
+    border-top: 1px solid var(--border);
   }
   .attachment-preview.has-items { display: flex; }
   .attachment-thumb {
@@ -2321,8 +2328,8 @@
   <button class="scroll-down-btn" id="scroll-down-btn" title="Scroll to bottom">&#8595;</button>
   <div class="input-area">
     <div class="input-row">
-      <div class="cmd-popup" id="cmd-popup"></div>
       <input type="file" id="file-input" multiple hidden accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.json,.md" />
+      <div class="cmd-popup" id="cmd-popup"></div>
       <div class="attachment-preview" id="attachment-preview"></div>
       <div class="input-inner">
         <button class="attach-btn" id="attach-btn" title="Attach files"><svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg></button>
@@ -4915,19 +4922,24 @@ let cmdFiltered = [];
 
 function updateCmdPopup() {
   const val = inputEl.value;
+  const trigger = val.trim().toLowerCase();
   // Show popup only when input starts with / and is a single word (no spaces)
-  if (!val.startsWith('/') || val.includes(' ') || !val.trim()) {
+  if (!trigger.startsWith('/') || trigger.includes(' ')) {
     cmdPopup.classList.remove('open');
+    cmdPopup.style.display = 'none';
+    inputEl.closest('.input-row')?.classList.remove('popup-open');
     cmdFiltered = [];
     return;
   }
-  const query = val.toLowerCase();
+  const query = trigger;
   cmdFiltered = SLASH_COMMANDS.filter(c => c.name.startsWith(query));
   if (cmdFiltered.length === 0) {
     cmdPopup.classList.remove('open');
+    cmdPopup.style.display = 'none';
+    inputEl.closest('.input-row')?.classList.remove('popup-open');
     return;
   }
-  cmdSelectedIdx = Math.min(cmdSelectedIdx, cmdFiltered.length - 1);
+  cmdSelectedIdx = Math.max(0, Math.min(cmdSelectedIdx, cmdFiltered.length - 1));
   cmdPopup.innerHTML = cmdFiltered.map((c, i) =>
     `<div class="cmd-item${i === cmdSelectedIdx ? ' selected' : ''}" data-idx="${i}">` +
     `<span class="cmd-item-name">${c.name}</span>` +
@@ -4935,6 +4947,19 @@ function updateCmdPopup() {
     `</div>`
   ).join('');
   cmdPopup.classList.add('open');
+  cmdPopup.style.display = 'block';
+  inputEl.closest('.input-row')?.classList.add('popup-open');
+  const inputRect = inputEl.getBoundingClientRect();
+  const rowRect = inputEl.closest('.input-row')?.getBoundingClientRect();
+  const keyboardOffset = window.visualViewport
+    ? Math.max(0, window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop)
+    : 0;
+  if (rowRect && inputRect.bottom > window.innerHeight - 260) {
+    cmdPopup.style.top = 'auto';
+    cmdPopup.style.bottom = `calc(100% + ${8 + keyboardOffset}px)`;
+  } else {
+    cmdPopup.style.bottom = 'calc(100% + 8px)';
+  }
 }
 
 cmdPopup.addEventListener('click', (e) => {
@@ -4945,6 +4970,8 @@ cmdPopup.addEventListener('click', (e) => {
   if (cmd) {
     inputEl.value = cmd.name;
     cmdPopup.classList.remove('open');
+    cmdPopup.style.display = 'none';
+    inputEl.closest('.input-row')?.classList.remove('popup-open');
     send();
   }
 });
@@ -4952,18 +4979,45 @@ cmdPopup.addEventListener('click', (e) => {
 // --- Input ---
 
 let _inputRaf = 0;
+let isComposing = false;
+
+inputEl.addEventListener('compositionstart', () => {
+  isComposing = true;
+});
+
+inputEl.addEventListener('compositionend', () => {
+  isComposing = false;
+  updateCmdPopup();
+});
+
 inputEl.addEventListener('input', () => {
   // Batch all DOM work into a single frame to avoid keystroke lag on mobile
   if (!_inputRaf) {
     _inputRaf = requestAnimationFrame(() => {
       _inputRaf = 0;
       sendBtn.disabled = !inputEl.value.trim() && pendingAttachments.length === 0;
-      updateCmdPopup();
+      if (!isComposing) updateCmdPopup();
       inputEl.style.height = 'auto';
       inputEl.style.height = inputEl.scrollHeight + 'px';
       inputEl.style.overflowY = inputEl.scrollHeight > inputEl.offsetHeight ? 'auto' : 'hidden';
     });
   }
+});
+
+inputEl.addEventListener('focus', () => {
+  updateCmdPopup();
+});
+
+inputEl.addEventListener('click', () => {
+  updateCmdPopup();
+});
+
+inputEl.addEventListener('blur', () => {
+  setTimeout(() => {
+    cmdPopup.classList.remove('open');
+    cmdPopup.style.display = 'none';
+    inputEl.closest('.input-row')?.classList.remove('popup-open');
+  }, 120);
 });
 
 inputEl.addEventListener('keydown', (e) => {
@@ -4987,12 +5041,16 @@ inputEl.addEventListener('keydown', (e) => {
       if (cmd) {
         inputEl.value = cmd.name;
         cmdPopup.classList.remove('open');
+        cmdPopup.style.display = 'none';
+        inputEl.closest('.input-row')?.classList.remove('popup-open');
         if (e.key === 'Enter') send();
       }
       return;
     }
     if (e.key === 'Escape') {
       cmdPopup.classList.remove('open');
+      cmdPopup.style.display = 'none';
+      inputEl.closest('.input-row')?.classList.remove('popup-open');
       return;
     }
   }
