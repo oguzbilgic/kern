@@ -6,40 +6,45 @@ kern supports images and files in conversations across all interfaces.
 
 1. **Receive** — user sends an image/file via Telegram, Slack, or Web UI
 2. **Store** — file saved to `.kern/media/` with a SHA-256 content-addressed filename (deduped)
-3. **Message** — SDK-native content array stored in session with `kern-media://` URI references
-4. **Digest** — before model call, images are described by a vision model and replaced with text (configurable)
-5. **Serve** — `GET /media/:filename` serves stored files with immutable caching
+3. **Digest** — images are described by a vision model at ingest time, cached permanently
+4. **Message** — SDK-native content array stored in session with `kern-media://` URI references
+5. **Context** — middleware replaces media refs with cached text descriptions before model call
+6. **Serve** — `GET /media/:filename` serves stored files with immutable caching
 
 ## Storage
 
 Media files live in `.kern/media/` (gitignored). Filenames are `{sha256-prefix}{ext}` — e.g. `a1b2c3d4e5f6g7h8.jpg`. This deduplicates identical files automatically.
 
-A per-session sidecar file (`.media.jsonl`) tracks metadata: original filename, MIME type, size, timestamp, and cached image descriptions. This is also mirrored to the SQLite `media` table for cross-session queries.
+A per-session sidecar file (`.media.jsonl`) tracks metadata: original filename, MIME type, size, timestamp, and cached descriptions. This is also mirrored to the SQLite `media` table for cross-session queries.
 
 ## Pre-digest
 
-When `mediaDigest` is enabled (default), kern automatically describes images before sending them to the chat model:
+When `mediaDigest` is enabled (default), kern describes images once at ingest time:
 
-- A vision model generates a ~300 token description of each image
-- The description replaces the image in the prompt: `[Image: A terminal showing npm install output...]`
-- Descriptions are cached in the media sidecar — same image is only described once
-- If `mediaModel` changes, stale descriptions are regenerated
+- When a user sends an image, it's saved to disk and immediately described by a vision model (~300 tokens)
+- The description is cached permanently in the media sidecar — never regenerated
+- At model call time, middleware replaces image references with cached text: `[Image: photo.jpg (a1b2c3d4.jpg) — A terminal showing npm install output...]`
+- On cache miss (e.g. old images from before digest was enabled), middleware triggers digest on the fly
 
 This means:
 - **Text-only models work** — they see descriptions, not raw images
-- **Token costs are lower** — one vision call per image vs full image tokens every turn
+- **Token costs are minimal** — one vision call per image, ever. No raw binary sent to model.
 - **Context is preserved** — text descriptions survive context trimming and appear in summaries
 
 ### Disabling pre-digest
 
-Set `mediaDigest: false` in `.kern/config.json` to send raw images inline. This requires a vision-capable chat model but provides full image fidelity.
+Set `mediaDigest: false` in `.kern/config.json` to skip digestion. Combined with `mediaContext` you can control what the model sees:
+
+- `mediaDigest: false, mediaContext: 1` — raw images sent for the latest turn only, older get text placeholders
+- `mediaDigest: false, mediaContext: 0` — no images sent to model at all, just `[attached image: hash.jpg]` placeholders
 
 ## Configuration
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `mediaDigest` | `true` | Pre-digest images to text descriptions |
+| `mediaDigest` | `true` | Describe images at ingest time and replace with text in context |
 | `mediaModel` | `""` | Vision model for descriptions. Empty = use main model |
+| `mediaContext` | `0` | How many recent turns resolve raw media Buffers to the model. 0 = never send raw binary (descriptions or placeholders only) |
 
 ## Message format
 
@@ -63,6 +68,8 @@ Images: JPEG, PNG, GIF, WebP, SVG, HEIC
 Video: MP4, MOV, WebM
 Audio: MP3, OGG, WAV, WebM, M4A
 Documents: PDF, JSON, plain text, CSV, Markdown
+
+Only images are pre-digested currently. Other file types pass through as-is (if `mediaContext > 0`) or become text placeholders (if `mediaContext: 0`).
 
 ## Interfaces
 
