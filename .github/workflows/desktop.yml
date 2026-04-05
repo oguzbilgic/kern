@@ -3,6 +3,11 @@ name: 'Desktop Build'
 on:
   workflow_dispatch:
   push:
+    branches:
+      - feat/desktop
+      - master
+    paths:
+      - 'desktop/**'
     tags:
       - 'desktop-v*'
 
