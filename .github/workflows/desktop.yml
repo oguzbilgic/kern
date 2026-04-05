@@ -22,18 +22,36 @@ jobs:
             args: '--target aarch64-apple-darwin --bundles app'
             target: 'aarch64-apple-darwin'
             name: 'macos-arm64'
+            branchOnly: true
           - platform: 'macos-latest'
             args: '--target x86_64-apple-darwin --bundles app'
             target: 'x86_64-apple-darwin'
             name: 'macos-x64'
+            branchOnly: false
           - platform: 'ubuntu-22.04'
             args: ''
             target: ''
             name: 'linux-x64'
+            branchOnly: false
+
+    if: github.event_name == 'workflow_dispatch' || matrix.branchOnly == true
 
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            desktop/src-tauri -> target
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -46,12 +64,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --locked
+      - name: Install desktop npm dependencies
+        working-directory: desktop
+        run: npm ci
 
       - name: Build
         working-directory: desktop
-        run: cargo tauri build ${{ matrix.args }}
+        run: npx tauri build ${{ matrix.args }}
 
       - name: List build output
         run: |

@@ -1,0 +1,12 @@
+{
+  "name": "kern-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Tauri wrapper for kern web UI",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}
