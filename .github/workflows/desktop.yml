@@ -8,8 +8,7 @@ on:
       - master
     paths:
       - 'desktop/**'
-    tags:
-      - 'desktop-v*'
+      - '.github/workflows/desktop.yml'
 
 jobs:
   build:
@@ -20,20 +19,17 @@ jobs:
       matrix:
         include:
           - platform: 'macos-latest'
-            args: '--target aarch64-apple-darwin'
+            args: '--target aarch64-apple-darwin --bundles app'
             target: 'aarch64-apple-darwin'
             name: 'macos-arm64'
-            binary: 'kern-desktop'
           - platform: 'macos-latest'
-            args: '--target x86_64-apple-darwin'
+            args: '--target x86_64-apple-darwin --bundles app'
             target: 'x86_64-apple-darwin'
             name: 'macos-x64'
-            binary: 'kern-desktop'
           - platform: 'ubuntu-22.04'
             args: ''
             target: ''
             name: 'linux-x64'
-            binary: 'kern-desktop'
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -55,18 +51,31 @@ jobs:
 
       - name: Build
         working-directory: desktop
-        run: cargo tauri build --bundles none ${{ matrix.args }}
+        run: cargo tauri build ${{ matrix.args }}
 
-      - name: Upload artifact (macOS)
+      - name: List build output
+        run: |
+          if [ -n "${{ matrix.target }}" ]; then
+            find desktop/src-tauri/target/${{ matrix.target }}/release -maxdepth 3 -name "*.app" -o -name "kern-desktop" 2>/dev/null || true
+          else
+            find desktop/src-tauri/target/release -maxdepth 3 -name "*.deb" -o -name "*.AppImage" -o -name "kern-desktop" 2>/dev/null || true
+          fi
+
+      - name: Upload macOS app
         if: matrix.platform == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
           name: kern-${{ matrix.name }}
-          path: desktop/src-tauri/target/${{ matrix.target }}/release/${{ matrix.binary }}
+          path: desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app
+          if-no-files-found: warn
 
-      - name: Upload artifact (Linux)
+      - name: Upload Linux binary
         if: matrix.platform == 'ubuntu-22.04'
         uses: actions/upload-artifact@v4
         with:
           name: kern-${{ matrix.name }}
-          path: desktop/src-tauri/target/release/${{ matrix.binary }}
+          path: |
+            desktop/src-tauri/target/release/bundle/deb/*.deb
+            desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+            desktop/src-tauri/target/release/kern-desktop
+          if-no-files-found: warn
