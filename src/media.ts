@@ -427,3 +427,119 @@ export function wrapWithMediaMiddleware(
   const middleware = createMediaMiddleware(sidecar, agentDir, config);
   return wrapLanguageModel({ model, middleware });
 }
+
+/**
+ * Resolve all kern-media:// references in a messages array before passing to streamText.
+ * The SDK tries to download URLs before middleware runs, so we must resolve here.
+ *
+ * For each media part:
+ * 1. If digest enabled + description cached → replace with text
+ * 2. If digest enabled + no description → trigger digest, then replace with text
+ * 3. If within mediaContext limit → resolve to raw Buffer (Uint8Array)
+ * 4. Otherwise → text placeholder
+ */
+export async function resolveMediaInMessages(
+  messages: ModelMessage[],
+  sidecar: MediaSidecar,
+  agentDir: string,
+  config: KernConfig,
+): Promise<ModelMessage[]> {
+  const mediaDir = join(agentDir, ".kern", "media");
+  const digestEnabled = config.mediaDigest;
+  const contextLimit = config.mediaContext ?? 0;
+
+  function makeLabel(filename: string): string {
+    const entry = sidecar.get(filename);
+    return entry?.originalName ? `${entry.originalName} (${filename})` : filename;
+  }
+
+  // Find user messages with media refs, count from end for mediaContext limit
+  const userMediaIndices: number[] = [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role !== "user" || !Array.isArray(msg.content)) continue;
+    const hasMedia = msg.content.some(
+      (p: any) =>
+        (p.type === "image" && typeof p.image === "string" && (p.image as string).startsWith(MEDIA_SCHEME)) ||
+        (p.type === "file" && typeof p.data === "string" && (p.data as string).startsWith(MEDIA_SCHEME)),
+    );
+    if (hasMedia) userMediaIndices.push(i);
+  }
+  const resolveSet = new Set(userMediaIndices.slice(0, contextLimit));
+
+  let digested = 0;
+  let resolved = 0;
+  let placeholders = 0;
+
+  const result = await Promise.all(
+    messages.map(async (msg, msgIdx) => {
+      if (msg.role !== "user" || !Array.isArray(msg.content)) return msg;
+
+      const hasRef = msg.content.some(
+        (p: any) =>
+          (p.type === "image" && typeof p.image === "string" && (p.image as string).startsWith(MEDIA_SCHEME)) ||
+          (p.type === "file" && typeof p.data === "string" && (p.data as string).startsWith(MEDIA_SCHEME)),
+      );
+      if (!hasRef) return msg;
+
+      const newParts = await Promise.all(
+        msg.content.map(async (part: any) => {
+          let filename: string | null = null;
+          let isImage = false;
+
+          if (part.type === "image" && typeof part.image === "string" && part.image.startsWith(MEDIA_SCHEME)) {
+            filename = part.image.slice(MEDIA_SCHEME.length);
+            isImage = true;
+          } else if (part.type === "file" && typeof part.data === "string" && part.data.startsWith(MEDIA_SCHEME)) {
+            filename = part.data.slice(MEDIA_SCHEME.length);
+            isImage = part.mediaType?.startsWith("image/") || false;
+          }
+
+          if (!filename) return part;
+
+          // 1. Try digest replacement (images only)
+          if (digestEnabled && isImage) {
+            let description = sidecar.getDescription(filename);
+            if (!description) {
+              const mimeType = part.mediaType || "image/unknown";
+              description = await digestMediaAtIngest(sidecar, agentDir, filename, mimeType, config);
+            }
+            if (description) {
+              digested++;
+              return { type: "text" as const, text: `[Image: ${makeLabel(filename)} — ${description}]` };
+            }
+          }
+
+          // 2. Within mediaContext limit — resolve to raw Buffer
+          if (resolveSet.has(msgIdx)) {
+            const fullPath = join(mediaDir, filename);
+            if (existsSync(fullPath)) {
+              resolved++;
+              const buf = new Uint8Array(readFileSync(fullPath));
+              if (part.type === "image") {
+                return { ...part, image: buf };
+              } else {
+                return { ...part, data: buf };
+              }
+            }
+            log.warn("media", `file not found: ${filename}`);
+          }
+
+          // 3. Text placeholder
+          placeholders++;
+          const label = makeLabel(filename);
+          const prefix = isImage ? "attached image" : "attached file";
+          return { type: "text" as const, text: `[${prefix}: ${label}]` };
+        }),
+      );
+
+      return { ...msg, content: newParts };
+    }),
+  );
+
+  if (digested > 0) log("media", `digested ${digested} image(s)`);
+  if (resolved > 0) log("media", `resolved ${resolved} file(s) to Buffer`);
+  if (placeholders > 0) log.debug("media", `${placeholders} media placeholder(s)`);
+
+  return result;
+}

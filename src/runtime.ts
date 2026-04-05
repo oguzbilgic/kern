@@ -12,7 +12,7 @@ import type { SegmentIndex } from "./segments.js";
 import type { MemoryDB } from "./memory.js";
 import { prepareContext, injectRecall, loadSystemPrompt, type PrepareContextOptions } from "./context.js";
 import type { Attachment } from "./interfaces/types.js";
-import { saveMedia, buildUserContent, extractText, MediaSidecar, wrapWithMediaMiddleware, digestMediaAtIngest } from "./media.js";
+import { saveMedia, buildUserContent, extractText, MediaSidecar, resolveMediaInMessages, digestMediaAtIngest } from "./media.js";
 export type { SessionStats } from "./context.js";
 
 
@@ -184,8 +184,7 @@ export class Runtime {
       }
     }
 
-    const baseModel = createModel(this.config);
-    const model = wrapWithMediaMiddleware(baseModel, this.mediaSidecar, this.agentDir, this.config);
+    const model = createModel(this.config);
     let streamError: any = null;
 
     try {
@@ -209,12 +208,15 @@ export class Runtime {
         onEvent({ type: "recall", recall });
       }
 
-      // Media refs (kern-media://) are resolved by the media middleware at model call time
+      // Resolve kern-media:// refs before model call (SDK validates URLs before middleware runs)
+      const resolvedMessages = this.mediaSidecar
+        ? await resolveMediaInMessages(contextMessages, this.mediaSidecar, this.agentDir, this.config)
+        : contextMessages;
 
-      log.debug("context", `${contextMessages.length} messages, ~${stats.windowTokens} tokens`);
-      if (contextMessages.length > 0) {
-        const first = contextMessages[0];
-        const last = contextMessages[contextMessages.length - 1];
+      log.debug("context", `${resolvedMessages.length} messages, ~${stats.windowTokens} tokens`);
+      if (resolvedMessages.length > 0) {
+        const first = resolvedMessages[0];
+        const last = resolvedMessages[resolvedMessages.length - 1];
         log.debug("context", `first msg: role=${first.role}, last msg: role=${last.role}`);
       }
 
@@ -224,7 +226,7 @@ export class Runtime {
       const result = streamText({
         model,
         system: effectiveSystemPrompt,
-        messages: contextMessages,
+        messages: resolvedMessages,
         tools,
         stopWhen: stepCountIs(this.config.maxSteps),
         onError: ({ error }) => {
