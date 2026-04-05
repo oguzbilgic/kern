@@ -52,7 +52,7 @@ Examples:
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `mediaDigest` | `true` | Describe images at ingest time and replace with text in context |
+| `mediaDigest` | `true` | Enable image pre-digest pipeline: vision model describes images on arrival, caches descriptions, replaces raw images with text in context |
 | `mediaModel` | `""` | Vision model for descriptions. Empty = use main model |
 | `mediaContext` | `0` | How many recent turns resolve raw media Buffers to the model. 0 = never send raw binary (descriptions or placeholders only) |
 
