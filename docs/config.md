@@ -26,6 +26,8 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 | `recall` | `true` | Enable recall and segments (embedding-based features). Set to `false` to disable. Requires an embedding API key. Session storage and notes summaries work regardless. |
 | `summaryBudget` | `0.2` | Fraction of `maxContextTokens` for compressed conversation summaries from segments. Set to `0` to disable. See [Context](context.md#conversation-summary). |
 | `autoRecall` | `false` | Automatically inject relevant old context before each turn. Requires recall enabled. |
+| `mediaDigest` | `true` | Pre-digest images to text descriptions before sending to chat model. Uses a vision model to describe images once, caches results. Set to `false` to send raw images inline (requires vision-capable chat model). |
+| `mediaModel` | `""` | Vision model for media pre-digest. Empty string falls back to the agent's main model. Example: `"openai/gpt-4o-mini"`. |
 
 ### Tool scopes
 

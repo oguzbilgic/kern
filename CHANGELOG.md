@@ -3,6 +3,20 @@
 ## next
 
 ### Features
+- **Multi-modal media** — images and files in conversations across all interfaces:
+  - **Telegram**: photos, documents, stickers, voice, video, and audio downloaded and stored
+  - **Slack**: files shared in messages downloaded and stored
+  - **Web UI**: drag-and-drop or file picker upload with inline preview
+  - Content-addressed storage in `.kern/media/` (SHA-256 hashed filenames)
+  - SDK-native content arrays in messages (`ImagePart` / `FilePart`)
+  - Inline rendering in web UI with auth-proxied media URLs
+  - Media served via `GET /media/:filename` endpoint with immutable caching
+- **Media pre-digest** — automatic image description via vision model:
+  - `LanguageModelMiddleware` replaces image buffers with text descriptions before chat model call
+  - Descriptions cached in `.media.jsonl` sidecar per session (append-only, crash-safe)
+  - SQLite `media` table mirrors sidecar for cross-session queries
+  - Stale detection: re-describes when `mediaModel` config changes
+  - Config: `mediaDigest` (boolean, default `true`), `mediaModel` (string, optional — falls back to main model)
 - **Web tools** — two new built-in tools for web research:
   - `websearch` — search the web via DuckDuckGo, returns results as markdown with titles, URLs, and snippets
   - `webfetch` — fetch any URL with automatic HTML-to-markdown conversion. JSON and plain text returned as-is. New `raw` option to get original HTML.
