@@ -205,8 +205,11 @@
       if (!url) { showError('Enter a server URL'); return; }
 
       btn.disabled = true;
+      btn.textContent = 'Connecting…';
       error.style.display = 'none';
       hint.style.display = 'none';
+      document.body.style.pointerEvents = 'none';
+      document.querySelector('.connect-card').style.opacity = '0.85';
 
       try {
         let res;
@@ -230,13 +233,16 @@
         }
 
         saveServer(url, token);
-        window.location.href = url + '?token=' + encodeURIComponent(token);
+        window.location.replace(url + '?token=' + encodeURIComponent(token));
       } catch (e) {
         showError(
           e.message || 'Load failed',
           'Check that the URL points to <code>kern web</code>, the token is correct, and the server opens in your browser first.'
         );
         btn.disabled = false;
+        btn.textContent = 'Connect';
+        document.body.style.pointerEvents = '';
+        document.querySelector('.connect-card').style.opacity = '1';
       }
     }
 
