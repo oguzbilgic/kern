@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" ry="100" fill="#161617" />
+  
+  <!-- "kern" text (Arial/Helvetica style fallback for sans-serif) -->
+  <text x="140" y="300" font-family="-apple-system, BlinkMacSystemFont, Arial, sans-serif" font-size="160" font-weight="700" fill="#e6edf3">kern</text>
+  
+  <!-- The Amber Dot -->
+  <circle cx="445" cy="295" r="22" fill="#fcd53a" />
+</svg>
