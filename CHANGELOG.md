@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.20.0
 
 ### Features
 - **Prompt caching for Anthropic models** ([#54](https://github.com/oguzbilgic/kern-ai/pull/54)) — system prompt marked with `cache_control: ephemeral` for Anthropic models (direct or via OpenRouter), enabling ~90% cost reduction on cached input tokens
