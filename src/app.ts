@@ -89,11 +89,12 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   }
 
   const runtime = new Runtime(agentDir);
-  await runtime.init();
 
-  // Initialize memory DB (always) and recall index (opt-out via "recall": false)
+  // Initialize memory DB before runtime.init() so media sidecar can backfill
   const memoryDB = new MemoryDB(agentDir);
   runtime.setMemoryDB(memoryDB);
+
+  await runtime.init();
 
   let recallIndex: RecallIndex | null = null;
   let recallBuilding = false;
@@ -369,6 +370,13 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       daily: memoryDB.getSessionActivity(sessionId),
       hourly: memoryDB.getSessionHourlyActivity(sessionId),
     };
+  });
+
+  // Media API
+  server.setMediaListFn(() => {
+    const files = memoryDB.getMediaList();
+    const stats = memoryDB.getMediaStats();
+    return { files, stats };
   });
 
   // Recall API

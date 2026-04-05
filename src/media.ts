@@ -81,6 +81,31 @@ export class MediaSidecar {
         }
       }
       log("media", `loaded sidecar: ${this.map.size} entries`);
+      // Backfill SQLite from sidecar entries
+      if (this.memoryDB && this.map.size > 0) {
+        for (const entry of this.map.values()) {
+          try {
+            this.memoryDB.db.prepare(`
+              INSERT INTO media (session_id, file, originalName, mimeType, size, description, describedBy, timestamp)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(session_id, file) DO UPDATE SET
+                description = COALESCE(excluded.description, media.description),
+                describedBy = COALESCE(excluded.describedBy, media.describedBy),
+                originalName = COALESCE(excluded.originalName, media.originalName)
+            `).run(
+              this.sessionId,
+              entry.file,
+              entry.originalName || null,
+              entry.mimeType,
+              entry.size,
+              entry.description || null,
+              entry.describedBy || null,
+              entry.timestamp,
+            );
+          } catch {}
+        }
+        log("media", `backfilled ${this.map.size} entries to SQLite`);
+      }
     } catch (err) {
       log.warn("media", `failed to load sidecar: ${err}`);
     }

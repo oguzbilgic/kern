@@ -201,6 +201,20 @@ export class MemoryDB {
     ).all() as any[];
   }
 
+  getMediaList(): Array<{ file: string; originalName: string | null; mimeType: string; size: number; description: string | null; describedBy: string | null; timestamp: string; session_id: string }> {
+    return this.db.prepare(
+      "SELECT file, originalName, mimeType, size, description, describedBy, timestamp, session_id FROM media ORDER BY timestamp DESC"
+    ).all() as any[];
+  }
+
+  getMediaStats(): { total: number; images: number; digested: number; totalSize: number } {
+    const total = (this.db.prepare("SELECT COUNT(*) as c FROM media").get() as any).c;
+    const images = (this.db.prepare("SELECT COUNT(*) as c FROM media WHERE mimeType LIKE 'image/%'").get() as any).c;
+    const digested = (this.db.prepare("SELECT COUNT(*) as c FROM media WHERE description IS NOT NULL AND description != ''").get() as any).c;
+    const totalSize = (this.db.prepare("SELECT COALESCE(SUM(size), 0) as s FROM media").get() as any).s;
+    return { total, images, digested, totalSize };
+  }
+
   close(): void {
     this.db.close();
   }

@@ -40,6 +40,7 @@ export class AgentServer {
   private sessionListFn: (() => any) | null = null;
   private sessionActivityFn: ((sessionId: string) => any) | null = null;
   private currentSessionIdFn: (() => string | null) | null = null;
+  private mediaListFn: (() => any) | null = null;
   private port = 0;
   private agentDir = "";
 
@@ -121,6 +122,10 @@ export class AgentServer {
 
   setCurrentSessionIdFn(fn: () => string | null) {
     this.currentSessionIdFn = fn;
+  }
+
+  setMediaListFn(fn: () => any) {
+    this.mediaListFn = fn;
   }
 
   async start(host: string = "127.0.0.1"): Promise<number> {
@@ -492,6 +497,14 @@ export class AgentServer {
         return;
       }
       const data = this.sessionActivityFn(sessionActivityMatch[1]);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
+      return;
+    }
+
+    // Media list + stats: GET /media/list
+    if (url === "/media/list" && req.method === "GET") {
+      const data = this.mediaListFn ? this.mediaListFn() : { files: [], stats: { total: 0, images: 0, digested: 0, totalSize: 0 } };
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
       return;

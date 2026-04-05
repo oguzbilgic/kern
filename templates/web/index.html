@@ -1688,6 +1688,121 @@
     font-family: var(--font-mono);
     margin-top: 2px;
   }
+  .media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+  }
+  .media-card {
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .media-card:hover { border-color: var(--ov-accent); }
+  .media-card.active { border-color: var(--ov-accent); box-shadow: 0 0 0 1px var(--ov-accent); }
+  .media-card-thumb {
+    width: 100%;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .media-card-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .media-card-thumb .file-icon {
+    font-size: 32px;
+    opacity: 0.5;
+  }
+  .media-card-info {
+    padding: 8px 10px;
+  }
+  .media-card-info .name {
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .media-card-info .meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    font-family: var(--font-mono);
+  }
+  .media-card-info .digest-badge {
+    display: inline-block;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-top: 4px;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .media-card-info .digest-badge.digested {
+    background: rgba(252, 213, 58, 0.15);
+    color: var(--ov-accent);
+  }
+  .media-card-info .digest-badge.pending {
+    background: rgba(255,255,255,0.05);
+    color: var(--text-muted);
+  }
+  .media-detail {
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    display: none;
+  }
+  .media-detail.open { display: block; }
+  .media-detail-preview {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+  }
+  .media-detail-desc {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+    padding: 10px 12px;
+    background: var(--bg);
+    border-radius: 6px;
+    margin-bottom: 10px;
+  }
+  .media-detail-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    line-height: 1.8;
+  }
+  .media-detail-meta span { color: var(--text); }
+  .media-filter-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .media-filter-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+  }
+  .media-filter-btn:hover { border-color: var(--text-muted); }
+  .media-filter-btn.active { border-color: var(--ov-accent); color: var(--ov-accent); }
   .recall-empty {
     color: var(--text-muted);
     font-size: 13px;
@@ -1981,6 +2096,7 @@
       <button id="inspector-tab-segments">Segments</button>
       <button id="inspector-tab-notes">Notes</button>
       <button id="inspector-tab-recall">Recall</button>
+      <button id="inspector-tab-media">Media</button>
       <button id="inspector-tab-context">Context</button>
     </div>
     <div class="segments-toolbar" id="inspector-toolbar" style="display:none;">
@@ -2007,6 +2123,11 @@
     <div class="segments-body inspector-tab-content" id="inspector-content-segments">
       <div class="segments-timeline" id="segments-timeline"></div>
       <div class="segments-detail empty" id="segments-detail">hover a segment</div>
+    </div>
+    <!-- Media tab -->
+    <div class="segments-body inspector-tab-content" id="inspector-content-media">
+      <div class="recall-stats" id="media-stats" style="display:none;"></div>
+      <div id="media-grid-container"></div>
     </div>
     <!-- Context tab -->
     <div class="segments-body inspector-tab-content" id="inspector-content-context">
@@ -2601,12 +2722,13 @@ const INSPECTOR_TAB_TITLES = {
   recall: 'Recall',
   notes: 'Notes',
   segments: 'Segments',
+  media: 'Media',
   context: 'Context',
 };
 
 function updateInspectorTab() {
   // Update tab buttons
-  ['sessions', 'recall', 'notes', 'segments', 'context'].forEach(t => {
+  ['sessions', 'recall', 'notes', 'segments', 'media', 'context'].forEach(t => {
     $('inspector-tab-' + t).classList.toggle('active', inspectorTab === t);
     $('inspector-content-' + t).classList.toggle('active', inspectorTab === t);
   });
@@ -2628,6 +2750,12 @@ function updateInspectorTab() {
       '<button class="action-btn" id="segments-stop"><span class="action-icon">■</span> Stop</button>',
       '<button class="action-btn" id="segments-rebuild"><span class="action-icon">↻</span> Rebuild</button>',
       '<button class="action-btn danger" id="segments-clean"><span class="action-icon">✕</span> Clean</button>',
+    ].join('');
+  } else if (inspectorTab === 'media') {
+    leftHtml = [
+      '<button class="action-btn' + (mediaFilter === 'all' ? ' active' : '') + '" id="media-filter-all">All</button>',
+      '<button class="action-btn' + (mediaFilter === 'images' ? ' active' : '') + '" id="media-filter-images">Images</button>',
+      '<button class="action-btn' + (mediaFilter === 'documents' ? ' active' : '') + '" id="media-filter-documents">Documents</button>',
     ].join('');
   } else if (inspectorTab === 'context') {
     leftHtml = [
@@ -2675,6 +2803,10 @@ function updateInspectorTab() {
       catch (e) { console.error('rebuild failed:', e); }
       finally { btn.textContent = 'Rebuild'; btn.disabled = false; }
     });
+  } else if (inspectorTab === 'media') {
+    $('media-filter-all').addEventListener('click', () => { mediaFilter = 'all'; updateInspectorTab(); renderMediaGrid(); });
+    $('media-filter-images').addEventListener('click', () => { mediaFilter = 'images'; updateInspectorTab(); renderMediaGrid(); });
+    $('media-filter-documents').addEventListener('click', () => { mediaFilter = 'documents'; updateInspectorTab(); renderMediaGrid(); });
   } else if (inspectorTab === 'context') {
     $('prompt-mode-structured').addEventListener('click', () => { promptViewMode = 'structured'; updatePromptModeButtons(); });
     $('prompt-mode-raw').addEventListener('click', () => { promptViewMode = 'raw'; updatePromptModeButtons(); });
@@ -2703,6 +2835,7 @@ async function loadInspectorTabData() {
   else if (inspectorTab === 'recall') { await fetchRecallStats(); $('recall-search-input').focus(); }
   else if (inspectorTab === 'notes') { await fetchSummaries(); }
   else if (inspectorTab === 'segments') { await fetchAndRenderSegments(); segPollTimer = setInterval(fetchAndRenderSegments, 3000); }
+  else if (inspectorTab === 'media') { await fetchMediaList(); renderMediaGrid(); }
   else if (inspectorTab === 'context') { await fetchAndRenderPrompt(); }
 }
 
@@ -2714,7 +2847,7 @@ $('inspector-btn').addEventListener('click', () => {
 $('inspector-close').addEventListener('click', closeInspector);
 inspectorOverlay.addEventListener('click', (e) => { if (e.target === inspectorOverlay) closeInspector(); });
 
-['sessions', 'recall', 'notes', 'segments', 'context'].forEach(t => {
+['sessions', 'recall', 'notes', 'segments', 'media', 'context'].forEach(t => {
   $('inspector-tab-' + t).addEventListener('click', async () => {
     inspectorTab = t;
     updateInspectorTab();
@@ -2961,6 +3094,149 @@ const memSummariesContent = $('memory-content-summaries');
 const memSessionsContent = $('memory-content-sessions');
 const recallResults = $('recall-results');
 const recallStatsEl = $('recall-stats');
+const mediaStatsEl = $('media-stats');
+const mediaGridContainer = $('media-grid-container');
+
+// --- Media tab (mock data) ---
+let mediaFilter = 'all';
+let selectedMediaFile = null;
+
+let mediaData = { files: [], stats: { total: 0, images: 0, digested: 0, totalSize: 0 } };
+
+const FILE_ICONS = {
+  'application/pdf': '📄',
+  'text/csv': '📊',
+  'audio/mp3': '🎵',
+  'audio/ogg': '🎵',
+  'audio/wav': '🎵',
+  'video/mp4': '🎬',
+};
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+function getFilteredMedia() {
+  const files = mediaData.files || [];
+  if (mediaFilter === 'images') return files.filter(m => m.mimeType.startsWith('image/'));
+  if (mediaFilter === 'documents') return files.filter(m => !m.mimeType.startsWith('image/'));
+  return files;
+}
+
+async function fetchMediaList() {
+  if (!BASE_URL) return;
+  try {
+    const res = await fetch(`${BASE_URL}/media/list`, { headers: AgentClient._headers(AUTH_TOKEN) });
+    if (res.ok) mediaData = await res.json();
+  } catch (e) { console.error('fetchMediaList failed:', e); }
+}
+
+function renderMediaGrid() {
+  const items = getFilteredMedia();
+  const s = mediaData.stats || {};
+
+  mediaStatsEl.style.display = '';
+  mediaStatsEl.innerHTML = [
+    `<div class="recall-stat-card"><div class="v">${s.total || 0}</div><div class="k">Files</div></div>`,
+    `<div class="recall-stat-card"><div class="v">${s.images || 0}</div><div class="k">Images</div></div>`,
+    `<div class="recall-stat-card"><div class="v">${s.digested || 0}/${s.images || 0}</div><div class="k">Digested</div></div>`,
+    `<div class="recall-stat-card"><div class="v">${formatBytes(s.totalSize || 0)}</div><div class="k">Storage</div></div>`,
+  ].join('');
+
+  if (items.length === 0) {
+    mediaGridContainer.innerHTML = '<div class="recall-empty">No media files</div>';
+    return;
+  }
+
+  // Detail panel + grid
+  let html = '<div class="media-detail" id="media-detail-panel"></div>';
+  html += '<div class="media-grid">';
+  for (const item of items) {
+    const isImage = item.mimeType.startsWith('image/');
+    const icon = FILE_ICONS[item.mimeType] || '📎';
+    const date = new Date(item.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const active = selectedMediaFile === item.file ? ' active' : '';
+    html += `<div class="media-card${active}" data-file="${item.file}">`;
+    html += `<div class="media-card-thumb">`;
+    if (isImage) {
+      const thumbUrl = mediaProxyUrl(item.file);
+      html += `<img src="${thumbUrl}" alt="" loading="lazy" />`;
+    } else {
+      html += `<span class="file-icon">${icon}</span>`;
+    }
+    html += `</div>`;
+    html += `<div class="media-card-info">`;
+    html += `<div class="name" title="${escapeHtml(item.originalName || item.file)}">${escapeHtml(item.originalName || item.file)}</div>`;
+    html += `<div class="meta">${formatBytes(item.size)} · ${date}</div>`;
+    if (isImage) {
+      html += item.description
+        ? `<span class="digest-badge digested">digested</span>`
+        : `<span class="digest-badge pending">pending</span>`;
+    }
+    html += `</div></div>`;
+  }
+  html += '</div>';
+  mediaGridContainer.innerHTML = html;
+
+  // Card click handlers
+  mediaGridContainer.querySelectorAll('.media-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const file = card.dataset.file;
+      selectedMediaFile = selectedMediaFile === file ? null : file;
+      renderMediaDetail();
+      mediaGridContainer.querySelectorAll('.media-card').forEach(c => c.classList.toggle('active', c.dataset.file === selectedMediaFile));
+    });
+  });
+
+  // Show detail if one is selected
+  renderMediaDetail();
+}
+
+function mediaProxyUrl(file) {
+  return `${BASE_URL}/media/${file}${AUTH_TOKEN ? '?token=' + encodeURIComponent(AUTH_TOKEN) : ''}`;
+}
+
+function renderMediaDetail() {
+  const panel = document.getElementById('media-detail-panel');
+  if (!panel) return;
+  if (!selectedMediaFile) { panel.classList.remove('open'); return; }
+
+  const files = mediaData.files || [];
+  const item = files.find(m => m.file === selectedMediaFile);
+  if (!item) { panel.classList.remove('open'); return; }
+
+  const isImage = item.mimeType.startsWith('image/');
+  const date = new Date(item.timestamp).toLocaleString();
+  let html = '';
+
+  if (isImage) {
+    const imgUrl = mediaProxyUrl(item.file);
+    html += `<img class="media-detail-preview" src="${imgUrl}" alt="" />`;
+  }
+
+  if (item.description) {
+    html += `<div class="media-detail-desc">${escapeHtml(item.description)}</div>`;
+  }
+
+  html += `<div class="media-detail-meta">`;
+  html += `Original: <span>${escapeHtml(item.originalName || item.file)}</span><br>`;
+  html += `Hash: <span>${item.file}</span><br>`;
+  html += `Type: <span>${item.mimeType}</span><br>`;
+  html += `Size: <span>${formatBytes(item.size)}</span><br>`;
+  html += `Saved: <span>${date}</span><br>`;
+  if (item.describedBy) {
+    html += `Model: <span>${escapeHtml(item.describedBy)}</span><br>`;
+  }
+  if (isImage) {
+    html += `Digest: <span>${item.description ? '✓ cached' : '✗ pending'}</span>`;
+  }
+  html += `</div>`;
+
+  panel.innerHTML = html;
+  panel.classList.add('open');
+}
 
 function renderSummaries(summaries) {
   if (!summaries || summaries.length === 0) {
