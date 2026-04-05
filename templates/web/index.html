@@ -4940,6 +4940,17 @@ function updateCmdPopup() {
   ).join('');
   cmdPopup.classList.add('open');
   cmdPopup.style.display = 'block';
+  const inputRect = inputEl.getBoundingClientRect();
+  const rowRect = inputEl.closest('.input-row')?.getBoundingClientRect();
+  const keyboardOffset = window.visualViewport
+    ? Math.max(0, window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop)
+    : 0;
+  if (rowRect && inputRect.bottom > window.innerHeight - 260) {
+    cmdPopup.style.top = 'auto';
+    cmdPopup.style.bottom = `calc(100% + ${8 + keyboardOffset}px)`;
+  } else {
+    cmdPopup.style.bottom = 'calc(100% + 8px)';
+  }
 }
 
 cmdPopup.addEventListener('click', (e) => {
@@ -4958,13 +4969,24 @@ cmdPopup.addEventListener('click', (e) => {
 // --- Input ---
 
 let _inputRaf = 0;
+let isComposing = false;
+
+inputEl.addEventListener('compositionstart', () => {
+  isComposing = true;
+});
+
+inputEl.addEventListener('compositionend', () => {
+  isComposing = false;
+  updateCmdPopup();
+});
+
 inputEl.addEventListener('input', () => {
   // Batch all DOM work into a single frame to avoid keystroke lag on mobile
   if (!_inputRaf) {
     _inputRaf = requestAnimationFrame(() => {
       _inputRaf = 0;
       sendBtn.disabled = !inputEl.value.trim() && pendingAttachments.length === 0;
-      updateCmdPopup();
+      if (!isComposing) updateCmdPopup();
       inputEl.style.height = 'auto';
       inputEl.style.height = inputEl.scrollHeight + 'px';
       inputEl.style.overflowY = inputEl.scrollHeight > inputEl.offsetHeight ? 'auto' : 'hidden';
