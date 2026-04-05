@@ -2175,7 +2175,7 @@ function renderMarkdown(text) {
   while (i < lines.length) {
     const line = lines[i];
 
-    // Code block placeholder
+    // Code block placeholder (may appear as entire line or inline)
     const cbMatch = line.match(/^\x00CODEBLOCK(\d+)\x00$/);
     if (cbMatch) { out.push(codeBlocks[parseInt(cbMatch[1])]); i++; continue; }
 
@@ -2249,7 +2249,12 @@ function renderMarkdown(text) {
   }
 
   // Join with <br> for single newlines, collapse empty lines
-  return out.join('<br>').replace(/(<br>){3,}/g, '<br><br>').replace(/<br>(<\/?(?:pre|ul|ol|li|blockquote|h[1-6]|hr|table|thead|tbody|tr|th|td))/g, '$1').replace(/(<\/(?:pre|ul|ol|li|blockquote|h[1-6]|hr|table|thead|tbody|tr|th|td)>)<br>/g, '$1');
+  let html = out.join('<br>').replace(/(<br>){3,}/g, '<br><br>').replace(/<br>(<\/?(?:pre|ul|ol|li|blockquote|h[1-6]|hr|table|thead|tbody|tr|th|td))/g, '$1').replace(/(<\/(?:pre|ul|ol|li|blockquote|h[1-6]|hr|table|thead|tbody|tr|th|td)>)<br>/g, '$1');
+
+  // Restore any code block placeholders that weren't on their own line
+  html = html.replace(/\x00CODEBLOCK(\d+)\x00/g, (_, idx) => codeBlocks[parseInt(idx)] || '');
+
+  return html;
 }
 
 function inline(text) {
