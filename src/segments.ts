@@ -1,6 +1,7 @@
 import { embed, embedMany, generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { log } from "./log.js";
+import { extractText } from "./media.js";
 import type { MemoryDB } from "./memory.js";
 import type Database from "better-sqlite3";
 import { readFileSync, existsSync } from "fs";
@@ -196,7 +197,7 @@ export class SegmentIndex {
     // For incremental indexing, wait for enough content to detect topic boundaries
     if (lastSegmented > 0) {
       if (allMessages.length < MIN_TAIL_MESSAGES) return 0;
-      const tailTokens = allMessages.reduce((sum, m) => sum + Math.ceil(m.content.length / 4), 0);
+      const tailTokens = allMessages.reduce((sum, m) => sum + Math.ceil(extractText(m.content).length / 4), 0);
       if (tailTokens < MIN_TAIL_TOKENS) return 0;
     }
 
@@ -326,7 +327,7 @@ export class SegmentIndex {
          ORDER BY msg_index`
       ).all(seg.session_id, seg.msg_start, seg.msg_end) as Array<{ role: string; content: string }>;
 
-      inputText = rows.map((m) => `${m.role}: ${m.content}`).join("\n");
+      inputText = rows.map((m) => `${m.role}: ${extractText(m.content)}`).join("\n");
       inputText = inputText.replace(/^tool: .{500,}$/gm, (m) => m.slice(0, 300) + '... [truncated]').slice(0, 60000);
       targetTokens = Math.max(200, Math.min(1500, Math.round(seg.token_count / 10)));
       prompt = segmentSummaryPrompt(inputText, targetTokens);
@@ -535,7 +536,7 @@ export class SegmentIndex {
 
       // Build segment text from full message content (not truncated embedding text)
       const segMsgs = messages.slice(segStart, end);
-      const text = segMsgs.map((m) => `${m.role}: ${m.content}`).join("\n");
+      const text = segMsgs.map((m) => `${m.role}: ${extractText(m.content)}`).join("\n");
       const tokenCount = Math.ceil(text.length / 4);
 
       // Average the embeddings for this segment
@@ -660,15 +661,19 @@ export class SegmentIndex {
     if (msg.role === "tool") {
       return content.length > 300 ? content.slice(0, 300) + "..." : content;
     }
-    // Assistant tool calls: extract tool names
-    if (msg.role === "assistant" && content.startsWith("[{")) {
+    // Assistant tool calls or user messages with array content: parse and extract text
+    if (content.startsWith("[")) {
       try {
         const parts = JSON.parse(content);
-        return parts.map((p: any) => {
-          if (p.type === "tool-call") return `[tool: ${p.toolName}]`;
-          if (p.type === "text") return p.text;
-          return "";
-        }).filter(Boolean).join(" ");
+        if (Array.isArray(parts)) {
+          return parts.map((p: any) => {
+            if (p.type === "text") return p.text;
+            if (p.type === "tool-call") return `[tool: ${p.toolName}]`;
+            if (p.type === "image") return `[image]`;
+            if (p.type === "file") return `[file: ${p.filename || p.mediaType || "file"}]`;
+            return "";
+          }).filter(Boolean).join(" ");
+        }
       } catch {
         return content.length > 500 ? content.slice(0, 500) + "..." : content;
       }

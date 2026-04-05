@@ -162,6 +162,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   // Start HTTP server
   const server = new AgentServer();
+  server.setAgentDir(agentDir);
 
   // Message queue — serializes messages, same-channel injection
   const queue = new MessageQueue();

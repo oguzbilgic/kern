@@ -443,6 +443,30 @@
     display: block;
     margin-bottom: 2px;
   }
+  .media-attachments {
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .media-image {
+    max-width: 300px;
+    max-height: 300px;
+    border-radius: 6px;
+    cursor: pointer;
+    object-fit: contain;
+  }
+  .media-image:hover { opacity: 0.9; }
+  .media-file {
+    display: inline-block;
+    padding: 4px 8px;
+    background: var(--bg-sidebar);
+    border-radius: 4px;
+    color: var(--orange);
+    text-decoration: none;
+    font-size: 12px;
+  }
+  .media-file:hover { opacity: 0.8; }
   .message.assistant {
     align-self: flex-start;
     background: var(--bg-surface);
@@ -4294,15 +4318,34 @@ async function send() {
   renderAttachmentPreviews();
   sendBtn.disabled = true;
 
-  // Build display text with attachment info
+  // Build display text
   let displayText = text || '';
-  if (hasAttachments) {
-    const labels = attachments.map(a => a.filename || a.type);
-    if (displayText) displayText += '\n';
-    displayText += labels.map(l => `📎 ${l}`).join('\n');
+  if (hasAttachments && !displayText) {
+    displayText = attachments.map(a => `📎 ${a.filename || a.type}`).join('\n');
   }
 
-  addMessage('user', displayText, null, null, new Date(), 'web');
+  const el = addMessage('user', displayText, null, null, new Date(), 'web');
+  // Show inline previews for sent attachments
+  if (el && hasAttachments) {
+    const mc = document.createElement('div');
+    mc.className = 'media-attachments';
+    for (const att of pendingAttachments) {
+      if (att.type === 'image' && att.dataUrl) {
+        const img = document.createElement('img');
+        img.src = att.dataUrl;
+        img.className = 'media-image';
+        img.alt = att.filename;
+        mc.appendChild(img);
+      } else {
+        const icon = att.type === 'video' ? '🎬' : att.type === 'audio' ? '🎵' : '📄';
+        const lbl = document.createElement('span');
+        lbl.className = 'media-file';
+        lbl.textContent = `${icon} ${att.filename}`;
+        mc.appendChild(lbl);
+      }
+    }
+    el.appendChild(mc);
+  }
   scrollToBottom(true);
   if (!busy) {
     setBusy(true);
@@ -4486,9 +4529,53 @@ async function init() {
       }
     }
     for (const msg of history) {
-      if (msg.role === 'user' && typeof msg.content === 'string') {
-        const parsed = parseHistoryUserMessage(msg.content);
-        if (parsed) addMessage(parsed.type, parsed.text, parsed.meta, null, parsed.timestamp, parsed.iface);
+      if (msg.role === 'user') {
+        if (typeof msg.content === 'string') {
+          const parsed = parseHistoryUserMessage(msg.content);
+          if (parsed) addMessage(parsed.type, parsed.text, parsed.meta, null, parsed.timestamp, parsed.iface);
+        } else if (Array.isArray(msg.content)) {
+          // SDK-native content array (text + media parts)
+          let text = '';
+          const mediaParts = [];
+          for (const part of msg.content) {
+            if (part.type === 'text') text += (text ? '\n' : '') + part.text;
+            else if (part.type === 'image') mediaParts.push(part);
+            else if (part.type === 'file') mediaParts.push(part);
+          }
+          const parsed = parseHistoryUserMessage(text);
+          if (parsed) {
+            const el = addMessage(parsed.type, parsed.text, parsed.meta, null, parsed.timestamp, parsed.iface);
+            if (el && mediaParts.length > 0) {
+              const mediaContainer = document.createElement('div');
+              mediaContainer.className = 'media-attachments';
+              for (const mp of mediaParts) {
+                if (mp.type === 'image') {
+                  const file = (typeof mp.image === 'string' && mp.image.startsWith('kern-media://'))
+                    ? mp.image.slice('kern-media://'.length) : null;
+                  if (file) {
+                    const img = document.createElement('img');
+                    img.src = `${BASE_URL}/media/${file}`;
+                    img.className = 'media-image';
+                    img.alt = file;
+                    img.loading = 'lazy';
+                    mediaContainer.appendChild(img);
+                  }
+                } else if (mp.type === 'file') {
+                  const file = (typeof mp.data === 'string' && mp.data.startsWith('kern-media://'))
+                    ? mp.data.slice('kern-media://'.length) : null;
+                  const label = mp.filename || file || 'file';
+                  const link = document.createElement('a');
+                  link.href = file ? `${BASE_URL}/media/${file}` : '#';
+                  link.className = 'media-file';
+                  link.textContent = `📎 ${label}`;
+                  link.target = '_blank';
+                  mediaContainer.appendChild(link);
+                }
+              }
+              el.appendChild(mediaContainer);
+            }
+          }
+        }
       } else if (msg.role === 'assistant') {
         if (Array.isArray(msg.content)) {
           for (const part of msg.content) {

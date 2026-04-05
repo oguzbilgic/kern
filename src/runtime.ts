@@ -11,7 +11,7 @@ import type { SegmentIndex } from "./segments.js";
 import type { MemoryDB } from "./memory.js";
 import { prepareContext, injectRecall, loadSystemPrompt, type PrepareContextOptions } from "./context.js";
 import type { Attachment } from "./interfaces/types.js";
-import { saveMedia, loadMedia, type MediaRef } from "./media.js";
+import { saveMedia, buildUserContent, resolveMediaRefs, extractText } from "./media.js";
 export type { SessionStats } from "./context.js";
 
 
@@ -119,61 +119,7 @@ export class Runtime {
     };
   }
 
-  /**
-   * Parse media ref markers in user messages and replace with multimodal content.
-   * Session stores: "[media: image .kern/media/abc123.jpg image/jpeg "photo.jpg" 12345b]\nHere's my screenshot"
-   * Model receives: [{ type: "image", image: Buffer, mimeType }, { type: "text", text: "Here's my screenshot" }]
-   */
-  private resolveMediaRefs(messages: ModelMessage[]): ModelMessage[] {
-    const MEDIA_REF_RE = /^\[media: (image|audio|video|document) ([^\s]+) ([^\s]+)(?:\s+"([^"]*)")?\s+(\d+)b\]$/;
-
-    return messages.map((msg) => {
-      if (msg.role !== "user" || typeof msg.content !== "string") return msg;
-
-      const lines = msg.content.split("\n");
-      const mediaLines: { type: string; path: string; mimeType: string; filename?: string }[] = [];
-      const textLines: string[] = [];
-
-      for (const line of lines) {
-        const match = line.match(MEDIA_REF_RE);
-        if (match) {
-          mediaLines.push({
-            type: match[1],
-            path: match[2],
-            mimeType: match[3],
-            filename: match[4] || undefined,
-          });
-        } else {
-          textLines.push(line);
-        }
-      }
-
-      if (mediaLines.length === 0) return msg;
-
-      // Build multimodal content parts
-      const contentParts: any[] = [];
-      for (const ref of mediaLines) {
-        if (ref.type === "image") {
-          const data = loadMedia(this.agentDir, ref as MediaRef);
-          if (data) {
-            contentParts.push({ type: "image", image: data, mimeType: ref.mimeType });
-          } else {
-            contentParts.push({ type: "text", text: `[Image unavailable: ${ref.path}]` });
-          }
-        } else {
-          const label = ref.filename || `${ref.type} file`;
-          contentParts.push({ type: "text", text: `[Attached ${ref.type}: ${label} (${ref.mimeType})]` });
-        }
-      }
-
-      const text = textLines.join("\n").trim();
-      if (text) {
-        contentParts.push({ type: "text", text });
-      }
-
-      return { ...msg, content: contentParts };
-    });
-  }
+  // Media resolution is now handled by resolveMediaRefs() from media.ts
 
   async handleMessage(
     userMessage: string,
@@ -187,24 +133,15 @@ export class Runtime {
     const preview = userMessage.slice(0, 80).replace(/\n/g, " ");
     log("runtime", `handleMessage: ${preview}${userMessage.length > 80 ? "..." : ""}${attachments?.length ? ` +${attachments.length} attachment(s)` : ""}`);
 
-    // Save attachments to disk and build session message with media refs
+    // Save attachments to disk and build SDK-native content
     let userMsg: ModelMessage;
     if (attachments && attachments.length > 0) {
-      const mediaRefs: MediaRef[] = [];
-      for (const att of attachments) {
-        const ref = saveMedia(this.agentDir, att.data, att.type, att.mimeType, att.filename);
-        mediaRefs.push(ref);
-        log("runtime", `saved ${att.type}: ${ref.path} (${att.size} bytes)`);
-      }
-      // Store as text with embedded media ref markers — session gets paths, not buffers
-      // Format: text content + JSON media refs that can be parsed back at model call time
-      const mediaBlock = mediaRefs.map(r =>
-        `[media: ${r.type} ${r.path} ${r.mimeType}${r.filename ? ` "${r.filename}"` : ""} ${r.size}b]`
-      ).join("\n");
-      const textContent = userMessage
-        ? `${mediaBlock}\n${userMessage}`
-        : mediaBlock;
-      userMsg = { role: "user", content: textContent };
+      const mediaRefs = attachments.map((att) => {
+        const ref = saveMedia(this.agentDir, att.data, att.mimeType, att.filename);
+        log("runtime", `saved media: ${ref.uri} (${ref.size} bytes)`);
+        return ref;
+      });
+      userMsg = { role: "user", content: buildUserContent(userMessage, mediaRefs) };
     } else {
       userMsg = { role: "user", content: userMessage };
     }
@@ -243,8 +180,8 @@ export class Runtime {
         onEvent({ type: "recall", recall });
       }
 
-      // Resolve media refs in messages → multimodal content for model
-      const modelMessages = this.resolveMediaRefs(contextMessages);
+      // Resolve kern-media:// refs to Buffers for model call
+      const modelMessages = resolveMediaRefs(this.agentDir, contextMessages);
 
       log.debug("context", `${modelMessages.length} messages, ~${stats.windowTokens} tokens`);
       if (modelMessages.length > 0) {
@@ -295,10 +232,13 @@ export class Runtime {
           log("runtime", `prepareStep: injecting ${injections.length} same-channel message(s) at step ${stepNumber}`);
 
           // Inject pending same-channel messages wrapped in <system-reminder>
-          const injectedMessages = injections.map((msg) => ({
-            role: "user" as const,
-            content: `<system-reminder>\nThe user sent a new message while you were working:\n${msg.content}\n\nPlease address this message and continue with your tasks.\n</system-reminder>`,
-          }));
+          const injectedMessages = injections.map((msg) => {
+            const text = typeof msg.content === "string" ? msg.content : extractText(msg.content);
+            return {
+              role: "user" as const,
+              content: `<system-reminder>\nThe user sent a new message while you were working:\n${text}\n\nPlease address this message and continue with your tasks.\n</system-reminder>`,
+            };
+          });
 
           // Append to session so they persist
           for (const msg of injections) {

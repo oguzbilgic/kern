@@ -1,4 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
+import { join } from "path";
+import { existsSync, readFileSync } from "fs";
 import type { StreamEvent } from "./runtime.js";
 import type { Attachment } from "./interfaces/types.js";
 import { log } from "./log.js";
@@ -39,9 +41,14 @@ export class AgentServer {
   private sessionActivityFn: ((sessionId: string) => any) | null = null;
   private currentSessionIdFn: (() => string | null) | null = null;
   private port = 0;
+  private agentDir = "";
 
   constructor() {
     this.server = createServer((req, res) => this.handleRequest(req, res));
+  }
+
+  setAgentDir(dir: string) {
+    this.agentDir = dir;
   }
 
   setMessageHandler(handler: (text: string, userId: string, iface: string, channel: string, attachments?: Attachment[]) => Promise<void>) {
@@ -487,6 +494,32 @@ export class AgentServer {
       const data = this.sessionActivityFn(sessionActivityMatch[1]);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
+      return;
+    }
+
+    // Serve media files: GET /media/:filename
+    const mediaMatch = url.match(/^\/media\/([a-f0-9]+\.[a-z0-9]+)$/);
+    if (mediaMatch && req.method === "GET") {
+      const filename = mediaMatch[1];
+      const mediaPath = join(this.agentDir, ".kern", "media", filename);
+      if (existsSync(mediaPath)) {
+        const data = readFileSync(mediaPath);
+        const ext = filename.split(".").pop() || "";
+        const mimeMap: Record<string, string> = {
+          jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif",
+          webp: "image/webp", svg: "image/svg+xml", pdf: "application/pdf",
+          mp3: "audio/mpeg", ogg: "audio/ogg", wav: "audio/wav", m4a: "audio/mp4",
+          mp4: "video/mp4", mov: "video/quicktime", webm: "video/webm",
+        };
+        res.writeHead(200, {
+          "Content-Type": mimeMap[ext] || "application/octet-stream",
+          "Cache-Control": "public, max-age=31536000, immutable",
+        });
+        res.end(data);
+      } else {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: "media not found" }));
+      }
       return;
     }
 
