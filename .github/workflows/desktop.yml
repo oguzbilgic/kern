@@ -21,12 +21,15 @@ jobs:
         include:
           - platform: 'macos-latest'
             args: '--target aarch64-apple-darwin'
+            target: 'aarch64-apple-darwin'
             name: 'macos-arm64'
           - platform: 'macos-latest'
             args: '--target x86_64-apple-darwin'
+            target: 'x86_64-apple-darwin'
             name: 'macos-x64'
           - platform: 'ubuntu-22.04'
             args: ''
+            target: ''
             name: 'linux-x64'
 
     runs-on: ${{ matrix.platform }}
@@ -51,20 +54,21 @@ jobs:
         working-directory: desktop
         run: cargo tauri build ${{ matrix.args }}
 
+      - name: List build output
+        run: find desktop/src-tauri/target -name "*.dmg" -o -name "*.app" -o -name "*.deb" -o -name "*.AppImage" 2>/dev/null || true
+
       - name: Upload artifacts (macOS)
         if: matrix.platform == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
           name: kern-${{ matrix.name }}
-          path: |
-            desktop/src-tauri/target/*/release/bundle/dmg/*.dmg
-            desktop/src-tauri/target/*/release/bundle/macos/*.app
+          path: desktop/src-tauri/target/${{ matrix.target }}/release/bundle/
+          if-no-files-found: warn
 
       - name: Upload artifacts (Linux)
         if: matrix.platform == 'ubuntu-22.04'
         uses: actions/upload-artifact@v4
         with:
           name: kern-${{ matrix.name }}
-          path: |
-            desktop/src-tauri/target/release/bundle/deb/*.deb
-            desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+          path: desktop/src-tauri/target/release/bundle/
+          if-no-files-found: warn
