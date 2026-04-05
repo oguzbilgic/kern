@@ -9,6 +9,7 @@
 - **Header redesign** — larger centered agent name, no status dot or bottom border; click agent name to toggle info panel with cache stats
 - **Inline file attachments** — drag-and-drop attachment preview inside the input pill with square thumbnails, iMessage-style
 - **Emoji-only messages** ([#55](https://github.com/oguzbilgic/kern-ai/issues/55)) — messages with 1-3 emoji render large with no bubble
+- **Sidebar resize** — drag the right edge to resize between full, mini (avatars only), and collapsed states; double-click to toggle
 - **Input redesign** — unified pill-shaped container with SVG icons, focus glow, inverted send button
 - **Syntax highlighting in assistant messages** ([#39](https://github.com/oguzbilgic/kern-ai/issues/39)) — fenced code blocks get syntax highlighting via highlight.js
 - **Auto-link bare URLs** in assistant messages
