@@ -3,19 +3,29 @@
 use tauri::menu::{Menu, MenuItem};
 use tauri::{Emitter, Manager};
 
+#[tauri::command]
+fn navigate_to(window: tauri::WebviewWindow, url: String) -> Result<(), String> {
+    window
+        .navigate(url.parse().map_err(|e| format!("Invalid URL: {}", e))?)
+        .map_err(|e| format!("Navigation failed: {}", e))
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
+        .invoke_handler(tauri::generate_handler![navigate_to])
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
                 window.open_devtools();
             }
-            
+
             let logout = MenuItem::with_id(app, "logout", "Logout", true, None::<&str>)?;
-            let reconnect = MenuItem::with_id(app, "reconnect", "Reconnect…", true, None::<&str>)?;
+            let reconnect =
+                MenuItem::with_id(app, "reconnect", "Reconnect…", true, None::<&str>)?;
             let reload = MenuItem::with_id(app, "reload", "Reload", true, None::<&str>)?;
-            let open_browser = MenuItem::with_id(app, "open_browser", "Open in Browser", true, None::<&str>)?;
+            let open_browser =
+                MenuItem::with_id(app, "open_browser", "Open in Browser", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&logout, &reconnect, &reload, &open_browser])?;
             app.set_menu(menu)?;
             Ok(())

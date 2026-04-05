@@ -233,7 +233,19 @@
         }
 
         saveServer(url, token);
-        window.location.replace(url + '?token=' + encodeURIComponent(token));
+        const targetUrl = url + '?token=' + encodeURIComponent(token);
+
+        // Use Tauri command to navigate the WebView from Rust
+        if (window.__TAURI_INTERNALS__) {
+          try {
+            await window.__TAURI_INTERNALS__.invoke('navigate_to', { url: targetUrl });
+            return; // Rust handles navigation
+          } catch (tauriErr) {
+            console.warn('Tauri navigate failed, falling back to JS:', tauriErr);
+          }
+        }
+        // Fallback for non-Tauri (testing in browser)
+        window.location.replace(targetUrl);
       } catch (e) {
         showError(
           e.message || 'Load failed',
