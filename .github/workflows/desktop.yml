@@ -21,10 +21,13 @@ jobs:
         include:
           - platform: 'macos-latest'
             args: '--target aarch64-apple-darwin'
+            name: 'macos-arm64'
           - platform: 'macos-latest'
             args: '--target x86_64-apple-darwin'
+            name: 'macos-x64'
           - platform: 'ubuntu-22.04'
             args: ''
+            name: 'linux-x64'
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -41,14 +44,27 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - uses: tauri-apps/tauri-action@v0.6
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --locked
+
+      - name: Build
+        working-directory: desktop
+        run: cargo tauri build ${{ matrix.args }}
+
+      - name: Upload artifacts (macOS)
+        if: matrix.platform == 'macos-latest'
+        uses: actions/upload-artifact@v4
         with:
-          projectPath: desktop
-          tagName: desktop-v__VERSION__
-          releaseName: 'kern Desktop v__VERSION__'
-          releaseBody: 'Download the desktop app for your platform.'
-          releaseDraft: true
-          prerelease: false
-          args: ${{ matrix.args }}
+          name: kern-${{ matrix.name }}
+          path: |
+            desktop/src-tauri/target/*/release/bundle/dmg/*.dmg
+            desktop/src-tauri/target/*/release/bundle/macos/*.app
+
+      - name: Upload artifacts (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: actions/upload-artifact@v4
+        with:
+          name: kern-${{ matrix.name }}
+          path: |
+            desktop/src-tauri/target/release/bundle/deb/*.deb
+            desktop/src-tauri/target/release/bundle/appimage/*.AppImage
