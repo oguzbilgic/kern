@@ -32,12 +32,12 @@
     --yellow: #d29922;
     --cyan: #56d4dd;
     --tool-bash: #f85149;
-    --tool-read: #56d4dd;
+    --tool-read: #e6edf3;
     --tool-write: #3fb950;
     --tool-edit: #d29922;
     --tool-glob: #bc8cff;
     --tool-grep: #58a6ff;
-    --tool-webfetch: #56d4dd;
+    --tool-webfetch: #e6edf3;
     --tool-kern: #e6edf3;
     --tool-message: #3fb950;
     --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
@@ -388,7 +388,7 @@
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 6px;
     max-width: 800px;
     width: 100%;
     margin: 0 auto;
@@ -431,7 +431,7 @@
     align-self: flex-end;
     background: var(--bg-surface);
     color: #d4d4d4;
-    border-radius: 8px;
+    border-radius: 8px 8px 2px 8px;
   }
   .message.user-remote {
     align-self: flex-end;
@@ -486,16 +486,13 @@
     border-radius: 8px 8px 8px 2px;
     color: #d4d4d4;
   }
-  /* Extra spacing between turns (user→assistant, assistant→user) */
+  /* Extra spacing between turns (user↔assistant) */
   .message.user + .message.assistant,
   .message.user + .message.tool,
   .message.user-media + .message.assistant,
   .message.user-media + .message.tool,
   .message.assistant + .message.user,
   .message.assistant + .message.user-media,
-  .message.assistant + .ts-right,
-  .ts-left + .message.user,
-  .ts-left + .message.user-media,
   .ts-right + .message.assistant,
   .ts-right + .message.tool {
     margin-top: 8px;
@@ -511,6 +508,7 @@
     font-size: 10px;
     color: var(--text-muted);
     padding: 2px 4px;
+    margin-top: -4px;
   }
   .ts-right { align-self: flex-end; }
   .ts-left { align-self: flex-start; }
@@ -530,6 +528,7 @@
     color: var(--text-dim);
     padding: 4px 10px;
     max-width: 90%;
+    white-space: normal;
   }
   .message.tool { cursor: pointer; }
   .message.tool .tool-header { display: flex; align-items: center; gap: 6px; }
@@ -544,6 +543,8 @@
   }
   .message.tool .tool-prompt { color: var(--text-muted); user-select: none; }
   .message.tool .tool-detail { color: var(--text-muted); }
+  .message.tool.tool-bash-style .tool-header { align-items: flex-start; }
+  .message.tool.tool-bash-style .tool-detail { white-space: pre-wrap; }
   .message.tool .tool-output {
     display: none;
     margin-top: 6px;
@@ -4216,6 +4217,26 @@ function scrollToBottom(force) {
   }
 }
 
+function formatBashCommand(cmd) {
+  // Syntax highlight with hljs if available
+  let html;
+  if (typeof hljs !== 'undefined') {
+    html = hljs.highlight(cmd, { language: 'bash' }).value;
+  } else {
+    html = escapeHtml(cmd);
+  }
+  // Break long commands at &&, ||, |, ; with indented continuation
+  if (cmd.length >= 60) {
+    html = html
+      .replace(/ &amp;&amp; /g, ' &amp;&amp;\n    ')
+      .replace(/ \|\| /g, ' ||\n    ')
+      .replace(/ \| /g, ' |\n    ')
+      .replace(/ ; /g, ';\n    ')
+      .replace(/ \\\n/g, ' \\\n    ');
+  }
+  return html;
+}
+
 const TOOL_COLORS = {
   bash: 'var(--tool-bash)', read: 'var(--tool-read)', write: 'var(--tool-write)',
   edit: 'var(--tool-edit)', glob: 'var(--tool-glob)', grep: 'var(--tool-grep)',
@@ -4426,7 +4447,8 @@ function addMessage(type, content, meta, toolInput, timestamp, iface) {
     if (toolInput && toolInput.path) el.dataset.toolPath = toolInput.path;
     if (toolName === 'bash') {
       el.classList.add('tool-bash-style');
-      el.innerHTML = `<div class="tool-header"><span class="tool-prompt">$</span><span class="tool-detail">${toolDetail}</span></div><div class="tool-output"></div>`;
+      const fmtCmd = formatBashCommand(toolDetail.trim());
+      el.innerHTML = `<div class="tool-header"><span class="tool-prompt">$</span><span class="tool-detail">${fmtCmd}</span></div><div class="tool-output"></div>`;
     } else {
       el.innerHTML = `<div class="tool-header"><span class="tool-arrow">&#9654;</span><span class="tool-name" style="color:${color}">${toolName}</span><span class="tool-detail">${toolDetail}</span></div><div class="tool-output"></div>`;
     }
