@@ -184,11 +184,35 @@ export function saveMedia(
 
 // --- Ingest-time digest ---
 
+/** Known vision-capable models per provider, used as last-resort fallback. */
+const VISION_FALLBACKS: Record<string, string> = {
+  anthropic: "claude-sonnet-4-20250514",
+  openai: "gpt-4.1-mini",
+  openrouter: "openai/gpt-4.1-mini",
+};
+
+/**
+ * Build the model fallback chain for media digest.
+ * Order: mediaModel (if set) → agent model → hardcoded provider fallback.
+ * Deduplicates entries.
+ */
+function getDigestModelChain(config: KernConfig): string[] {
+  const chain: string[] = [];
+  if (config.mediaModel) chain.push(config.mediaModel);
+  chain.push(config.model);
+  const fallback = VISION_FALLBACKS[config.provider];
+  if (fallback) chain.push(fallback);
+  // Deduplicate while preserving order
+  return [...new Set(chain)];
+}
+
 /**
  * Digest media at ingest time — runs once when media first arrives.
  * For images: calls vision model to get text description.
  * For other types: could extract text locally (PDF, etc.) in future.
  * Results are cached in the sidecar.
+ *
+ * Tries models in order: mediaModel → agent model → provider fallback.
  */
 export async function digestMediaAtIngest(
   sidecar: MediaSidecar,
@@ -204,40 +228,47 @@ export async function digestMediaAtIngest(
   const cached = sidecar.getDescription(file);
   if (cached) return cached;
 
-  const modelId = config.mediaModel || config.model;
-
   const mediaDir = join(agentDir, ".kern", "media");
   const fullPath = join(mediaDir, file);
   if (!existsSync(fullPath)) return null;
 
-  try {
-    log("media", `digesting ${file} with ${modelId}...`);
-    const buf = readFileSync(fullPath);
-    const digestModel = createModel({ ...config, model: modelId });
+  const buf = readFileSync(fullPath);
+  const chain = getDigestModelChain(config);
 
-    const result = await generateText({
-      model: digestModel,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "image", image: buf, mediaType: mimeType },
-            { type: "text", text: "Describe this image." },
-          ],
-        },
-      ],
-      maxOutputTokens: 300,
-    });
+  for (const modelId of chain) {
+    try {
+      log("media", `digesting ${file} with ${modelId}...`);
+      const digestModel = createModel({ ...config, model: modelId });
 
-    const description = result.text.trim();
-    if (description) {
-      sidecar.updateDescription(file, description, modelId);
-      log("media", `digested ${file}: ${description.slice(0, 80)}...`);
-      return description;
+      const result = await generateText({
+        model: digestModel,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "image", image: buf, mediaType: mimeType },
+              { type: "text", text: "Describe this image." },
+            ],
+          },
+        ],
+        maxOutputTokens: 300,
+      });
+
+      const description = result.text.trim();
+      if (description) {
+        sidecar.updateDescription(file, description, modelId);
+        log("media", `digested ${file}: ${description.slice(0, 80)}...`);
+        return description;
+      }
+    } catch (err) {
+      log.warn("media", `digest failed with ${modelId}: ${err}`);
+      if (modelId !== chain[chain.length - 1]) {
+        log("media", `falling back to next model...`);
+      }
     }
-  } catch (err) {
-    log.warn("media", `digest failed for ${file}: ${err}`);
   }
+
+  log.warn("media", `all digest models failed for ${file}`);
   return null;
 }
 

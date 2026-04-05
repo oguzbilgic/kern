@@ -27,7 +27,7 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 | `summaryBudget` | `0.2` | Fraction of `maxContextTokens` for compressed conversation summaries from segments. Set to `0` to disable. See [Context](context.md#conversation-summary). |
 | `autoRecall` | `false` | Automatically inject relevant old context before each turn. Requires recall enabled. |
 | `mediaDigest` | `true` | Enable image pre-digest: describes images via vision model on arrival, caches descriptions, and replaces raw images with text in context. Set to `false` to disable the entire digest pipeline. |
-| `mediaModel` | `""` | Vision model for media descriptions. Empty string falls back to the agent's main model. Example: `"openai/gpt-4o-mini"`. |
+| `mediaModel` | `""` | Vision model for media descriptions. Fallback chain: `mediaModel` → agent model → hardcoded provider default. Example: `"openai/gpt-4.1-mini"`. |
 | `mediaContext` | `0` | How many recent turns resolve raw media Buffers to the model. `0` = never send raw binary (text descriptions or placeholders only). Applies to all media types — useful for non-image files like PDFs on models with native support. |
 
 ### Tool scopes
