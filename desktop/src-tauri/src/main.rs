@@ -8,6 +8,10 @@ fn main() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                window.open_devtools();
+            }
+            
             let logout = MenuItem::with_id(app, "logout", "Logout", true, None::<&str>)?;
             let reconnect = MenuItem::with_id(app, "reconnect", "Reconnect…", true, None::<&str>)?;
             let reload = MenuItem::with_id(app, "reload", "Reload", true, None::<&str>)?;
