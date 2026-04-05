@@ -50,3 +50,4 @@ desktop/
 │   └── src/main.rs      # Entry point
 └── README.md
 ```
+
