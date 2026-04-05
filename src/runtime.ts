@@ -297,7 +297,7 @@ export class Runtime {
           let detail = String(args.path || args.command || args.pattern || args.url || args.action || args.userId || args.query || args.file || "");
           // Enrich detail for tools with extra display-worthy params
           if (args.pages) detail += ` pages:${args.pages}`;
-          if (args.prompt && part.toolName === "pdf") detail += ` "${String(args.prompt).slice(0, 60)}"`;
+          if (args.prompt && (part.toolName === "pdf" || part.toolName === "image")) detail += ` "${String(args.prompt).slice(0, 60)}"`;
           if (args.offset) detail += ` +${args.offset}`;
           if (args.limit && args.limit !== 2000) detail += ` limit:${args.limit}`;
           onEvent({ type: "tool-call", toolName: part.toolName, toolDetail: detail, toolInput: args });

@@ -12,11 +12,10 @@
   - Inline rendering in web UI with auth-proxied media URLs
   - Media served via `GET /media/:filename` endpoint with immutable caching
 - **Media pre-digest** — automatic image description via vision model:
-  - `LanguageModelMiddleware` replaces image buffers with text descriptions before chat model call
-  - Descriptions cached in `.media.jsonl` sidecar per session (append-only, crash-safe)
-  - SQLite `media` table mirrors sidecar for cross-session queries
-  - Stale detection: re-describes when `mediaModel` config changes
-  - Config: `mediaDigest` (boolean, default `true`), `mediaModel` (string, optional — falls back to main model)
+  - Images described at ingest time, cached permanently in sidecar + SQLite
+  - Descriptions replace raw image buffers before model call, saving tokens
+  - Model fallback chain: `mediaModel` config → agent model → provider default
+  - Config: `mediaDigest` (boolean, default `true`), `mediaModel` (string, optional), `mediaContext` (number, default `0` — turns of raw binary exposure)
 - **PDF tool** — `pdf(file, pages?, prompt?)` for reading and analyzing PDFs:
   - `pages`: defaults to page 1 for reading, all pages when `prompt` is provided. Supports ranges like `1-5` or `2,4,7-9`
   - `prompt`: sends extracted text to the AI model for analysis

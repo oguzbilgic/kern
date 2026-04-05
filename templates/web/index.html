@@ -4605,7 +4605,7 @@ async function init() {
               const input = part.input || {};
               let detail = input.path || input.command || input.pattern || input.url || input.action || input.query || input.userId || input.file || '';
               if (input.pages) detail += ` pages:${input.pages}`;
-              if (input.prompt && part.toolName === 'pdf') detail += ` "${String(input.prompt).slice(0, 60)}"`;
+              if (input.prompt && (part.toolName === 'pdf' || part.toolName === 'image')) detail += ` "${String(input.prompt).slice(0, 60)}"`;
               if (input.offset) detail += ` +${input.offset}`;
               if (input.limit && input.limit !== 2000) detail += ` limit:${input.limit}`;
               const el = addMessage('tool', `${part.toolName} ${detail}`, null, input);
