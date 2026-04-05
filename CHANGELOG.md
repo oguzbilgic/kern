@@ -1,5 +1,11 @@
 # Changelog
 
+## next
+
+### Improvements
+- **Syntax highlighting in chat** — fenced code blocks in assistant messages now get language-aware syntax highlighting via highlight.js (same theme as tool output)
+- **Auto-link bare URLs** — plain `https://` URLs in messages are now clickable links
+
 ## v0.19.0
 
 ### Features
