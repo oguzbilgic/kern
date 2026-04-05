@@ -3,32 +3,12 @@
 ## next
 
 ### Features
-- **Multi-modal media** — images and files in conversations across all interfaces:
-  - **Telegram**: photos, documents, stickers, voice, video, and audio downloaded and stored
-  - **Slack**: files shared in messages downloaded and stored
-  - **Web UI**: drag-and-drop or file picker upload with inline preview
-  - Content-addressed storage in `.kern/media/` (SHA-256 hashed filenames)
-  - SDK-native content arrays in messages (`ImagePart` / `FilePart`)
-  - Inline rendering in web UI with auth-proxied media URLs
-  - Media served via `GET /media/:filename` endpoint with immutable caching
-- **Media pre-digest** — automatic image description via vision model:
-  - Images described at ingest time, cached permanently in sidecar + SQLite
-  - Descriptions replace raw image buffers before model call, saving tokens
-  - Model fallback chain: `mediaModel` config → agent model → provider default
-  - Config: `mediaDigest` (boolean, default `true`), `mediaModel` (string, optional), `mediaContext` (number, default `0` — turns of raw binary exposure)
-- **PDF tool** — `pdf(file, pages?, prompt?)` for reading and analyzing PDFs:
-  - `pages`: defaults to page 1 for reading, all pages when `prompt` is provided. Supports ranges like `1-5` or `2,4,7-9`
-  - `prompt`: sends extracted text to the AI model for analysis
-  - Header shows total page count so agent knows document scope
-  - Uses `unpdf` for text extraction — no external dependencies
-- **Image tool** — `image(file, prompt?)` for on-demand vision analysis:
-  - Analyze any image file on disk or in `.kern/media/`
-  - `prompt` defaults to "Describe this image." — agent can ask specific questions
-  - Uses the same chat model (no separate vision model config needed)
-- **Web tools** — two new built-in tools for web research:
-  - `websearch` — search the web via DuckDuckGo, returns results as markdown with titles, URLs, and snippets
-  - `webfetch` — fetch any URL with automatic HTML-to-markdown conversion. JSON and plain text returned as-is. New `raw` option to get original HTML.
-- **Finding answers** — new KERN.md section encouraging agents to use web tools instead of relying on stale training data
+- **Multi-modal media** — send images and files to your agent from Telegram, Slack, or web UI. Media stored locally with content-addressed filenames (SHA-256). Inline rendering in web UI.
+- **Image pre-digest** — images automatically described by a vision model on arrival. Descriptions cached and used in place of raw image data, saving tokens and working with text-only models. Config: `mediaDigest`, `mediaModel`.
+- **PDF tool** — `pdf(file, pages?, prompt?)` for reading and analyzing PDFs. Extracts text via `unpdf`, optional AI analysis with `prompt`. Supports page ranges like `1-5` or `2,4,7-9`.
+- **Image tool** — `image(file, prompt?)` for on-demand vision analysis of any image on disk or in `.kern/media/`.
+- **Web search** ([#37](https://github.com/oguzbilgic/kern-ai/pull/37)) — `websearch` tool searches DuckDuckGo, returns markdown results.
+- **Web fetch** ([#37](https://github.com/oguzbilgic/kern-ai/pull/37)) — `webfetch` tool fetches URLs with automatic HTML-to-markdown conversion. `raw` option for original HTML.
 
 ## v0.18.1
 
