@@ -247,7 +247,9 @@
     }
 
     function connectTo(url, token) {
-      window.location.href = url + '?token=' + encodeURIComponent(token);
+      document.getElementById('url').value = url;
+      document.getElementById('token').value = token;
+      connect();
     }
 
     // No aggressive auto-connect to prevent loops
