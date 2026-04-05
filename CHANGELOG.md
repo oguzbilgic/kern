@@ -3,12 +3,21 @@
 ## next
 
 ### Features
-- **Multi-modal media** — send images and files to your agent from Telegram, Slack, or web UI. Media stored locally with content-addressed filenames (SHA-256). Inline rendering in web UI.
-- **Image pre-digest** — images automatically described by a vision model on arrival. Descriptions cached and used in place of raw image data, saving tokens and working with text-only models. Config: `mediaDigest`, `mediaModel`.
-- **PDF tool** — `pdf(file, pages?, prompt?)` for reading and analyzing PDFs. Extracts text via `unpdf`, optional AI analysis with `prompt`. Supports page ranges like `1-5` or `2,4,7-9`.
-- **Image tool** — `image(file, prompt?)` for on-demand vision analysis of any image on disk or in `.kern/media/`.
-- **Web search** ([#37](https://github.com/oguzbilgic/kern-ai/pull/37)) — `websearch` tool searches DuckDuckGo, returns markdown results.
-- **Web fetch** ([#37](https://github.com/oguzbilgic/kern-ai/pull/37)) — `webfetch` tool fetches URLs with automatic HTML-to-markdown conversion. `raw` option for original HTML.
+- **Multi-modal media** ([#38](https://github.com/oguzbilgic/kern-ai/pull/38)) — send images and files to your agent from any interface. Content-addressed storage in `.kern/media/` (SHA-256 hashed filenames).
+  - **Telegram**: photos, documents, stickers, voice, video, and audio
+  - **Slack**: files shared in messages
+  - **Web UI**: drag-and-drop or file picker upload with inline preview
+  - Inline image rendering and file download links in chat history
+  - Media served via `/media/:filename` endpoint, proxied with auth through web server
+- **Image pre-digest** ([#38](https://github.com/oguzbilgic/kern-ai/pull/38)) — images automatically described by a vision model on arrival. Descriptions cached and reused across turns, saving tokens and enabling text-only models.
+  - Model fallback chain: `mediaModel` config → agent's main model → provider default
+  - Config: `mediaDigest` (boolean, default `true`), `mediaModel` (string, optional)
+- **PDF tool** ([#38](https://github.com/oguzbilgic/kern-ai/pull/38)) — `pdf(file, pages?, prompt?)` for reading and analyzing PDFs.
+  - Text extraction via `unpdf`. Page ranges: `1-5`, `2,4,7-9`. Header shows total page count.
+  - Optional `prompt` sends extracted text to the AI model for analysis
+- **Image tool** ([#38](https://github.com/oguzbilgic/kern-ai/pull/38)) — `image(file, prompt?)` for on-demand vision analysis of any image on disk or in `.kern/media/`.
+- **Web search** ([#37](https://github.com/oguzbilgic/kern-ai/pull/37)) — `websearch` tool searches DuckDuckGo, returns markdown results with titles, URLs, and snippets.
+- **Web fetch** ([#37](https://github.com/oguzbilgic/kern-ai/pull/37)) — `webfetch` tool fetches any URL with automatic HTML-to-markdown conversion. JSON and plain text returned as-is. `raw` option for original HTML.
 
 ## v0.18.1
 
