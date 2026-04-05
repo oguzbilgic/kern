@@ -7,10 +7,6 @@
   },
   "app": {
     "withGlobalTauri": true,
-    "security": {
-      "dangerousRemoteDomainIpcAccess": [],
-      "pattern": { "use": "brownfield" }
-    },
     "windows": [
       {
         "title": "kern",
