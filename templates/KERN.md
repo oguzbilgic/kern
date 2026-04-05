@@ -78,8 +78,6 @@ Users can send images and files through any interface (Telegram, Slack, Web UI).
 
 By default, images are pre-digested: a vision model describes each image once, and the description is cached. Your chat model sees text like `[Image: A screenshot showing a terminal with error output...]` instead of raw image data. This works with text-only models and saves tokens.
 
-If `mediaDigest` is disabled in config, raw images are sent inline to the chat model (requires a vision-capable model).
-
 You don't need to do anything special to handle media — it's automatic. But know that `.kern/media/` exists if you need to reference stored files.
 
 ### Heartbeat
