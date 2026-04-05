@@ -1002,8 +1002,8 @@
   .cmd-popup {
     display: none;
     position: absolute;
-    left: 12px;
-    right: 12px;
+    left: 8px;
+    right: 8px;
     bottom: calc(100% + 8px);
     margin-bottom: 0;
     background: var(--bg-surface);
@@ -4916,19 +4916,20 @@ let cmdFiltered = [];
 
 function updateCmdPopup() {
   const val = inputEl.value;
+  const trigger = val.trim().toLowerCase();
   // Show popup only when input starts with / and is a single word (no spaces)
-  if (!val.startsWith('/') || val.includes(' ') || !val.trim()) {
+  if (!trigger.startsWith('/') || trigger.includes(' ')) {
     cmdPopup.classList.remove('open');
     cmdFiltered = [];
     return;
   }
-  const query = val.toLowerCase();
+  const query = trigger;
   cmdFiltered = SLASH_COMMANDS.filter(c => c.name.startsWith(query));
   if (cmdFiltered.length === 0) {
     cmdPopup.classList.remove('open');
     return;
   }
-  cmdSelectedIdx = Math.min(cmdSelectedIdx, cmdFiltered.length - 1);
+  cmdSelectedIdx = Math.max(0, Math.min(cmdSelectedIdx, cmdFiltered.length - 1));
   cmdPopup.innerHTML = cmdFiltered.map((c, i) =>
     `<div class="cmd-item${i === cmdSelectedIdx ? ' selected' : ''}" data-idx="${i}">` +
     `<span class="cmd-item-name">${c.name}</span>` +
@@ -4968,6 +4969,10 @@ inputEl.addEventListener('input', () => {
 });
 
 inputEl.addEventListener('focus', () => {
+  updateCmdPopup();
+});
+
+inputEl.addEventListener('click', () => {
   updateCmdPopup();
 });
 
