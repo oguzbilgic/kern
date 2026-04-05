@@ -4951,6 +4951,14 @@ function updateCmdPopup() {
   } else {
     cmdPopup.style.bottom = 'calc(100% + 8px)';
   }
+  console.log('[cmd-popup]', {
+    val,
+    trigger,
+    count: cmdFiltered.length,
+    open: cmdPopup.classList.contains('open'),
+    display: cmdPopup.style.display,
+    rect: cmdPopup.getBoundingClientRect(),
+  });
 }
 
 cmdPopup.addEventListener('click', (e) => {
