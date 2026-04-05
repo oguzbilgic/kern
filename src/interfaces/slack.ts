@@ -164,7 +164,7 @@ export class SlackInterface implements Interface {
       try {
         const response = await onMessage(
           {
-            text: cleanText || (attachments.length > 0 ? "[media]" : ""),
+            text: cleanText || "",
             userId,
             chatId: channelId,
             interface: "slack",

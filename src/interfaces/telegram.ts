@@ -264,7 +264,7 @@ export class TelegramInterface implements Interface {
       try {
         const response = await onMessage(
           {
-            text: text || (attachments.length > 0 ? "[media]" : ""),
+            text: text || "",
             userId: userId.toString(),
             chatId,
             interface: "telegram",

@@ -449,19 +449,27 @@
     flex-wrap: wrap;
     gap: 6px;
   }
+  .message.user-media {
+    align-self: flex-end;
+    background: transparent;
+    padding: 0;
+    max-width: 50%;
+    margin: 4px 0;
+  }
+  .message.user-media .media-attachments { margin-top: 0; }
   .media-image {
-    max-width: 300px;
-    max-height: 300px;
-    border-radius: 6px;
+    max-width: 100%;
+    max-height: 400px;
+    border-radius: 8px;
     cursor: pointer;
     object-fit: contain;
   }
   .media-image:hover { opacity: 0.9; }
   .media-file {
     display: inline-block;
-    padding: 4px 8px;
+    padding: 6px 10px;
     background: var(--bg-sidebar);
-    border-radius: 4px;
+    border-radius: 6px;
     color: var(--orange);
     text-decoration: none;
     font-size: 12px;
@@ -967,9 +975,13 @@
   .attach-btn:hover { color: var(--text); }
   .attachment-preview {
     display: none;
-    padding: 4px 12px 0;
-    gap: 8px;
+    padding: 6px 8px;
+    gap: 6px;
     flex-wrap: wrap;
+    margin-bottom: 4px;
+    background: var(--bg-surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
   }
   .attachment-preview.has-items { display: flex; }
   .attachment-thumb {
@@ -4310,6 +4322,7 @@ async function send() {
     filename: att.filename,
     size: att.size,
     data: att.base64,
+    dataUrl: att.dataUrl,
   }));
 
   inputEl.value = '';
@@ -4318,23 +4331,23 @@ async function send() {
   renderAttachmentPreviews();
   sendBtn.disabled = true;
 
-  // Build display text
-  let displayText = text || '';
-  if (hasAttachments && !displayText) {
-    displayText = attachments.map(a => `📎 ${a.filename || a.type}`).join('\n');
+  // Show text bubble if there's text
+  if (text) {
+    addMessage('user', text, null, null, new Date(), 'web');
   }
-
-  const el = addMessage('user', displayText, null, null, new Date(), 'web');
-  // Show inline previews for sent attachments
-  if (el && hasAttachments) {
+  // Show media as separate bubble
+  if (hasAttachments) {
+    const mediaEl = document.createElement('div');
+    mediaEl.className = 'message user-media';
     const mc = document.createElement('div');
     mc.className = 'media-attachments';
-    for (const att of pendingAttachments) {
-      if (att.type === 'image' && att.dataUrl) {
+    for (const att of attachments) {
+      if ((att.type === 'image' || att.mimeType?.startsWith('image/')) && att.dataUrl) {
         const img = document.createElement('img');
         img.src = att.dataUrl;
         img.className = 'media-image';
         img.alt = att.filename;
+        img.onload = () => scrollToBottom();
         mc.appendChild(img);
       } else {
         const icon = att.type === 'video' ? '🎬' : att.type === 'audio' ? '🎵' : '📄';
@@ -4344,7 +4357,8 @@ async function send() {
         mc.appendChild(lbl);
       }
     }
-    el.appendChild(mc);
+    mediaEl.appendChild(mc);
+    messagesEl.appendChild(mediaEl);
   }
   scrollToBottom(true);
   if (!busy) {
@@ -4543,37 +4557,42 @@ async function init() {
             else if (part.type === 'file') mediaParts.push(part);
           }
           const parsed = parseHistoryUserMessage(text);
-          if (parsed) {
-            const el = addMessage(parsed.type, parsed.text, parsed.meta, null, parsed.timestamp, parsed.iface);
-            if (el && mediaParts.length > 0) {
-              const mediaContainer = document.createElement('div');
-              mediaContainer.className = 'media-attachments';
-              for (const mp of mediaParts) {
-                if (mp.type === 'image') {
-                  const file = (typeof mp.image === 'string' && mp.image.startsWith('kern-media://'))
-                    ? mp.image.slice('kern-media://'.length) : null;
-                  if (file) {
-                    const img = document.createElement('img');
-                    img.src = `${BASE_URL}/media/${file}`;
-                    img.className = 'media-image';
-                    img.alt = file;
-                    img.loading = 'lazy';
-                    mediaContainer.appendChild(img);
-                  }
-                } else if (mp.type === 'file') {
-                  const file = (typeof mp.data === 'string' && mp.data.startsWith('kern-media://'))
-                    ? mp.data.slice('kern-media://'.length) : null;
-                  const label = mp.filename || file || 'file';
-                  const link = document.createElement('a');
-                  link.href = file ? `${BASE_URL}/media/${file}` : '#';
-                  link.className = 'media-file';
-                  link.textContent = `📎 ${label}`;
-                  link.target = '_blank';
-                  mediaContainer.appendChild(link);
+          const hasMedia = mediaParts.length > 0;
+          if (parsed && !(hasMedia && (parsed.text === '(empty)' || !parsed.text.trim()))) {
+            addMessage(parsed.type, parsed.text, parsed.meta, null, parsed.timestamp, parsed.iface);
+          }
+          if (mediaParts.length > 0) {
+            const mediaEl = document.createElement('div');
+            mediaEl.className = 'message user-media';
+            const mediaContainer = document.createElement('div');
+            mediaContainer.className = 'media-attachments';
+            for (const mp of mediaParts) {
+              if (mp.type === 'image') {
+                const file = (typeof mp.image === 'string' && mp.image.startsWith('kern-media://'))
+                  ? mp.image.slice('kern-media://'.length) : null;
+                if (file) {
+                  const img = document.createElement('img');
+                  img.src = `${BASE_URL}/media/${file}${AUTH_TOKEN ? '?token=' + AUTH_TOKEN : ''}`;
+                  img.className = 'media-image';
+                  img.alt = file;
+                  img.loading = 'lazy';
+                  img.onload = () => scrollToBottom();
+                  mediaContainer.appendChild(img);
                 }
+              } else if (mp.type === 'file') {
+                const file = (typeof mp.data === 'string' && mp.data.startsWith('kern-media://'))
+                  ? mp.data.slice('kern-media://'.length) : null;
+                const label = mp.filename || file || 'file';
+                const link = document.createElement('a');
+                link.href = file ? `${BASE_URL}/media/${file}${AUTH_TOKEN ? '?token=' + AUTH_TOKEN : ''}` : '#';
+                link.className = 'media-file';
+                link.textContent = `📎 ${label}`;
+                link.target = '_blank';
+                mediaContainer.appendChild(link);
               }
-              el.appendChild(mediaContainer);
             }
+            mediaEl.appendChild(mediaContainer);
+            messagesEl.appendChild(mediaEl);
           }
         }
       } else if (msg.role === 'assistant') {

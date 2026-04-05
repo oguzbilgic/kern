@@ -274,7 +274,7 @@ export class AgentServer {
           log("server", `incoming broadcast: interface=${iface || "web"} user=${userId || "tui"} exclude=${excludeId || "none"} clients=${this.clients.length}`);
           this.broadcast({
             type: "incoming" as any,
-            text: text || "[media]",
+            text: text || "",
             fromInterface: iface || "web",
             fromUserId: userId || "tui",
             fromChannel: channel || "web",
@@ -283,7 +283,7 @@ export class AgentServer {
 
         // Handle async — don't await, response already sent
         if (this.onMessage) {
-          this.onMessage(text || "[media]", userId || "tui", iface || "tui", channel || "tui", attachments).catch(() => {});
+          this.onMessage(text || "", userId || "tui", iface || "tui", channel || "tui", attachments).catch(() => {});
         }
       } catch {
         res.writeHead(400);
