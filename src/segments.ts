@@ -722,6 +722,9 @@ export class SegmentIndex {
    * Compose compressed history for context injection.
    * Fills a token budget with segment summaries from the trimmed region.
    * Recency bias: expands most recent segments to lower (more detailed) levels first.
+   *
+   * trimmedBeforeMsg is snapped down to the nearest L0 segment boundary
+   * so the summary tree stays stable across consecutive turns (better cache hits).
    */
   composeHistory(sessionId: string, trimmedBeforeMsg: number, budgetTokens: number): {
     text: string;
@@ -755,8 +758,18 @@ export class SegmentIndex {
 
     if (allSegments.length === 0) return null;
 
-    // Only segments covering the trimmed region (before trim boundary)
-    const trimmedSegments = allSegments.filter(s => s.msg_start < trimmedBeforeMsg);
+    // Snap trim boundary down to nearest L0 segment end for cache stability.
+    // This prevents the summary from changing every turn as new messages shift
+    // the trim boundary by 1-2 messages.
+    const l0Boundaries = allSegments
+      .filter(s => s.level === 0 && s.msg_end <= trimmedBeforeMsg)
+      .map(s => s.msg_end);
+    const snappedBoundary = l0Boundaries.length > 0
+      ? Math.max(...l0Boundaries)
+      : trimmedBeforeMsg;
+
+    // Only segments covering the trimmed region (before snapped boundary)
+    const trimmedSegments = allSegments.filter(s => s.msg_start < snappedBoundary);
     if (trimmedSegments.length === 0) return null;
 
     // Build a map of parent → children for expansion
