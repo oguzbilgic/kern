@@ -70,18 +70,16 @@ Two layers:
 
 ### Features
 
-- **Agent sidebar** — left panel with agents grouped by server, online/offline status dots, collapsible on desktop, slide-out on mobile
+- **Agent sidebar** — left panel with agents grouped by server, online/offline status dots. Drag the right edge to resize between full, mini (avatars only), and collapsed states
 - **Slash commands** — `/status`, `/restart`, `/help` with autocomplete popup
 - **Collapsible tool output** — click a tool call to expand and see the result. Edit tools show inline diffs (red/green).
 - **TUI-style message colors** — user (blue), incoming from Telegram/Slack (yellow), outgoing (green), heartbeat (magenta), per-tool colors
 - **Streaming responses** with live cursor and thinking indicator
 - **Mid-turn messaging** — input stays enabled while agent is working. Send follow-up messages or corrections that get injected between tool steps.
 - **Full history** on connect, including tool call results
-- **Agent info panel** — version, model, tools, Telegram/Slack connection status, uptime, session stats, API usage, queue state, connection string with copy
+- **Agent info panel** — click agent name in header to see model, uptime, session stats, cache hit rate, and API usage
 - **Auto-reconnect** — re-discovers agent port after restart
-- **Context inspection overlays** — inspect semantic segments and the fully composed system prompt from the info panel
-  - Segments overlay supports `All` / `Context` filters, live refresh during rebuilds, per-segment resummarization, and markdown-rendered summaries
-  - System prompt overlay supports `Markdown` and `Raw` views for the composed prompt
+- **Memory UI** — unified overlay with 5 tabs: Sessions, Segments, Notes, Recall, and Context
 - **Dark theme**, mobile-friendly, PWA support
 
 ### Global config
