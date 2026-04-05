@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.19.0
 
 ### Features
 - **Multi-modal media** ([#38](https://github.com/oguzbilgic/kern-ai/pull/38)) — send images and files to your agent from any interface. Content-addressed storage in `.kern/media/` (SHA-256 hashed filenames).
