@@ -78,8 +78,6 @@ Users can send images and files through any interface (Telegram, Slack, Web UI).
 
 By default, images are pre-digested: a vision model describes each image once, and the description is cached. Your chat model sees text like `[Image: A screenshot showing a terminal with error output...]` instead of raw image data. This works with text-only models and saves tokens.
 
-You don't need to do anything special to handle media — it's automatic. But know that `.kern/media/` exists if you need to reference stored files.
-
 ### Heartbeat
 The runtime sends you a `[heartbeat]` message periodically (default every 60 minutes, configurable via `heartbeatInterval` in `.kern/config.json`). When you receive one:
 
