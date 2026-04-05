@@ -1002,15 +1002,16 @@
   .cmd-popup {
     display: none;
     position: absolute;
-    bottom: 100%;
-    left: 0;
-    right: 0;
-    margin-bottom: 4px;
+    left: 12px;
+    right: 12px;
+    bottom: calc(100% + 8px);
+    margin-bottom: 0;
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 10px;
     overflow: hidden;
-    z-index: 50;
+    z-index: 80;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.35);
   }
   .cmd-popup.open { display: block; }
   .cmd-item {
@@ -4964,6 +4965,14 @@ inputEl.addEventListener('input', () => {
       inputEl.style.overflowY = inputEl.scrollHeight > inputEl.offsetHeight ? 'auto' : 'hidden';
     });
   }
+});
+
+inputEl.addEventListener('focus', () => {
+  updateCmdPopup();
+});
+
+inputEl.addEventListener('blur', () => {
+  setTimeout(() => cmdPopup.classList.remove('open'), 120);
 });
 
 inputEl.addEventListener('keydown', (e) => {
