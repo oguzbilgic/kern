@@ -3217,7 +3217,7 @@ function renderMediaDetail() {
   }
 
   if (item.description) {
-    html += `<div class="media-detail-desc">${escapeHtml(item.description)}</div>`;
+    html += `<div class="media-detail-desc prompt-markdown">${renderMarkdown(item.description)}</div>`;
   }
 
   html += `<div class="media-detail-meta">`;
