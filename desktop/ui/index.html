@@ -72,6 +72,24 @@
       font-size: 12px;
       margin-bottom: 12px;
       display: none;
+      white-space: pre-wrap;
+      line-height: 1.45;
+    }
+    .hint {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #2a2a2c;
+      color: #8b949e;
+      font-size: 12px;
+      line-height: 1.45;
+      display: none;
+    }
+    .hint code {
+      color: #e6edf3;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: rgba(255,255,255,0.04);
+      padding: 1px 4px;
+      border-radius: 4px;
     }
     .saved-servers {
       margin-top: 20px;
@@ -120,6 +138,7 @@
     <input type="password" id="token" placeholder="paste your web token">
 
     <div class="error" id="error"></div>
+    <div class="hint" id="hint"></div>
     <button id="connect" onclick="connect()">Connect</button>
 
     <div class="saved-servers" id="saved" style="display:none">
@@ -162,27 +181,61 @@
       `).join('');
     }
 
+    function showError(message, extra = '') {
+      const error = document.getElementById('error');
+      const hint = document.getElementById('hint');
+      error.textContent = message;
+      error.style.display = 'block';
+      if (extra) {
+        hint.innerHTML = extra;
+        hint.style.display = 'block';
+      } else {
+        hint.style.display = 'none';
+        hint.innerHTML = '';
+      }
+    }
+
     async function connect() {
       const url = document.getElementById('url').value.replace(/\/+$/, '');
       const token = document.getElementById('token').value;
       const error = document.getElementById('error');
+      const hint = document.getElementById('hint');
       const btn = document.getElementById('connect');
 
-      if (!url) { error.textContent = 'Enter a server URL'; error.style.display = 'block'; return; }
+      if (!url) { showError('Enter a server URL'); return; }
 
       btn.disabled = true;
       error.style.display = 'none';
+      hint.style.display = 'none';
 
       try {
-        const res = await fetch(url + '/api/agents', {
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
-        if (!res.ok) throw new Error(res.status === 401 ? 'Invalid token' : 'Connection failed');
+        let res;
+        try {
+          res = await fetch(url + '/api/agents', {
+            headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+          });
+        } catch (networkErr) {
+          throw new Error(`Could not reach ${url}\n\n${networkErr?.message || 'Network request failed'}`);
+        }
+
+        if (!res.ok) {
+          if (res.status === 401) {
+            throw new Error('Invalid token for this server');
+          }
+          if (res.status === 404) {
+            throw new Error('This URL is reachable, but it does not look like a kern web server');
+          }
+          const text = await res.text().catch(() => '');
+          throw new Error(`Server returned ${res.status} ${res.statusText}${text ? `\n\n${text.slice(0, 300)}` : ''}`);
+        }
+
         saveServer(url, token);
         window.location.href = url + '?token=' + encodeURIComponent(token);
       } catch (e) {
-        error.textContent = e.message;
-        error.style.display = 'block';
+        showError(
+          e.message || 'Load failed',
+          'Check that the URL points to <code>kern web</code>, the token is correct, and the server opens in your browser first.'
+        );
         btn.disabled = false;
       }
     }
