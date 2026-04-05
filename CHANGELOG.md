@@ -4,6 +4,9 @@
 
 ### Improvements
 - **Emoji-only messages** ([#55](https://github.com/oguzbilgic/kern-ai/issues/55)) — messages with 1-3 emoji and no text render large (48px) with no bubble, like iMessage and Telegram
+- **Web UI input redesign** — unified pill-shaped input container with attach, textarea, and send inside a single bordered capsule; SVG paperclip and arrow icons replace emoji/text; focus glow on the container; inverted send button when active; removed input area top border
+- **Syntax highlighting in assistant messages** ([#39](https://github.com/oguzbilgic/kern-ai/issues/39)) — fenced code blocks in assistant responses now get syntax highlighting via highlight.js
+- **Auto-link bare URLs** in assistant messages
 
 ## v0.20.0
 
