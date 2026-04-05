@@ -722,6 +722,9 @@ export class SegmentIndex {
    * Compose compressed history for context injection.
    * Fills a token budget with segment summaries from the trimmed region.
    * Recency bias: expands most recent segments to lower (more detailed) levels first.
+   *
+   * trimmedBeforeMsg is snapped down to the nearest L0 segment boundary
+   * so the summary tree stays stable across consecutive turns (better cache hits).
    */
   composeHistory(sessionId: string, trimmedBeforeMsg: number, budgetTokens: number): {
     text: string;
@@ -755,8 +758,18 @@ export class SegmentIndex {
 
     if (allSegments.length === 0) return null;
 
-    // Only segments covering the trimmed region (before trim boundary)
-    const trimmedSegments = allSegments.filter(s => s.msg_start < trimmedBeforeMsg);
+    // Snap trim boundary down to nearest L0 segment end for cache stability.
+    // This prevents the summary from changing every turn as new messages shift
+    // the trim boundary by 1-2 messages.
+    const l0Boundaries = allSegments
+      .filter(s => s.level === 0 && s.msg_end <= trimmedBeforeMsg)
+      .map(s => s.msg_end);
+    const snappedBoundary = l0Boundaries.length > 0
+      ? Math.max(...l0Boundaries)
+      : trimmedBeforeMsg;
+
+    // Only segments covering the trimmed region (before snapped boundary)
+    const trimmedSegments = allSegments.filter(s => s.msg_start < snappedBoundary);
     if (trimmedSegments.length === 0) return null;
 
     // Build a map of parent → children for expansion
@@ -778,14 +791,18 @@ export class SegmentIndex {
 
     let usedTokens = selected.reduce((s, seg) => s + seg.summary_token_count, 0);
 
-    // Expand most recent segments to lower levels if budget allows
-    // Work from the end (nearest to trim boundary) backward
+    // Expand segments breadth-first by level, then recency within each level.
+    // This ensures all L2s expand to L1s before any L1 expands to L0,
+    // giving balanced coverage across the full history.
     let expanded = true;
     while (expanded && usedTokens < budgetTokens) {
       expanded = false;
-      // Find the rightmost (most recent) segment that has children
+      // Find the highest level segment that has children (breadth-first),
+      // breaking ties by recency (rightmost)
+      const maxLevel = Math.max(...selected.map(s => s.level));
       for (let i = selected.length - 1; i >= 0; i--) {
         const seg = selected[i];
+        if (seg.level < maxLevel) continue; // expand highest level first
         const children = childrenOf.get(seg.id);
         if (!children || children.length === 0) continue;
 

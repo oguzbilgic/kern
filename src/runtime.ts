@@ -1,4 +1,4 @@
-import { streamText, type ModelMessage, stepCountIs } from "ai";
+import { streamText, type ModelMessage, type SystemModelMessage, stepCountIs } from "ai";
 import { join } from "path";
 import { log } from "./log.js";
 import { createModel } from "./model.js";
@@ -110,6 +110,17 @@ export class Runtime {
     this.pendingInjections = fn;
   }
 
+  /**
+   * Returns true if the current model supports Anthropic-style prompt caching
+   * (OpenRouter with Anthropic model, or direct Anthropic provider).
+   */
+  private supportsPromptCaching(): boolean {
+    const { provider, model } = this.config;
+    if (provider === "anthropic") return true;
+    if (provider === "openrouter" && model.startsWith("anthropic/")) return true;
+    return false;
+  }
+
   buildPromptContext(options?: Partial<PrepareContextOptions>) {
     const allMessages = options?.messages ?? this.session.getMessages();
     const sessionId = options?.sessionId ?? (this.session.getSessionId() || undefined);
@@ -125,8 +136,21 @@ export class Runtime {
     // Estimate system prompt tokens (minus summary which is tracked separately)
     const summaryAdditionChars = prepared.systemAdditions.join("\n\n").length;
     prepared.stats.systemPromptTokens = estimateTextTokens(effectiveSystemPrompt) - (summaryAdditionChars > 0 ? Math.ceil(summaryAdditionChars / 3.3) : 0);
+
+    // Build system message — add cache control for Anthropic models
+    const system: string | SystemModelMessage = this.supportsPromptCaching()
+      ? {
+          role: "system" as const,
+          content: effectiveSystemPrompt,
+          providerOptions: {
+            anthropic: { cacheControl: { type: "ephemeral" } },
+            openrouter: { cacheControl: { type: "ephemeral" } },
+          },
+        }
+      : effectiveSystemPrompt;
+
     return {
-      system: effectiveSystemPrompt,
+      system,
       messages: prepared.messages,
       stats: prepared.stats,
     };
@@ -192,7 +216,7 @@ export class Runtime {
 
       const allMessages = this.session.getMessages();
       const sessionId = this.session.getSessionId() || undefined;
-      const { system: effectiveSystemPrompt, messages: contextWindow, stats } = this.buildPromptContext({
+      const { system: systemMessage, messages: contextWindow, stats } = this.buildPromptContext({
         messages: allMessages,
         sessionId,
       });
@@ -225,7 +249,7 @@ export class Runtime {
 
       const result = streamText({
         model,
-        system: effectiveSystemPrompt,
+        system: systemMessage,
         messages: resolvedMessages,
         tools,
         stopWhen: stepCountIs(this.config.maxSteps),
@@ -317,7 +341,14 @@ export class Runtime {
 
       try {
         const usage = await result.totalUsage;
-        addTokenUsage(usage.inputTokens || 0, usage.outputTokens || 0);
+        const cacheRead = usage.inputTokenDetails?.cacheReadTokens || 0;
+        const cacheWrite = usage.inputTokenDetails?.cacheWriteTokens || 0;
+        const inputTotal = usage.inputTokens || 0;
+        addTokenUsage(inputTotal, usage.outputTokens || 0, cacheRead, cacheWrite);
+        if (cacheRead || cacheWrite) {
+          const pct = inputTotal > 0 ? Math.round(cacheRead / inputTotal * 100) : 0;
+          log("runtime", `cache: ${cacheRead} read, ${cacheWrite} written (${pct}% hit rate, ${inputTotal} total input)`);
+        }
       } catch {
         // usage tracking failed — non-critical
       }

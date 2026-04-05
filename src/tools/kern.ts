@@ -14,6 +14,8 @@ let _sessionId = "";
 let _version = "unknown";
 let _totalPromptTokens = 0;
 let _totalCompletionTokens = 0;
+let _totalCacheReadTokens = 0;
+let _totalCacheWriteTokens = 0;
 let _usageFile = "";
 let _getSessionStats: (() => SessionStats) | null = null;
 let _reloadFn: (() => Promise<void>) | null = null;
@@ -61,9 +63,13 @@ export async function initKernTool(opts: {
     const usage = JSON.parse(await readFile(_usageFile, "utf-8"));
     _totalPromptTokens = usage.promptTokens || 0;
     _totalCompletionTokens = usage.completionTokens || 0;
+    _totalCacheReadTokens = usage.cacheReadTokens || 0;
+    _totalCacheWriteTokens = usage.cacheWriteTokens || 0;
   } catch {
     _totalPromptTokens = 0;
     _totalCompletionTokens = 0;
+    _totalCacheReadTokens = 0;
+    _totalCacheWriteTokens = 0;
   }
   try {
     const pkg = JSON.parse(await readFile(join(import.meta.dirname, "..", "..", "package.json"), "utf-8"));
@@ -77,15 +83,19 @@ export function incrementMessageCount() {
   _messageCount++;
 }
 
-export async function addTokenUsage(promptTokens: number, completionTokens: number) {
+export async function addTokenUsage(promptTokens: number, completionTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number) {
   _totalPromptTokens += promptTokens;
   _totalCompletionTokens += completionTokens;
+  _totalCacheReadTokens += cacheReadTokens || 0;
+  _totalCacheWriteTokens += cacheWriteTokens || 0;
   // Persist
   try {
     const { writeFile } = await import("fs/promises");
     await writeFile(_usageFile, JSON.stringify({
       promptTokens: _totalPromptTokens,
       completionTokens: _totalCompletionTokens,
+      cacheReadTokens: _totalCacheReadTokens,
+      cacheWriteTokens: _totalCacheWriteTokens,
       updatedAt: new Date().toISOString(),
     }, null, 2) + "\n");
   } catch {}
@@ -121,6 +131,7 @@ export interface StatusData {
   contextBreakdown: ContextBreakdown | null;
   summary: string | null;
   apiUsage: string;
+  cacheUsage: string | null;
   promptTokens: number;
   completionTokens: number;
   queue: string;
@@ -161,6 +172,9 @@ export function getStatusData(): StatusData {
     : null;
   const totalTokens = _totalPromptTokens + _totalCompletionTokens;
   const apiUsage = `${totalTokens} tokens (in: ${_totalPromptTokens}, out: ${_totalCompletionTokens})`;
+  const cacheUsage = _totalCacheReadTokens > 0 || _totalCacheWriteTokens > 0
+    ? `${_totalCacheReadTokens} read, ${_totalCacheWriteTokens} written`
+    : null;
 
   const qs = _getQueueStatus ? _getQueueStatus() : null;
   const queueStr = qs
@@ -196,6 +210,7 @@ export function getStatusData(): StatusData {
     contextBreakdown,
     summary,
     apiUsage,
+    cacheUsage,
     promptTokens: _totalPromptTokens,
     completionTokens: _totalCompletionTokens,
     queue: queueStr,
@@ -229,10 +244,10 @@ export function formatStatus(data: StatusData): string {
     data.contextBreakdown ? (() => {
       const cb = data.contextBreakdown!;
       const total = cb.systemPromptTokens + cb.messageTokens + cb.summaryTokens;
-      return `context: ~${Math.round(total / 1000)}k tokens (${cb.messageCount} messages, ${cb.trimmedCount} trimmed)`;
+      return `context: ~${Math.round(total / 1000)}k tokens`;
     })() : (data.context ? `context: ${data.context}` : ""),
     data.contextBreakdown ? `  system: ~${Math.round(data.contextBreakdown.systemPromptTokens / 1000)}k tokens` : "",
-    data.contextBreakdown ? `  messages: ~${Math.round(data.contextBreakdown.messageTokens / 1000)}k tokens` : "",
+    data.contextBreakdown ? `  messages: ~${Math.round(data.contextBreakdown.messageTokens / 1000)}k tokens (${data.contextBreakdown.messageCount} messages, ${data.contextBreakdown.trimmedCount} trimmed)` : "",
     data.contextBreakdown && data.contextBreakdown.summaryTokens > 0 ? (() => {
       const lvlStr = Object.entries(data.contextBreakdown!.summaryLevelCounts)
         .sort(([a], [b]) => Number(a) - Number(b))
@@ -243,6 +258,7 @@ export function formatStatus(data: StatusData): string {
     data.recall ? `recall: ${data.recall}` : "",
     data.segments ? `segments: ${data.segments}` : "",
     `api usage: ${data.apiUsage}`,
+    data.cacheUsage ? `cache: ${data.cacheUsage}` : "",
     `queue: ${data.queue}`,
     `uptime: ${data.uptime}`,
   ].filter(Boolean).join("\n");

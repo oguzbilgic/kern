@@ -1,5 +1,6 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import type { KernConfig } from "./config.js";
 
 /**
@@ -14,8 +15,7 @@ export function createModel(config: KernConfig): any {
       return anthropic(config.model);
     }
     case "openrouter": {
-      const openrouter = createOpenAI({
-        baseURL: "https://openrouter.ai/api/v1",
+      const openrouter = createOpenRouter({
         apiKey: process.env.OPENROUTER_API_KEY,
         headers: {
           "HTTP-Referer": "https://github.com/oguzbilgic/kern-ai",
