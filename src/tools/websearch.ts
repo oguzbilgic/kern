@@ -44,7 +44,14 @@ export const websearchTool = tool({
         return `Error: HTTP ${response.status} ${response.statusText}`;
       }
 
-      const html = await response.text();
+      let html = await response.text();
+
+      // Strip DDG chrome — keep only the results section
+      const resultsStart = html.indexOf('<div class="serp__results">');
+      if (resultsStart !== -1) {
+        html = html.slice(resultsStart);
+      }
+
       const result = htmlToMarkdown(html);
 
       // Truncate very large responses
