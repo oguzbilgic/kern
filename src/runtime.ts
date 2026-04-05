@@ -343,9 +343,11 @@ export class Runtime {
         const usage = await result.totalUsage;
         const cacheRead = usage.inputTokenDetails?.cacheReadTokens || 0;
         const cacheWrite = usage.inputTokenDetails?.cacheWriteTokens || 0;
-        addTokenUsage(usage.inputTokens || 0, usage.outputTokens || 0, cacheRead, cacheWrite);
+        const inputTotal = usage.inputTokens || 0;
+        addTokenUsage(inputTotal, usage.outputTokens || 0, cacheRead, cacheWrite);
         if (cacheRead || cacheWrite) {
-          log("runtime", `cache: ${cacheRead} read, ${cacheWrite} written`);
+          const pct = inputTotal > 0 ? Math.round(cacheRead / inputTotal * 100) : 0;
+          log("runtime", `cache: ${cacheRead} read, ${cacheWrite} written (${pct}% hit rate, ${inputTotal} total input)`);
         }
       } catch {
         // usage tracking failed — non-critical
