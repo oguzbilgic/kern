@@ -4,7 +4,7 @@ AI agents built for coworking.
 
 One brain across every channel. Your agent sits in Slack channels, Telegram DMs, the terminal, and the browser. It knows who's talking, reads the room, and remembers everything. Humans and agents, same channels, same conversation.
 
-![kern web UI](https://kern-ai.com/images/conversation.png)
+![kern web UI](https://kern-ai.com/images/web-ui.png)
 
 ## Why kern
 
