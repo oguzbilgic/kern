@@ -897,7 +897,7 @@
   .scroll-down-btn {
     display: none;
     position: absolute;
-    bottom: 80px;
+    bottom: 80px; /* updated dynamically by JS */
     left: 50%;
     transform: translateX(-50%);
     z-index: 10;
@@ -4304,6 +4304,13 @@ scrollContainer.addEventListener('scroll', () => {
 
 scrollDownBtn.addEventListener('click', () => scrollToBottom(true));
 
+window.addEventListener('resize', () => { updateScrollBtnPosition(); scrollToBottom(); });
+
+function updateScrollBtnPosition() {
+  const inputArea = document.querySelector('.input-area');
+  if (inputArea) scrollDownBtn.style.bottom = (inputArea.offsetHeight + 12) + 'px';
+}
+
 function scrollToBottom(force) {
   if (force || !userScrolledUp) {
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
@@ -5000,6 +5007,7 @@ inputEl.addEventListener('input', () => {
       inputEl.style.height = 'auto';
       inputEl.style.height = inputEl.scrollHeight + 'px';
       inputEl.style.overflowY = inputEl.scrollHeight > inputEl.offsetHeight ? 'auto' : 'hidden';
+      updateScrollBtnPosition();
     });
   }
 });
