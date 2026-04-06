@@ -259,39 +259,50 @@ export function prepareContext({ messages, config, sessionId, segmentIndex }: Pr
     : config.maxContextTokens;
   let { messages: window, trimmedCount } = trimToTokenBudget(truncated, rawBudget);
 
-  // Snap the trim boundary to a stable round number for cache stability.
+  // Snap the trim boundary to a stable position for cache stability.
   // Without snapping, the trim point drifts by 1-2 messages each turn as new
   // messages arrive, shifting the message window and busting the prefix cache.
-  // Snapping to every TRIM_SNAP messages keeps the window start fixed for ~20
-  // turns, making the conversation prefix byte-identical across those turns.
-  // Falls back to L0 segment edges if available and closer.
+  //
+  // Strategy: find a snap target (L0 segment end or round number), then walk
+  // backward to the nearest user message to ensure we never cut inside a
+  // tool-use/tool-result pair. A little overlap with summarized segments is
+  // fine; orphaning tool_result blocks is not.
   const TRIM_SNAP = 20;
   if (trimmedCount > 0) {
-    let snapped = trimmedCount;
+    let snapTarget = trimmedCount;
 
     // Try L0 segment end first — snap to end of a fully summarized segment
-    // so everything before the snap has a summary, everything after is raw messages
     if (segmentIndex && sessionId) {
       const l0Ends = segmentIndex.getL0Boundaries(sessionId);
       const l0Snap = l0Ends.find(s => s >= trimmedCount);
       if (l0Snap !== undefined && l0Snap < truncated.length - 4) {
-        snapped = l0Snap;
+        snapTarget = l0Snap;
       }
     }
 
-    // If no L0 snap or L0 is too far, snap to round number
-    if (snapped === trimmedCount) {
+    // If no L0 snap, fall back to round number
+    if (snapTarget === trimmedCount) {
       const roundSnap = Math.ceil(trimmedCount / TRIM_SNAP) * TRIM_SNAP;
       if (roundSnap > trimmedCount && roundSnap < truncated.length - 4) {
-        snapped = roundSnap;
+        snapTarget = roundSnap;
       }
     }
 
-    if (snapped > trimmedCount) {
-      const extra = snapped - trimmedCount;
-      window = window.slice(extra);
-      log.debug("context", `snapped trim boundary: ${trimmedCount} → ${snapped} (+${extra} msgs)`);
-      trimmedCount = snapped;
+    // Walk backward from snap target to nearest user message for turn-safe boundary.
+    // This prevents orphaning tool_result blocks that need a preceding tool_use.
+    if (snapTarget > trimmedCount) {
+      let safeSnap = snapTarget;
+      while (safeSnap > trimmedCount && truncated[safeSnap]?.role !== "user") {
+        safeSnap--;
+      }
+
+      // Only apply if we found a safe user-message boundary beyond original trim
+      if (safeSnap > trimmedCount && truncated[safeSnap]?.role === "user") {
+        const extra = safeSnap - trimmedCount;
+        window = window.slice(extra);
+        log.debug("context", `snapped trim boundary: ${trimmedCount} → ${safeSnap} (target was ${snapTarget}, +${extra} msgs)`);
+        trimmedCount = safeSnap;
+      }
     }
   }
 
