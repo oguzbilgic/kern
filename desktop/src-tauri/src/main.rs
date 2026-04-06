@@ -17,7 +17,7 @@ fn navigate_to(app: tauri::AppHandle, url: String) -> Result<(), String> {
 fn go_home(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(w) = app.get_webview_window("main") {
         // Navigate back to the bundled connect screen
-        w.eval("window.location.replace('index.html')")
+        w.eval("window.location.replace('tauri://localhost/index.html')")
             .map_err(|e| format!("eval failed: {}", e))?;
     }
     Ok(())
