@@ -14,7 +14,7 @@
       "tooltip": "kern"
     },
     "security": {
-      "csp": "default-src 'self' 'unsafe-inline' 'unsafe-eval' http: https: ws: wss: data: blob:"
+      "csp": "default-src 'self' 'unsafe-inline' 'unsafe-eval' http: https: ws: wss: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' http: https:; style-src 'self' 'unsafe-inline' http: https:; connect-src 'self' http: https: ws: wss:; img-src 'self' http: https: data: blob:"
     }
   },
   "bundle": {
