@@ -32,9 +32,9 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 
 ### Tool scopes
 
-- **full** — bash, read, write, edit, glob, grep, webfetch, kern, message, recall
-- **write** — read, write, edit, glob, grep, webfetch, kern, message, recall
-- **read** — read, glob, grep, webfetch, kern, recall
+- **full** — bash, read, write, edit, glob, grep, webfetch, websearch, kern, message, recall, pdf, image
+- **write** — read, write, edit, glob, grep, webfetch, websearch, kern, message, recall, pdf, image
+- **read** — read, glob, grep, webfetch, websearch, kern, recall, pdf, image
 
 ### Providers
 
