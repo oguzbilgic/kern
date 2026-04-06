@@ -126,7 +126,14 @@ fn main() {
                         "#);
                     }
                 }
-                "logout" | "reconnect" => {
+                "logout" => {
+                    // Clear saved servers so auto-reconnect doesn't fire
+                    if let Some(w) = &window {
+                        let _ = w.eval("localStorage.removeItem('kern_servers');");
+                    }
+                    let _ = go_home(app.clone());
+                }
+                "reconnect" => {
                     let _ = go_home(app.clone());
                 }
                 "reload" => {
