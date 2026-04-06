@@ -2,6 +2,7 @@
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::webview::WebviewWindowBuilder;
+use tauri::tray::TrayIconEvent;
 use tauri::{Emitter, Manager, WebviewUrl};
 
 #[tauri::command]
@@ -76,6 +77,14 @@ fn main() {
             let menu = Menu::with_items(app, &[&app_menu, &edit_menu])?;
             app.set_menu(menu)?;
             Ok(())
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click { .. } = event {
+                if let Some(w) = tray.app_handle().get_webview_window("main") {
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                }
+            }
         })
         .on_menu_event(|app, event| {
             let window = app.get_webview_window("main");

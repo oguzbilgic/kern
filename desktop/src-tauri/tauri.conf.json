@@ -9,8 +9,8 @@
     "withGlobalTauri": true,
     "windows": [],
     "trayIcon": {
-      "iconPath": "icons/icon.png",
-      "iconAsTemplate": true,
+      "iconPath": "icons/32x32.png",
+      "iconAsTemplate": false,
       "tooltip": "kern"
     },
     "security": {
