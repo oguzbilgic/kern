@@ -12,7 +12,7 @@
 - Chat loses scroll position on window resize ([#73](https://github.com/oguzbilgic/kern-ai/issues/73))
 - URL auto-linking capturing trailing punctuation
 
-## desktop-next
+## desktop-v0.1.0
 
 ### Features
 - **Desktop app** ([#62](https://github.com/oguzbilgic/kern-ai/pull/62)) — native Tauri 2.0 wrapper that loads kern web UI in a single window
