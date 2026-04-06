@@ -38,19 +38,17 @@ fn main() {
             .title("kern")
             .inner_size(1000.0, 700.0)
             .min_inner_size(600.0, 400.0)
-            .on_navigation(|_| true)
-            .on_page_load(|w, _payload| {
-                // Re-inject on every page load since navigation replaces the document
-                w.eval(r#"
-                    document.addEventListener('click', function(e) {
-                        var a = e.target.closest('a');
-                        if (a && a.href && a.href.startsWith('https://')) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            window.__TAURI_INTERNALS__?.invoke('plugin:opener|open_url', { url: a.href });
-                        }
-                    }, true);
-                "#).ok();
+            .on_navigation(|url| {
+                // Allow tauri:// and http:// (kern server) URLs to load in WebView
+                // Open https:// links in system browser instead
+                let scheme = url.scheme();
+                if scheme == "https" {
+                    // Open in system browser, block in-app navigation
+                    let _ = std::process::Command::new("open").arg(url.as_str()).spawn();
+                    false
+                } else {
+                    true
+                }
             })
             .disable_drag_drop_handler() // Let browser handle HTML5 drag-and-drop
             .build()?;
