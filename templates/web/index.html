@@ -1222,8 +1222,8 @@
     right: -4px;
   }
   @keyframes dot-pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(0.7); }
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 var(--accent); }
+    50% { transform: scale(1.4); box-shadow: 0 0 6px 2px var(--accent); }
   }
   .switcher-item-info {
     flex: 1;
