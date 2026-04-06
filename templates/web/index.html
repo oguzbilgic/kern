@@ -1198,8 +1198,27 @@
     border-radius: 50%;
     border: 2px solid var(--bg-sidebar);
   }
-  .switcher-item-avatar .online-dot.running { background: var(--accent); }
-  .switcher-item-avatar .online-dot.stopped { background: var(--text-muted); }
+  .switcher-item-avatar .online-dot.active { background: var(--accent); }
+  .switcher-item-avatar .online-dot.connected { background: var(--accent); }
+  .switcher-item-avatar .online-dot.online { display: none; }
+  .switcher-item-avatar .online-dot.offline { background: var(--text-muted); }
+  .switcher-item-avatar .unread-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    background: var(--accent);
+    color: var(--bg);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    border: 2px solid var(--bg-sidebar);
+  }
   .switcher-item-info {
     flex: 1;
     min-width: 0;
@@ -3981,6 +4000,78 @@ function setActiveAgent(name) {
 // All discovered agents grouped by server — fetched fresh each time
 let allAgents = [];
 
+// --- Multi-agent connection manager ---
+const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+const agentConns = {}; // { agentName: { sse, idleTimer, unread } }
+
+function getAgentConn(name) {
+  if (!agentConns[name]) agentConns[name] = { sse: null, idleTimer: null, unread: 0 };
+  return agentConns[name];
+}
+
+function connectAgent(agent) {
+  const conn = getAgentConn(agent.name);
+  // Already connected
+  if (conn.sse) return;
+  const token = getServerToken(agent.server || location.origin);
+  const url = token ? `${agent.url}/events?token=${encodeURIComponent(token)}` : `${agent.url}/events`;
+  const es = new EventSource(url);
+  conn.sse = es;
+  es.onmessage = (e) => {
+    try {
+      const ev = JSON.parse(e.data);
+      if (ev.type === 'connection') return;
+      // If this is not the active agent, count as unread
+      if (agent.name !== getActiveAgent() && (ev.type === 'text-delta' || ev.type === 'assistant')) {
+        // Only count once per turn — on first text-delta
+        if (ev.type === 'text-delta' && conn._countedTurn) return;
+        if (ev.type === 'text-delta') conn._countedTurn = true;
+        if (ev.type === 'assistant') conn._countedTurn = false;
+        if (ev.type === 'text-delta') {
+          conn.unread++;
+          renderSwitcher();
+        }
+      }
+    } catch {}
+  };
+  es.onerror = () => {
+    es.close();
+    conn.sse = null;
+    renderSwitcher();
+  };
+  renderSwitcher();
+}
+
+function disconnectAgent(name) {
+  const conn = getAgentConn(name);
+  if (conn.sse) { conn.sse.close(); conn.sse = null; }
+  if (conn.idleTimer) { clearTimeout(conn.idleTimer); conn.idleTimer = null; }
+  renderSwitcher();
+}
+
+function startIdleTimer(name) {
+  const conn = getAgentConn(name);
+  if (conn.idleTimer) clearTimeout(conn.idleTimer);
+  conn.idleTimer = setTimeout(() => {
+    conn.idleTimer = null;
+    disconnectAgent(name);
+  }, IDLE_TIMEOUT);
+}
+
+function clearIdleTimer(name) {
+  const conn = getAgentConn(name);
+  if (conn.idleTimer) { clearTimeout(conn.idleTimer); conn.idleTimer = null; }
+}
+
+function getAgentState(agent) {
+  const activeName = getActiveAgent();
+  if (agent.name === activeName) return 'active';
+  if (!agent.running) return 'offline';
+  const conn = getAgentConn(agent.name);
+  if (conn.sse) return 'connected';
+  return 'online';
+}
+
 let BASE_URL = null;
 let AUTH_TOKEN = null;
 
@@ -4037,17 +4128,21 @@ function renderSwitcher() {
       }
       for (const agent of serverAgents) {
         const item = document.createElement('div');
+        const state = getAgentState(agent);
         const classes = ['switcher-item'];
-        if (agent.name === activeName) classes.push('active');
-        if (!agent.running) classes.push('offline');
+        if (state === 'active') classes.push('active');
+        if (state === 'offline') classes.push('offline');
         item.className = classes.join(' ');
         const color = avatarColor(agent.name);
         const initial = agent.name.charAt(0).toUpperCase();
-        const dotClass = agent.running ? 'running' : 'stopped';
+        const conn = getAgentConn(agent.name);
+        const badgeHtml = conn.unread > 0 && state !== 'active'
+          ? `<span class="unread-badge">${conn.unread > 99 ? '99+' : conn.unread}</span>` : '';
         item.innerHTML = `
           <div class="switcher-item-avatar" style="background:${color}">
             ${initial}
-            <span class="online-dot ${dotClass}"></span>
+            <span class="online-dot ${state}"></span>
+            ${badgeHtml}
           </div>
           <div class="switcher-item-name">${agent.name}</div>
         `;
@@ -4070,6 +4165,17 @@ function renderSwitcher() {
 }
 
 function switchToAgent(agent) {
+  const prevName = getActiveAgent();
+
+  // Move previous agent to background: open background SSE + start idle timer
+  if (prevName && prevName !== agent.name) {
+    const prevAgentObj = allAgents.find(a => a.name === prevName && a.running);
+    if (prevAgentObj) {
+      connectAgent(prevAgentObj);
+    }
+    startIdleTimer(prevName);
+  }
+
   setActiveAgent(agent.name);
   BASE_URL = agent.url;
   AUTH_TOKEN = getServerToken(agent.server || location.origin);
@@ -4081,6 +4187,16 @@ function switchToAgent(agent) {
   sendBtn.disabled = false;
   inputEl.value = '';
   infoPanel.classList.remove('open');
+
+  // Clear unread and idle timer for new active agent
+  const conn = getAgentConn(agent.name);
+  conn.unread = 0;
+  conn._countedTurn = false;
+  clearIdleTimer(agent.name);
+
+  // Close background SSE for this agent (init() will open the main one)
+  if (conn.sse) { conn.sse.close(); conn.sse = null; }
+
   // On narrow windows, clamp to mini sidebar instead of collapsing fully.
   if (window.innerWidth <= 768) {
     sidebar.classList.remove('collapsed');
@@ -5246,6 +5362,12 @@ async function init() {
     }
   } catch {}
 
+  // Track active agent connection
+  const activeName = getActiveAgent();
+  const activeConn = getAgentConn(activeName);
+  clearIdleTimer(activeName);
+  activeConn.unread = 0;
+
   // Connect SSE — if native bridge is active, skip EventSource (native handles SSE)
   if (window.KernNative) {
     connection = { close() {}, connectionId: null };
@@ -5258,6 +5380,7 @@ async function init() {
       onEvent: handleEvent,
       onConnect() {
         setConnected('connected');
+        renderSwitcher();
       },
       async onDisconnect() {
         if (authFailed || intentionalClose) return;
