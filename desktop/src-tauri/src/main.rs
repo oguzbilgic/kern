@@ -1,8 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use tauri::menu::{Menu, MenuItem};
-use tauri::webview::{WebviewWindowBuilder, WebviewUrl};
-use tauri::{Emitter, Manager, Url};
+use tauri::webview::WebviewWindowBuilder;
+use tauri::{Emitter, Manager, Url, WebviewUrl};
 
 #[tauri::command]
 fn navigate_to(app: tauri::AppHandle, url: String) -> Result<(), String> {
