@@ -1,5 +1,9 @@
 # Changelog
 
+## next
+
+- Document `.kern/.env` secrets location in KERN.md template
+
 ## v0.21.0
 
 ### Features
