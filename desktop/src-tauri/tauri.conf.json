@@ -12,6 +12,22 @@
       "iconPath": "icons/icon.png",
       "iconAsTemplate": true,
       "tooltip": "kern"
+    },
+    "security": {
+      "csp": "default-src 'self' 'unsafe-inline' 'unsafe-eval' http: https: ws: wss: data: blob:"
+    }
+  },
+  "bundle": {
+    "iOS": {
+      "minimumSystemVersion": "13.0"
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
     }
   }
 }
