@@ -12,6 +12,11 @@
 <title>kern</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js" defer></script>
 <style>
+  * { scrollbar-color: var(--border) transparent; scrollbar-width: thin; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border); }
   :root {
     --bg: #1a1a1a;
     --bg-surface: #252525;
@@ -1143,9 +1148,7 @@
   .drop-overlay.visible { opacity: 1; }
 
   /* --- Scrollbar --- */
-  .messages::-webkit-scrollbar { width: 6px; }
-  .messages::-webkit-scrollbar-track { background: transparent; }
-  .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
 
   /* --- Agent Switcher (reuses sidebar styles + these) --- */
   .menu-btn {
