@@ -277,6 +277,13 @@ function trimToTokenBudget({ messages, maxTokens, segmentIndex, sessionId }: Tri
   return { messages: messages.slice(cutIndex), trimmedCount: cutIndex };
 }
 
+export interface ContextSegment {
+  id: number;
+  level: number;
+  msg_start: number;
+  msg_end: number;
+}
+
 export interface SessionStats {
   totalMessages: number;
   estimatedTokens: number;
@@ -285,6 +292,8 @@ export interface SessionStats {
   truncatedCount: number;
   summaryTokens: number;
   summaryLevelCounts: Record<number, number>;
+  /** Segments selected for context injection */
+  summarySegments: ContextSegment[];
   systemPromptTokens?: number;
 }
 
@@ -318,6 +327,7 @@ export function prepareContext({ messages, config, sessionId, segmentIndex }: Pr
   // Inject compressed summary at trim boundary
   let summaryTokens = 0;
   let summaryLevelCounts: Record<number, number> = {};
+  let summarySegments: ContextSegment[] = [];
   let summarySystemAddition = "";
   const finalMessages = window;
   if (trimmedCount > 0 && segmentIndex && sessionId && config.summaryBudget > 0) {
@@ -326,6 +336,7 @@ export function prepareContext({ messages, config, sessionId, segmentIndex }: Pr
     if (history) {
       summaryTokens = history.tokens;
       summaryLevelCounts = history.levelCounts;
+      summarySegments = history.segments.map(s => ({ id: s.id, level: s.level, msg_start: s.msg_start, msg_end: s.msg_end }));
       summarySystemAddition = `<conversation_summary>\nCompressed conversation summary of trimmed earlier messages (oldest → newest). Use recall tool to load full messages by range.\n\n${history.text}\n</conversation_summary>`;
     }
   }
@@ -352,6 +363,7 @@ export function prepareContext({ messages, config, sessionId, segmentIndex }: Pr
       truncatedCount: trimmedTruncated,
       summaryTokens,
       summaryLevelCounts,
+      summarySegments,
     },
   };
 }
