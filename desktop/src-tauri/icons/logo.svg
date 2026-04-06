@@ -2,9 +2,9 @@
   <!-- Background -->
   <rect width="512" height="512" rx="100" ry="100" fill="#161617" />
   
-  <!-- "kern" text (Arial/Helvetica style fallback for sans-serif) -->
-  <text x="140" y="300" font-family="-apple-system, BlinkMacSystemFont, Arial, sans-serif" font-size="160" font-weight="700" fill="#e6edf3">kern</text>
+  <!-- "kern" text centered with padding -->
+  <text x="100" y="305" font-family="-apple-system, BlinkMacSystemFont, Arial, sans-serif" font-size="150" font-weight="700" fill="#e6edf3">kern</text>
   
   <!-- The Amber Dot -->
-  <circle cx="445" cy="295" r="22" fill="#fcd53a" />
+  <circle cx="405" cy="300" r="20" fill="#fcd53a" />
 </svg>
