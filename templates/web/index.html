@@ -4078,8 +4078,11 @@ function switchToAgent(agent) {
   sendBtn.disabled = false;
   inputEl.value = '';
   infoPanel.classList.remove('open');
-  // On mobile, close sidebar. On desktop, keep it open and just update active state.
-  if (window.innerWidth <= 768) closeSidebar();
+  // On narrow windows, clamp to mini sidebar instead of collapsing fully.
+  if (window.innerWidth <= 768) {
+    sidebar.classList.remove('collapsed');
+    sidebar.classList.add('mini');
+  }
   renderSwitcher();
   init();
   inputEl.focus();
