@@ -2,8 +2,28 @@
 
 ## next
 
-- Document `.kern/.env` secrets location in KERN.md template
+### Improvements
+- **Server-driven thinking indicator** ([#70](https://github.com/oguzbilgic/kern-ai/pull/70)) — thinking dots triggered by server event at start of message handling, replacing client-side guessing
 - **Sidebar behavior** ([#71](https://github.com/oguzbilgic/kern-ai/pull/71)) — hamburger toggles collapsed ↔ previous state; small windows use mini sidebar instead of overlay
+- Document `.kern/.env` secrets location in KERN.md template
+
+### Fixes
+- Scroll-to-bottom button overlapping multi-line input ([#72](https://github.com/oguzbilgic/kern-ai/issues/72)) — repositions dynamically above input pill; chat re-anchors on window resize
+- Chat loses scroll position on window resize ([#73](https://github.com/oguzbilgic/kern-ai/issues/73))
+- URL auto-linking capturing trailing punctuation
+
+## desktop-next
+
+### Features
+- **Desktop app** ([#62](https://github.com/oguzbilgic/kern-ai/pull/62)) — native Tauri 2.0 wrapper that loads kern web UI in a single window
+  - Connect screen with server URL + token input, saved server list
+  - Auto-reconnect to last server on launch
+  - App menu: Logout, Reconnect, Reload (Cmd+R), Open in Browser, About
+  - File drag-and-drop into chat
+  - External links open in system browser
+  - macOS ad-hoc code signing with DMG packaging
+  - CI builds for macOS ARM/Intel and Linux; Windows build available via manual dispatch
+  - Desktop CI triggers on `desktop/*` branches only
 
 ## v0.21.0
 
