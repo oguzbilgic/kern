@@ -12,7 +12,6 @@
 
 ### Fixes
 - **Non-Anthropic OpenRouter models** ([#65](https://github.com/oguzbilgic/kern-ai/pull/65)) — GPT-5.4 and Gemini models stopped streaming after first text message due to Responses API routing. Fixed by forcing Chat Completions API for non-Anthropic models.
-- **Slash autocomplete popup** ([#64](https://github.com/oguzbilgic/kern-ai/pull/64)) — popup was hidden by input pill redesign's `overflow: hidden`
 
 ### Improvements
 - **Web UI redesign** ([#59](https://github.com/oguzbilgic/kern-ai/pull/59))
