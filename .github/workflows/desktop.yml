@@ -19,12 +19,12 @@ jobs:
       matrix:
         include:
           - platform: 'macos-latest'
-            args: '--target aarch64-apple-darwin --bundles app'
+            args: '--target aarch64-apple-darwin --bundles dmg'
             target: 'aarch64-apple-darwin'
             name: 'macos-arm64'
             branchOnly: true
           - platform: 'macos-latest'
-            args: '--target x86_64-apple-darwin --bundles app'
+            args: '--target x86_64-apple-darwin --bundles dmg'
             target: 'x86_64-apple-darwin'
             name: 'macos-x64'
             branchOnly: false
@@ -101,25 +101,12 @@ jobs:
         run: |
           Get-ChildItem -Path desktop/src-tauri/target/release/bundle -Recurse -Include *.msi,*.exe | Select-Object FullName
 
-      - name: Package macOS app
-        if: (github.event_name == 'workflow_dispatch' || matrix.branchOnly == true) && matrix.platform == 'macos-latest'
-        run: |
-          mkdir -p desktop/dist
-          APP_PATH=$(find desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos -maxdepth 1 -name "*.app" | head -n 1)
-          if [ -z "$APP_PATH" ]; then
-            echo "No .app found"
-            exit 1
-          fi
-          codesign --force --deep --sign - "$APP_PATH"
-          codesign --verify --deep --strict --verbose=4 "$APP_PATH"
-          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "desktop/dist/kern-${{ matrix.name }}.zip"
-
-      - name: Upload macOS app
+      - name: Upload macOS DMG
         if: (github.event_name == 'workflow_dispatch' || matrix.branchOnly == true) && matrix.platform == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
           name: kern-${{ matrix.name }}
-          path: desktop/dist/kern-${{ matrix.name }}.zip
+          path: desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
           if-no-files-found: error
 
       - name: Upload Linux binary
