@@ -4042,9 +4042,12 @@ function connectAgent(agent) {
     } catch {}
   };
   es.onerror = () => {
-    es.close();
-    conn.sse = null;
-    renderSwitcher();
+    // Don't kill the connection — EventSource auto-reconnects on transient errors.
+    // Only clean up if the connection is fully dead (readyState === CLOSED).
+    if (es.readyState === EventSource.CLOSED) {
+      conn.sse = null;
+      renderSwitcher();
+    }
   };
   renderSwitcher();
 }
