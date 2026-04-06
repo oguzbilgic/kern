@@ -1,4 +1,4 @@
-import { streamText, type ModelMessage, type SystemModelMessage, stepCountIs } from "ai";
+import { streamText, type ModelMessage, stepCountIs } from "ai";
 import { join } from "path";
 import { log } from "./log.js";
 import { createModel } from "./model.js";
@@ -10,7 +10,7 @@ import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern
 import type { RecallIndex } from "./recall.js";
 import type { SegmentIndex } from "./segments.js";
 import type { MemoryDB } from "./memory.js";
-import { prepareContext, injectRecall, loadSystemPrompt, type PrepareContextOptions } from "./context.js";
+import { prepareContext, injectRecall, loadSystemPrompt, buildSystemMessage, addCacheBreakpoints, type PrepareContextOptions } from "./context.js";
 import type { Attachment } from "./interfaces/types.js";
 import { saveMedia, buildUserContent, extractText, MediaSidecar, resolveMediaInMessages, digestMediaAtIngest } from "./media.js";
 export type { SessionStats } from "./context.js";
@@ -110,17 +110,6 @@ export class Runtime {
     this.pendingInjections = fn;
   }
 
-  /**
-   * Returns true if the current model supports Anthropic-style prompt caching
-   * (OpenRouter with Anthropic model, or direct Anthropic provider).
-   */
-  private supportsPromptCaching(): boolean {
-    const { provider, model } = this.config;
-    if (provider === "anthropic") return true;
-    if (provider === "openrouter" && model.startsWith("anthropic/")) return true;
-    return false;
-  }
-
   buildPromptContext(options?: Partial<PrepareContextOptions>) {
     const allMessages = options?.messages ?? this.session.getMessages();
     const sessionId = options?.sessionId ?? (this.session.getSessionId() || undefined);
@@ -137,21 +126,12 @@ export class Runtime {
     const summaryAdditionChars = prepared.systemAdditions.join("\n\n").length;
     prepared.stats.systemPromptTokens = estimateTextTokens(effectiveSystemPrompt) - (summaryAdditionChars > 0 ? Math.ceil(summaryAdditionChars / 3.3) : 0);
 
-    // Build system message — add cache control for Anthropic models
-    const system: string | SystemModelMessage = this.supportsPromptCaching()
-      ? {
-          role: "system" as const,
-          content: effectiveSystemPrompt,
-          providerOptions: {
-            anthropic: { cacheControl: { type: "ephemeral" } },
-            openrouter: { cacheControl: { type: "ephemeral" } },
-          },
-        }
-      : effectiveSystemPrompt;
+    const system = buildSystemMessage(effectiveSystemPrompt, this.config);
+    const messages = addCacheBreakpoints(prepared.messages, this.config);
 
     return {
       system,
-      messages: prepared.messages,
+      messages,
       stats: prepared.stats,
     };
   }
