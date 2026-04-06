@@ -7,6 +7,8 @@ concurrency:
 on:
   workflow_dispatch:
   push:
+    tags:
+      - 'desktop-v*'
     branches:
       - 'desktop/**'
     paths:
