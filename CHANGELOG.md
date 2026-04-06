@@ -10,15 +10,15 @@
   - Caching logic consolidated in `context.ts` — removed duplication between runtime and context modules
   - New `docs/caching.md` with full design documentation
 
-### Fixes
-- **Non-Anthropic OpenRouter models** ([#65](https://github.com/oguzbilgic/kern-ai/pull/65)) — GPT-5.4 and Gemini models stopped streaming after first text message due to Responses API routing. Fixed by forcing Chat Completions API for non-Anthropic models.
-
 ### Improvements
 - **Web UI redesign** ([#59](https://github.com/oguzbilgic/kern-ai/pull/59))
   - Centered conversation layout with narrower bubbles, redesigned input pill with inline file attachments
   - Resizable sidebar — drag the edge to switch between full, mini (avatars only), and collapsed states
   - Syntax highlighting in code blocks, bash command formatting with line breaking, refreshed header with info panel
   - Emoji-only messages render large without bubble background
+
+### Fixes
+- **Non-Anthropic OpenRouter models** ([#65](https://github.com/oguzbilgic/kern-ai/pull/65)) — GPT-5.4 and Gemini stopped streaming after first text message due to Responses API routing. Fixed by forcing Chat Completions API. OpenAI models on OpenRouter still lack multi-step interleaved text+tool support due to upstream Responses API incompatibility.
 
 ## v0.20.0
 
