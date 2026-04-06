@@ -38,6 +38,7 @@ fn main() {
             .inner_size(1000.0, 700.0)
             .min_inner_size(600.0, 400.0)
             .on_navigation(|_| true) // Allow navigation to external URLs
+            .disable_drag_drop_handler() // Let browser handle HTML5 drag-and-drop
             .build()?;
 
             #[cfg(debug_assertions)]
@@ -67,7 +68,7 @@ fn main() {
                 &[
                     &MenuItem::with_id(app, "logout", "Logout", true, None::<&str>)?,
                     &MenuItem::with_id(app, "reconnect", "Reconnect…", true, None::<&str>)?,
-                    &MenuItem::with_id(app, "reload", "Reload", true, None::<&str>)?,
+                    &MenuItem::with_id(app, "reload", "Reload", true, Some("CmdOrCtrl+R"))?,
                     &MenuItem::with_id(app, "open_browser", "Open in Browser", true, None::<&str>)?,
                     &PredefinedMenuItem::separator(app)?,
                     &PredefinedMenuItem::quit(app, None)?,
