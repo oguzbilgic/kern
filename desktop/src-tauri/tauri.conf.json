@@ -18,16 +18,8 @@
     }
   },
   "bundle": {
-    "iOS": {
-      "minimumSystemVersion": "13.0"
-    },
     "macOS": {
-      "minimumSystemVersion": "10.15",
-      "infoPlist": {
-        "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true
-        }
-      }
+      "minimumSystemVersion": "10.15"
     }
   }
 }
