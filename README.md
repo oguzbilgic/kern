@@ -193,13 +193,13 @@ Structured, leveled logs with colored labels. Stored in `.kern/logs/kern.log`. A
   "model": "anthropic/claude-opus-4.6",
   "provider": "openrouter",
   "toolScope": "full",
-  "maxContextTokens": 50000,
+  "maxContextTokens": 100000,
   "maxToolResultChars": 20000,
-  "summaryBudget": 0.2
+  "summaryBudget": 0.75
 }
 ```
 
-`maxContextTokens` controls the sliding context window — older messages are trimmed to stay within budget. `maxToolResultChars` caps individual tool results in context (full results stay in session JSONL and are searchable via recall). `summaryBudget` controls what fraction of the context window is reserved for compressed segment summaries when old messages are trimmed (default 20%). Set to `0` to disable.
+`maxContextTokens` controls the sliding context window — older messages are trimmed to stay within budget. `maxToolResultChars` caps individual tool results in context (full results stay in session JSONL and are searchable via recall). `summaryBudget` controls what fraction of the context window is reserved for compressed segment summaries when old messages are trimmed (default 75%, cached via prompt caching so effectively free). Set to `0` to disable.
 
 Agent auth tokens are auto-generated on first start and stored in `.kern/.env`. The web proxy injects them automatically — no manual setup needed.
 

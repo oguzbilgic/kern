@@ -70,11 +70,11 @@ Two layers:
 
 ### Features
 
-- **Agent sidebar** — left panel with agents grouped by server, online/offline status dots. Drag the right edge to resize between full, mini (avatars only), and collapsed states
+- **Agent sidebar** — left panel with agents grouped by server, online/offline status dots. Drag the right edge to resize between full, mini (avatars only), and collapsed states. Hamburger button toggles collapsed ↔ previous state; small windows force mini mode.
 - **Slash commands** — `/status`, `/restart`, `/help` with autocomplete popup
 - **Collapsible tool output** — click a tool call to expand and see the result. Edit tools show inline diffs (red/green).
 - **TUI-style message colors** — user (blue), incoming from Telegram/Slack (yellow), outgoing (green), heartbeat (magenta), per-tool colors
-- **Streaming responses** with live cursor and thinking indicator
+- **Streaming responses** with live cursor and server-driven thinking indicator
 - **Mid-turn messaging** — input stays enabled while agent is working. Send follow-up messages or corrections that get injected between tool steps.
 - **Full history** on connect, including tool call results
 - **Agent info panel** — click agent name in header to see model, uptime, session stats, cache hit rate, and API usage
