@@ -45,12 +45,20 @@ const CACHE_CONTROL = {
 function addMessageCacheBreakpoints(messages: ModelMessage[]): ModelMessage[] {
   if (messages.length < 4) return messages;
 
-  // Place breakpoint 4 messages from the end — far enough that tool call
-  // steps within a single turn don't push past it, close enough that
-  // most of the conversation is cached.
-  const breakpointIdx = messages.length - 4;
-  const target = messages[breakpointIdx];
-  log("runtime", `cache breakpoint at msg ${breakpointIdx}/${messages.length} (role=${target.role})`);
+  // Place breakpoint on the last user message — the turn start point.
+  // This stays fixed throughout all tool-call steps within a turn,
+  // so every step after the first reuses the entire cached prefix.
+  // Between turns, the snapped trim boundary keeps the prefix stable too.
+  let breakpointIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") {
+      breakpointIdx = i;
+      break;
+    }
+  }
+  if (breakpointIdx < 0) return messages;
+
+  log("runtime", `cache breakpoint at msg ${breakpointIdx}/${messages.length} (role=user)`);
 
   return messages.map((msg, i) => {
     if (i !== breakpointIdx) return msg;
