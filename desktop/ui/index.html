@@ -259,6 +259,9 @@
 
     // No aggressive auto-connect to prevent loops
     renderSaved();
+
+    // Debug: log page load with timestamp to detect unwanted reloads
+    console.log('[desktop connect] page loaded at', new Date().toISOString(), 'url:', location.href);
   </script>
 </body>
 </html>
