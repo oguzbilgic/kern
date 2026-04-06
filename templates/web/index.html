@@ -4009,7 +4009,7 @@ function setActiveAgent(name) {
 let allAgents = [];
 
 // --- Multi-agent connection manager ---
-const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+const IDLE_TIMEOUT = 15 * 60 * 1000; // 15 minutes
 const agentConns = {}; // { agentName: { sse, idleTimer, unread } }
 
 function getAgentConn(name) {
@@ -4083,6 +4083,16 @@ function startIdleTimer(name) {
 function clearIdleTimer(name) {
   const conn = getAgentConn(name);
   if (conn.idleTimer) { clearTimeout(conn.idleTimer); conn.idleTimer = null; }
+}
+
+function connectAllBackground() {
+  const activeName = getActiveAgent();
+  for (const agent of getAllAgents()) {
+    if (agent.running && agent.url && agent.name !== activeName) {
+      connectAgent(agent);
+      startIdleTimer(agent.name);
+    }
+  }
 }
 
 function getAgentState(agent) {
@@ -5549,15 +5559,18 @@ function showTokenPrompt() {
     BASE_URL = activeAgent.url;
     AUTH_TOKEN = getServerToken(activeAgent.server || location.origin);
     init();
+    connectAllBackground();
   } else if (runningAgents.length === 1) {
     // Only one running agent — auto-connect
     switchToAgent(runningAgents[0]);
+    connectAllBackground();
   } else if (runningAgents.length > 1) {
     // Multiple running agents — show switcher
     setConnected('disconnected');
     agentNameEl.textContent = 'kern';
     renderSwitcher();
     openSidebar();
+    connectAllBackground();
   } else {
     // No running agents
     setConnected('disconnected');
