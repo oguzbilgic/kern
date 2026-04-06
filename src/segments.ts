@@ -719,6 +719,19 @@ export class SegmentIndex {
   }
 
   /**
+   * Return sorted L0 segment msg_start values for a session.
+   * Used to snap trim boundaries to stable segment edges for cache stability.
+   */
+  getL0Boundaries(sessionId: string): number[] {
+    const rows = this.db.prepare(
+      `SELECT msg_start FROM semantic_segments
+       WHERE session_id = ? AND level = 0
+       ORDER BY msg_start ASC`
+    ).all(sessionId) as Array<{ msg_start: number }>;
+    return rows.map(r => r.msg_start);
+  }
+
+  /**
    * Compose compressed history for context injection.
    * Fills a token budget with segment summaries from the trimmed region.
    * Recency bias: expands most recent segments to lower (more detailed) levels first.

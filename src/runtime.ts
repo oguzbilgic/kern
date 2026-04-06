@@ -49,6 +49,8 @@ function addMessageCacheBreakpoints(messages: ModelMessage[]): ModelMessage[] {
   // steps within a single turn don't push past it, close enough that
   // most of the conversation is cached.
   const breakpointIdx = messages.length - 4;
+  const target = messages[breakpointIdx];
+  log("runtime", `cache breakpoint at msg ${breakpointIdx}/${messages.length} (role=${target.role})`);
 
   return messages.map((msg, i) => {
     if (i !== breakpointIdx) return msg;

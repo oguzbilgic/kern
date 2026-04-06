@@ -257,7 +257,23 @@ export function prepareContext({ messages, config, sessionId, segmentIndex }: Pr
   const rawBudget = segmentIndex && config.summaryBudget > 0
     ? Math.round(config.maxContextTokens * (1 - config.summaryBudget))
     : config.maxContextTokens;
-  const { messages: window, trimmedCount } = trimToTokenBudget(truncated, rawBudget);
+  let { messages: window, trimmedCount } = trimToTokenBudget(truncated, rawBudget);
+
+  // Snap the trim boundary to the nearest L0 segment start for cache stability.
+  // This keeps the raw message window starting at a stable segment edge,
+  // so the conversation prefix stays byte-identical across turns until
+  // the next segment boundary shifts (every ~100+ messages).
+  if (trimmedCount > 0 && segmentIndex && sessionId) {
+    const l0Starts = segmentIndex.getL0Boundaries(sessionId);
+    // Find the smallest L0 msg_start >= trimmedCount (snap up)
+    const snapped = l0Starts.find(s => s >= trimmedCount);
+    if (snapped !== undefined && snapped > trimmedCount && snapped < truncated.length - 4) {
+      const extra = snapped - trimmedCount;
+      window = window.slice(extra);
+      trimmedCount = snapped;
+      log.debug("context", `snapped trim boundary to L0 segment edge: +${extra} msgs trimmed (now ${trimmedCount})`);
+    }
+  }
 
   // Inject compressed summary at trim boundary
   let summaryTokens = 0;
