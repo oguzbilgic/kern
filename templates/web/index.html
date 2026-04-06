@@ -1195,6 +1195,11 @@
     right: 0;
     width: 12px;
     height: 12px;
+    min-width: 12px;
+    max-width: 12px;
+    min-height: 12px;
+    max-height: 12px;
+    box-sizing: border-box;
     border-radius: 50%;
     border: 2px solid var(--bg-sidebar);
     display: flex;
@@ -1202,9 +1207,7 @@
     justify-content: center;
     overflow: hidden;
     font-size: 0px;
-  }
-  .switcher-item-avatar .online-dot {
-    transition: width 0.2s ease, height 0.2s ease, bottom 0.2s ease, right 0.2s ease, border-width 0.2s ease, font-size 0.2s ease;
+    transition: width 0.2s ease, height 0.2s ease, bottom 0.2s ease, right 0.2s ease, border-width 0.2s ease, font-size 0.2s ease, background-color 0.2s ease, min-width 0.2s ease, max-width 0.2s ease, min-height 0.2s ease, max-height 0.2s ease;
   }
   .switcher-item-avatar .online-dot.active,
   .switcher-item-avatar .online-dot.connected { background: var(--accent); }
@@ -1215,15 +1218,21 @@
   }
   .switcher-item-avatar .online-dot.has-unread {
     width: 18px;
+    min-width: 18px;
+    max-width: 18px;
     height: 18px;
+    min-height: 18px;
+    max-height: 18px;
+    box-sizing: border-box;
     border-radius: 50%;
     font-size: 10px;
     font-weight: 700;
+    line-height: 1;
     color: var(--bg);
     background: var(--accent);
     bottom: -3px;
     right: -3px;
-    border: 2.5px solid var(--bg-sidebar);
+    border: 3px solid var(--bg-sidebar);
   }
   @keyframes dot-pulse {
     0%, 100% { opacity: 1; }
