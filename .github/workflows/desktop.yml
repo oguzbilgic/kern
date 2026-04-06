@@ -8,8 +8,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feat/desktop
-      - master
+      - 'desktop/**'
     paths:
       - 'desktop/**'
       - '.github/workflows/desktop.yml'
