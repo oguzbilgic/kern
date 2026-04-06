@@ -235,17 +235,9 @@
 
         saveServer(url, token);
         const targetUrl = url + '?token=' + encodeURIComponent(token);
+        console.log('[desktop] navigating to:', targetUrl);
 
-        // Use Tauri command to navigate the WebView from Rust
-        if (window.__TAURI_INTERNALS__) {
-          try {
-            await window.__TAURI_INTERNALS__.invoke('navigate_to', { url: targetUrl });
-            return; // Rust handles navigation
-          } catch (tauriErr) {
-            console.warn('Tauri navigate failed, falling back to JS:', tauriErr);
-          }
-        }
-        // Fallback for non-Tauri (testing in browser)
+        // Navigate — Tauri's on_navigation(|_| true) allows external URLs
         window.location.replace(targetUrl);
       } catch (e) {
         showError(
