@@ -6,6 +6,19 @@
 - **Sidebar behavior** ([#71](https://github.com/oguzbilgic/kern-ai/pull/71)) — hamburger toggles collapsed ↔ previous state; small windows use mini sidebar instead of overlay
 - Document `.kern/.env` secrets location in KERN.md template
 
+## desktop-next
+
+- Tauri 2.0 desktop app — thin native wrapper loading kern web UI
+- macOS ad-hoc code signing, CI builds for macOS ARM/Intel + Linux
+- Single-window navigation with `on_navigation` allowing external URLs
+- App menu: Logout, Reconnect, Reload (Cmd+R), Open in Browser, About
+- Auto-reconnect to last saved server on launch
+- File drag-and-drop support
+- External links open in system browser
+- App icon ("k." on dark background with amber dot)
+- DMG packaging in CI
+- Desktop CI triggers on `desktop/*` branches only
+
 ## v0.21.0
 
 ### Features
