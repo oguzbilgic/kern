@@ -4,6 +4,7 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::webview::WebviewWindowBuilder;
 use tauri::tray::TrayIconEvent;
 use tauri::{Emitter, Manager, WebviewUrl};
+use tauri_plugin_opener::OpenerExt;
 
 #[tauri::command]
 fn navigate_to(app: tauri::AppHandle, url: String) -> Result<(), String> {
@@ -37,7 +38,21 @@ fn main() {
             .title("kern")
             .inner_size(1000.0, 700.0)
             .min_inner_size(600.0, 400.0)
-            .on_navigation(|_| true) // Allow navigation to external URLs
+            .on_navigation({
+                let handle = app.handle().clone();
+                move |url| {
+                    let s = url.as_str();
+                    // Allow tauri pages and agent HTTP connections
+                    if s.starts_with("tauri://") || s.starts_with("http://") {
+                        return true;
+                    }
+                    // External https links → open in system browser
+                    if s.starts_with("https://") {
+                        let _ = handle.opener().open_url(s, None::<&str>);
+                    }
+                    false
+                }
+            })
             .disable_drag_drop_handler() // Let browser handle HTML5 drag-and-drop
             .build()?;
 
