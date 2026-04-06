@@ -127,9 +127,9 @@ fn main() {
                     }
                 }
                 "logout" => {
-                    // Clear saved servers so auto-reconnect doesn't fire
+                    // Set flag to skip auto-reconnect, keep saved servers
                     if let Some(w) = &window {
-                        let _ = w.eval("localStorage.removeItem('kern_servers');");
+                        let _ = w.eval("sessionStorage.setItem('kern_auto_failed', '1');");
                     }
                     let _ = go_home(app.clone());
                 }
