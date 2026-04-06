@@ -1,49 +1,34 @@
 # Interfaces
 
-kern supports multiple interfaces simultaneously. Each agent runs as a daemon with all configured interfaces active.
+kern supports multiple interfaces simultaneously. Each agent runs as a daemon with all configured interfaces active. Every interface feeds into the same session — the agent always knows what happened regardless of channel.
 
 ## TUI
 
-Interactive terminal chat. Connects to a running daemon via HTTP/SSE.
+Interactive terminal chat. Connects to a running agent via HTTP/SSE.
 
 ```bash
 kern tui [name]
 ```
 
-- Always the operator (the person who created the agent)
-- Auto-starts daemon if not running
+- Always the operator (no pairing required)
+- Auto-starts agent if not running
 - Auto-selects agent if only one registered
 - Shows cross-channel messages in real time
-- Renders Markdown (code blocks, quotes, bold, italic)
-- Live connection indicator (`●`/`○`) that automatically reconnects
-- **Mid-turn messaging** — input stays enabled while agent is working. Messages are injected between tool steps.
-- Ctrl-C only kills TUI, daemon stays alive
+- Ctrl-C kills TUI only, agent stays alive
 
-Message styling (colored left borders):
-- **green** — your input and outgoing messages to other channels
-- **yellow** — incoming from other channels (Telegram, Slack, Web)
-- **magenta** — heartbeat
-- Assistant responses are plain text, indented
-- Tool calls are color-coded by tool name (bash=red, read=cyan, write=green, edit=yellow, glob=magenta, grep=blue)
+### Setup
+
+No setup needed — works out of the box after `kern start`.
 
 ## Web UI
 
-Browser-based chat interface. Runs as a separate process from agents — `kern web` serves the UI, agents serve their APIs.
-
-### Setup
+Browser-based chat. Runs as a separate proxy process.
 
 ```bash
 kern web start    # start web UI, prints URL with token
 kern web stop     # stop it
 kern web status   # check if running
 kern web token    # print URL with token again
-```
-
-`kern web start` prints a URL with the auth token. Open it to connect:
-
-```
-  ● web started (pid 12345, port 9000)
-  → http://localhost:9000?token=abc123...
 ```
 
 Over Tailscale or LAN, use the machine's hostname or IP with the same token.
@@ -55,32 +40,18 @@ Over Tailscale or LAN, use the machine's hostname or IP with the same token.
 - The web proxy injects agent auth tokens automatically — the browser never sees them
 - Single `KERN_WEB_TOKEN` protects the proxy layer
 
-### Agent discovery
-
-- **Local agents** are auto-discovered from `~/.kern/agents.json`. The sidebar shows them grouped under the local server.
-- **Remote servers** can be added in the sidebar ("Add server" with URL + token). Agents on remote servers are fetched and grouped by server hostname. Stored in browser localStorage.
-
 ### Authentication
 
 Two layers:
 
-1. **Web proxy auth** — `KERN_WEB_TOKEN` in `~/.kern/.env`, auto-generated on first `kern web start`. Required on all `/api/*` routes. Web UI prompts for it on first visit, saves to localStorage. Logout button in sidebar clears it.
+1. **Web proxy auth** — `KERN_WEB_TOKEN` in `~/.kern/.env`, auto-generated on first `kern web start`. Required on all `/api/*` routes. Web UI prompts for it on first visit, saves to localStorage. Logout button clears it.
 
 2. **Agent auth** — per-agent `KERN_AUTH_TOKEN` in `.kern/.env`, auto-generated on first agent start. The web proxy reads these from `~/.kern/agents.json` and injects them into proxied requests. Users never interact with agent tokens.
 
-### Features
+### Agent discovery
 
-- **Agent sidebar** — left panel with agents grouped by server, online/offline status dots. Drag the right edge to resize between full, mini (avatars only), and collapsed states. Hamburger button toggles collapsed ↔ previous state; small windows force mini mode.
-- **Slash commands** — `/status`, `/restart`, `/help` with autocomplete popup
-- **Collapsible tool output** — click a tool call to expand and see the result. Edit tools show inline diffs (red/green).
-- **TUI-style message colors** — user (blue), incoming from Telegram/Slack (yellow), outgoing (green), heartbeat (magenta), per-tool colors
-- **Streaming responses** with live cursor and server-driven thinking indicator
-- **Mid-turn messaging** — input stays enabled while agent is working. Send follow-up messages or corrections that get injected between tool steps.
-- **Full history** on connect, including tool call results
-- **Agent info panel** — click agent name in header to see model, uptime, session stats, cache hit rate, and API usage
-- **Auto-reconnect** — re-discovers agent port after restart
-- **Memory UI** — unified overlay with 5 tabs: Sessions, Segments, Notes, Recall, and Context
-- **Dark theme**, mobile-friendly, PWA support
+- **Local agents** are auto-discovered from `~/.kern/agents.json`
+- **Remote servers** can be added in the sidebar ("Add server" with URL + token). Stored in browser localStorage.
 
 ### Global config
 
@@ -94,6 +65,8 @@ Web server port and host are configured in `~/.kern/config.json`:
 ```
 
 Optional — defaults apply if the file doesn't exist.
+
+See [Web UI](web-ui.md) for client features.
 
 ## Telegram
 
@@ -112,7 +85,7 @@ Long polling bot. Works behind NAT, no public URL needed.
 - Responses stream with typing indicator
 - Tool calls shown live (⚙), replaced by response
 - Markdown converted to Telegram HTML
-- Connection status reported in `/status` (connected/disconnected/error)
+- Connection status reported in `/status`
 - Graceful shutdown: polling stops cleanly on SIGTERM — no 409 conflicts on restart
 - If a 409 conflict occurs (e.g. rapid restart), retries automatically after 5 seconds
 
@@ -152,14 +125,14 @@ Socket Mode connection. No public URL needed.
 - **Channels**: agent reads ALL messages but only responds when @mentioned or directly relevant. Returns `NO_REPLY` to suppress silent messages.
 - **Replies**: all replies post directly to the channel or DM (no threading).
 - Agent can send proactive messages via the `message` tool.
-- Connection status reported in `/status` (connected/disconnected/error).
+- Connection status reported in `/status`.
 - Graceful shutdown: Socket Mode connection closes cleanly on SIGTERM.
 
 ## Android
 
 Native Android app wrapping the web UI in a WebView with native SSE, voice input, and text-to-speech.
 
-- Connects to any kern web server (local, LAN, or remote via ngrok/Tailscale)
+- Connects to any kern web server (local, LAN, or remote via Tailscale)
 - Native SSE via OkHttp — bypasses WebView EventSource buffering issues
 - Voice input (speech recognition) and TTS output for assistant responses
 - Communicates with the web UI through `window.KernBridge` — a stable API that decouples the app from web UI internals
