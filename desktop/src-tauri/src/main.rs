@@ -30,6 +30,7 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![navigate_to, go_home])
         .setup(|app| {
+            let handle = app.handle().clone();
             let window = WebviewWindowBuilder::new(
                 app,
                 "main",
@@ -38,17 +39,31 @@ fn main() {
             .title("kern")
             .inner_size(1000.0, 700.0)
             .min_inner_size(600.0, 400.0)
-            .on_navigation(|url| {
+            .on_navigation(move |url| {
                 // Allow tauri:// and http:// (kern server) URLs to load in WebView
-                // Open https:// links in system browser instead
+                // Open https:// links in system browser via opener plugin
                 let scheme = url.scheme();
                 if scheme == "https" {
-                    // Open in system browser, block in-app navigation
-                    let _ = std::process::Command::new("open").arg(url.as_str()).spawn();
+                    let _ = handle.opener().open_url(url.as_str(), None::<&str>);
                     false
                 } else {
                     true
                 }
+            })
+            .on_page_load(|w, _payload| {
+                // Intercept target="_blank" link clicks and convert to same-window
+                // navigations so on_navigation can catch and open them externally.
+                // This is needed because on_navigation doesn't fire for _blank links.
+                w.eval(r#"
+                    document.addEventListener('click', function(e) {
+                        var a = e.target.closest('a[target="_blank"]');
+                        if (a && a.href) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            window.location.href = a.href;
+                        }
+                    }, true);
+                "#).ok();
             })
             .disable_drag_drop_handler() // Let browser handle HTML5 drag-and-drop
             .build()?;
