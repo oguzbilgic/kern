@@ -4028,7 +4028,6 @@ function connectAgent(agent) {
     try {
       const ev = JSON.parse(e.data);
       if (ev.type === 'connection') return;
-      console.log(`[bg-sse] ${agent.name}: ${ev.type} (active: ${getActiveAgent()})`);
       if (agent.name === getActiveAgent()) return;
       // Track thinking state
       if (ev.type === 'thinking') {
@@ -4053,8 +4052,6 @@ function connectAgent(agent) {
       }
     } catch {}
   };
-  es.onopen = () => console.log(`[bg-sse] ${agent.name}: connected`);
-  es.onerror = (e) => console.log(`[bg-sse] ${agent.name}: error, readyState=${es.readyState}`);
   es.onerror = () => {
     // Don't kill the connection — EventSource auto-reconnects on transient errors.
     // Only clean up if the connection is fully dead (readyState === CLOSED).
