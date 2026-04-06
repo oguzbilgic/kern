@@ -4085,14 +4085,27 @@ function clearIdleTimer(name) {
   if (conn.idleTimer) { clearTimeout(conn.idleTimer); conn.idleTimer = null; }
 }
 
-function connectAllBackground() {
+async function connectAllBackground() {
   const activeName = getActiveAgent();
-  for (const agent of getAllAgents()) {
-    if (agent.running && agent.url && agent.name !== activeName) {
-      connectAgent(agent);
-      startIdleTimer(agent.name);
-    }
+  const agents = getAllAgents().filter(a => a.running && a.url && a.name !== activeName);
+  for (const agent of agents) {
+    connectAgent(agent);
+    startIdleTimer(agent.name);
   }
+  // Check busy state for all background agents
+  await Promise.all(agents.map(async (agent) => {
+    try {
+      const token = getServerToken(agent.server || location.origin);
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const res = await fetch(`${agent.url}/status`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        const conn = getAgentConn(agent.name);
+        conn.thinking = typeof data.queue === 'string' && data.queue.startsWith('busy');
+        renderSwitcher();
+      }
+    } catch {}
+  }));
 }
 
 function getAgentState(agent) {
