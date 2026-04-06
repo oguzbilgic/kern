@@ -17,7 +17,7 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 | Field | Default | Description |
 |-------|---------|-------------|
 | `model` | `anthropic/claude-opus-4.6` | Model ID. Format depends on provider. |
-| `provider` | `openrouter` | API provider: `openrouter`, `anthropic`, `openai` |
+| `provider` | `openrouter` | API provider: `openrouter`, `anthropic`, `openai`, `ollama` |
 | `toolScope` | `full` | Tool access level: `full`, `write`, `read` |
 | `maxSteps` | `30` | Max tool-use steps per message |
 | `maxContextTokens` | `100000` | Token budget for context window. Messages beyond this are trimmed oldest-first. Full history stays in session JSONL files. |
@@ -41,6 +41,7 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 - **openrouter** — routes to cheapest provider. Model IDs like `anthropic/claude-opus-4.6`. Uses OpenAI-compatible chat completions API.
 - **anthropic** — direct Anthropic API. Model IDs like `claude-opus-4-6-20260301`.
 - **openai** — OpenAI or Azure. Model IDs like `gpt-4o`.
+- **ollama** — local Ollama server. Model IDs match Ollama model names like `gemma4:31b`. Set `OLLAMA_BASE_URL` in `.env` for remote servers (default: `http://localhost:11434`).
 
 ## Per-agent: .kern/.env
 
@@ -48,6 +49,7 @@ Secrets. Gitignored. Never committed.
 
 ```
 OPENROUTER_API_KEY=sk-or-...
+OLLAMA_BASE_URL=http://localhost:11434
 TELEGRAM_BOT_TOKEN=...
 SLACK_BOT_TOKEN=xoxb-...
 SLACK_APP_TOKEN=xapp-...

@@ -22,6 +22,13 @@ const FALLBACK_MODELS: Record<string, { name: string; value: string }[]> = {
     { name: "GPT-4.1", value: "gpt-4.1" },
     { name: "o3", value: "o3" },
   ],
+  ollama: [
+    { name: "Gemma 4 31B", value: "gemma4:31b" },
+    { name: "Llama 3.3 70B", value: "llama3.3:70b" },
+    { name: "Qwen 3.5 27B", value: "qwen3.5:27b" },
+    { name: "DeepSeek R1 32B", value: "deepseek-r1:32b" },
+    { name: "Mistral Small 24B", value: "mistral-small:24b" },
+  ],
 };
 
 // Models to exclude from OpenRouter (embeddings, moderation, old versions, etc.)
@@ -48,6 +55,9 @@ async function fetchModels(
       case "openai":
         url = "https://api.openai.com/v1/models";
         headers["Authorization"] = `Bearer ${apiKey}`;
+        break;
+      case "ollama":
+        url = `${apiKey || "http://localhost:11434"}/api/tags`;
         break;
       default:
         return null;
@@ -89,6 +99,15 @@ async function fetchModels(
       return chatModels.map((m) => ({ name: m.id, value: m.id }));
     }
 
+    if (provider === "ollama") {
+      // Ollama /api/tags returns { models: [{ name, size, ... }] }
+      const ollamaModels: any[] = json.models || [];
+      if (ollamaModels.length === 0) return null;
+      return ollamaModels
+        .sort((a, b) => (b.size || 0) - (a.size || 0))
+        .map((m) => ({ name: m.name, value: m.name }));
+    }
+
     return null;
   } catch {
     return null;
@@ -99,7 +118,8 @@ async function getModelChoices(
   provider: string,
   apiKey: string,
 ): Promise<{ name: string; value: string }[]> {
-  if (apiKey) {
+  // Ollama always tries to fetch (URL is the key), others need an API key
+  if (apiKey || provider === "ollama") {
     print("  Fetching models...");
     const live = await fetchModels(provider, apiKey);
     if (live && live.length > 0) return live;
@@ -112,12 +132,14 @@ const PROVIDERS = [
   { name: "OpenRouter", value: "openrouter", keyLabel: "OpenRouter API key" },
   { name: "Anthropic", value: "anthropic", keyLabel: "Anthropic API key" },
   { name: "OpenAI", value: "openai", keyLabel: "OpenAI API key" },
+  { name: "Ollama (local)", value: "ollama", keyLabel: "Ollama server URL" },
 ];
 
 const API_KEY_ENV: Record<string, string> = {
   openrouter: "OPENROUTER_API_KEY",
   anthropic: "ANTHROPIC_API_KEY",
   openai: "OPENAI_API_KEY",
+  ollama: "OLLAMA_BASE_URL",
 };
 
 function print(text: string) {
@@ -155,17 +177,26 @@ async function runConfig(name: string, dir: string): Promise<void> {
     default: currentConfig.provider || "openrouter",
   });
 
-  // API key
+  // API key or URL
   const providerInfo = PROVIDERS.find((p) => p.value === provider)!;
   const envVar = API_KEY_ENV[provider];
   const currentKey = currentEnv[envVar];
   const maskedKey = currentKey ? `****${currentKey.slice(-4)}` : "";
 
-  const apiKeyMsg = maskedKey ? `${providerInfo.keyLabel} (${maskedKey}, enter to keep)` : providerInfo.keyLabel;
-  const apiKey = await password({
-    message: apiKeyMsg,
-    mask: "*",
-  });
+  let apiKey: string;
+  if (provider === "ollama") {
+    // Ollama needs a server URL, not an API key
+    apiKey = await input({
+      message: "Ollama server URL",
+      default: currentKey || "http://localhost:11434",
+    });
+  } else {
+    const apiKeyMsg = maskedKey ? `${providerInfo.keyLabel} (${maskedKey}, enter to keep)` : providerInfo.keyLabel;
+    apiKey = await password({
+      message: apiKeyMsg,
+      mask: "*",
+    });
+  }
 
   // Model — fetch live from provider, fall back to defaults
   const keyForFetch = !apiKey ? currentKey : apiKey;

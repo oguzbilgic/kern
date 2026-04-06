@@ -3,6 +3,7 @@
 ## next
 
 ### Features
+- **Ollama provider** — run agents on local models via Ollama. Zero new dependencies — uses Ollama's OpenAI-compatible API. `kern init` auto-discovers pulled models. Set `OLLAMA_BASE_URL` for remote servers.
 - **Advanced prompt caching** ([#67](https://github.com/oguzbilgic/kern-ai/pull/67)) — dual cache breakpoints and turn-safe trim snapping for near-perfect cache hit rates
   - Stable prefix breakpoint snapped every 20 messages + turn breakpoint at last user message
   - Trim boundary snapped to L0 segment edges then walked back to nearest user message to prevent orphaned tool results

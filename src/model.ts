@@ -42,6 +42,14 @@ export function createModel(config: KernConfig): any {
       const openai = createOpenAI();
       return openai(config.model);
     }
+    case "ollama": {
+      const base = (process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/+$/, "");
+      const ollama = createOpenAI({
+        baseURL: `${base}/v1`,
+        apiKey: "ollama", // required by SDK but ignored by Ollama
+      });
+      return ollama.chat(config.model);
+    }
     default:
       throw new Error(`Unknown provider: ${config.provider}`);
   }

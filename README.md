@@ -227,6 +227,7 @@ Shell tool is platform-specific: `bash` on Unix/Linux, `pwsh` on Windows. Select
 - **openrouter** — any model via OpenRouter (default)
 - **anthropic** — direct Anthropic API
 - **openai** — OpenAI / Azure
+- **ollama** — local models via [Ollama](https://ollama.com)
 
 ## Documentation
 
