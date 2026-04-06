@@ -3,7 +3,7 @@
 ## next
 
 ### Features
-- **Ollama provider** ([#69](https://github.com/oguzbilgic/kern-ai/pull/69)) — run agents on local models via Ollama. Zero new dependencies — uses Ollama's OpenAI-compatible API. `kern init` auto-discovers pulled models. Non-interactive: `kern init my-agent --provider ollama --api-key http://host:11434 --model gemma4:31b`. Set `OLLAMA_BASE_URL` in `.env` for remote servers.
+- **Ollama provider** ([#69](https://github.com/oguzbilgic/kern-ai/pull/69)) — run agents on local models via Ollama. `kern init` auto-discovers pulled models. Set `OLLAMA_BASE_URL` in `.env` for remote servers.
 - **Advanced prompt caching** ([#67](https://github.com/oguzbilgic/kern-ai/pull/67)) — dual cache breakpoints and turn-safe trim snapping for near-perfect cache hit rates
   - Stable prefix breakpoint snapped every 20 messages + turn breakpoint at last user message
   - Trim boundary snapped to L0 segment edges then walked back to nearest user message to prevent orphaned tool results
