@@ -2,6 +2,13 @@
 
 ## next
 
+### Features
+- **Advanced prompt caching** ([#67](https://github.com/oguzbilgic/kern-ai/pull/67)) — dual cache breakpoints and turn-safe trim snapping for near-perfect cache hit rates
+  - Stable prefix breakpoint snapped every 20 messages + turn breakpoint at last user message
+  - Trim boundary snapped to L0 segment edges then walked back to nearest user message to prevent orphaned tool results
+  - Caching logic consolidated in `context.ts` — removed duplication between runtime and context modules
+  - New `docs/caching.md` with full design documentation
+
 ### Improvements
 - **Web UI redesign** ([#59](https://github.com/oguzbilgic/kern-ai/pull/59))
   - Centered conversation layout with narrower bubbles, redesigned input pill with inline file attachments
