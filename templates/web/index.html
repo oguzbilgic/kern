@@ -4866,7 +4866,7 @@ function updateTitle(busy) {
 function showThinking() {
   if ($('thinking')) return;
   const el = document.createElement('div');
-  el.className = 'thinking';
+  el.className = 'message-thinking';
   el.id = 'thinking';
   el.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
   messagesEl.appendChild(el);
