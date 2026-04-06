@@ -2,15 +2,13 @@
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::webview::WebviewWindowBuilder;
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Manager, Url};
 
 #[tauri::command]
 fn navigate_to(window: tauri::WebviewWindow, url: String) -> Result<(), String> {
+    let parsed = Url::parse(&url).map_err(|e| format!("Invalid URL: {}", e))?;
     window
-        .eval(&format!(
-            "window.location.replace('{}')",
-            url.replace('\'', "\\'")
-        ))
+        .navigate(parsed)
         .map_err(|e| format!("Navigation failed: {}", e))
 }
 
@@ -28,9 +26,8 @@ fn main() {
             .title("kern")
             .inner_size(1000.0, 700.0)
             .min_inner_size(600.0, 400.0)
-            .on_navigation(|url| {
+            .on_navigation(|_url| {
                 // Allow all URLs — local and external
-                let _ = url;
                 true
             })
             .build()?;
@@ -53,14 +50,16 @@ fn main() {
             match event.id().as_ref() {
                 "logout" => {
                     if let Some(w) = window {
-                        let _ = w.eval(
-                            "localStorage.removeItem('kern_servers'); window.location.replace('index.html');",
+                        let _ = w.navigate(
+                            Url::parse("tauri://localhost/index.html").unwrap(),
                         );
                     }
                 }
                 "reconnect" => {
                     if let Some(w) = window {
-                        let _ = w.eval("window.location.replace('index.html');");
+                        let _ = w.navigate(
+                            Url::parse("tauri://localhost/index.html").unwrap(),
+                        );
                     }
                 }
                 "reload" => {
