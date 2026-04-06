@@ -18,7 +18,7 @@ export type { SessionStats } from "./context.js";
 
 
 export interface StreamEvent {
-  type: "text-delta" | "tool-call" | "tool-result" | "finish" | "error" | "recall";
+  type: "text-delta" | "tool-call" | "tool-result" | "finish" | "error" | "recall" | "thinking";
   text?: string;
   toolName?: string;
   toolDetail?: string;
@@ -143,6 +143,9 @@ export class Runtime {
     onEvent: StreamHandler,
     attachments?: Attachment[],
   ): Promise<string> {
+    // Signal that we're processing
+    onEvent({ type: "thinking" });
+
     // Reload system prompt (picks up new daily notes, summaries, knowledge changes)
     this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.memoryDB);
 
