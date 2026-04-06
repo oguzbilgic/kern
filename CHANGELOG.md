@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.21.0
 
 ### Features
 - **Ollama provider** ([#69](https://github.com/oguzbilgic/kern-ai/pull/69)) — run agents on local models via Ollama. `kern init` auto-discovers pulled models. Set `OLLAMA_BASE_URL` in `.env` for remote servers.
