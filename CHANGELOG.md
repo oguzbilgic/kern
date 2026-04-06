@@ -6,9 +6,10 @@
 - **Server-driven thinking indicator** ([#70](https://github.com/oguzbilgic/kern-ai/pull/70)) — thinking dots triggered by server event at start of message handling, replacing client-side guessing
 - **Sidebar behavior** ([#71](https://github.com/oguzbilgic/kern-ai/pull/71)) — hamburger toggles collapsed ↔ previous state; small windows use mini sidebar instead of overlay
 - **Scroll-to-bottom button** — repositions dynamically above input pill; chat re-anchors on window resize
-- Global scrollbar styling with muted colors
-- Fix URL auto-linking capturing trailing punctuation
 - Document `.kern/.env` secrets location in KERN.md template
+
+### Fixes
+- Fix URL auto-linking capturing trailing punctuation
 
 ## desktop-next
 
