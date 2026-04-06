@@ -1,5 +1,5 @@
 {
-  "productName": "kern",
+  "productName": "Kern",
   "version": "0.1.0",
   "identifier": "com.kern-ai.desktop",
   "build": {
@@ -26,7 +26,11 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "minimumSystemVersion": "10.15"
+      "minimumSystemVersion": "10.15",
+      "dmg": {
+        "appPosition": { "x": 180, "y": 170 },
+        "applicationFolderPosition": { "x": 480, "y": 170 }
+      }
     }
   }
 }
