@@ -27,7 +27,7 @@ kern tui
 
 The init wizard scaffolds your agent, asks for a provider and API key, then starts it. `kern tui` opens an interactive chat. `kern web start` opens it in the browser.
 
-For automation: `kern init my-agent --api-key sk-or-...` (no prompts, defaults to openrouter + opus 4.6).
+For automation: `kern init my-agent --api-key sk-or-...` (no prompts, defaults to openrouter + opus 4.6). For Ollama: `kern init my-agent --provider ollama --api-key http://localhost:11434 --model gemma4:31b`.
 
 ## How it works
 
@@ -227,6 +227,7 @@ Shell tool is platform-specific: `bash` on Unix/Linux, `pwsh` on Windows. Select
 - **openrouter** — any model via OpenRouter (default)
 - **anthropic** — direct Anthropic API
 - **openai** — OpenAI / Azure
+- **ollama** — local models via [Ollama](https://ollama.com)
 
 ## Documentation
 
