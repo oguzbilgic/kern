@@ -196,7 +196,8 @@
     }
 
     async function connect() {
-      const url = document.getElementById('url').value.replace(/\/+$/, '');
+      let url = document.getElementById('url').value.replace(/\/+$/, '');
+      if (url && !/^https?:\/\//i.test(url)) url = 'http://' + url;
       const token = document.getElementById('token').value;
       const error = document.getElementById('error');
       const hint = document.getElementById('hint');
