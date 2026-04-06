@@ -3,7 +3,7 @@
 ## next
 
 - Document `.kern/.env` secrets location in KERN.md template
-- **Sidebar resize fix** ([#71](https://github.com/oguzbilgic/kern-ai/pull/71)) — hamburger toggles collapsed ↔ previous state; small windows use mini sidebar instead of overlay
+- **Sidebar behavior** ([#71](https://github.com/oguzbilgic/kern-ai/pull/71)) — hamburger toggles collapsed ↔ previous state; small windows use mini sidebar instead of overlay
 
 ## v0.21.0
 
