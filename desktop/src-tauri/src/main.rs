@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri::menu::{Menu, MenuItem};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::webview::WebviewWindowBuilder;
 use tauri::{Emitter, Manager, WebviewUrl};
 
@@ -42,13 +42,38 @@ fn main() {
             #[cfg(debug_assertions)]
             window.open_devtools();
 
-            let logout = MenuItem::with_id(app, "logout", "Logout", true, None::<&str>)?;
-            let reconnect =
-                MenuItem::with_id(app, "reconnect", "Reconnect…", true, None::<&str>)?;
-            let reload = MenuItem::with_id(app, "reload", "Reload", true, None::<&str>)?;
-            let open_browser =
-                MenuItem::with_id(app, "open_browser", "Open in Browser", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&logout, &reconnect, &reload, &open_browser])?;
+            // Edit menu — required for Cmd+C/V/X/A to work on macOS
+            let edit_menu = Submenu::with_items(
+                app,
+                "Edit",
+                true,
+                &[
+                    &PredefinedMenuItem::undo(app, None)?,
+                    &PredefinedMenuItem::redo(app, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::cut(app, None)?,
+                    &PredefinedMenuItem::copy(app, None)?,
+                    &PredefinedMenuItem::paste(app, None)?,
+                    &PredefinedMenuItem::select_all(app, None)?,
+                ],
+            )?;
+
+            // App menu
+            let app_menu = Submenu::with_items(
+                app,
+                "kern",
+                true,
+                &[
+                    &MenuItem::with_id(app, "logout", "Logout", true, None::<&str>)?,
+                    &MenuItem::with_id(app, "reconnect", "Reconnect…", true, None::<&str>)?,
+                    &MenuItem::with_id(app, "reload", "Reload", true, None::<&str>)?,
+                    &MenuItem::with_id(app, "open_browser", "Open in Browser", true, None::<&str>)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::quit(app, None)?,
+                ],
+            )?;
+
+            let menu = Menu::with_items(app, &[&app_menu, &edit_menu])?;
             app.set_menu(menu)?;
             Ok(())
         })
