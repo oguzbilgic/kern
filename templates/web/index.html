@@ -1198,26 +1198,32 @@
     border-radius: 50%;
     border: 2px solid var(--bg-sidebar);
   }
-  .switcher-item-avatar .online-dot.active { background: var(--accent); }
+  .switcher-item-avatar .online-dot {
+    transition: all 0.2s ease;
+  }
+  .switcher-item-avatar .online-dot.active,
   .switcher-item-avatar .online-dot.connected { background: var(--accent); }
   .switcher-item-avatar .online-dot.online { display: none; }
   .switcher-item-avatar .online-dot.offline { background: var(--text-muted); }
-  .switcher-item-avatar .unread-badge {
-    position: absolute;
-    top: -4px;
-    right: -4px;
-    min-width: 18px;
+  .switcher-item-avatar .online-dot.thinking {
+    animation: dot-pulse 1.2s ease-in-out infinite;
+  }
+  .switcher-item-avatar .online-dot.has-unread {
+    width: 18px;
     height: 18px;
     border-radius: 9px;
-    background: var(--accent);
-    color: var(--bg);
     font-size: 11px;
     font-weight: 700;
+    color: var(--bg);
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 4px;
-    border: 2px solid var(--bg-sidebar);
+    bottom: -4px;
+    right: -4px;
+  }
+  @keyframes dot-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.7); }
   }
   .switcher-item-info {
     flex: 1;
@@ -4005,7 +4011,7 @@ const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 const agentConns = {}; // { agentName: { sse, idleTimer, unread } }
 
 function getAgentConn(name) {
-  if (!agentConns[name]) agentConns[name] = { sse: null, idleTimer: null, unread: 0 };
+  if (!agentConns[name]) agentConns[name] = { sse: null, idleTimer: null, unread: 0, thinking: false };
   return agentConns[name];
 }
 
@@ -4021,16 +4027,23 @@ function connectAgent(agent) {
     try {
       const ev = JSON.parse(e.data);
       if (ev.type === 'connection') return;
-      // If this is not the active agent, count as unread
-      if (agent.name !== getActiveAgent() && (ev.type === 'text-delta' || ev.type === 'assistant')) {
-        // Only count once per turn — on first text-delta
-        if (ev.type === 'text-delta' && conn._countedTurn) return;
-        if (ev.type === 'text-delta') conn._countedTurn = true;
-        if (ev.type === 'assistant') conn._countedTurn = false;
-        if (ev.type === 'text-delta') {
-          conn.unread++;
-          renderSwitcher();
-        }
+      if (agent.name === getActiveAgent()) return;
+      // Track thinking state
+      if (ev.type === 'thinking') {
+        conn.thinking = true;
+        renderSwitcher();
+      }
+      // Count unread: once per turn on first text-delta
+      if (ev.type === 'text-delta' && !conn._countedTurn) {
+        conn._countedTurn = true;
+        conn.unread++;
+        renderSwitcher();
+      }
+      // Turn finished
+      if (ev.type === 'assistant') {
+        conn._countedTurn = false;
+        conn.thinking = false;
+        renderSwitcher();
       }
     } catch {}
   };
@@ -4136,13 +4149,15 @@ function renderSwitcher() {
         const color = avatarColor(agent.name);
         const initial = agent.name.charAt(0).toUpperCase();
         const conn = getAgentConn(agent.name);
-        const badgeHtml = conn.unread > 0 && state !== 'active'
-          ? `<span class="unread-badge">${conn.unread > 99 ? '99+' : conn.unread}</span>` : '';
+        const dotClasses = [state];
+        if (conn.thinking && state !== 'active') dotClasses.push('thinking');
+        if (conn.unread > 0 && state !== 'active') dotClasses.push('has-unread');
+        const dotContent = (conn.unread > 0 && state !== 'active')
+          ? (conn.unread > 99 ? '99+' : conn.unread) : '';
         item.innerHTML = `
           <div class="switcher-item-avatar" style="background:${color}">
             ${initial}
-            <span class="online-dot ${state}"></span>
-            ${badgeHtml}
+            <span class="online-dot ${dotClasses.join(' ')}">${dotContent}</span>
           </div>
           <div class="switcher-item-name">${agent.name}</div>
         `;
@@ -4188,9 +4203,10 @@ function switchToAgent(agent) {
   inputEl.value = '';
   infoPanel.classList.remove('open');
 
-  // Clear unread and idle timer for new active agent
+  // Clear unread, thinking, and idle timer for new active agent
   const conn = getAgentConn(agent.name);
   conn.unread = 0;
+  conn.thinking = false;
   conn._countedTurn = false;
   clearIdleTimer(agent.name);
 
