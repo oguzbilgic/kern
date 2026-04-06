@@ -269,10 +269,11 @@ export function prepareContext({ messages, config, sessionId, segmentIndex }: Pr
   if (trimmedCount > 0) {
     let snapped = trimmedCount;
 
-    // Try L0 segment edge first (coarser, more stable)
+    // Try L0 segment end first — snap to end of a fully summarized segment
+    // so everything before the snap has a summary, everything after is raw messages
     if (segmentIndex && sessionId) {
-      const l0Starts = segmentIndex.getL0Boundaries(sessionId);
-      const l0Snap = l0Starts.find(s => s >= trimmedCount);
+      const l0Ends = segmentIndex.getL0Boundaries(sessionId);
+      const l0Snap = l0Ends.find(s => s >= trimmedCount);
       if (l0Snap !== undefined && l0Snap < truncated.length - 4) {
         snapped = l0Snap;
       }

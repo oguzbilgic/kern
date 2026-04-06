@@ -724,11 +724,11 @@ export class SegmentIndex {
    */
   getL0Boundaries(sessionId: string): number[] {
     const rows = this.db.prepare(
-      `SELECT msg_start FROM semantic_segments
+      `SELECT msg_end FROM semantic_segments
        WHERE session_id = ? AND level = 0
-       ORDER BY msg_start ASC`
-    ).all(sessionId) as Array<{ msg_start: number }>;
-    return rows.map(r => r.msg_start);
+       ORDER BY msg_end ASC`
+    ).all(sessionId) as Array<{ msg_end: number }>;
+    return rows.map(r => r.msg_end);
   }
 
   /**
