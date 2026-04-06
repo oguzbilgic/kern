@@ -4704,6 +4704,11 @@ function setConnected(state) {
 
 function handleEvent(event) {
   switch (event.type) {
+    case 'thinking':
+      setBusy(true);
+      showThinking();
+      break;
+
     case 'text-delta':
       hideThinking();
       if (!streamingEl) {
@@ -4893,10 +4898,6 @@ async function send() {
     messagesEl.appendChild(mediaEl);
   }
   scrollToBottom(true);
-  if (!busy) {
-    setBusy(true);
-    showThinking();
-  }
 
   try {
     const opts = { connectionId: connection?.connectionId };
