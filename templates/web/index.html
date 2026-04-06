@@ -1197,9 +1197,14 @@
     height: 12px;
     border-radius: 50%;
     border: 2px solid var(--bg-sidebar);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 0px;
   }
   .switcher-item-avatar .online-dot {
-    transition: width 0.2s ease, height 0.2s ease, bottom 0.2s ease, right 0.2s ease;
+    transition: width 0.2s ease, height 0.2s ease, bottom 0.2s ease, right 0.2s ease, border-width 0.2s ease, font-size 0.2s ease;
   }
   .switcher-item-avatar .online-dot.active,
   .switcher-item-avatar .online-dot.connected { background: var(--accent); }
@@ -1211,14 +1216,11 @@
   .switcher-item-avatar .online-dot.has-unread {
     width: 18px;
     height: 18px;
-    border-radius: 9px;
+    border-radius: 50%;
     font-size: 10px;
     font-weight: 700;
     color: var(--bg);
     background: var(--accent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
     bottom: -3px;
     right: -3px;
     border: 2.5px solid var(--bg-sidebar);
