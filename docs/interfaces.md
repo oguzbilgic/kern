@@ -1,6 +1,25 @@
 # Interfaces
 
-kern supports multiple interfaces simultaneously. Each agent runs as a daemon with all configured interfaces active. Every interface feeds into the same session — the agent always knows what happened regardless of channel.
+kern supports multiple interfaces simultaneously. Every interface feeds into the same session with consistent metadata.
+
+## Message metadata
+
+All messages include context metadata prepended to the text:
+
+```
+[via <interface>, <channel>, user: <id>, time: <iso8601>]
+```
+
+Examples:
+
+```
+[via telegram, telegram:12345, user: 8105113489, time: 2026-04-06T21:30:00Z]
+[via slack, #engineering, user: U04ABC, time: 2026-04-06T21:30:00Z]
+[via web, web, user: tui, time: 2026-04-06T21:30:00Z]
+[via tui, tui, user: tui, time: 2026-04-06T21:30:00Z]
+```
+
+The agent sees who's talking, from which channel, and when — and adapts behavior accordingly via instructions in `KERN.md`.
 
 ## TUI
 
@@ -10,19 +29,24 @@ Interactive terminal chat. Connects to a running agent via HTTP/SSE.
 kern tui [name]
 ```
 
+- Interface: `tui`, channel: `tui`, user: `tui`
 - Always the operator (no pairing required)
 - Auto-starts agent if not running
 - Auto-selects agent if only one registered
-- Shows cross-channel messages in real time
-- Ctrl-C kills TUI only, agent stays alive
-
-### Setup
-
-No setup needed — works out of the box after `kern start`.
 
 ## Web UI
 
-Browser-based chat. Runs as a separate proxy process.
+Browser-based chat via the `kern web` proxy server.
+
+```bash
+kern web start
+```
+
+- Interface: `web`, channel: `web`, user: `tui`
+- Always the operator (no pairing required)
+- Connects through web proxy with token auth
+
+### Setup
 
 ```bash
 kern web start    # start web UI, prints URL with token
@@ -30,8 +54,6 @@ kern web stop     # stop it
 kern web status   # check if running
 kern web token    # print URL with token again
 ```
-
-Over Tailscale or LAN, use the machine's hostname or IP with the same token.
 
 ### Architecture
 
@@ -44,18 +66,16 @@ Over Tailscale or LAN, use the machine's hostname or IP with the same token.
 
 Two layers:
 
-1. **Web proxy auth** — `KERN_WEB_TOKEN` in `~/.kern/.env`, auto-generated on first `kern web start`. Required on all `/api/*` routes. Web UI prompts for it on first visit, saves to localStorage. Logout button clears it.
+1. **Web proxy auth** — `KERN_WEB_TOKEN` in `~/.kern/.env`, auto-generated on first `kern web start`. Required on all `/api/*` routes. Web UI prompts for it on first visit, saves to localStorage.
 
-2. **Agent auth** — per-agent `KERN_AUTH_TOKEN` in `.kern/.env`, auto-generated on first agent start. The web proxy reads these from `~/.kern/agents.json` and injects them into proxied requests. Users never interact with agent tokens.
+2. **Agent auth** — per-agent `KERN_AUTH_TOKEN` in `.kern/.env`, auto-generated on first agent start. The web proxy injects them into proxied requests. Users never interact with agent tokens.
 
 ### Agent discovery
 
 - **Local agents** are auto-discovered from `~/.kern/agents.json`
-- **Remote servers** can be added in the sidebar ("Add server" with URL + token). Stored in browser localStorage.
+- **Remote servers** can be added in the sidebar ("Add server" with URL + token)
 
 ### Global config
-
-Web server port and host are configured in `~/.kern/config.json`:
 
 ```json
 {
@@ -64,13 +84,13 @@ Web server port and host are configured in `~/.kern/config.json`:
 }
 ```
 
-Optional — defaults apply if the file doesn't exist.
-
-See [Web UI](web-ui.md) for client features.
+Stored in `~/.kern/config.json`. Optional — defaults apply if missing.
 
 ## Telegram
 
 Long polling bot. Works behind NAT, no public URL needed.
+
+- Interface: `telegram`, channel: `telegram:<chatId>`, user: `<telegramUserId>`
 
 ### Setup
 
@@ -85,56 +105,37 @@ Long polling bot. Works behind NAT, no public URL needed.
 - Responses stream with typing indicator
 - Tool calls shown live (⚙), replaced by response
 - Markdown converted to Telegram HTML
-- Connection status reported in `/status`
-- Graceful shutdown: polling stops cleanly on SIGTERM — no 409 conflicts on restart
-- If a 409 conflict occurs (e.g. rapid restart), retries automatically after 5 seconds
+- Graceful shutdown: polling stops cleanly on SIGTERM
+- 409 conflicts auto-retry after 5 seconds
 
 ## Slack
 
 Socket Mode connection. No public URL needed.
 
+- Interface: `slack`, channel: `#channel-name` or `slack-dm`, user: `<slackUserId>`
+
 ### Setup
 
 1. Create a Slack app at https://api.slack.com/apps
-2. Enable **Socket Mode** in the app settings — generates an app-level token (`xapp-...`)
+2. Enable **Socket Mode** — generates an app-level token (`xapp-...`)
 3. Add bot token scopes:
-   - `chat:write` — send messages
-   - `channels:read` — read channel info
-   - `channels:history` — read channel messages
-   - `groups:read` — read private channel info
-   - `groups:history` — read private channel messages
-   - `im:read` — read DM info
-   - `im:write` — send DMs
-   - `im:history` — read DM history
+   - `chat:write`, `channels:read`, `channels:history`
+   - `groups:read`, `groups:history`
+   - `im:read`, `im:write`, `im:history`
 4. Install the app to your workspace — get bot token (`xoxb-...`)
 5. Subscribe to bot events:
-   - `message.channels` — messages in public channels
-   - `message.groups` — messages in private channels
-   - `message.im` — direct messages
+   - `message.channels`, `message.groups`, `message.im`
 6. Add tokens to `.kern/.env`:
    ```
    SLACK_BOT_TOKEN=xoxb-...
    SLACK_APP_TOKEN=xapp-...
    ```
-7. Invite the bot to channels where it should listen
+7. Invite the bot to channels
 8. Restart the agent
 
 ### Behavior
 
 - **DMs**: pairing required. Unpaired users get a code.
-- **Channels**: agent reads ALL messages but only responds when @mentioned or directly relevant. Returns `NO_REPLY` to suppress silent messages.
-- **Replies**: all replies post directly to the channel or DM (no threading).
-- Agent can send proactive messages via the `message` tool.
-- Connection status reported in `/status`.
-- Graceful shutdown: Socket Mode connection closes cleanly on SIGTERM.
-
-## Android
-
-Native Android app wrapping the web UI in a WebView with native SSE, voice input, and text-to-speech.
-
-- Connects to any kern web server (local, LAN, or remote via Tailscale)
-- Native SSE via OkHttp — bypasses WebView EventSource buffering issues
-- Voice input (speech recognition) and TTS output for assistant responses
-- Communicates with the web UI through `window.KernBridge` — a stable API that decouples the app from web UI internals
-
-See [`android/README.md`](../android/README.md) for build instructions and architecture details.
+- **Channels**: reads ALL messages, only responds when @mentioned or directly relevant. Returns `NO_REPLY` to suppress.
+- **Replies**: post directly to channel or DM (no threading).
+- Graceful shutdown: Socket Mode closes cleanly on SIGTERM.
