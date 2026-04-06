@@ -4249,7 +4249,6 @@ function switchToAgent(agent) {
   // Clear unread, thinking, and idle timer for new active agent
   const conn = getAgentConn(agent.name);
   conn.unread = 0;
-  conn.thinking = false;
   conn._countedTurn = false;
   clearIdleTimer(agent.name);
 
@@ -4890,6 +4889,11 @@ function handleEvent(event) {
   switch (event.type) {
     case 'thinking':
       setBusy(true);
+      if (activeName) {
+        const conn = getAgentConn(activeName);
+        conn.thinking = true;
+        renderSwitcher();
+      }
       showThinking();
       break;
 
@@ -4990,6 +4994,13 @@ function handleEvent(event) {
     case 'finish':
       flushStreaming();
       hideThinking();
+      
+      if (activeName) {
+        const conn = getAgentConn(activeName);
+        conn.thinking = false;
+        renderSwitcher();
+      }
+
       setBusy(false);
       break;
 
