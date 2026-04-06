@@ -4033,15 +4033,9 @@ function connectAgent(agent) {
         conn.thinking = true;
         renderSwitcher();
       }
-      // Count unread: once per turn on first text-delta
-      if (ev.type === 'text-delta' && !conn._countedTurn) {
-        conn._countedTurn = true;
-        conn.unread++;
-        renderSwitcher();
-      }
-      // Turn finished
+      // Count each completed assistant message as unread
       if (ev.type === 'assistant') {
-        conn._countedTurn = false;
+        conn.unread++;
         conn.thinking = false;
         renderSwitcher();
       }
