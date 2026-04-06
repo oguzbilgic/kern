@@ -8,16 +8,16 @@
 
 ## desktop-next
 
-- Tauri 2.0 desktop app — thin native wrapper loading kern web UI
-- macOS ad-hoc code signing, CI builds for macOS ARM/Intel + Linux
-- Single-window navigation with `on_navigation` allowing external URLs
-- App menu: Logout, Reconnect, Reload (Cmd+R), Open in Browser, About
-- Auto-reconnect to last saved server on launch
-- File drag-and-drop support
-- External links open in system browser
-- App icon ("k." on dark background with amber dot)
-- DMG packaging in CI
-- Desktop CI triggers on `desktop/*` branches only
+### Features
+- **Desktop app** ([#62](https://github.com/oguzbilgic/kern-ai/pull/62)) — native Tauri 2.0 wrapper that loads kern web UI in a single window
+  - Connect screen with server URL + token input, saved server list
+  - Auto-reconnect to last server on launch
+  - App menu: Logout, Reconnect, Reload (Cmd+R), Open in Browser, About
+  - File drag-and-drop into chat
+  - External links open in system browser
+  - macOS ad-hoc code signing with DMG packaging
+  - CI builds for macOS ARM/Intel and Linux; Windows build available via manual dispatch
+  - Desktop CI triggers on `desktop/*` branches only
 
 ## v0.21.0
 
