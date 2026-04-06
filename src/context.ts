@@ -1,4 +1,4 @@
-import type { ModelMessage, ToolResultPart } from "ai";
+import type { ModelMessage, SystemModelMessage, ToolResultPart } from "ai";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
@@ -196,7 +196,26 @@ function truncateLargeToolResults(messages: ModelMessage[], maxChars: number, to
   return { messages: changed ? result : messages, truncatedCount };
 }
 
-function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): { messages: ModelMessage[]; trimmedCount: number } {
+interface TrimOptions {
+  messages: ModelMessage[];
+  maxTokens: number;
+  /** Snap trim boundary for cache stability. Requires segmentIndex + sessionId. */
+  segmentIndex?: SegmentIndex | null;
+  sessionId?: string;
+}
+
+const TRIM_SNAP = 20;
+
+/**
+ * Trim oldest messages to fit within a token budget.
+ *
+ * The cut point is always a user message (turn boundary) to avoid orphaning
+ * tool_result blocks. When segment data is available, the cut point is snapped
+ * to a stable position (L0 segment edge or round-20 boundary) so the message
+ * window prefix stays byte-identical across consecutive turns — critical for
+ * prompt caching.
+ */
+function trimToTokenBudget({ messages, maxTokens, segmentIndex, sessionId }: TrimOptions): { messages: ModelMessage[]; trimmedCount: number } {
   if (maxTokens <= 0) return { messages, trimmedCount: 0 };
 
   // Compute total using cached per-message sizes
@@ -206,7 +225,7 @@ function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): { messa
   }
   if (total <= maxTokens) return { messages, trimmedCount: 0 };
 
-  // Find cut point from the front
+  // Find initial cut point from the front
   let cutTotal = total;
   let cutIndex = 0;
   while (cutIndex < messages.length - 1 && cutTotal > maxTokens) {
@@ -214,13 +233,45 @@ function trimToTokenBudget(messages: ModelMessage[], maxTokens: number): { messa
     cutIndex++;
   }
 
-  // Adjust: skip orphaned tool messages
-  while (cutIndex < messages.length - 1 && messages[cutIndex].role === "tool") {
-    cutIndex++;
-  }
-  // Ensure we start with a user message
+  // Walk forward to a user message (turn-safe boundary)
   while (cutIndex < messages.length - 1 && messages[cutIndex].role !== "user") {
     cutIndex++;
+  }
+
+  // Snap to a stable position for cache stability.
+  // Find a snap target (L0 segment end or round number), then walk backward
+  // to the nearest user message so we never cut inside a tool-use/tool-result pair.
+  if (cutIndex > 0) {
+    let snapTarget = cutIndex;
+
+    // Try L0 segment end — aligns with summarized region boundary
+    if (segmentIndex && sessionId) {
+      const l0Ends = segmentIndex.getL0Boundaries(sessionId);
+      const l0Snap = l0Ends.find(s => s >= cutIndex);
+      if (l0Snap !== undefined && l0Snap < messages.length - 4) {
+        snapTarget = l0Snap;
+      }
+    }
+
+    // Fall back to round number if no L0 edge found
+    if (snapTarget === cutIndex) {
+      const roundSnap = Math.ceil(cutIndex / TRIM_SNAP) * TRIM_SNAP;
+      if (roundSnap > cutIndex && roundSnap < messages.length - 4) {
+        snapTarget = roundSnap;
+      }
+    }
+
+    // Walk backward from snap target to nearest user message for turn safety
+    if (snapTarget > cutIndex) {
+      let safeSnap = snapTarget;
+      while (safeSnap > cutIndex && messages[safeSnap]?.role !== "user") {
+        safeSnap--;
+      }
+      if (safeSnap > cutIndex && messages[safeSnap]?.role === "user") {
+        log.debug("context", `trim snap: ${cutIndex} → ${safeSnap} (target ${snapTarget}, +${safeSnap - cutIndex} msgs)`);
+        cutIndex = safeSnap;
+      }
+    }
   }
 
   return { messages: messages.slice(cutIndex), trimmedCount: cutIndex };
@@ -257,54 +308,12 @@ export function prepareContext({ messages, config, sessionId, segmentIndex }: Pr
   const rawBudget = segmentIndex && config.summaryBudget > 0
     ? Math.round(config.maxContextTokens * (1 - config.summaryBudget))
     : config.maxContextTokens;
-  let { messages: window, trimmedCount } = trimToTokenBudget(truncated, rawBudget);
-
-  // Snap the trim boundary to a stable position for cache stability.
-  // Without snapping, the trim point drifts by 1-2 messages each turn as new
-  // messages arrive, shifting the message window and busting the prefix cache.
-  //
-  // Strategy: find a snap target (L0 segment end or round number), then walk
-  // backward to the nearest user message to ensure we never cut inside a
-  // tool-use/tool-result pair. A little overlap with summarized segments is
-  // fine; orphaning tool_result blocks is not.
-  const TRIM_SNAP = 20;
-  if (trimmedCount > 0) {
-    let snapTarget = trimmedCount;
-
-    // Try L0 segment end first — snap to end of a fully summarized segment
-    if (segmentIndex && sessionId) {
-      const l0Ends = segmentIndex.getL0Boundaries(sessionId);
-      const l0Snap = l0Ends.find(s => s >= trimmedCount);
-      if (l0Snap !== undefined && l0Snap < truncated.length - 4) {
-        snapTarget = l0Snap;
-      }
-    }
-
-    // If no L0 snap, fall back to round number
-    if (snapTarget === trimmedCount) {
-      const roundSnap = Math.ceil(trimmedCount / TRIM_SNAP) * TRIM_SNAP;
-      if (roundSnap > trimmedCount && roundSnap < truncated.length - 4) {
-        snapTarget = roundSnap;
-      }
-    }
-
-    // Walk backward from snap target to nearest user message for turn-safe boundary.
-    // This prevents orphaning tool_result blocks that need a preceding tool_use.
-    if (snapTarget > trimmedCount) {
-      let safeSnap = snapTarget;
-      while (safeSnap > trimmedCount && truncated[safeSnap]?.role !== "user") {
-        safeSnap--;
-      }
-
-      // Only apply if we found a safe user-message boundary beyond original trim
-      if (safeSnap > trimmedCount && truncated[safeSnap]?.role === "user") {
-        const extra = safeSnap - trimmedCount;
-        window = window.slice(extra);
-        log.debug("context", `snapped trim boundary: ${trimmedCount} → ${safeSnap} (target was ${snapTarget}, +${extra} msgs)`);
-        trimmedCount = safeSnap;
-      }
-    }
-  }
+  let { messages: window, trimmedCount } = trimToTokenBudget({
+    messages: truncated,
+    maxTokens: rawBudget,
+    segmentIndex,
+    sessionId,
+  });
 
   // Inject compressed summary at trim boundary
   let summaryTokens = 0;
@@ -346,6 +355,86 @@ export function prepareContext({ messages, config, sessionId, segmentIndex }: Pr
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Prompt caching — Anthropic cache breakpoints and system message wrapping
+// ---------------------------------------------------------------------------
+
+const CACHE_CONTROL = {
+  anthropic: { cacheControl: { type: "ephemeral" } },
+  openrouter: { cacheControl: { type: "ephemeral" } },
+} as const;
+
+const BP_SNAP_INTERVAL = 20;
+
+/**
+ * Check if a model config supports Anthropic-style explicit prompt caching.
+ */
+export function supportsPromptCaching(config: KernConfig): boolean {
+  const { provider, model } = config;
+  if (provider === "anthropic") return true;
+  if (provider === "openrouter" && model.startsWith("anthropic/")) return true;
+  return false;
+}
+
+/**
+ * Wrap a system prompt string with cache control for Anthropic models.
+ * Returns a SystemModelMessage with providerOptions, or the plain string
+ * for providers that don't need explicit caching.
+ */
+export function buildSystemMessage(systemPrompt: string, config: KernConfig): string | SystemModelMessage {
+  if (!supportsPromptCaching(config)) return systemPrompt;
+  return {
+    role: "system" as const,
+    content: systemPrompt,
+    providerOptions: { ...CACHE_CONTROL },
+  };
+}
+
+/**
+ * Add cache breakpoints to conversation messages for Anthropic models.
+ *
+ * Uses 2 of Anthropic's 4 allowed breakpoints (BP1 is on the system message):
+ *   BP2 "stable"  — snapped to every BP_SNAP_INTERVAL messages, stays fixed ~20 turns
+ *   BP3 "turn"    — last user message, stable across all tool-call steps in a turn
+ *
+ * Between turns: BP2 keeps most of the conversation prefix cached.
+ * Mid-turn: BP3 means tool-call steps 1+ get ~99% cache hits.
+ */
+export function addCacheBreakpoints(messages: ModelMessage[], config: KernConfig): ModelMessage[] {
+  if (!supportsPromptCaching(config) || messages.length < 4) return messages;
+
+  // BP3: last user message
+  let turnBpIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") { turnBpIdx = i; break; }
+  }
+  if (turnBpIdx < 0) return messages;
+
+  // BP2: snap to stable interval before the turn breakpoint
+  const stableBpIdx = Math.floor(turnBpIdx / BP_SNAP_INTERVAL) * BP_SNAP_INTERVAL;
+  const useStableBp = stableBpIdx >= 0 && stableBpIdx < turnBpIdx - 4;
+
+  if (useStableBp) {
+    log("context", `cache breakpoints: stable=${stableBpIdx} turn=${turnBpIdx} (${messages.length} msgs)`);
+  } else {
+    log("context", `cache breakpoint: turn=${turnBpIdx} (${messages.length} msgs)`);
+  }
+
+  return messages.map((msg, i) => {
+    if (i === turnBpIdx || (useStableBp && i === stableBpIdx)) {
+      return {
+        ...msg,
+        providerOptions: { ...(msg as any).providerOptions, ...CACHE_CONTROL },
+      };
+    }
+    return msg;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Auto-recall injection
+// ---------------------------------------------------------------------------
 
 export interface RecallResult {
   query: string;

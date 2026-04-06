@@ -1,4 +1,4 @@
-import { streamText, type ModelMessage, type SystemModelMessage, stepCountIs } from "ai";
+import { streamText, type ModelMessage, stepCountIs } from "ai";
 import { join } from "path";
 import { log } from "./log.js";
 import { createModel } from "./model.js";
@@ -10,7 +10,7 @@ import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern
 import type { RecallIndex } from "./recall.js";
 import type { SegmentIndex } from "./segments.js";
 import type { MemoryDB } from "./memory.js";
-import { prepareContext, injectRecall, loadSystemPrompt, type PrepareContextOptions } from "./context.js";
+import { prepareContext, injectRecall, loadSystemPrompt, buildSystemMessage, addCacheBreakpoints, type PrepareContextOptions } from "./context.js";
 import type { Attachment } from "./interfaces/types.js";
 import { saveMedia, buildUserContent, extractText, MediaSidecar, resolveMediaInMessages, digestMediaAtIngest } from "./media.js";
 export type { SessionStats } from "./context.js";
@@ -29,69 +29,6 @@ export interface StreamEvent {
 }
 
 export type StreamHandler = (event: StreamEvent) => void;
-
-const CACHE_CONTROL = {
-  anthropic: { cacheControl: { type: "ephemeral" } },
-  openrouter: { cacheControl: { type: "ephemeral" } },
-} as const;
-
-/**
- * Add Anthropic cache breakpoints to conversation messages.
- * Places a breakpoint on the 4th-to-last message, caching the entire
- * prefix of the conversation. Within a turn, tool call steps only add
- * messages after this point, so intra-turn cache hit rate approaches 99%.
- * Between turns, only the last few messages differ, pushing hit rate to 95%+.
- */
-const SNAP_INTERVAL = 20; // snap stable breakpoint every N messages
-
-function addMessageCacheBreakpoints(messages: ModelMessage[]): ModelMessage[] {
-  if (messages.length < 4) return messages;
-
-  // We use 3 of Anthropic's 4 allowed cache breakpoints:
-  //   BP1: system prompt (set elsewhere) — caches summary + docs (~74k)
-  //   BP2: "stable" — snapped to nearest SNAP_INTERVAL boundary, stays fixed for ~20 turns
-  //   BP3: "turn" — last user message, stays fixed across all tool-call steps in a turn
-  //
-  // Between turns: BP2 is stable so most conversation prefix is a cache read.
-  //   Only the few messages between BP2 and the new user msg need a small write.
-  // Mid-turn: BP3 on user message means steps 1+ get 99% cache hits.
-  // BP2 shifts every ~20 turns — one slightly more expensive turn, amortized.
-
-  // BP3: last user message
-  let turnBpIdx = -1;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === "user") {
-      turnBpIdx = i;
-      break;
-    }
-  }
-  if (turnBpIdx < 0) return messages;
-
-  // BP2: snap to nearest SNAP_INTERVAL boundary before the turn breakpoint
-  // Use floor to round down to a stable position
-  const stableBpIdx = Math.floor(turnBpIdx / SNAP_INTERVAL) * SNAP_INTERVAL;
-  // Only use stable BP if it's meaningfully before the turn BP (at least 4 msgs apart)
-  const useStableBp = stableBpIdx >= 0 && stableBpIdx < turnBpIdx - 4;
-
-  if (useStableBp) {
-    log("runtime", `cache breakpoints: stable=${stableBpIdx} turn=${turnBpIdx} (${messages.length} msgs)`);
-  } else {
-    log("runtime", `cache breakpoint: turn=${turnBpIdx} (${messages.length} msgs)`);
-  }
-
-  return messages.map((msg, i) => {
-    if (i === turnBpIdx || (useStableBp && i === stableBpIdx)) {
-      return {
-        ...msg,
-        providerOptions: {
-          ...(msg as any).providerOptions,
-          ...CACHE_CONTROL,
-        },
-      };
-    }
-    return msg;
-  });
-}
 
 export class Runtime {
   private config!: KernConfig;
@@ -173,17 +110,6 @@ export class Runtime {
     this.pendingInjections = fn;
   }
 
-  /**
-   * Returns true if the current model supports Anthropic-style prompt caching
-   * (OpenRouter with Anthropic model, or direct Anthropic provider).
-   */
-  private supportsPromptCaching(): boolean {
-    const { provider, model } = this.config;
-    if (provider === "anthropic") return true;
-    if (provider === "openrouter" && model.startsWith("anthropic/")) return true;
-    return false;
-  }
-
   buildPromptContext(options?: Partial<PrepareContextOptions>) {
     const allMessages = options?.messages ?? this.session.getMessages();
     const sessionId = options?.sessionId ?? (this.session.getSessionId() || undefined);
@@ -200,26 +126,8 @@ export class Runtime {
     const summaryAdditionChars = prepared.systemAdditions.join("\n\n").length;
     prepared.stats.systemPromptTokens = estimateTextTokens(effectiveSystemPrompt) - (summaryAdditionChars > 0 ? Math.ceil(summaryAdditionChars / 3.3) : 0);
 
-    // Build system message — add cache control for Anthropic models
-    const system: string | SystemModelMessage = this.supportsPromptCaching()
-      ? {
-          role: "system" as const,
-          content: effectiveSystemPrompt,
-          providerOptions: {
-            anthropic: { cacheControl: { type: "ephemeral" } },
-            openrouter: { cacheControl: { type: "ephemeral" } },
-          },
-        }
-      : effectiveSystemPrompt;
-
-    // Add cache breakpoints to conversation messages for Anthropic.
-    // Anthropic supports up to 4 breakpoints. We use:
-    //   BP1: System message (above) — caches summary + docs
-    //   BP2: Stable breakpoint — snapped to every 20 msgs, stable across ~20 turns
-    //   BP3: Turn breakpoint — last user message, stable across tool-call steps
-    const messages = this.supportsPromptCaching()
-      ? addMessageCacheBreakpoints(prepared.messages)
-      : prepared.messages;
+    const system = buildSystemMessage(effectiveSystemPrompt, this.config);
+    const messages = addCacheBreakpoints(prepared.messages, this.config);
 
     return {
       system,
