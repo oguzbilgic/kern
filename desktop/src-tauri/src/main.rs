@@ -16,7 +16,6 @@ fn navigate_to(window: tauri::WebviewWindow, url: String) -> Result<(), String> 
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![navigate_to])
         .setup(|app| {
@@ -36,6 +35,7 @@ fn main() {
             })
             .build()?;
 
+            #[cfg(debug_assertions)]
             window.open_devtools();
 
             let logout = MenuItem::with_id(app, "logout", "Logout", true, None::<&str>)?;
