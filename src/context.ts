@@ -259,19 +259,38 @@ export function prepareContext({ messages, config, sessionId, segmentIndex }: Pr
     : config.maxContextTokens;
   let { messages: window, trimmedCount } = trimToTokenBudget(truncated, rawBudget);
 
-  // Snap the trim boundary to the nearest L0 segment start for cache stability.
-  // This keeps the raw message window starting at a stable segment edge,
-  // so the conversation prefix stays byte-identical across turns until
-  // the next segment boundary shifts (every ~100+ messages).
-  if (trimmedCount > 0 && segmentIndex && sessionId) {
-    const l0Starts = segmentIndex.getL0Boundaries(sessionId);
-    // Find the smallest L0 msg_start >= trimmedCount (snap up)
-    const snapped = l0Starts.find(s => s >= trimmedCount);
-    if (snapped !== undefined && snapped > trimmedCount && snapped < truncated.length - 4) {
+  // Snap the trim boundary to a stable round number for cache stability.
+  // Without snapping, the trim point drifts by 1-2 messages each turn as new
+  // messages arrive, shifting the message window and busting the prefix cache.
+  // Snapping to every TRIM_SNAP messages keeps the window start fixed for ~20
+  // turns, making the conversation prefix byte-identical across those turns.
+  // Falls back to L0 segment edges if available and closer.
+  const TRIM_SNAP = 20;
+  if (trimmedCount > 0) {
+    let snapped = trimmedCount;
+
+    // Try L0 segment edge first (coarser, more stable)
+    if (segmentIndex && sessionId) {
+      const l0Starts = segmentIndex.getL0Boundaries(sessionId);
+      const l0Snap = l0Starts.find(s => s >= trimmedCount);
+      if (l0Snap !== undefined && l0Snap < truncated.length - 4) {
+        snapped = l0Snap;
+      }
+    }
+
+    // If no L0 snap or L0 is too far, snap to round number
+    if (snapped === trimmedCount) {
+      const roundSnap = Math.ceil(trimmedCount / TRIM_SNAP) * TRIM_SNAP;
+      if (roundSnap > trimmedCount && roundSnap < truncated.length - 4) {
+        snapped = roundSnap;
+      }
+    }
+
+    if (snapped > trimmedCount) {
       const extra = snapped - trimmedCount;
       window = window.slice(extra);
+      log.debug("context", `snapped trim boundary: ${trimmedCount} → ${snapped} (+${extra} msgs)`);
       trimmedCount = snapped;
-      log.debug("context", `snapped trim boundary to L0 segment edge: +${extra} msgs trimmed (now ${trimmedCount})`);
     }
   }
 
