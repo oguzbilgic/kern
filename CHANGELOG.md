@@ -13,13 +13,13 @@
 ### Fixes
 - **Non-Anthropic OpenRouter models** ([#65](https://github.com/oguzbilgic/kern-ai/pull/65)) — GPT-5.4 and Gemini models stopped streaming after first text message due to Responses API routing. Fixed by forcing Chat Completions API for non-Anthropic models.
 - **Slash autocomplete popup** ([#64](https://github.com/oguzbilgic/kern-ai/pull/64)) — popup was hidden by input pill redesign's `overflow: hidden`
-- **Emoji-only messages** ([#55](https://github.com/oguzbilgic/kern-ai/issues/55)) — render large without bubble background
 
 ### Improvements
 - **Web UI redesign** ([#59](https://github.com/oguzbilgic/kern-ai/pull/59))
   - Centered conversation layout with narrower bubbles, redesigned input pill with inline file attachments
   - Resizable sidebar — drag the edge to switch between full, mini (avatars only), and collapsed states
   - Syntax highlighting in code blocks, bash command formatting with line breaking, refreshed header with info panel
+  - Emoji-only messages render large without bubble background
 
 ## v0.20.0
 
