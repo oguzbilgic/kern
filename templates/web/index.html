@@ -4193,7 +4193,7 @@ function renderSwitcher() {
         const initial = agent.name.charAt(0).toUpperCase();
         const conn = getAgentConn(agent.name);
         const dotClasses = [state];
-        if (conn.thinking && state !== 'active') dotClasses.push('thinking');
+        if (conn.thinking) dotClasses.push('thinking');
         if (conn.unread > 0 && state !== 'active') dotClasses.push('has-unread');
         const dotContent = (conn.unread > 0 && state !== 'active')
           ? (conn.unread > 99 ? '99+' : conn.unread) : '';
