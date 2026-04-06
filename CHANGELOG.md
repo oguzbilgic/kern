@@ -2,11 +2,27 @@
 
 ## next
 
+- Document `.kern/.env` secrets location in KERN.md template
+
+## v0.21.0
+
+### Features
+- **Ollama provider** ([#69](https://github.com/oguzbilgic/kern-ai/pull/69)) — run agents on local models via Ollama. `kern init` auto-discovers pulled models. Set `OLLAMA_BASE_URL` in `.env` for remote servers.
+- **Advanced prompt caching** ([#67](https://github.com/oguzbilgic/kern-ai/pull/67)) — dual cache breakpoints and turn-safe trim snapping for near-perfect cache hit rates
+  - Stable prefix breakpoint snapped every 20 messages + turn breakpoint at last user message
+  - Trim boundary snapped to L0 segment edges then walked back to nearest user message to prevent orphaned tool results
+  - Caching logic consolidated in `context.ts` — removed duplication between runtime and context modules
+  - New `docs/caching.md` with full design documentation
+
 ### Improvements
 - **Web UI redesign** ([#59](https://github.com/oguzbilgic/kern-ai/pull/59))
   - Centered conversation layout with narrower bubbles, redesigned input pill with inline file attachments
   - Resizable sidebar — drag the edge to switch between full, mini (avatars only), and collapsed states
   - Syntax highlighting in code blocks, bash command formatting with line breaking, refreshed header with info panel
+  - Emoji-only messages render large without bubble background
+
+### Fixes
+- **Non-Anthropic OpenRouter models** ([#65](https://github.com/oguzbilgic/kern-ai/pull/65)) — GPT-5.4 and Gemini stopped streaming after first text message due to Responses API routing. Fixed by forcing Chat Completions API. OpenAI models on OpenRouter still lack multi-step interleaved text+tool support due to upstream Responses API incompatibility.
 
 ## v0.20.0
 

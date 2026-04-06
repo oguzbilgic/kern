@@ -266,27 +266,10 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   });
 
   server.setContextSegmentsFn(() => {
-    if (!segmentIndex) return { segments: [], tokenCount: 0 };
-    const sessionId = runtime.getSessionId();
-    if (!sessionId) return { segments: [], tokenCount: 0 };
-
-    const messages = runtime.getMessages();
     const built = runtime.buildPromptContext();
-    const summaryBudget = Math.round(config.maxContextTokens * (config.summaryBudget || 0));
-    const trimmedCount = Math.max(0, messages.length - (built.messages?.length || messages.length));
-    if (trimmedCount <= 0 || summaryBudget <= 0) return { segments: [], tokenCount: 0 };
-
-    const history = segmentIndex.composeHistory(sessionId, trimmedCount, summaryBudget);
-    if (!history) return { segments: [], tokenCount: 0 };
-
     return {
-      tokenCount: history.tokens,
-      segments: history.segments.map((seg) => ({
-        id: seg.id,
-        level: seg.level,
-        msg_start: seg.msg_start,
-        msg_end: seg.msg_end,
-      })),
+      tokenCount: built.stats.summaryTokens,
+      segments: built.stats.summarySegments,
     };
   });
 

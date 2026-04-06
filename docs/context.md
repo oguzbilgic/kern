@@ -44,7 +44,7 @@ When old messages are trimmed, the agent loses direct access to that history. Se
 1. **Segmentation** — messages are grouped into semantic segments (L0) based on embedding similarity. Topic shifts create boundaries. Runs incrementally after each turn.
 2. **Summarization** — each segment is summarized by an LLM (~10-20:1 compression).
 3. **Rollup** — every 10 L0 segments are rolled up into an L1 parent. 10 L1s → L2, etc. This builds a hierarchical tree.
-4. **Injection** — `composeHistory` fills the summary budget with summaries from the tree, using breadth-first expansion: highest-level segments expand first (L2→L1 before L1→L0) for balanced coverage across the full history. The trim boundary is snapped to L0 segment edges so the summary stays identical across consecutive turns, maximizing prompt cache hits.
+4. **Injection** — `composeHistory` fills the summary budget with summaries from the tree, using breadth-first expansion: highest-level segments expand first (L2→L1 before L1→L0) for balanced coverage across the full history. The trim boundary is snapped to L0 segment edges and then walked back to the nearest user message for turn-safe boundaries.
 
 The result is a `<conversation_summary>` block in the system prompt:
 
@@ -72,9 +72,7 @@ last: 2026-04-03T06:44:25.437Z
 
 ### Prompt caching
 
-For Anthropic models (direct or via OpenRouter), the system prompt — including all injected documents, tools, and conversation summary — is marked with `cache_control: ephemeral`. This enables server-side prompt caching, reducing input token cost by ~90% on the cached portion.
-
-The summary stability mechanism (snapping trim boundaries to segment edges) ensures the cached block stays byte-identical across consecutive turns, achieving 0 cache writes for ~30-50 turns between segment boundaries. Typical cache hit rates: 60-85% of total input tokens.
+Anthropic models via OpenRouter use explicit `cache_control: ephemeral` markers to enable server-side prefix caching (~90% cost reduction on cached tokens). See [Caching](caching.md) for the full design including cache breakpoints, trim snapping, and provider differences.
 
 **Segmentation thresholds:**
 - Triggers when 10+ unsegmented messages AND 10k+ unsegmented tokens accumulate

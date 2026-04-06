@@ -20,9 +20,10 @@ Create a new agent or reconfigure an existing one.
 kern init my-agent --api-key sk-or-...
 kern init my-agent --api-key sk-or-... --provider anthropic --model claude-opus-4.6
 kern init my-agent --api-key sk-or-... --telegram-token 123:ABC --slack-bot-token xoxb-... --slack-app-token xapp-...
+kern init my-agent --provider ollama --api-key http://localhost:11434 --model gemma4:31b
 ```
 
-Defaults to openrouter + claude-opus-4.6 when flags are used.
+Defaults to openrouter + claude-opus-4.6 when flags are used. For Ollama, `--api-key` is the server URL.
 
 ## kern install [name|--web]
 

@@ -15,19 +15,40 @@ export function createModel(config: KernConfig): any {
       return anthropic(config.model);
     }
     case "openrouter": {
-      const openrouter = createOpenRouter({
+      const headers = {
+        "HTTP-Referer": "https://github.com/oguzbilgic/kern-ai",
+        "X-Title": "kern-ai",
+        "X-OpenRouter-Categories": "cli-agent,personal-agent",
+      };
+      // Use OpenRouter-native provider for Anthropic models (prompt caching support),
+      // generic OpenAI-compatible provider for everything else (more reliable streaming)
+      if (config.model.startsWith("anthropic/")) {
+        const openrouter = createOpenRouter({
+          apiKey: process.env.OPENROUTER_API_KEY,
+          headers,
+        });
+        return openrouter.chat(config.model);
+      }
+      const openai = createOpenAI({
+        baseURL: "https://openrouter.ai/api/v1",
         apiKey: process.env.OPENROUTER_API_KEY,
-        headers: {
-          "HTTP-Referer": "https://github.com/oguzbilgic/kern-ai",
-          "X-Title": "kern-ai",
-          "X-OpenRouter-Categories": "cli-agent,personal-agent",
-        },
+        headers,
       });
-      return openrouter.chat(config.model);
+      // Force chat completions API — default openai() uses Responses API
+      // for newer models (gpt-5.x, o3, etc.) which OpenRouter doesn't support
+      return openai.chat(config.model);
     }
     case "openai": {
       const openai = createOpenAI();
       return openai(config.model);
+    }
+    case "ollama": {
+      const base = (process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/+$/, "");
+      const ollama = createOpenAI({
+        baseURL: `${base}/v1`,
+        apiKey: "ollama", // required by SDK but ignored by Ollama
+      });
+      return ollama.chat(config.model);
     }
     default:
       throw new Error(`Unknown provider: ${config.provider}`);

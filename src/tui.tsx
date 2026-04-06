@@ -454,6 +454,9 @@ function App({ port, agentName, version, authToken }: TuiProps) {
         return;
       }
       switch (event.type) {
+        case "thinking":
+          setBusy(true);
+          break;
         case "text-delta":
           setStreamingText((s: string) => s + (event.text || ""));
           setBusy(true);
