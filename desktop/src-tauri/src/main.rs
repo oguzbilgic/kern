@@ -38,23 +38,21 @@ fn main() {
             .title("kern")
             .inner_size(1000.0, 700.0)
             .min_inner_size(600.0, 400.0)
-            .on_navigation({
-                let handle = app.handle().clone();
-                move |url| {
-                    let s = url.as_str();
-                    // Allow tauri pages and agent HTTP connections
-                    if s.starts_with("tauri://") || s.starts_with("http://") {
-                        return true;
-                    }
-                    // External https links → open in system browser
-                    if s.starts_with("https://") {
-                        let _ = handle.opener().open_url(s, None::<&str>);
-                    }
-                    false
-                }
-            })
+            .on_navigation(|_| true)
             .disable_drag_drop_handler() // Let browser handle HTML5 drag-and-drop
             .build()?;
+
+            // Intercept external link clicks → open in system browser
+            window.eval(r#"
+                document.addEventListener('click', function(e) {
+                    var a = e.target.closest('a');
+                    if (a && a.href && a.href.startsWith('https://')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.__TAURI_INTERNALS__?.invoke('plugin:opener|open_url', { url: a.href });
+                    }
+                }, true);
+            "#).ok();
 
             #[cfg(debug_assertions)]
             window.open_devtools();
