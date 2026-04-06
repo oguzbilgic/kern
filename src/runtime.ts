@@ -42,33 +42,54 @@ const CACHE_CONTROL = {
  * messages after this point, so intra-turn cache hit rate approaches 99%.
  * Between turns, only the last few messages differ, pushing hit rate to 95%+.
  */
+const SNAP_INTERVAL = 20; // snap stable breakpoint every N messages
+
 function addMessageCacheBreakpoints(messages: ModelMessage[]): ModelMessage[] {
   if (messages.length < 4) return messages;
 
-  // Place breakpoint on the last user message — the turn start point.
-  // This stays fixed throughout all tool-call steps within a turn,
-  // so every step after the first reuses the entire cached prefix.
-  // Between turns, the snapped trim boundary keeps the prefix stable too.
-  let breakpointIdx = -1;
+  // We use 3 of Anthropic's 4 allowed cache breakpoints:
+  //   BP1: system prompt (set elsewhere) — caches summary + docs (~74k)
+  //   BP2: "stable" — snapped to nearest SNAP_INTERVAL boundary, stays fixed for ~20 turns
+  //   BP3: "turn" — last user message, stays fixed across all tool-call steps in a turn
+  //
+  // Between turns: BP2 is stable so most conversation prefix is a cache read.
+  //   Only the few messages between BP2 and the new user msg need a small write.
+  // Mid-turn: BP3 on user message means steps 1+ get 99% cache hits.
+  // BP2 shifts every ~20 turns — one slightly more expensive turn, amortized.
+
+  // BP3: last user message
+  let turnBpIdx = -1;
   for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i].role === "user") {
-      breakpointIdx = i;
+      turnBpIdx = i;
       break;
     }
   }
-  if (breakpointIdx < 0) return messages;
+  if (turnBpIdx < 0) return messages;
 
-  log("runtime", `cache breakpoint at msg ${breakpointIdx}/${messages.length} (role=user)`);
+  // BP2: snap to nearest SNAP_INTERVAL boundary before the turn breakpoint
+  // Use floor to round down to a stable position
+  const stableBpIdx = Math.floor(turnBpIdx / SNAP_INTERVAL) * SNAP_INTERVAL;
+  // Only use stable BP if it's meaningfully before the turn BP (at least 4 msgs apart)
+  const useStableBp = stableBpIdx >= 0 && stableBpIdx < turnBpIdx - 4;
+
+  if (useStableBp) {
+    log("runtime", `cache breakpoints: stable=${stableBpIdx} turn=${turnBpIdx} (${messages.length} msgs)`);
+  } else {
+    log("runtime", `cache breakpoint: turn=${turnBpIdx} (${messages.length} msgs)`);
+  }
 
   return messages.map((msg, i) => {
-    if (i !== breakpointIdx) return msg;
-    return {
-      ...msg,
-      providerOptions: {
-        ...(msg as any).providerOptions,
-        ...CACHE_CONTROL,
-      },
-    };
+    if (i === turnBpIdx || (useStableBp && i === stableBpIdx)) {
+      return {
+        ...msg,
+        providerOptions: {
+          ...(msg as any).providerOptions,
+          ...CACHE_CONTROL,
+        },
+      };
+    }
+    return msg;
   });
 }
 
@@ -193,10 +214,9 @@ export class Runtime {
 
     // Add cache breakpoints to conversation messages for Anthropic.
     // Anthropic supports up to 4 breakpoints. We use:
-    //   1. System message (above)
-    //   2. A message near the tail of the conversation
-    // This caches the entire conversation prefix, so intra-turn tool steps
-    // and consecutive turns share most of the context as cached tokens.
+    //   BP1: System message (above) — caches summary + docs
+    //   BP2: Stable breakpoint — snapped to every 20 msgs, stable across ~20 turns
+    //   BP3: Turn breakpoint — last user message, stable across tool-call steps
     const messages = this.supportsPromptCaching()
       ? addMessageCacheBreakpoints(prepared.messages)
       : prepared.messages;
