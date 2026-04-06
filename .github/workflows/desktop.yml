@@ -101,12 +101,18 @@ jobs:
         run: |
           Get-ChildItem -Path desktop/src-tauri/target/release/bundle -Recurse -Include *.msi,*.exe | Select-Object FullName
 
+      - name: Rename macOS DMG
+        if: (github.event_name == 'workflow_dispatch' || matrix.branchOnly == true) && matrix.platform == 'macos-latest'
+        run: |
+          DMG=$(find desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg -name "*.dmg" | head -1)
+          mv "$DMG" "desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/kern.dmg"
+
       - name: Upload macOS DMG
         if: (github.event_name == 'workflow_dispatch' || matrix.branchOnly == true) && matrix.platform == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
           name: kern-${{ matrix.name }}
-          path: desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          path: desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/kern.dmg
           if-no-files-found: error
 
       - name: Upload Linux binary
