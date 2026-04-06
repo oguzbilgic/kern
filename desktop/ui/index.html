@@ -248,6 +248,7 @@
         btn.textContent = 'Connect';
         document.body.style.pointerEvents = '';
         document.querySelector('.connect-card').style.opacity = '1';
+        throw e; // Re-throw so auto-reconnect can detect failure
       }
     }
 
@@ -257,11 +258,28 @@
       connect();
     }
 
-    // No aggressive auto-connect to prevent loops
     renderSaved();
 
-    // Debug: log page load with timestamp to detect unwanted reloads
-    console.log('[desktop connect] page loaded at', new Date().toISOString(), 'url:', location.href);
+    // Auto-reconnect: if we have a saved server, try connecting immediately
+    (function autoReconnect() {
+      const servers = getSavedServers();
+      if (!servers.length) return;
+      // Only auto-connect if not returning from a failed attempt
+      if (sessionStorage.getItem('kern_auto_failed')) {
+        sessionStorage.removeItem('kern_auto_failed');
+        return;
+      }
+      const s = servers[0];
+      console.log('[desktop] auto-reconnecting to', s.url);
+      document.getElementById('url').value = s.url;
+      document.getElementById('token').value = s.token;
+      // Small delay so the UI renders first
+      setTimeout(() => connect().catch(() => {
+        sessionStorage.setItem('kern_auto_failed', '1');
+      }), 200);
+    })();
+
+    console.log('[desktop connect] page loaded at', new Date().toISOString());
   </script>
 </body>
 </html>

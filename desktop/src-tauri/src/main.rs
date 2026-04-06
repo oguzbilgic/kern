@@ -79,6 +79,8 @@ fn main() {
                 "kern",
                 true,
                 &[
+                    &MenuItem::with_id(app, "about", "About kern", true, None::<&str>)?,
+                    &PredefinedMenuItem::separator(app)?,
                     &MenuItem::with_id(app, "logout", "Logout", true, None::<&str>)?,
                     &MenuItem::with_id(app, "reconnect", "Reconnect…", true, None::<&str>)?,
                     &MenuItem::with_id(app, "reload", "Reload", true, Some("CmdOrCtrl+R"))?,
@@ -103,6 +105,27 @@ fn main() {
         .on_menu_event(|app, event| {
             let window = app.get_webview_window("main");
             match event.id().as_ref() {
+                "about" => {
+                    if let Some(w) = &window {
+                        let _ = w.eval(r#"
+                            (function() {
+                                if (document.getElementById('kern-about-overlay')) return;
+                                var o = document.createElement('div');
+                                o.id = 'kern-about-overlay';
+                                o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(4px)';
+                                o.onclick = function(e) { if(e.target===o) o.remove(); };
+                                o.innerHTML = '<div style="background:#1c1c1e;border:1px solid #2a2a2c;border-radius:16px;padding:32px 40px;text-align:center;min-width:280px">'
+                                    + '<div style="font-size:28px;font-weight:700;color:#e6edf3;margin-bottom:4px">kern<span style="color:#fcd53a">.</span></div>'
+                                    + '<div style="color:#8b949e;font-size:13px;margin-bottom:16px">Version 0.1.0</div>'
+                                    + '<div style="color:#8b949e;font-size:12px;margin-bottom:16px">AI agent runtime</div>'
+                                    + '<a href="https://kern-ai.com" style="color:#fcd53a;font-size:12px;text-decoration:none">kern-ai.com</a>'
+                                    + '<div style="margin-top:20px"><button onclick="this.closest(\'#kern-about-overlay\').remove()" style="background:#2a2a2c;color:#e6edf3;border:none;padding:6px 20px;border-radius:6px;font-size:13px;cursor:pointer">OK</button></div>'
+                                    + '</div>';
+                                document.body.appendChild(o);
+                            })();
+                        "#);
+                    }
+                }
                 "logout" | "reconnect" => {
                     let _ = go_home(app.clone());
                 }
