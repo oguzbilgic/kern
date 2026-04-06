@@ -4915,9 +4915,24 @@ function handleEvent(event) {
               streamingEl.textContent = streamingText.trim();
             } else {
               streamingEl.classList.remove('emoji-only');
-              streamingEl.innerHTML = renderMarkdown(streamingText);
+              // Only modify .message-body if it exists, otherwise just set innerHTML
+              const body = streamingEl.querySelector('.message-body');
+              if (body) {
+                body.innerHTML = renderMarkdown(streamingText);
+              } else {
+                streamingEl.innerHTML = renderMarkdown(streamingText);
+              }
             }
           }
+          
+          if (activeName) {
+            const conn = getAgentConn(activeName);
+            if (!conn.thinking) {
+              conn.thinking = true;
+              renderSwitcher();
+            }
+          }
+          
           scrollToBottom();
         });
       }
