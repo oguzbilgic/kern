@@ -91,14 +91,6 @@ export class MemoryDB {
       CREATE UNIQUE INDEX IF NOT EXISTS idx_segments_unique ON semantic_segments(session_id, level, msg_start, msg_end);
     `);
 
-    // Metadata table for tracking embedding dimensions etc.
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS memory_meta (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-      )
-    `);
-
     // Media table
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS media (
@@ -131,7 +123,7 @@ export class MemoryDB {
    */
   private initVecTables(): void {
     const dims = this.embeddingDimensions;
-    const storedDims = this.getStoredDimensions();
+    const storedDims = this.getExistingVecDimensions();
 
     if (storedDims !== null && storedDims !== dims) {
       log.warn("memory", `Embedding dimension changed (${storedDims} → ${dims}), rebuilding vector indexes...`);
@@ -153,25 +145,12 @@ export class MemoryDB {
       this.db.exec(`CREATE VIRTUAL TABLE vec_segments USING vec0(embedding FLOAT[${dims}])`);
     } catch { /* already exists */ }
 
-    // Persist current dimensions for future mismatch detection
-    this.storeDimensions(dims);
   }
 
   /**
-   * Get the stored embedding dimensions from metadata, or detect from existing vec data.
+   * Get the embedding dimensions of existing vec data, or null if empty/missing.
    */
-  private getStoredDimensions(): number | null {
-    // Check metadata table first (reliable even when vec tables are empty)
-    try {
-      const row = this.db.prepare(
-        "SELECT value FROM memory_meta WHERE key = 'embedding_dimensions'"
-      ).get() as { value: string } | undefined;
-      if (row) return parseInt(row.value, 10);
-    } catch {
-      // metadata table doesn't exist yet — fine
-    }
-
-    // Fall back to probing vec table data
+  private getExistingVecDimensions(): number | null {
     try {
       const row = this.db.prepare(
         "SELECT vec_length(embedding) as dims FROM vec_chunks LIMIT 1"
@@ -181,15 +160,6 @@ export class MemoryDB {
       // table doesn't exist
     }
     return null;
-  }
-
-  /**
-   * Store the current embedding dimensions in metadata.
-   */
-  private storeDimensions(dims: number): void {
-    this.db.prepare(
-      "INSERT OR REPLACE INTO memory_meta (key, value) VALUES ('embedding_dimensions', ?)"
-    ).run(String(dims));
   }
 
   /**
