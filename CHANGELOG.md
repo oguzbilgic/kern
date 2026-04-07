@@ -3,11 +3,10 @@
 ## next
 
 ### Features
-- **Multi-agent sidebar connections** ([#75](https://github.com/oguzbilgic/kern-ai/pull/75)) — background SSE connections to all running agents with live status
+- **Live agent activity in sidebar** ([#75](https://github.com/oguzbilgic/kern-ai/pull/75)) — see which agents are thinking, get unread counts, and know what's happening across all your agents without switching
   - Unread message count badges on agent avatars
-  - Pulsing thinking indicator for busy agents (active and background)
-  - Auto-connect to all running agents on page load; 15-minute idle disconnect
-  - Agent states: active, connected, online, offline — reflected in sidebar dots
+  - Pulsing indicator when an agent is busy — works for the active chat and background agents
+  - Connects to all running agents on page load; idles out after 15 minutes
 
 ### Improvements
 - **Server-driven thinking indicator** ([#70](https://github.com/oguzbilgic/kern-ai/pull/70)) — thinking dots triggered by server event at start of message handling, replacing client-side guessing
@@ -15,10 +14,8 @@
 - Document `.kern/.env` secrets location in KERN.md template
 
 ### Fixes
-- Preserve in-progress streamed assistant text when switching agents or reconnecting mid-stream ([#75](https://github.com/oguzbilgic/kern-ai/pull/75))
 - Scroll-to-bottom button overlapping multi-line input ([#72](https://github.com/oguzbilgic/kern-ai/issues/72)) — repositions dynamically above input pill; chat re-anchors on window resize
 - Chat loses scroll position on window resize ([#73](https://github.com/oguzbilgic/kern-ai/issues/73))
-- Reliable auto-scroll during streamed responses — guards programmatic scrolling from triggering user-scrolled-up detection
 - URL auto-linking capturing trailing punctuation
 
 ## desktop-v0.1.0
