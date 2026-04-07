@@ -8,7 +8,7 @@
   - Pulsing indicator when an agent is busy — works for the active chat and background agents
   - Connects to all running agents on page load; idles out after 15 minutes
 
-- **Pinnable agent stats** — pin status fields (model, context, uptime) to the header and agent sidebar; click header stats or agent name to open info panel; whole row clickable to pin/unpin
+- **Pinnable agent stats** ([#80](https://github.com/oguzbilgic/kern-ai/pull/80)) — pin status fields (model, context, uptime) to the header and agent sidebar; click header stats or agent name to open info panel; whole row clickable to pin/unpin
 - **Server-driven thinking indicator** ([#70](https://github.com/oguzbilgic/kern-ai/pull/70)) — thinking dots triggered by server event at start of message handling, replacing client-side guessing
 - **Sidebar behavior** ([#71](https://github.com/oguzbilgic/kern-ai/pull/71)) — hamburger toggles collapsed ↔ previous state; small windows use mini sidebar instead of overlay
 
