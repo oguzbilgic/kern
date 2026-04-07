@@ -4945,6 +4945,13 @@ function handleEvent(event) {
       const detail = event.toolDetail ? ` ${event.toolDetail}` : '';
       addMessage('tool', `${event.toolName}${detail}`, null, event.toolInput);
       setBusy(true);
+      if (activeName) {
+        const conn = getAgentConn(activeName);
+        if (!conn.thinking) {
+          conn.thinking = true;
+          renderSwitcher();
+        }
+      }
       showThinking();
       break;
     }
@@ -4979,6 +4986,13 @@ function handleEvent(event) {
       }
       scrollToBottom();
       // Agent is thinking about what to do next — show dots
+      if (activeName) {
+        const conn = getAgentConn(activeName);
+        if (!conn.thinking) {
+          conn.thinking = true;
+          renderSwitcher();
+        }
+      }
       showThinking();
       break;
     }
@@ -5001,6 +5015,13 @@ function handleEvent(event) {
         el.addEventListener('click', () => el.classList.toggle('expanded'));
         messagesEl.appendChild(el);
         scrollToBottom();
+      }
+      if (activeName) {
+        const conn = getAgentConn(activeName);
+        if (!conn.thinking) {
+          conn.thinking = true;
+          renderSwitcher();
+        }
       }
       showThinking();
       break;
