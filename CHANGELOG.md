@@ -9,6 +9,7 @@
   - Connects to all running agents on page load; idles out after 15 minutes
 
 ### Improvements
+- **Pinnable agent stats** — pin status fields (model, context, uptime) to the header and agent sidebar; click header stats or agent name to open info panel; whole row clickable to pin/unpin
 - **Server-driven thinking indicator** ([#70](https://github.com/oguzbilgic/kern-ai/pull/70)) — thinking dots triggered by server event at start of message handling, replacing client-side guessing
 - **Sidebar behavior** ([#71](https://github.com/oguzbilgic/kern-ai/pull/71)) — hamburger toggles collapsed ↔ previous state; small windows use mini sidebar instead of overlay
 - Document `.kern/.env` secrets location in KERN.md template
