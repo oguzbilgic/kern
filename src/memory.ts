@@ -2,8 +2,10 @@ import Database from "better-sqlite3";
 import * as sqliteVec from "sqlite-vec";
 import { join } from "path";
 import { log } from "./log.js";
+import { embed } from "ai";
+import { createEmbeddingModel } from "./model.js";
 
-const EMBEDDING_DIMENSIONS = 1536;
+const DEFAULT_EMBEDDING_DIMENSIONS = 1536;
 
 /**
  * Central database for agent memory.
@@ -12,11 +14,13 @@ const EMBEDDING_DIMENSIONS = 1536;
  */
 export class MemoryDB {
   public db: Database.Database;
+  private embeddingDimensions: number;
 
-  constructor(agentDir: string) {
+  constructor(agentDir: string, dimensions?: number) {
     const dbPath = join(agentDir, ".kern", "recall.db");
     this.db = new Database(dbPath);
     sqliteVec.load(this.db);
+    this.embeddingDimensions = dimensions ?? DEFAULT_EMBEDDING_DIMENSIONS;
     this.initSchema();
   }
 
@@ -108,25 +112,99 @@ export class MemoryDB {
     try { this.db.exec("ALTER TABLE semantic_segments ADD COLUMN end_time TEXT"); } catch {}
     try { this.db.exec("ALTER TABLE semantic_segments ADD COLUMN summary_token_count INTEGER NOT NULL DEFAULT 0"); } catch {}
 
-    // Create vec tables separately (virtual tables don't support IF NOT EXISTS in all versions)
-    try {
-      this.db.exec(`
-        CREATE VIRTUAL TABLE vec_chunks USING vec0(
-          embedding FLOAT[${EMBEDDING_DIMENSIONS}]
-        );
-      `);
-    } catch {
-      // Already exists — fine
+    // Create or migrate vec tables
+    this.initVecTables();
+  }
+
+  /**
+   * Create or migrate vector tables. Detects dimension mismatch
+   * and rebuilds vector indexes + resets indexing state when
+   * the embedding model changes (e.g. OpenAI 1536 → Ollama 768).
+   */
+  private initVecTables(): void {
+    const dims = this.embeddingDimensions;
+    const storedDims = this.getStoredDimensions();
+
+    if (storedDims !== null && storedDims !== dims) {
+      log.warn("memory", `Embedding dimension changed (${storedDims} → ${dims}), rebuilding vector indexes...`);
+      // Drop vector tables — these are derived data, safe to rebuild
+      this.db.exec("DROP TABLE IF EXISTS vec_chunks");
+      this.db.exec("DROP TABLE IF EXISTS vec_segments");
+      // Reset indexing state so recall and segments re-embed everything
+      this.db.exec("DELETE FROM index_state");
+      this.db.exec("DELETE FROM segment_state");
+      log("memory", "Vector indexes dropped, indexing state reset — backfill will run automatically");
     }
 
+    // Create vec tables (virtual tables don't support IF NOT EXISTS)
     try {
-      this.db.exec(`
-        CREATE VIRTUAL TABLE vec_segments USING vec0(
-          embedding FLOAT[${EMBEDDING_DIMENSIONS}]
-        );
-      `);
+      this.db.exec(`CREATE VIRTUAL TABLE vec_chunks USING vec0(embedding FLOAT[${dims}])`);
+    } catch { /* already exists */ }
+
+    try {
+      this.db.exec(`CREATE VIRTUAL TABLE vec_segments USING vec0(embedding FLOAT[${dims}])`);
+    } catch { /* already exists */ }
+
+    // Persist current dimensions for future mismatch detection
+    this.storeDimensions(dims);
+  }
+
+  /**
+   * Get the stored embedding dimensions from metadata, or detect from existing vec data.
+   */
+  private getStoredDimensions(): number | null {
+    // Check metadata table first (reliable even when vec tables are empty)
+    try {
+      const row = this.db.prepare(
+        "SELECT value FROM memory_meta WHERE key = 'embedding_dimensions'"
+      ).get() as { value: string } | undefined;
+      if (row) return parseInt(row.value, 10);
     } catch {
-      // Already exists — fine
+      // metadata table doesn't exist yet — fine
+    }
+
+    // Fall back to probing vec table data
+    try {
+      const row = this.db.prepare(
+        "SELECT vec_length(embedding) as dims FROM vec_chunks LIMIT 1"
+      ).get() as { dims: number } | undefined;
+      if (row) return row.dims;
+    } catch {
+      // table doesn't exist
+    }
+    return null;
+  }
+
+  /**
+   * Store the current embedding dimensions in metadata.
+   */
+  private storeDimensions(dims: number): void {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS memory_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    `);
+    this.db.prepare(
+      "INSERT OR REPLACE INTO memory_meta (key, value) VALUES ('embedding_dimensions', ?)"
+    ).run(String(dims));
+  }
+
+  /**
+   * Probe the actual embedding model to detect its output dimensions.
+   * Returns the dimension count, or the default if probing fails.
+   */
+  static async detectEmbeddingDimensions(provider: string): Promise<number> {
+    try {
+      const model = createEmbeddingModel(provider);
+      if (!model) return DEFAULT_EMBEDDING_DIMENSIONS;
+      const result = await embed({ model, value: "dimension probe" });
+      const dims = result.embedding.length;
+      log.debug("memory", `Detected embedding dimensions: ${dims}`);
+      return dims;
+    } catch (err: any) {
+      log.warn("memory", `Failed to probe embedding dimensions: ${err.message}`);
+      return DEFAULT_EMBEDDING_DIMENSIONS;
     }
   }
 

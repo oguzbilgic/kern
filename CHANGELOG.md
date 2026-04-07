@@ -14,6 +14,7 @@
 
 ### Improvements
 - **Ollama embeddings** — agents using Ollama provider now get local embeddings via `nomic-embed-text` for recall and segments, no API key needed
+- **Auto-detect embedding dimension mismatch** — when switching embedding models (e.g. OpenAI → Ollama), vector tables are automatically rebuilt with the correct dimensions instead of failing silently
 - Document `.kern/.env` secrets location in KERN.md template
 
 ### Fixes
