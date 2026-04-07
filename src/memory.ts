@@ -123,14 +123,12 @@ export class MemoryDB {
    */
   private initVecTables(): void {
     const dims = this.embeddingDimensions;
-    const storedDims = this.getExistingVecDimensions();
+    const existingDims = this.getVecTableDimensions();
 
-    if (storedDims !== null && storedDims !== dims) {
-      log.warn("memory", `Embedding dimension changed (${storedDims} → ${dims}), rebuilding vector indexes...`);
-      // Drop vector tables — these are derived data, safe to rebuild
+    if (existingDims !== null && existingDims !== dims) {
+      log.warn("memory", `Embedding dimension changed (${existingDims} → ${dims}), rebuilding vector indexes...`);
       this.db.exec("DROP TABLE IF EXISTS vec_chunks");
       this.db.exec("DROP TABLE IF EXISTS vec_segments");
-      // Reset indexing state so recall and segments re-embed everything
       this.db.exec("DELETE FROM index_state");
       this.db.exec("DELETE FROM segment_state");
       log("memory", "Vector indexes dropped, indexing state reset — backfill will run automatically");
@@ -147,18 +145,20 @@ export class MemoryDB {
   }
 
   /**
-   * Get the embedding dimensions of existing vec data, or null if empty/missing.
+   * Get the declared dimensions of the vec_chunks table, even if empty.
+   * Uses sqlite_master to check the table DDL for the dimension value.
    */
-  private getExistingVecDimensions(): number | null {
+  private getVecTableDimensions(): number | null {
     try {
       const row = this.db.prepare(
-        "SELECT vec_length(embedding) as dims FROM vec_chunks LIMIT 1"
-      ).get() as { dims: number } | undefined;
-      if (row) return row.dims;
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='vec_chunks'"
+      ).get() as { sql: string } | undefined;
+      if (!row) return null;
+      const match = row.sql.match(/FLOAT\[(\d+)\]/);
+      return match ? parseInt(match[1], 10) : null;
     } catch {
-      // table doesn't exist
+      return null;
     }
-    return null;
   }
 
   /**
