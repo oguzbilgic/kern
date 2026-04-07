@@ -1,14 +1,13 @@
 import { join } from "path";
 import { embed, embedMany } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
 import { readFile } from "fs/promises";
 import { existsSync } from "fs";
 import { log } from "./log.js";
 import { extractText } from "./media.js";
+import { createEmbeddingModel } from "./model.js";
 import type { ModelMessage } from "ai";
 import type { MemoryDB } from "./memory.js";
 
-const EMBEDDING_MODEL = "openai/text-embedding-3-small";
 const MAX_CHUNK_TOKENS = 1000; // rough token limit per chunk
 
 interface RecallResult {
@@ -29,28 +28,11 @@ export class RecallIndex {
     this.agentDir = agentDir;
     this.db = memoryDB.db;
 
-    // Create embedding model — use OpenAI-compatible endpoint
-    const apiKey = provider === "openrouter"
-      ? process.env.OPENROUTER_API_KEY
-      : provider === "openai"
-        ? process.env.OPENAI_API_KEY
-        : process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
-
-    if (!apiKey) {
-      throw new Error("No API key available for embeddings (need OPENROUTER_API_KEY or OPENAI_API_KEY)");
+    const model = createEmbeddingModel(provider);
+    if (!model) {
+      throw new Error("No embedding model available (need OPENROUTER_API_KEY, OPENAI_API_KEY, or Ollama provider)");
     }
-
-    const client = createOpenAI({
-      baseURL: provider === "openai" ? undefined : "https://openrouter.ai/api/v1",
-      apiKey,
-      headers: provider !== "openai" ? {
-        "HTTP-Referer": "https://github.com/oguzbilgic/kern-ai",
-        "X-Title": "kern-ai",
-        "X-OpenRouter-Categories": "cli-agent,personal-agent",
-      } : undefined,
-    });
-    const modelId = provider === "openai" ? "text-embedding-3-small" : EMBEDDING_MODEL;
-    this.embeddingModel = client.embeddingModel(modelId);
+    this.embeddingModel = model;
   }
 
   /**

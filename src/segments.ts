@@ -1,14 +1,11 @@
 import { embed, embedMany, generateText } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
 import { log } from "./log.js";
 import { extractText } from "./media.js";
+import { createEmbeddingModel, createSummaryModel } from "./model.js";
 import type { MemoryDB } from "./memory.js";
 import type Database from "better-sqlite3";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
-
-const EMBEDDING_MODEL = "openai/text-embedding-3-small";
-const SUMMARY_MODEL = "openai/gpt-4.1-mini";
 
 // Segmentation parameters
 const TOPIC_THRESHOLD = 0.80;   // cosine distance — hard cut at topic shift
@@ -145,35 +142,24 @@ interface Segment {
 
 export class SegmentIndex {
   private db: Database.Database;
-  private embeddingModel: ReturnType<ReturnType<typeof createOpenAI>["embeddingModel"]>;
-  private summaryModel: ReturnType<ReturnType<typeof createOpenAI>["chat"]>;
+  private embeddingModel: Parameters<typeof embed>[0]["model"];
+  private summaryModel: Parameters<typeof generateText>[0]["model"];
   private abortController: AbortController | null = null;
 
   constructor(memoryDB: MemoryDB, provider: string) {
     this.db = memoryDB.db;
 
-    const apiKey = provider === "openrouter"
-      ? process.env.OPENROUTER_API_KEY
-      : provider === "openai"
-        ? process.env.OPENAI_API_KEY
-        : process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
-
-    if (!apiKey) {
-      throw new Error("No API key for embeddings");
+    const embModel = createEmbeddingModel(provider);
+    if (!embModel) {
+      throw new Error("No embedding model available (need OPENROUTER_API_KEY, OPENAI_API_KEY, or Ollama provider)");
     }
+    this.embeddingModel = embModel;
 
-    const client = createOpenAI({
-      baseURL: provider === "openai" ? undefined : "https://openrouter.ai/api/v1",
-      apiKey,
-      headers: provider !== "openai" ? {
-        "HTTP-Referer": "https://github.com/oguzbilgic/kern-ai",
-        "X-Title": "kern-ai",
-      } : undefined,
-    });
-    const modelId = provider === "openai" ? "text-embedding-3-small" : EMBEDDING_MODEL;
-    this.embeddingModel = client.embeddingModel(modelId);
-    const summaryModelId = provider === "openai" ? "gpt-4.1-nano" : SUMMARY_MODEL;
-    this.summaryModel = client.chat(summaryModelId);
+    const sumModel = createSummaryModel(provider);
+    if (!sumModel) {
+      throw new Error("No summary model available");
+    }
+    this.summaryModel = sumModel;
   }
 
   /**
