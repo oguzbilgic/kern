@@ -346,6 +346,9 @@ export class Runtime {
       const cause = lastErr?.cause || realError.cause;
       const status = lastErr?.statusCode || lastErr?.data?.error?.code;
       const rawApiMsg = lastErr?.data?.error?.message || lastErr?.responseBody;
+      if (typeof rawApiMsg === "string" && rawApiMsg.includes("<html")) {
+        log.warn("runtime", `Provider returned HTML error page (status ${status || "unknown"}, ${rawApiMsg.length} chars)`);
+      }
       // Strip HTML error pages (e.g. 502 Bad Gateway) to a clean message
       const apiMsg = typeof rawApiMsg === "string" && rawApiMsg.includes("<html")
         ? `HTTP error ${status || "unknown"} — provider returned an error page`
