@@ -4021,11 +4021,19 @@ let allAgents = [];
 
 // --- Multi-agent connection manager ---
 const IDLE_TIMEOUT = 15 * 60 * 1000; // 15 minutes
-const agentConns = {}; // { agentName: { sse, idleTimer, unread } }
+const agentConns = {}; // { agentName: { sse, idleTimer, unread, thinking } }
 
 function getAgentConn(name) {
-  if (!agentConns[name]) agentConns[name] = { sse: null, idleTimer: null, unread: 0, thinking: false };
+  if (!agentConns[name]) agentConns[name] = { sse: null, idleTimer: null, unread: 0, thinking: false, _inText: false };
   return agentConns[name];
+}
+
+function setAgentThinking(name, value) {
+  const conn = getAgentConn(name);
+  if (conn.thinking !== value) {
+    conn.thinking = value;
+    renderSwitcher();
+  }
 }
 
 function connectAgent(agent) {
@@ -4043,8 +4051,7 @@ function connectAgent(agent) {
       if (agent.name === getActiveAgent()) return;
       // Track thinking state
       if (ev.type === 'thinking') {
-        conn.thinking = true;
-        renderSwitcher();
+        setAgentThinking(agent.name, true);
       }
       // Count each text step as unread
       if (ev.type === 'text-delta' && !conn._inText) {
@@ -4059,10 +4066,9 @@ function connectAgent(agent) {
       // Turn finished
       if (ev.type === 'finish') {
         conn._inText = false;
-        conn.thinking = false;
-        renderSwitcher();
+        setAgentThinking(agent.name, false);
       }
-    } catch {}
+    } catch { /* ignore parse errors */ }
   };
   es.onerror = () => {
     // Don't kill the connection — EventSource auto-reconnects on transient errors.
@@ -4111,11 +4117,9 @@ async function connectAllBackground() {
       const res = await fetch(`${agent.url}/status`, { headers });
       if (res.ok) {
         const data = await res.json();
-        const conn = getAgentConn(agent.name);
-        conn.thinking = typeof data.queue === 'string' && data.queue.startsWith('busy');
-        renderSwitcher();
+        setAgentThinking(agent.name, typeof data.queue === 'string' && data.queue.startsWith('busy'));
       }
-    } catch {}
+    } catch { /* ignore fetch errors */ }
   }));
 }
 
@@ -4251,7 +4255,7 @@ function switchToAgent(agent) {
   // Clear unread, thinking, and idle timer for new active agent
   const conn = getAgentConn(agent.name);
   conn.unread = 0;
-  conn._countedTurn = false;
+  conn._inText = false;
   clearIdleTimer(agent.name);
 
   // Close background SSE for this agent (init() will open the main one)
@@ -4912,11 +4916,7 @@ function handleEvent(event) {
   switch (event.type) {
     case 'thinking':
       setBusy(true);
-      if (activeName) {
-        const conn = getAgentConn(activeName);
-        conn.thinking = true;
-        renderSwitcher();
-      }
+      if (activeName) setAgentThinking(activeName, true);
       showThinking();
       break;
 
@@ -4952,13 +4952,7 @@ function handleEvent(event) {
             requestAnimationFrame(() => scrollToBottom(true));
           }
           
-          if (activeName) {
-            const conn = getAgentConn(activeName);
-            if (!conn.thinking) {
-              conn.thinking = true;
-              renderSwitcher();
-            }
-          }
+          if (activeName) setAgentThinking(activeName, true);
         });
       }
       setBusy(true);
@@ -4970,13 +4964,7 @@ function handleEvent(event) {
       const detail = event.toolDetail ? ` ${event.toolDetail}` : '';
       addMessage('tool', `${event.toolName}${detail}`, null, event.toolInput);
       setBusy(true);
-      if (activeName) {
-        const conn = getAgentConn(activeName);
-        if (!conn.thinking) {
-          conn.thinking = true;
-          renderSwitcher();
-        }
-      }
+      if (activeName) setAgentThinking(activeName, true);
       showThinking();
       break;
     }
@@ -5011,13 +4999,7 @@ function handleEvent(event) {
       }
       scrollToBottom();
       // Agent is thinking about what to do next — show dots
-      if (activeName) {
-        const conn = getAgentConn(activeName);
-        if (!conn.thinking) {
-          conn.thinking = true;
-          renderSwitcher();
-        }
-      }
+      if (activeName) setAgentThinking(activeName, true);
       showThinking();
       break;
     }
@@ -5041,13 +5023,7 @@ function handleEvent(event) {
         messagesEl.appendChild(el);
         scrollToBottom();
       }
-      if (activeName) {
-        const conn = getAgentConn(activeName);
-        if (!conn.thinking) {
-          conn.thinking = true;
-          renderSwitcher();
-        }
-      }
+      if (activeName) setAgentThinking(activeName, true);
       showThinking();
       break;
     }
@@ -5055,13 +5031,7 @@ function handleEvent(event) {
     case 'finish':
       flushStreaming();
       hideThinking();
-      
-      if (activeName) {
-        const conn = getAgentConn(activeName);
-        conn.thinking = false;
-        renderSwitcher();
-      }
-
+      if (activeName) setAgentThinking(activeName, false);
       setBusy(false);
       break;
 
