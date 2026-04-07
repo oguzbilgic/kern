@@ -16,6 +16,7 @@
 - Document `.kern/.env` secrets location in KERN.md template
 
 ### Fixes
+- Provider errors (502, HTML error pages) now show clean messages instead of raw HTML ([#84](https://github.com/oguzbilgic/kern-ai/pull/84))
 - Scroll-to-bottom button overlapping multi-line input ([#72](https://github.com/oguzbilgic/kern-ai/issues/72)) — repositions dynamically above input pill; chat re-anchors on window resize
 - Chat loses scroll position on window resize ([#73](https://github.com/oguzbilgic/kern-ai/issues/73))
 - URL auto-linking capturing trailing punctuation

@@ -238,7 +238,6 @@ export class Runtime {
         stopWhen: stepCountIs(this.config.maxSteps),
         onError: ({ error }) => {
           streamError = error;
-          log.error("runtime", `streamText error: ${error}`);
         },
         onStepFinish: async (step) => {
           // Persist only new messages from this step (response.messages is cumulative)
@@ -340,30 +339,8 @@ export class Runtime {
 
       return fullText || "(no text response)";
     } catch (error: any) {
-      // Extract a useful error message from nested errors
-      const realError = streamError || error;
-      const lastErr = realError.lastError || realError;
-      const cause = lastErr?.cause || realError.cause;
-      const status = lastErr?.statusCode || lastErr?.data?.error?.code;
-      const apiMsg = lastErr?.data?.error?.message || lastErr?.responseBody;
-      let msg: string;
-      if (cause?.code === "EAI_AGAIN" || cause?.code === "ENOTFOUND") {
-        msg = "DNS resolution failed — check network connection";
-      } else if (status === 429 || apiMsg?.includes("rate limit")) {
-        msg = "Rate limit hit — wait a moment and try again";
-      } else if (status === 402 || apiMsg?.includes("credit") || apiMsg?.includes("insufficient")) {
-        msg = "API credits exhausted — check your OpenRouter/provider balance";
-      } else if (status === 401 || status === 403) {
-        msg = "API authentication failed — check your API key in .kern/.env";
-      } else if (apiMsg) {
-        msg = apiMsg;
-      } else if (lastErr?.message && !lastErr.message.includes("No output generated")) {
-        msg = lastErr.message;
-      } else if (error.message?.includes("No output generated")) {
-        msg = `No response from model (Original error: ${cause?.message || cause || lastErr?.message || "None"})`;
-      } else {
-        msg = error.message || "Unknown error";
-      }
+      const { message: msg, category } = parseProviderError(streamError, error);
+      log.error("runtime", `[${category}] ${msg}`);
       onEvent({ type: "error", error: msg });
       throw new Error(msg);
     }
@@ -382,4 +359,89 @@ export class Runtime {
   getMessages(): ModelMessage[] {
     return this.session.getMessages();
   }
+}
+
+/** Clean error categorization from provider error chains */
+function parseProviderError(
+  streamError: unknown,
+  caughtError: any
+): { message: string; category: string } {
+  const realError: any = streamError || caughtError;
+  const lastErr = realError?.lastError || realError;
+  const cause: any = lastErr?.cause || realError?.cause;
+  const status = lastErr?.statusCode || lastErr?.data?.error?.code;
+  const rawApiMsg = lastErr?.data?.error?.message || lastErr?.responseBody;
+
+  // Detect HTML error pages
+  const isHtml = (s: unknown): boolean =>
+    typeof s === "string" && s.includes("<html");
+
+  const apiMsg = isHtml(rawApiMsg)
+    ? null // discard HTML, fall through to status-based matching
+    : rawApiMsg;
+
+  // Priority-ordered matchers: first match wins
+  const matchers: Array<{
+    test: () => boolean;
+    category: string;
+    message: string;
+  }> = [
+    {
+      test: () => cause?.code === "EAI_AGAIN" || cause?.code === "ENOTFOUND",
+      category: "network",
+      message: "DNS resolution failed — check network connection",
+    },
+    {
+      test: () => status === 401 || status === 403,
+      category: "auth",
+      message: "API authentication failed — check your API key in .kern/.env",
+    },
+    {
+      test: () => status === 429 || apiMsg?.includes?.("rate limit"),
+      category: "rate_limit",
+      message: "Rate limit hit — wait a moment and try again",
+    },
+    {
+      test: () =>
+        status === 402 ||
+        apiMsg?.includes?.("credit") ||
+        apiMsg?.includes?.("insufficient"),
+      category: "billing",
+      message:
+        "API credits exhausted — check your OpenRouter/provider balance",
+    },
+    {
+      test: () => status === 502 || isHtml(rawApiMsg),
+      category: "provider",
+      message:
+        "Provider returned 502 Bad Gateway — the upstream model may be temporarily unavailable",
+    },
+    {
+      test: () => !!apiMsg,
+      category: "provider",
+      message: apiMsg,
+    },
+    {
+      test: () =>
+        !!lastErr?.message &&
+        !lastErr.message.includes("No output generated") &&
+        !isHtml(lastErr.message),
+      category: "provider",
+      message: lastErr?.message,
+    },
+    {
+      test: () => caughtError?.message?.includes?.("No output generated"),
+      category: "no_output",
+      message: `No response from model (${cause?.message || cause || lastErr?.message || "unknown cause"})`,
+    },
+  ];
+
+  for (const m of matchers) {
+    if (m.test()) return { message: m.message, category: m.category };
+  }
+
+  return {
+    message: caughtError?.message || "Unknown error",
+    category: "unknown",
+  };
 }
