@@ -8,16 +8,22 @@
   - Pulsing indicator when an agent is busy — works for the active chat and background agents
   - Connects to all running agents on page load; idles out after 15 minutes
 
-### Improvements
 - **Pinnable agent stats** — pin status fields (model, context, uptime) to the header and agent sidebar; click header stats or agent name to open info panel; whole row clickable to pin/unpin
 - **Server-driven thinking indicator** ([#70](https://github.com/oguzbilgic/kern-ai/pull/70)) — thinking dots triggered by server event at start of message handling, replacing client-side guessing
 - **Sidebar behavior** ([#71](https://github.com/oguzbilgic/kern-ai/pull/71)) — hamburger toggles collapsed ↔ previous state; small windows use mini sidebar instead of overlay
+
+### Improvements
 - Document `.kern/.env` secrets location in KERN.md template
 
 ### Fixes
 - Scroll-to-bottom button overlapping multi-line input ([#72](https://github.com/oguzbilgic/kern-ai/issues/72)) — repositions dynamically above input pill; chat re-anchors on window resize
 - Chat loses scroll position on window resize ([#73](https://github.com/oguzbilgic/kern-ai/issues/73))
 - URL auto-linking capturing trailing punctuation
+
+## next-desktop
+
+### Features
+- **Cmd+1-9 agent switching** — switch between agents with keyboard shortcuts; uses `KernBridge.switchAgent()` bridge API
 
 ## desktop-v0.1.0
 
