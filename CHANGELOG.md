@@ -14,7 +14,6 @@
 
 ### Improvements
 - **Ollama embeddings** — agents using Ollama provider now get local embeddings via `nomic-embed-text` for recall and segments, no API key needed
-- Embedding and summary model creation extracted into shared helpers in `model.ts`, removing duplicated provider logic from recall and segments
 - Document `.kern/.env` secrets location in KERN.md template
 
 ### Fixes
