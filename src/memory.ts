@@ -91,6 +91,14 @@ export class MemoryDB {
       CREATE UNIQUE INDEX IF NOT EXISTS idx_segments_unique ON semantic_segments(session_id, level, msg_start, msg_end);
     `);
 
+    // Metadata table for tracking embedding dimensions etc.
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS memory_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    `);
+
     // Media table
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS media (
@@ -179,12 +187,6 @@ export class MemoryDB {
    * Store the current embedding dimensions in metadata.
    */
   private storeDimensions(dims: number): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS memory_meta (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-      )
-    `);
     this.db.prepare(
       "INSERT OR REPLACE INTO memory_meta (key, value) VALUES ('embedding_dimensions', ?)"
     ).run(String(dims));
