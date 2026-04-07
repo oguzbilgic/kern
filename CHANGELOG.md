@@ -2,6 +2,10 @@
 
 ## next
 
+### Fixes
+
+- **Web UI:** preserve in-progress streamed assistant text when switching agents or reconnecting mid-stream by flushing the partial response before clearing the chat view.
+
 ### Improvements
 - **Server-driven thinking indicator** ([#70](https://github.com/oguzbilgic/kern-ai/pull/70)) — thinking dots triggered by server event at start of message handling, replacing client-side guessing
 - **Sidebar behavior** ([#71](https://github.com/oguzbilgic/kern-ai/pull/71)) — hamburger toggles collapsed ↔ previous state; small windows use mini sidebar instead of overlay

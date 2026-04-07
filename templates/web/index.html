@@ -4240,6 +4240,8 @@ function switchToAgent(agent) {
   authFailed = false;
   intentionalClose = true;
   if (connection) { connection.close(); connection = null; }
+  flushStreaming();
+  hideThinking();
   messagesEl.innerHTML = '';
   inputEl.disabled = false;
   sendBtn.disabled = false;
@@ -4475,7 +4477,9 @@ const scrollContainer = $('messages-scroll');
 scrollContainer.addEventListener('scroll', () => {
   const threshold = 80;
   const atBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < threshold;
-  userScrolledUp = !atBottom;
+  if (!autoScrolling) {
+    userScrolledUp = !atBottom;
+  }
   scrollDownBtn.classList.toggle('visible', userScrolledUp);
 });
 
@@ -4488,10 +4492,29 @@ function updateScrollBtnPosition() {
   if (inputArea) scrollDownBtn.style.bottom = (inputArea.offsetHeight + 12) + 'px';
 }
 
+let autoScrolling = false;
+let autoScrollRelease = null;
+
 function scrollToBottom(force) {
-  if (force || !userScrolledUp) {
+  if (!(force || !userScrolledUp)) return;
+
+  autoScrolling = true;
+  if (autoScrollRelease) clearTimeout(autoScrollRelease);
+
+  const applyScroll = () => {
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
-  }
+  };
+
+  applyScroll();
+  requestAnimationFrame(() => {
+    applyScroll();
+    requestAnimationFrame(applyScroll);
+  });
+
+  autoScrollRelease = setTimeout(() => {
+    autoScrolling = false;
+    autoScrollRelease = null;
+  }, 80);
 }
 
 function formatBashCommand(cmd) {
@@ -4898,7 +4921,9 @@ function handleEvent(event) {
       break;
 
     case 'text-delta':
-      hideThinking();
+      if (!streamingEl) {
+        hideThinking();
+      }
       if (!streamingEl) {
         if (lastToolEl) { lastToolEl.classList.remove('expanded'); lastToolEl = null; }
         streamingEl = addMessage('assistant', '');
@@ -4923,6 +4948,8 @@ function handleEvent(event) {
                 streamingEl.innerHTML = renderMarkdown(streamingText);
               }
             }
+            scrollToBottom(true);
+            requestAnimationFrame(() => scrollToBottom(true));
           }
           
           if (activeName) {
@@ -4932,8 +4959,6 @@ function handleEvent(event) {
               renderSwitcher();
             }
           }
-          
-          scrollToBottom();
         });
       }
       setBusy(true);
@@ -5131,6 +5156,8 @@ async function send() {
   scrollToBottom(true);
 
   try {
+    setBusy(true);
+    showThinking();
     const opts = { connectionId: connection?.connectionId };
     if (attachments.length > 0) opts.attachments = attachments;
     await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text || '', opts);
@@ -5312,6 +5339,8 @@ async function init() {
   }
   intentionalClose = false;
   // Clear previous messages to avoid duplicates on reconnect
+  flushStreaming();
+  hideThinking();
   messagesEl.innerHTML = '';
   streamingText = '';
   streamingEl = null;
