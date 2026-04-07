@@ -876,23 +876,23 @@
   }
   @keyframes blink { 50% { opacity: 0; } }
 
-  .thinking {
+  .message-thinking {
     align-self: flex-start;
     padding: 10px 14px;
     display: flex;
     align-items: center;
     gap: 4px;
   }
-  .thinking .dot {
+  .message-thinking .dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
     background: var(--text-muted);
     animation: bounce 1.4s ease-in-out infinite;
   }
-  .thinking .dot:nth-child(1) { animation-delay: 0s; }
-  .thinking .dot:nth-child(2) { animation-delay: 0.2s; }
-  .thinking .dot:nth-child(3) { animation-delay: 0.4s; }
+  .message-thinking .dot:nth-child(1) { animation-delay: 0s; }
+  .message-thinking .dot:nth-child(2) { animation-delay: 0.2s; }
+  .message-thinking .dot:nth-child(3) { animation-delay: 0.4s; }
   @keyframes bounce {
     0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
     30% { transform: translateY(-6px); opacity: 1; }
@@ -1195,11 +1195,49 @@
     right: 0;
     width: 12px;
     height: 12px;
-    border-radius: 50%;
+    min-width: 12px;
+    max-width: 12px;
+    min-height: 12px;
+    max-height: 12px;
+    box-sizing: border-box;
+    border-radius: 99px;
+    border: 2px solid var(--bg-sidebar);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 0px;
+    transition: width 0.2s ease, height 0.2s ease, bottom 0.2s ease, right 0.2s ease, border-width 0.2s ease, font-size 0.2s ease, background-color 0.2s ease, min-width 0.2s ease, max-width 0.2s ease, min-height 0.2s ease, max-height 0.2s ease, border-radius 0.2s ease;
+  }
+  .switcher-item-avatar .online-dot.active,
+  .switcher-item-avatar .online-dot.connected { background: var(--accent); }
+  .switcher-item-avatar .online-dot.online { display: none; }
+  .switcher-item-avatar .online-dot.offline { background: var(--text-muted); }
+  .switcher-item-avatar .online-dot.thinking {
+    animation: dot-pulse 1.2s ease-in-out infinite;
+  }
+  .switcher-item-avatar .online-dot.has-unread {
+    width: 18px;
+    min-width: 18px;
+    max-width: 18px;
+    height: 18px;
+    min-height: 18px;
+    max-height: 18px;
+    box-sizing: border-box;
+    border-radius: 99px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--bg);
+    background: var(--accent);
+    bottom: -3px;
+    right: -3px;
     border: 2px solid var(--bg-sidebar);
   }
-  .switcher-item-avatar .online-dot.running { background: var(--accent); }
-  .switcher-item-avatar .online-dot.stopped { background: var(--text-muted); }
+  @keyframes dot-pulse {
+    0%, 100% { background-color: var(--accent); }
+    50% { background-color: color-mix(in srgb, var(--accent) 50%, var(--bg-sidebar)); }
+  }
   .switcher-item-info {
     flex: 1;
     min-width: 0;
@@ -3981,6 +4019,119 @@ function setActiveAgent(name) {
 // All discovered agents grouped by server — fetched fresh each time
 let allAgents = [];
 
+// --- Multi-agent connection manager ---
+const IDLE_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+const agentConns = {}; // { agentName: { sse, idleTimer, unread, thinking } }
+
+function getAgentConn(name) {
+  if (!agentConns[name]) agentConns[name] = { sse: null, idleTimer: null, unread: 0, thinking: false, _inText: false };
+  return agentConns[name];
+}
+
+function setAgentThinking(name, value) {
+  const conn = getAgentConn(name);
+  if (conn.thinking !== value) {
+    conn.thinking = value;
+    renderSwitcher();
+  }
+}
+
+function connectAgent(agent) {
+  const conn = getAgentConn(agent.name);
+  // Already connected
+  if (conn.sse) return;
+  const token = getServerToken(agent.server || location.origin);
+  const url = token ? `${agent.url}/events?token=${encodeURIComponent(token)}` : `${agent.url}/events`;
+  const es = new EventSource(url);
+  conn.sse = es;
+  es.onmessage = (e) => {
+    try {
+      const ev = JSON.parse(e.data);
+      if (ev.type === 'connection') return;
+      if (agent.name === getActiveAgent()) return;
+      // Track thinking state
+      if (ev.type === 'thinking') {
+        setAgentThinking(agent.name, true);
+      }
+      // Count each text step as unread
+      if (ev.type === 'text-delta' && !conn._inText) {
+        conn._inText = true;
+        conn.unread++;
+        renderSwitcher();
+      }
+      // Reset text tracking on tool calls or finish
+      if (ev.type === 'tool-call' || ev.type === 'tool-result') {
+        conn._inText = false;
+      }
+      // Turn finished
+      if (ev.type === 'finish') {
+        conn._inText = false;
+        setAgentThinking(agent.name, false);
+      }
+    } catch { /* ignore parse errors */ }
+  };
+  es.onerror = () => {
+    // Don't kill the connection — EventSource auto-reconnects on transient errors.
+    // Only clean up if the connection is fully dead (readyState === CLOSED).
+    if (es.readyState === EventSource.CLOSED) {
+      conn.sse = null;
+      renderSwitcher();
+    }
+  };
+  renderSwitcher();
+}
+
+function disconnectAgent(name) {
+  const conn = getAgentConn(name);
+  if (conn.sse) { conn.sse.close(); conn.sse = null; }
+  if (conn.idleTimer) { clearTimeout(conn.idleTimer); conn.idleTimer = null; }
+  renderSwitcher();
+}
+
+function startIdleTimer(name) {
+  const conn = getAgentConn(name);
+  if (conn.idleTimer) clearTimeout(conn.idleTimer);
+  conn.idleTimer = setTimeout(() => {
+    conn.idleTimer = null;
+    disconnectAgent(name);
+  }, IDLE_TIMEOUT);
+}
+
+function clearIdleTimer(name) {
+  const conn = getAgentConn(name);
+  if (conn.idleTimer) { clearTimeout(conn.idleTimer); conn.idleTimer = null; }
+}
+
+async function connectAllBackground() {
+  const activeName = getActiveAgent();
+  const agents = getAllAgents().filter(a => a.running && a.url && a.name !== activeName);
+  for (const agent of agents) {
+    connectAgent(agent);
+    startIdleTimer(agent.name);
+  }
+  // Check busy state for all background agents
+  await Promise.all(agents.map(async (agent) => {
+    try {
+      const token = getServerToken(agent.server || location.origin);
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const res = await fetch(`${agent.url}/status`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setAgentThinking(agent.name, typeof data.queue === 'string' && data.queue.startsWith('busy'));
+      }
+    } catch { /* ignore fetch errors */ }
+  }));
+}
+
+function getAgentState(agent) {
+  const activeName = getActiveAgent();
+  if (agent.name === activeName) return 'active';
+  if (!agent.running) return 'offline';
+  const conn = getAgentConn(agent.name);
+  if (conn.sse) return 'connected';
+  return 'online';
+}
+
 let BASE_URL = null;
 let AUTH_TOKEN = null;
 
@@ -4037,17 +4188,23 @@ function renderSwitcher() {
       }
       for (const agent of serverAgents) {
         const item = document.createElement('div');
+        const state = getAgentState(agent);
         const classes = ['switcher-item'];
-        if (agent.name === activeName) classes.push('active');
-        if (!agent.running) classes.push('offline');
+        if (state === 'active') classes.push('active');
+        if (state === 'offline') classes.push('offline');
         item.className = classes.join(' ');
         const color = avatarColor(agent.name);
         const initial = agent.name.charAt(0).toUpperCase();
-        const dotClass = agent.running ? 'running' : 'stopped';
+        const conn = getAgentConn(agent.name);
+        const dotClasses = [state];
+        if (conn.thinking) dotClasses.push('thinking');
+        if (conn.unread > 0 && state !== 'active') dotClasses.push('has-unread');
+        const dotContent = (conn.unread > 0 && state !== 'active')
+          ? (conn.unread > 99 ? '99+' : conn.unread) : '';
         item.innerHTML = `
           <div class="switcher-item-avatar" style="background:${color}">
             ${initial}
-            <span class="online-dot ${dotClass}"></span>
+            <span class="online-dot ${dotClasses.join(' ')}">${dotContent}</span>
           </div>
           <div class="switcher-item-name">${agent.name}</div>
         `;
@@ -4070,17 +4227,40 @@ function renderSwitcher() {
 }
 
 function switchToAgent(agent) {
+  const prevName = getActiveAgent();
+
+  // Move previous agent to background: open background SSE + start idle timer
+  if (prevName && prevName !== agent.name) {
+    const prevAgentObj = allAgents.find(a => a.name === prevName && a.running);
+    if (prevAgentObj) {
+      connectAgent(prevAgentObj);
+    }
+    startIdleTimer(prevName);
+  }
+
   setActiveAgent(agent.name);
   BASE_URL = agent.url;
   AUTH_TOKEN = getServerToken(agent.server || location.origin);
   authFailed = false;
   intentionalClose = true;
   if (connection) { connection.close(); connection = null; }
+  flushStreaming();
+  hideThinking();
   messagesEl.innerHTML = '';
   inputEl.disabled = false;
   sendBtn.disabled = false;
   inputEl.value = '';
   infoPanel.classList.remove('open');
+
+  // Clear unread, thinking, and idle timer for new active agent
+  const conn = getAgentConn(agent.name);
+  conn.unread = 0;
+  conn._inText = false;
+  clearIdleTimer(agent.name);
+
+  // Close background SSE for this agent (init() will open the main one)
+  if (conn.sse) { conn.sse.close(); conn.sse = null; }
+
   // On narrow windows, clamp to mini sidebar instead of collapsing fully.
   if (window.innerWidth <= 768) {
     sidebar.classList.remove('collapsed');
@@ -4301,7 +4481,9 @@ const scrollContainer = $('messages-scroll');
 scrollContainer.addEventListener('scroll', () => {
   const threshold = 80;
   const atBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < threshold;
-  userScrolledUp = !atBottom;
+  if (!autoScrolling) {
+    userScrolledUp = !atBottom;
+  }
   scrollDownBtn.classList.toggle('visible', userScrolledUp);
 });
 
@@ -4314,10 +4496,29 @@ function updateScrollBtnPosition() {
   if (inputArea) scrollDownBtn.style.bottom = (inputArea.offsetHeight + 12) + 'px';
 }
 
+let autoScrolling = false;
+let autoScrollRelease = null;
+
 function scrollToBottom(force) {
-  if (force || !userScrolledUp) {
+  if (!(force || !userScrolledUp)) return;
+
+  autoScrolling = true;
+  if (autoScrollRelease) clearTimeout(autoScrollRelease);
+
+  const applyScroll = () => {
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
-  }
+  };
+
+  applyScroll();
+  requestAnimationFrame(() => {
+    applyScroll();
+    requestAnimationFrame(applyScroll);
+  });
+
+  autoScrollRelease = setTimeout(() => {
+    autoScrolling = false;
+    autoScrollRelease = null;
+  }, 80);
 }
 
 function formatBashCommand(cmd) {
@@ -4691,7 +4892,7 @@ function updateTitle(busy) {
 function showThinking() {
   if ($('thinking')) return;
   const el = document.createElement('div');
-  el.className = 'thinking';
+  el.className = 'message-thinking';
   el.id = 'thinking';
   el.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
   messagesEl.appendChild(el);
@@ -4715,11 +4916,14 @@ function handleEvent(event) {
   switch (event.type) {
     case 'thinking':
       setBusy(true);
+      if (activeName) setAgentThinking(activeName, true);
       showThinking();
       break;
 
     case 'text-delta':
-      hideThinking();
+      if (!streamingEl) {
+        hideThinking();
+      }
       if (!streamingEl) {
         if (lastToolEl) { lastToolEl.classList.remove('expanded'); lastToolEl = null; }
         streamingEl = addMessage('assistant', '');
@@ -4736,10 +4940,19 @@ function handleEvent(event) {
               streamingEl.textContent = streamingText.trim();
             } else {
               streamingEl.classList.remove('emoji-only');
-              streamingEl.innerHTML = renderMarkdown(streamingText);
+              // Only modify .message-body if it exists, otherwise just set innerHTML
+              const body = streamingEl.querySelector('.message-body');
+              if (body) {
+                body.innerHTML = renderMarkdown(streamingText);
+              } else {
+                streamingEl.innerHTML = renderMarkdown(streamingText);
+              }
             }
+            scrollToBottom(true);
+            requestAnimationFrame(() => scrollToBottom(true));
           }
-          scrollToBottom();
+          
+          if (activeName) setAgentThinking(activeName, true);
         });
       }
       setBusy(true);
@@ -4751,6 +4964,7 @@ function handleEvent(event) {
       const detail = event.toolDetail ? ` ${event.toolDetail}` : '';
       addMessage('tool', `${event.toolName}${detail}`, null, event.toolInput);
       setBusy(true);
+      if (activeName) setAgentThinking(activeName, true);
       showThinking();
       break;
     }
@@ -4785,6 +4999,7 @@ function handleEvent(event) {
       }
       scrollToBottom();
       // Agent is thinking about what to do next — show dots
+      if (activeName) setAgentThinking(activeName, true);
       showThinking();
       break;
     }
@@ -4808,6 +5023,7 @@ function handleEvent(event) {
         messagesEl.appendChild(el);
         scrollToBottom();
       }
+      if (activeName) setAgentThinking(activeName, true);
       showThinking();
       break;
     }
@@ -4815,6 +5031,7 @@ function handleEvent(event) {
     case 'finish':
       flushStreaming();
       hideThinking();
+      if (activeName) setAgentThinking(activeName, false);
       setBusy(false);
       break;
 
@@ -4909,6 +5126,8 @@ async function send() {
   scrollToBottom(true);
 
   try {
+    setBusy(true);
+    showThinking();
     const opts = { connectionId: connection?.connectionId };
     if (attachments.length > 0) opts.attachments = attachments;
     await AgentClient.sendMessage(BASE_URL, AUTH_TOKEN, text || '', opts);
@@ -5090,6 +5309,8 @@ async function init() {
   }
   intentionalClose = false;
   // Clear previous messages to avoid duplicates on reconnect
+  flushStreaming();
+  hideThinking();
   messagesEl.innerHTML = '';
   streamingText = '';
   streamingEl = null;
@@ -5246,6 +5467,12 @@ async function init() {
     }
   } catch {}
 
+  // Track active agent connection
+  const activeName = getActiveAgent();
+  const activeConn = getAgentConn(activeName);
+  clearIdleTimer(activeName);
+  activeConn.unread = 0;
+
   // Connect SSE — if native bridge is active, skip EventSource (native handles SSE)
   if (window.KernNative) {
     connection = { close() {}, connectionId: null };
@@ -5258,6 +5485,7 @@ async function init() {
       onEvent: handleEvent,
       onConnect() {
         setConnected('connected');
+        renderSwitcher();
       },
       async onDisconnect() {
         if (authFailed || intentionalClose) return;
@@ -5401,15 +5629,18 @@ function showTokenPrompt() {
     BASE_URL = activeAgent.url;
     AUTH_TOKEN = getServerToken(activeAgent.server || location.origin);
     init();
+    connectAllBackground();
   } else if (runningAgents.length === 1) {
     // Only one running agent — auto-connect
     switchToAgent(runningAgents[0]);
+    connectAllBackground();
   } else if (runningAgents.length > 1) {
     // Multiple running agents — show switcher
     setConnected('disconnected');
     agentNameEl.textContent = 'kern';
     renderSwitcher();
     openSidebar();
+    connectAllBackground();
   } else {
     // No running agents
     setConnected('disconnected');

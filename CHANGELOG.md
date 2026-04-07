@@ -2,6 +2,12 @@
 
 ## next
 
+### Features
+- **Live agent activity in sidebar** ([#75](https://github.com/oguzbilgic/kern-ai/pull/75)) — see which agents are thinking, get unread counts, and know what's happening across all your agents without switching
+  - Unread message count badges on agent avatars
+  - Pulsing indicator when an agent is busy — works for the active chat and background agents
+  - Connects to all running agents on page load; idles out after 15 minutes
+
 ### Improvements
 - **Server-driven thinking indicator** ([#70](https://github.com/oguzbilgic/kern-ai/pull/70)) — thinking dots triggered by server event at start of message handling, replacing client-side guessing
 - **Sidebar behavior** ([#71](https://github.com/oguzbilgic/kern-ai/pull/71)) — hamburger toggles collapsed ↔ previous state; small windows use mini sidebar instead of overlay
