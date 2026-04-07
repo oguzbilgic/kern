@@ -5805,7 +5805,14 @@ window.KernBridge = {
   renderMarkdown: function(text) { return renderMarkdown(text); },
   init: function() { init(); },
   getBaseUrl: function() { return BASE_URL; },
-  setBaseUrl: function(url) { BASE_URL = url; }
+  setBaseUrl: function(url) { BASE_URL = url; },
+  switchAgent: function(index) {
+    const agents = getAllAgents().filter(a => a.running && a.url);
+    if (index >= 0 && index < agents.length) switchToAgent(agents[index]);
+  },
+  getAgents: function() {
+    return getAllAgents().filter(a => a.running && a.url).map(a => a.name);
+  }
 };
 </script>
 </body>
