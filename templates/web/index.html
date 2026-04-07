@@ -279,8 +279,9 @@
     left: 50%;
     transform: translateX(-50%);
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 1px;
     pointer-events: none;
   }
   .header-title {
@@ -309,6 +310,20 @@
   /* --- Header info expansion --- */
   .header-title[role="button"] { cursor: pointer; }
   .header-title[role="button"]:hover { opacity: 0.7; }
+  .header-stats {
+    font-size: 12px;
+    color: var(--text-dim);
+    pointer-events: auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 400px;
+    cursor: pointer;
+  }
+  .header-stats:hover { color: var(--text-muted); }
+  .header-stats:empty { display: none; }
+
+  .header-stats .stat-sep { opacity: 0.4; margin: 0 4px; }
   .header-info {
     display: none;
     position: absolute;
@@ -329,13 +344,29 @@
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 8px 24px;
   }
+  .header-info .info-row .pin-btn {
+    opacity: 0;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    margin-left: auto;
+    flex-shrink: 0;
+    transition: opacity 0.15s;
+  }
+  .header-info .info-row:hover .pin-btn { opacity: 0.6; }
+  .header-info .info-row .pin-btn:hover { opacity: 1; color: var(--accent); }
+  .header-info .info-row .pin-btn.pinned { opacity: 0.8; color: var(--accent); }
   .header-info .info-row {
     display: flex;
-    flex-direction: column;
-    gap: 1px;
+    align-items: baseline;
+    gap: 6px;
   }
-  .header-info .info-label { color: var(--text-dim); font-size: 11px; }
-  .header-info .info-value { color: var(--text-muted); word-break: break-all; font-size: 12px; }
+  .header-info .info-label { color: var(--text-dim); font-size: 11px; min-width: 60px; flex-shrink: 0; }
+  .header-info .info-value { color: var(--text-muted); word-break: break-all; font-size: 12px; flex: 1; }
   .status-dot {
     width: 8px;
     height: 8px;
@@ -2350,6 +2381,7 @@
     <span class="status-dot connecting" id="status-dot" style="display:none;"></span>
     <div class="header-center">
       <span class="header-title" id="agent-name" role="button" tabindex="0">kern</span>
+      <span class="header-stats" id="header-stats"></span>
     </div>
     <div style="display:flex;align-items:center;gap:2px;position:relative;">
       <button class="filter-btn" id="filter-btn" title="Filter messages">&#9881;</button>
@@ -2825,46 +2857,106 @@ document.addEventListener('drop', (e) => {
   if (e.dataTransfer?.files.length > 0) addFiles(Array.from(e.dataTransfer.files));
 });
 
+// --- Pinned header stats ---
+const headerStatsEl = $('header-stats');
+
+function getPinnedFields() {
+  try { return JSON.parse(localStorage.getItem('kern_pinned_stats') || '[]'); } catch { return []; }
+}
+function setPinnedFields(fields) {
+  localStorage.setItem('kern_pinned_stats', JSON.stringify(fields));
+}
+function togglePin(field) {
+  const pinned = getPinnedFields();
+  const idx = pinned.indexOf(field);
+  if (idx >= 0) pinned.splice(idx, 1); else pinned.push(field);
+  setPinnedFields(pinned);
+  return pinned;
+}
+
+let lastStatusData = null;
+
+function buildStatusRows(status) {
+  const esc = (s) => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const cb = status.contextBreakdown;
+  let contextVal;
+  if (cb) {
+    const total = Math.round(((cb.systemPromptTokens || 0) + cb.messageTokens + cb.summaryTokens) / 1000);
+    contextVal = `~${total}k tokens (${cb.messageCount} msgs)`;
+  } else {
+    contextVal = status.context || '';
+  }
+  const rows = [
+    { key: 'version', label: 'version', value: `v${esc(status.version) || '?'}` },
+    { key: 'model', label: 'model', value: `${esc(status.model)}` },
+    { key: 'uptime', label: 'uptime', value: esc(status.uptime) },
+    { key: 'session', label: 'session', value: esc(status.session) },
+    { key: 'context', label: 'context', value: contextVal },
+    { key: 'apiUsage', label: 'api usage', value: esc(status.apiUsage) },
+  ];
+  if (status.cacheUsage) rows.push({ key: 'cache', label: 'cache', value: esc(status.cacheUsage) });
+  if (status.telegram) rows.push({ key: 'telegram', label: 'telegram', value: esc(status.telegram) });
+  if (status.slack) rows.push({ key: 'slack', label: 'slack', value: esc(status.slack) });
+  if (status.recall) rows.push({ key: 'recall', label: 'recall', value: esc(status.recall) });
+  rows.push({ key: 'queue', label: 'queue', value: esc(status.queue) });
+  rows.push({ key: 'tools', label: 'tools', value: esc(status.toolScope) });
+  return rows;
+}
+
+function renderHeaderStats() {
+  if (!lastStatusData) { headerStatsEl.innerHTML = ''; return; }
+  const pinned = getPinnedFields();
+  const rows = buildStatusRows(lastStatusData);
+  const parts = rows.filter(r => pinned.includes(r.key)).map(r => r.value);
+  headerStatsEl.innerHTML = parts.length ? parts.join('<span class="stat-sep">·</span>') : '';
+}
+
+async function fetchAndCacheStatus() {
+  if (!BASE_URL) return null;
+  try {
+    const res = await fetch(`${BASE_URL}/status`, { headers: AgentClient._headers(AUTH_TOKEN) });
+    if (!res.ok) return null;
+    lastStatusData = await res.json();
+    const active = getActiveAgent();
+    if (active) { getAgentConn(active).statusData = lastStatusData; }
+    renderHeaderStats();
+    renderSwitcher();
+    return lastStatusData;
+  } catch { return null; }
+}
+
 // Toggle agent info panel
-agentNameEl.addEventListener('click', async () => {
+async function toggleInfoPanel() {
   if (infoPanel.classList.contains('open')) {
     infoPanel.classList.remove('open');
     return;
   }
   if (!BASE_URL) return;
-  try {
-    const res = await fetch(`${BASE_URL}/status`, { headers: AgentClient._headers(AUTH_TOKEN) });
-    if (!res.ok) return;
-    const status = await res.json();
-
-    const connUrl = BASE_URL || '';
-    const connString = AUTH_TOKEN ? `${connUrl}?token=${AUTH_TOKEN}` : connUrl;
-
-    const esc = (s) => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    infoPanel.innerHTML = `
-      <div class="info-grid">
-        <div class="info-row"><span class="info-label">version</span><span class="info-value">v${esc(status.version) || '?'}</span></div>
-        <div class="info-row"><span class="info-label">model</span><span class="info-value">${esc(status.provider)}/${esc(status.model)}</span></div>
-        <div class="info-row"><span class="info-label">uptime</span><span class="info-value">${esc(status.uptime)}</span></div>
-        <div class="info-row"><span class="info-label">session</span><span class="info-value">${esc(status.session)}</span></div>
-        ${(() => {
-          const cb = status.contextBreakdown;
-          if (!cb) return status.context ? `<div class="info-row"><span class="info-label">context</span><span class="info-value">${esc(status.context)}</span></div>` : '';
-          const total = Math.round(((cb.systemPromptTokens || 0) + cb.messageTokens + cb.summaryTokens) / 1000);
-          return `<div class="info-row"><span class="info-label">context</span><span class="info-value">~${total}k tokens (${cb.messageCount} msgs)</span></div>`;
-        })()}
-        <div class="info-row"><span class="info-label">api usage</span><span class="info-value">${esc(status.apiUsage)}</span></div>
-        ${status.cacheUsage ? `<div class="info-row"><span class="info-label">cache</span><span class="info-value">${esc(status.cacheUsage)}</span></div>` : ''}
-        ${status.telegram ? `<div class="info-row"><span class="info-label">telegram</span><span class="info-value">${esc(status.telegram)}</span></div>` : ''}
-        ${status.slack ? `<div class="info-row"><span class="info-label">slack</span><span class="info-value">${esc(status.slack)}</span></div>` : ''}
-        ${status.recall ? `<div class="info-row"><span class="info-label">recall</span><span class="info-value">${esc(status.recall)}</span></div>` : ''}
-        <div class="info-row"><span class="info-label">queue</span><span class="info-value">${esc(status.queue)}</span></div>
-        <div class="info-row"><span class="info-label">tools</span><span class="info-value">${esc(status.toolScope)}</span></div>
-      </div>
-    `;
-    infoPanel.classList.add('open');
-  } catch {}
-});
+  const status = await fetchAndCacheStatus();
+  if (!status) return;
+  const pinned = getPinnedFields();
+  const rows = buildStatusRows(status);
+  infoPanel.innerHTML = `
+    <div class="info-grid">
+      ${rows.map(r => `<div class="info-row" data-pin="${r.key}" style="cursor:pointer"><span class="info-label">${r.label}</span><span class="info-value">${r.value}</span><span class="pin-btn ${pinned.includes(r.key) ? 'pinned' : ''}">${pinned.includes(r.key) ? '●' : '○'}</span></div>`).join('')}
+    </div>
+  `;
+  infoPanel.querySelectorAll('.info-row[data-pin]').forEach(row => {
+    row.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const key = row.dataset.pin;
+      const newPinned = togglePin(key);
+      const isPinned = newPinned.includes(key);
+      row.querySelector('.pin-btn').classList.toggle('pinned', isPinned);
+      row.querySelector('.pin-btn').textContent = isPinned ? '●' : '○';
+      renderHeaderStats();
+      renderSwitcher();
+    });
+  });
+  infoPanel.classList.add('open');
+}
+agentNameEl.addEventListener('click', toggleInfoPanel);
+headerStatsEl.addEventListener('click', toggleInfoPanel);
 
 // ==========================================================================
 // Unified Inspector Overlay
@@ -4024,7 +4116,7 @@ const IDLE_TIMEOUT = 15 * 60 * 1000; // 15 minutes
 const agentConns = {}; // { agentName: { sse, idleTimer, unread, thinking } }
 
 function getAgentConn(name) {
-  if (!agentConns[name]) agentConns[name] = { sse: null, idleTimer: null, unread: 0, thinking: false, _inText: false };
+  if (!agentConns[name]) agentConns[name] = { sse: null, idleTimer: null, unread: 0, thinking: false, _inText: false, statusData: null };
   return agentConns[name];
 }
 
@@ -4201,12 +4293,23 @@ function renderSwitcher() {
         if (conn.unread > 0 && state !== 'active') dotClasses.push('has-unread');
         const dotContent = (conn.unread > 0 && state !== 'active')
           ? (conn.unread > 99 ? '99+' : conn.unread) : '';
+        const pinned = getPinnedFields();
+        const agentConn = getAgentConn(agent.name);
+        let statLine = '';
+        if (pinned.length > 0 && agentConn.statusData) {
+          const sRows = buildStatusRows(agentConn.statusData);
+          const first = sRows.find(r => pinned.includes(r.key));
+          if (first) statLine = `<div class="switcher-item-status">${first.value}</div>`;
+        }
         item.innerHTML = `
           <div class="switcher-item-avatar" style="background:${color}">
             ${initial}
             <span class="online-dot ${dotClasses.join(' ')}">${dotContent}</span>
           </div>
-          <div class="switcher-item-name">${agent.name}</div>
+          <div class="switcher-item-info">
+            <div class="switcher-item-name">${agent.name}</div>
+            ${statLine}
+          </div>
         `;
         if (agent.running && agent.url) {
           item.addEventListener('click', () => switchToAgent(agent));
@@ -4394,8 +4497,25 @@ async function discoverAllAgents() {
   const allUrls = [localUrl, ...remoteUrls];
   const results = await Promise.all(allUrls.map(url => fetchServerAgents(url)));
   allAgents = results.flatMap(r => r.agents);
+  // Fetch status for all running agents in background
+  fetchAllAgentStatuses();
   // Return local server status
   return results[0].status;
+}
+
+async function fetchAllAgentStatuses() {
+  const running = allAgents.filter(a => a.running && a.url);
+  await Promise.all(running.map(async (agent) => {
+    try {
+      const token = getServerToken(agent.server || location.origin);
+      const res = await fetch(`${agent.url}/status`, { headers: AgentClient._headers(token) });
+      if (res.ok) {
+        const conn = getAgentConn(agent.name);
+        conn.statusData = await res.json();
+      }
+    } catch { /* ignore */ }
+  }));
+  renderSwitcher();
 }
 
 // Get all agents (use cached results from last discover)
@@ -5033,6 +5153,7 @@ function handleEvent(event) {
       hideThinking();
       if (activeName) setAgentThinking(activeName, false);
       setBusy(false);
+      fetchAndCacheStatus(); // refresh pinned stats
       break;
 
     case 'error':
@@ -5335,8 +5456,12 @@ async function init() {
     agentNameEl.textContent = resolvedName;
     setActiveAgent(resolvedName);
     if (status.version) $('sidebar-version').textContent = 'v' + status.version;
+    lastStatusData = status;
+    renderHeaderStats();
   } catch {
     agentNameEl.textContent = 'kern';
+    lastStatusData = null;
+    renderHeaderStats();
   }
 
   // Load history
