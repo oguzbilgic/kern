@@ -16,6 +16,7 @@
 - Document `.kern/.env` secrets location in KERN.md template
 
 ### Fixes
+- **Clean HTML error pages from provider responses** ([#84](https://github.com/oguzbilgic/kern-ai/pull/84)) — 502 and other HTML error pages no longer dump raw HTML in UI; extracted `parseProviderError()` with categorized matcher table (`network`, `auth`, `rate_limit`, `billing`, `provider`, `no_output`); single structured log per error
 - Scroll-to-bottom button overlapping multi-line input ([#72](https://github.com/oguzbilgic/kern-ai/issues/72)) — repositions dynamically above input pill; chat re-anchors on window resize
 - Chat loses scroll position on window resize ([#73](https://github.com/oguzbilgic/kern-ai/issues/73))
 - URL auto-linking capturing trailing punctuation
