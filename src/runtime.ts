@@ -345,7 +345,11 @@ export class Runtime {
       const lastErr = realError.lastError || realError;
       const cause = lastErr?.cause || realError.cause;
       const status = lastErr?.statusCode || lastErr?.data?.error?.code;
-      const apiMsg = lastErr?.data?.error?.message || lastErr?.responseBody;
+      const rawApiMsg = lastErr?.data?.error?.message || lastErr?.responseBody;
+      // Strip HTML error pages (e.g. 502 Bad Gateway) to a clean message
+      const apiMsg = typeof rawApiMsg === "string" && rawApiMsg.includes("<html")
+        ? `HTTP error ${status || "unknown"} — provider returned an error page`
+        : rawApiMsg;
       let msg: string;
       if (cause?.code === "EAI_AGAIN" || cause?.code === "ENOTFOUND") {
         msg = "DNS resolution failed — check network connection";
@@ -355,10 +359,15 @@ export class Runtime {
         msg = "API credits exhausted — check your OpenRouter/provider balance";
       } else if (status === 401 || status === 403) {
         msg = "API authentication failed — check your API key in .kern/.env";
+      } else if (status === 502) {
+        msg = "Provider returned 502 Bad Gateway — the upstream model may be temporarily unavailable";
       } else if (apiMsg) {
         msg = apiMsg;
       } else if (lastErr?.message && !lastErr.message.includes("No output generated")) {
-        msg = lastErr.message;
+        const rawMsg = lastErr.message;
+        msg = typeof rawMsg === "string" && rawMsg.includes("<html")
+          ? `HTTP error ${status || "unknown"} — provider returned an error page`
+          : rawMsg;
       } else if (error.message?.includes("No output generated")) {
         msg = `No response from model (Original error: ${cause?.message || cause || lastErr?.message || "None"})`;
       } else {
