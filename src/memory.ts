@@ -144,7 +144,6 @@ export class MemoryDB {
     try {
       this.db.exec(`CREATE VIRTUAL TABLE vec_segments USING vec0(embedding FLOAT[${dims}])`);
     } catch { /* already exists */ }
-
   }
 
   /**
