@@ -105,23 +105,7 @@ fn main() {
                 ],
             )?;
 
-            // Agent switching shortcuts (Cmd+1 through Cmd+9)
-            let mut agent_items: Vec<MenuItem<tauri::Wry>> = Vec::new();
-            for i in 1..=9u32 {
-                let item = MenuItem::with_id(
-                    app,
-                    &format!("switch_agent_{}", i),
-                    &format!("Agent {}", i),
-                    true,
-                    Some(&format!("CmdOrCtrl+{}", i)),
-                )?;
-                agent_items.push(item);
-            }
-            let agent_refs: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> =
-                agent_items.iter().map(|i| i as &dyn tauri::menu::IsMenuItem<tauri::Wry>).collect();
-            let agents_menu = Submenu::with_items(app, "Agents", true, &agent_refs)?;
-
-            let menu = Menu::with_items(app, &[&app_menu, &edit_menu, &agents_menu])?;
+            let menu = Menu::with_items(app, &[&app_menu, &edit_menu])?;
             app.set_menu(menu)?;
             Ok(())
         })
@@ -176,16 +160,6 @@ fn main() {
                         let _ = w.eval(
                             "window.__TAURI_INTERNALS__?.invoke('plugin:opener|open_url', { url: window.location.href });",
                         );
-                    }
-                }
-                id if id.starts_with("switch_agent_") => {
-                    if let Ok(n) = id.strip_prefix("switch_agent_").unwrap_or("0").parse::<usize>() {
-                        if let Some(w) = window {
-                            let _ = w.eval(&format!(
-                                "if(window.KernBridge)window.KernBridge.switchAgent({});",
-                                n - 1
-                            ));
-                        }
                     }
                 }
                 _ => {}
