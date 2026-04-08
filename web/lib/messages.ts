@@ -55,6 +55,13 @@ function extractToolResultOutput(part: ContentPart): string {
   return JSON.stringify(output);
 }
 
+function findLastUnresolvedTool(messages: ChatMessage[]): ChatMessage | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "tool" && messages[i].toolOutput === undefined) return messages[i];
+  }
+  return undefined;
+}
+
 export function historyToMessages(history: HistoryMessage[]): ChatMessage[] {
   const messages: ChatMessage[] = [];
 
@@ -106,6 +113,7 @@ export function historyToMessages(history: HistoryMessage[]): ChatMessage[] {
       }
 
       // Content is array of parts — can contain text AND tool-calls
+      // Collect tool-calls by toolCallId so we can pair with results later
       if (Array.isArray(content)) {
         for (const part of content) {
           if (part.type === "text" && part.text?.trim()) {
@@ -115,13 +123,16 @@ export function historyToMessages(history: HistoryMessage[]): ChatMessage[] {
               text: part.text.trim(),
             });
           } else if (part.type === "tool-call") {
-            messages.push({
+            // Create tool entry keyed by toolCallId for later result matching
+            const toolMsg: ChatMessage = {
               id: `msg-${msgCounter++}`,
               role: "tool",
               text: "",
               toolName: part.toolName,
               toolInput: part.input,
-            });
+              toolCallId: part.toolCallId,
+            };
+            messages.push(toolMsg);
           }
         }
       }
@@ -130,26 +141,26 @@ export function historyToMessages(history: HistoryMessage[]): ChatMessage[] {
 
     if (msg.role === "tool") {
       if (typeof content === "string") {
-        messages.push({
-          id: `msg-${msgCounter++}`,
-          role: "tool",
-          text: content,
-        });
+        // Attach to last unresolved tool message
+        const lastTool = findLastUnresolvedTool(messages);
+        if (lastTool) {
+          lastTool.toolOutput = content;
+        }
         continue;
       }
 
-      // Content is array of tool-result parts
+      // Content is array of tool-result parts — match to existing tool-call entries
       if (Array.isArray(content)) {
         for (const part of content) {
           if (part.type === "tool-result") {
-            messages.push({
-              id: `msg-${msgCounter++}`,
-              role: "tool",
-              text: "",
-              toolName: part.toolName,
-              toolInput: part.input,
-              toolOutput: extractToolResultOutput(part),
-            });
+            const output = extractToolResultOutput(part);
+            // Find the matching tool-call by toolCallId
+            const match = part.toolCallId
+              ? messages.find((m) => m.toolCallId === part.toolCallId)
+              : findLastUnresolvedTool(messages);
+            if (match) {
+              match.toolOutput = output;
+            }
           }
         }
       }

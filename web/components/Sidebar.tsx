@@ -14,14 +14,26 @@ interface SidebarProps {
   agents: Agent[];
   active: string | null;
   onSelect: (name: string) => void;
+  onLogout?: () => void;
 }
 
-export function Sidebar({ agents, active, onSelect }: SidebarProps) {
+export function Sidebar({ agents, active, onSelect, onLogout }: SidebarProps) {
   return (
     <div className="w-[200px] bg-[var(--bg-sidebar)] border-r border-[var(--border)] flex flex-col flex-shrink-0">
-      {/* Logo */}
-      <div className="h-12 flex items-center px-4 text-sm font-semibold border-b border-[var(--border)]">
-        kern<span className="text-[var(--accent)]">.</span>
+      {/* Logo + logout */}
+      <div className="h-12 flex items-center justify-between px-4 border-b border-[var(--border)]">
+        <span className="text-sm font-semibold">
+          kern<span className="text-[var(--accent)]">.</span>
+        </span>
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-dim)] transition-colors"
+            title="Logout"
+          >
+            Logout
+          </button>
+        )}
       </div>
 
       {/* Agent list */}

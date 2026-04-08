@@ -29,9 +29,14 @@ export default function Home() {
     return <Login onLogin={setToken} />;
   }
 
+  function handleLogout() {
+    localStorage.removeItem("kern-token");
+    window.location.reload();
+  }
+
   return (
     <div className="flex h-full w-full">
-      <Sidebar agents={agents} active={activeAgent?.name || null} onSelect={setActive} />
+      <Sidebar agents={agents} active={activeAgent?.name || null} onSelect={setActive} onLogout={handleLogout} />
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}

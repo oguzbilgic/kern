@@ -104,6 +104,7 @@ export interface ChatMessage {
   toolName?: string;
   toolInput?: Record<string, unknown>;
   toolOutput?: string;
+  toolCallId?: string;
   // Streaming
   streaming?: boolean;
 }
