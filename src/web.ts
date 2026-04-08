@@ -136,7 +136,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     let filePath: string;
     if (url === "/") {
       filePath = join(serveDir, "index.html");
-    } else if (url.includes("..")) {
+    } else if (url.includes("/../") || url.endsWith("/..")) {
       res.writeHead(403); res.end(); return;
     } else {
       filePath = join(serveDir, url);
