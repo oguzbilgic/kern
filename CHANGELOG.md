@@ -23,7 +23,7 @@
 - Chat loses scroll position on window resize ([#73](https://github.com/oguzbilgic/kern-ai/issues/73))
 - URL auto-linking capturing trailing punctuation
 
-## next-desktop
+## desktop-v0.1.1
 
 ### Features
 - **Cmd+1-9 agent switching** — switch between agents with keyboard shortcuts; uses `KernBridge.switchAgent()` bridge API
