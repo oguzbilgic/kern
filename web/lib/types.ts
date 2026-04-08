@@ -6,34 +6,25 @@ export interface Agent {
   server?: string;
 }
 
-export interface StreamEvent {
-  type:
-    | "connection"
-    | "thinking"
-    | "text-delta"
-    | "tool-call"
-    | "tool-result"
-    | "recall"
-    | "finish"
-    | "error"
-    | "command-result"
-    | "incoming"
-    | "outgoing"
-    | "heartbeat";
-  connectionId?: string;
-  text?: string;
-  delta?: string;
-  toolName?: string;
-  toolInput?: Record<string, unknown>;
-  output?: string;
-  result?: string;
-  error?: string;
-  // Cross-channel fields
-  fromInterface?: string;
-  fromUserId?: string;
-  fromChannel?: string;
-  command?: string;
+export interface ServerConfig {
+  url: string;
+  token: string;
 }
+
+// Discriminated union for SSE events
+export type StreamEvent =
+  | { type: "connection"; connectionId: string }
+  | { type: "thinking" }
+  | { type: "text-delta"; text: string }
+  | { type: "tool-call"; toolName: string; toolInput?: Record<string, unknown> }
+  | { type: "tool-result"; output?: string; result?: string }
+  | { type: "recall"; text: string }
+  | { type: "finish" }
+  | { type: "error"; error: string }
+  | { type: "command-result"; text: string; command?: string }
+  | { type: "incoming"; text: string; fromInterface?: string; fromUserId?: string; fromChannel?: string }
+  | { type: "outgoing"; text: string; fromInterface?: string }
+  | { type: "heartbeat" };
 
 export interface StatusData {
   version?: string;
@@ -115,4 +106,13 @@ export interface ChatMessage {
   toolCallId?: string;
   // Streaming
   streaming?: boolean;
+}
+
+// Agent state tracked by useServers for sidebar
+export interface AgentState {
+  agent: Agent;
+  server: ServerConfig;
+  online: boolean;
+  thinking: boolean;
+  unread: number;
 }

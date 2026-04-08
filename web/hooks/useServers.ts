@@ -1,35 +1,21 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { Agent } from "../lib/types";
+import type { Agent, ServerConfig, AgentState, StreamEvent } from "../lib/types";
 import * as api from "../lib/api";
 
-interface ServerConfig {
-  url: string;
-  token: string;
-}
-
-export interface AgentState {
-  agent: Agent;
-  server: ServerConfig;
-  online: boolean;
-  thinking: boolean;
-  unread: number;
-}
-
-export function useAgents(token: string | null) {
+export function useServers(token: string | null) {
   const [agentStates, setAgentStates] = useState<Map<string, AgentState>>(new Map());
   const [active, setActiveState] = useState<string | null>(null);
   const sseRefs = useRef<Map<string, api.SSEConnection>>(new Map());
   const activeRef = useRef<string | null>(null);
 
-  // Keep ref in sync
   activeRef.current = active;
 
-  // Get servers: local (proxy) + any manually added
+  // Get servers: local (proxy) + manually added
   const getServers = useCallback((): ServerConfig[] => {
     const servers: ServerConfig[] = [
-      { url: "", token: token || "" }, // local proxy, relative URLs
+      { url: "", token: token || "" },
     ];
     try {
       const stored = localStorage.getItem("kern-servers");
@@ -62,7 +48,7 @@ export function useAgents(token: string | null) {
       } catch { /* ignore unreachable servers */ }
     }
 
-    // Merge with existing states to preserve runtime flags (online, thinking, unread)
+    // Merge with existing to preserve runtime flags
     setAgentStates((prev) => {
       const merged = new Map<string, AgentState>();
       for (const [key, state] of newStates) {
@@ -107,16 +93,13 @@ export function useAgents(token: string | null) {
     for (const [key, state] of agentStates) {
       if (!state.agent.running) continue;
       currentKeys.add(key);
-
-      // Skip if already connected
       if (sseRefs.current.has(key)) continue;
 
-      const IDLE_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+      const IDLE_TIMEOUT = 15 * 60 * 1000;
       let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
       const resetIdle = () => {
         if (idleTimer) clearTimeout(idleTimer);
-        // Only set idle timeout for background agents
         if (key !== activeRef.current) {
           idleTimer = setTimeout(() => {
             conn.close();
@@ -125,55 +108,41 @@ export function useAgents(token: string | null) {
         }
       };
 
-      const conn = api.connectSSE(state.agent.name, state.server.token, {
-        onEvent(ev) {
-          resetIdle();
-          if (ev.type === "text-delta" || ev.type === "finish") {
-            setAgentStates((prev) => {
-              const next = new Map(prev);
-              const s = next.get(key);
-              if (!s) return prev;
+      const updateAgent = (updater: (s: AgentState) => AgentState) => {
+        setAgentStates((prev) => {
+          const s = prev.get(key);
+          if (!s) return prev;
+          const next = new Map(prev);
+          next.set(key, updater(s));
+          return next;
+        });
+      };
 
-              if (ev.type === "text-delta") {
-                next.set(key, { ...s, thinking: true });
-              } else if (ev.type === "finish") {
-                // Increment unread once per completed turn, not per delta
-                const unread = key !== activeRef.current ? s.unread + 1 : s.unread;
-                next.set(key, { ...s, thinking: false, unread });
-              }
-              return next;
-            });
-          } else if (ev.type === "thinking") {
-            setAgentStates((prev) => {
-              const next = new Map(prev);
-              const s = next.get(key);
-              if (s) next.set(key, { ...s, thinking: true });
-              return next;
-            });
+      const conn = api.connectSSE(state.agent.name, state.server.token, {
+        onEvent(ev: StreamEvent) {
+          resetIdle();
+          if (ev.type === "thinking" || ev.type === "text-delta") {
+            updateAgent((s) => ({ ...s, thinking: true }));
+          } else if (ev.type === "finish") {
+            updateAgent((s) => ({
+              ...s,
+              thinking: false,
+              unread: key !== activeRef.current ? s.unread + 1 : s.unread,
+            }));
           }
         },
         onConnect() {
           resetIdle();
-          setAgentStates((prev) => {
-            const next = new Map(prev);
-            const s = next.get(key);
-            if (s) next.set(key, { ...s, online: true });
-            return next;
-          });
+          updateAgent((s) => ({ ...s, online: true }));
         },
         onDisconnect() {
           if (idleTimer) clearTimeout(idleTimer);
           sseRefs.current.delete(key);
-          setAgentStates((prev) => {
-            const next = new Map(prev);
-            const s = next.get(key);
-            if (s) next.set(key, { ...s, online: false, thinking: false });
-            return next;
-          });
+          updateAgent((s) => ({ ...s, online: false, thinking: false }));
         },
       }, state.server.url);
 
-      resetIdle(); // Start idle timer for background agents
+      resetIdle();
       sseRefs.current.set(key, conn);
     }
 
@@ -186,7 +155,7 @@ export function useAgents(token: string | null) {
     }
   }, [agentStates, token]);
 
-  // Cleanup all SSE on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       for (const conn of sseRefs.current.values()) conn.close();
@@ -197,18 +166,18 @@ export function useAgents(token: string | null) {
   const setActive = useCallback((key: string) => {
     setActiveState(key);
     sessionStorage.setItem("kern_active_agent", key);
-    // Clear unread for selected agent
     setAgentStates((prev) => {
+      const s = prev.get(key);
+      if (!s) return prev;
       const next = new Map(prev);
-      const s = next.get(key);
-      if (s) next.set(key, { ...s, unread: 0 });
+      next.set(key, { ...s, unread: 0 });
       return next;
     });
   }, []);
 
   // Server management
   const addServer = useCallback((url: string, serverToken: string) => {
-    const servers = getServers().slice(1); // exclude local
+    const servers = getServers().slice(1);
     if (servers.some((s) => s.url === url)) return;
     servers.push({ url, token: serverToken });
     localStorage.setItem("kern-servers", JSON.stringify(servers));
@@ -218,7 +187,6 @@ export function useAgents(token: string | null) {
   const removeServer = useCallback((url: string) => {
     const servers = getServers().slice(1).filter((s) => s.url !== url);
     localStorage.setItem("kern-servers", JSON.stringify(servers));
-    // Remove agent states for this server
     setAgentStates((prev) => {
       const next = new Map(prev);
       for (const [key, state] of next) {
@@ -232,5 +200,5 @@ export function useAgents(token: string | null) {
   const activeAgent = active ? agentStates.get(active)?.agent || null : null;
   const activeState = active ? agentStates.get(active) || null : null;
 
-  return { agents, agentStates, activeAgent, activeState, active, setActive, addServer, removeServer, refresh: discover };
+  return { agents, activeAgent, activeState, active, setActive, addServer, removeServer, refresh: discover };
 }

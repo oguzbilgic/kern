@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { useAgents } from "../hooks/useAgents";
+import { useServers } from "../hooks/useServers";
 import { useAgent } from "../hooks/useAgent";
 import { Login } from "../components/Login";
 import { Sidebar } from "../components/Sidebar";
@@ -13,12 +13,11 @@ import type { Attachment } from "../lib/types";
 export default function Home() {
   const { token, setToken } = useAuth();
   const validToken = token ?? null;
-  const { agents, activeAgent, activeState, active, setActive, addServer, removeServer } = useAgents(validToken);
+  const { agents, activeAgent, activeState, active, setActive, addServer, removeServer } = useServers(validToken);
   const activeServerUrl = useMemo(() => activeState?.server?.url || undefined, [active, activeState?.server?.url]);
   const activeToken = activeState?.server?.token || validToken;
   const { messages, streamParts, thinking, connected, status, send } = useAgent(activeAgent?.name ?? null, activeToken, activeServerUrl);
 
-  // Still checking auth state
   if (token === undefined) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -27,7 +26,6 @@ export default function Home() {
     );
   }
 
-  // No token — show login
   if (!token) {
     return <Login onLogin={setToken} />;
   }
@@ -66,14 +64,12 @@ export default function Home() {
           )}
         </div>
 
-        {/* Chat area */}
         <Chat
           messages={messages}
           streamParts={streamParts}
           thinking={thinking}
         />
 
-        {/* Input */}
         <Input
           onSend={(text: string, attachments?: Attachment[]) => send(text, attachments)}
           disabled={!connected}

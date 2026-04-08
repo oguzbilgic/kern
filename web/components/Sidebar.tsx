@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { AgentState } from "../hooks/useAgents";
+import type { AgentState } from "../lib/types";
 
 const AVATAR_COLORS = ["#e06c75", "#e5c07b", "#98c379", "#56b6c2", "#61afef", "#c678dd", "#be5046", "#d19a66"];
 

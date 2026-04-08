@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { ChatMessage, StreamEvent, Attachment, StatusData } from "../lib/types";
 import * as api from "../lib/api";
-import { historyToMessages, parseUserContent } from "../lib/messages";
+import { historyToMessages } from "../lib/messages";
+import { processStreamEvent } from "../lib/events";
 
 interface UseAgentReturn {
   messages: ChatMessage[];
@@ -25,22 +26,7 @@ export function useAgent(agentName: string | null, token: string | null, serverU
 
   const baseUrl = serverUrl || "";
 
-  // Helper: get or create the last text part in the stream
-  function getOrCreateTextPart(): ChatMessage {
-    const parts = partsRef.current;
-    const last = parts[parts.length - 1];
-    if (last && last.role === "assistant") return last;
-    // Create new text part
-    const textPart: ChatMessage = {
-      id: `stream-text-${Date.now()}-${Math.random()}`,
-      role: "assistant",
-      text: "",
-    };
-    parts.push(textPart);
-    return textPart;
-  }
-
-  // Load history on agent change
+  // Load history + status on agent change
   useEffect(() => {
     if (!agentName) return;
     let cancelled = false;
@@ -54,6 +40,11 @@ export function useAgent(agentName: string | null, token: string | null, serverU
         if (cancelled) return;
         setMessages(historyToMessages(history));
         setStatus(statusData);
+
+        // Detect busy state on load
+        if (statusData?.queue && typeof statusData.queue === "string" && statusData.queue.startsWith("busy")) {
+          setThinking(true);
+        }
       } catch {
         if (!cancelled) setMessages([]);
       }
@@ -65,17 +56,6 @@ export function useAgent(agentName: string | null, token: string | null, serverU
     setThinking(false);
     load();
 
-    // Poll status to detect busy state on refresh
-    async function checkBusy() {
-      try {
-        const s = await api.getStatus(agentName!, token, baseUrl || undefined);
-        if (!cancelled && s?.queue && typeof s.queue === "string" && s.queue.startsWith("busy")) {
-          setThinking(true);
-        }
-      } catch {}
-    }
-    checkBusy();
-
     return () => { cancelled = true; };
   }, [agentName, token, baseUrl]);
 
@@ -85,151 +65,34 @@ export function useAgent(agentName: string | null, token: string | null, serverU
 
     const sse = api.connectSSE(agentName, token, {
       onEvent(ev: StreamEvent) {
-        switch (ev.type) {
-          case "thinking":
-            setThinking(true);
-            break;
+        const result = processStreamEvent(ev, partsRef.current);
 
-          case "text-delta": {
-            const textPart = getOrCreateTextPart();
-            textPart.text += ev.text || ev.delta || "";
-            setStreamParts([...partsRef.current]);
-            setThinking(false);
-            break;
-          }
+        // Update streaming parts
+        partsRef.current = result.parts;
+        setStreamParts([...result.parts]);
 
-          case "tool-call": {
-            setThinking(true);
-            const tool: ChatMessage = {
-              id: `stream-tool-${Date.now()}-${Math.random()}`,
-              role: "tool",
-              text: "",
-              toolName: ev.toolName,
-              toolInput: ev.toolInput,
-              streaming: true,
-            };
-            partsRef.current.push(tool);
-            setStreamParts([...partsRef.current]);
-            break;
-          }
+        // Update thinking state
+        if (result.thinking !== null) {
+          setThinking(result.thinking);
+        }
 
-          case "tool-result": {
-            // Find last streaming tool
-            const parts = partsRef.current;
-            for (let i = parts.length - 1; i >= 0; i--) {
-              if (parts[i].role === "tool" && parts[i].streaming) {
-                parts[i] = { ...parts[i], toolOutput: ev.output || ev.result, streaming: false };
-                break;
-              }
+        // Append completed messages (with delay on flush for final text-delta)
+        if (result.flush) {
+          setTimeout(() => {
+            if (result.append.length > 0) {
+              setMessages((prev) => [...prev, ...result.append]);
             }
-            setStreamParts([...partsRef.current]);
-            setThinking(true); // Still busy — waiting for next step
-            break;
-          }
-
-          case "recall": {
-            const recallPart: ChatMessage = {
-              id: `stream-recall-${Date.now()}`,
-              role: "tool",
-              text: "",
-              toolName: "recall",
-              toolOutput: ev.text,
-            };
-            partsRef.current.push(recallPart);
-            setStreamParts([...partsRef.current]);
-            break;
-          }
-
-          case "finish": {
-            // Small delay to ensure last text-delta is processed before flushing
-            setTimeout(() => {
-              const flushed = partsRef.current.filter(
-                (p) => p.role === "tool" || (p.role === "assistant" && p.text.trim())
-              );
-
-              if (flushed.length > 0) {
-                setMessages((prev) => [...prev, ...flushed]);
-              }
-
-              partsRef.current = [];
-              setStreamParts([]);
-              setThinking(false);
-
-              api.getStatus(agentName!, token, baseUrl || undefined).then(setStatus).catch(() => {});
-            }, 50);
-            break;
-          }
-
-          case "incoming": {
-            const parsed = parseUserContent(ev.text || "");
-            if (parsed.type === "heartbeat") {
-              setMessages((prev) => [...prev, {
-                id: `hb-${Date.now()}`,
-                role: "heartbeat",
-                text: "♡ heartbeat",
-                iface: "heartbeat",
-              }]);
-            } else {
-              setMessages((prev) => [...prev, {
-                id: `in-${Date.now()}`,
-                role: "incoming",
-                text: parsed.text || ev.text || "",
-                meta: `[${ev.fromInterface || "?"} ${ev.fromUserId || ""}]`.trim(),
-                iface: ev.fromInterface,
-              }]);
-            }
-            break;
-          }
-
-          case "outgoing":
-            setMessages((prev) => [...prev, {
-              id: `out-${Date.now()}`,
-              role: "assistant",
-              text: ev.text || "",
-              meta: `→ ${ev.fromInterface || "?"}`,
-              iface: ev.fromInterface,
-            }]);
-            break;
-
-          case "heartbeat":
-            setMessages((prev) => [...prev, {
-              id: `hb-${Date.now()}`,
-              role: "heartbeat",
-              text: "♡ heartbeat",
-              iface: "heartbeat",
-            }]);
-            break;
-
-          case "command-result":
-            setMessages((prev) => [...prev, {
-              id: `cmd-${Date.now()}`,
-              role: "assistant",
-              text: ev.text || "",
-              meta: `/${ev.command}`,
-            }]);
-            break;
-
-          case "error":
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: `err-${Date.now()}`,
-                role: "error",
-                text: ev.error || "Unknown error",
-              },
-            ]);
-            setThinking(false);
             partsRef.current = [];
             setStreamParts([]);
-            break;
+            setThinking(false);
+            api.getStatus(agentName!, token, baseUrl || undefined).then(setStatus).catch(() => {});
+          }, 50);
+        } else if (result.append.length > 0) {
+          setMessages((prev) => [...prev, ...result.append]);
         }
       },
-      onConnect() {
-        setConnected(true);
-      },
-      onDisconnect() {
-        setConnected(false);
-      },
+      onConnect() { setConnected(true); },
+      onDisconnect() { setConnected(false); },
     }, baseUrl || undefined);
 
     sseRef.current = sse;
@@ -247,7 +110,7 @@ export function useAgent(agentName: string | null, token: string | null, serverU
         ...prev,
         {
           id: `msg-${Date.now()}`,
-          role: "user",
+          role: "user" as const,
           text,
           timestamp: new Date().toISOString(),
           iface: "web",
