@@ -1,13 +1,13 @@
 import { join } from "path";
 import { embed, embedMany } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
 import { readFile } from "fs/promises";
 import { existsSync } from "fs";
 import { log } from "./log.js";
+import { extractText } from "./media.js";
+import { createEmbeddingModel } from "./model.js";
 import type { ModelMessage } from "ai";
 import type { MemoryDB } from "./memory.js";
 
-const EMBEDDING_MODEL = "openai/text-embedding-3-small";
 const MAX_CHUNK_TOKENS = 1000; // rough token limit per chunk
 
 interface RecallResult {
@@ -28,28 +28,11 @@ export class RecallIndex {
     this.agentDir = agentDir;
     this.db = memoryDB.db;
 
-    // Create embedding model — use OpenAI-compatible endpoint
-    const apiKey = provider === "openrouter"
-      ? process.env.OPENROUTER_API_KEY
-      : provider === "openai"
-        ? process.env.OPENAI_API_KEY
-        : process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
-
-    if (!apiKey) {
-      throw new Error("No API key available for embeddings (need OPENROUTER_API_KEY or OPENAI_API_KEY)");
+    const model = createEmbeddingModel(provider);
+    if (!model) {
+      throw new Error("No embedding model available (need OPENROUTER_API_KEY, OPENAI_API_KEY, or Ollama provider)");
     }
-
-    const client = createOpenAI({
-      baseURL: provider === "openai" ? undefined : "https://openrouter.ai/api/v1",
-      apiKey,
-      headers: provider !== "openai" ? {
-        "HTTP-Referer": "https://github.com/oguzbilgic/kern-ai",
-        "X-Title": "kern-ai",
-        "X-OpenRouter-Categories": "cli-agent,personal-agent",
-      } : undefined,
-    });
-    const modelId = provider === "openai" ? "text-embedding-3-small" : EMBEDDING_MODEL;
-    this.embeddingModel = client.embeddingModel(modelId);
+    this.embeddingModel = model;
   }
 
   /**
@@ -93,7 +76,8 @@ export class RecallIndex {
 
         // Extract timestamp from message metadata
         let timestamp: string | null = null;
-        const timeMatch = msgContent.match(/time: (\d{4}-\d{2}-\d{2}T[\d:.]+Z)/);
+        const textForTimestamp = typeof msg.content === "string" ? msg.content : extractText(msg.content);
+        const timeMatch = textForTimestamp.match(/time: (\d{4}-\d{2}-\d{2}T[\d:.]+Z)/);
         if (timeMatch) timestamp = timeMatch[1];
 
         insertMsg.run(sessionId, msgIndex, msg.role, msgContent, timestamp);
@@ -239,7 +223,7 @@ export class RecallIndex {
     const result: string[] = [];
     for (let i = from; i < actualTo; i++) {
       const msg: ModelMessage = JSON.parse(lines[i + 1]); // +1 for metadata line
-      const msgContent = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
+      const msgContent = extractText(msg.content);
       const preview = msgContent.length > 500 ? msgContent.slice(0, 500) + "..." : msgContent;
       result.push(`[${i}] ${msg.role}: ${preview}`);
     }
@@ -342,6 +326,8 @@ export class RecallIndex {
     if (Array.isArray(msg.content)) {
       return (msg.content as any[]).map((part) => {
         if (part.type === "text") return part.text;
+        if (part.type === "image") return `[image: ${part.mediaType || "image"}]`;
+        if (part.type === "file") return `[file: ${part.filename || part.mediaType || "file"}]`;
         if (part.type === "tool-call") return `[tool: ${part.toolName}]`;
         if (part.type === "tool-result") {
           const out = typeof part.output === "string" ? part.output : JSON.stringify(part.output);
@@ -353,11 +339,13 @@ export class RecallIndex {
     return JSON.stringify(msg.content);
   }
 
-  getStats(): { chunks: number; sessions: number; messages: number } {
+  getStats(): { chunks: number; sessions: number; messages: number; firstTimestamp: string | null; lastTimestamp: string | null } {
     const chunks = (this.db.prepare("SELECT COUNT(*) as count FROM chunks").get() as any).count;
     const sessions = (this.db.prepare("SELECT COUNT(*) as count FROM index_state").get() as any).count;
     const messages = (this.db.prepare("SELECT COUNT(*) as count FROM messages").get() as any).count;
-    return { chunks, sessions, messages };
+    const first = (this.db.prepare("SELECT MIN(timestamp) as ts FROM messages WHERE timestamp IS NOT NULL").get() as any)?.ts || null;
+    const last = (this.db.prepare("SELECT MAX(timestamp) as ts FROM messages WHERE timestamp IS NOT NULL").get() as any)?.ts || null;
+    return { chunks, sessions, messages, firstTimestamp: first, lastTimestamp: last };
   }
 
 }

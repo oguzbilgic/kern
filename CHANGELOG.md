@@ -3,15 +3,159 @@
 ## next
 
 ### Features
-- **Log levels** — `log()`, `log.debug()`, `log.warn()`, `log.error()` with colored labels (WRN, ERR, DBG). All levels written to file, filter on read.
-- **`kern logs` CLI** — defaults to follow mode. `-n 50` for last N lines (no follow). `--level warn` to filter by level. Combinable.
-- **`kern({ action: "logs" })` tool** — agents can inspect their own logs. Defaults to warn+ level, configurable with `level` and `lines` params.
-- **Config validation** — warns on unknown fields and wrong types at startup. Invalid values are ignored and defaults apply.
+- **Live agent activity in sidebar** ([#75](https://github.com/oguzbilgic/kern-ai/pull/75)) — see which agents are thinking, get unread counts, and know what's happening across all your agents without switching
+  - Unread message count badges on agent avatars
+  - Pulsing indicator when an agent is busy — works for the active chat and background agents
+  - Connects to all running agents on page load; idles out after 15 minutes
+
+- **Pinnable agent stats** ([#80](https://github.com/oguzbilgic/kern-ai/pull/80)) — pin status fields (model, context, uptime) to the header and agent sidebar; click header stats or agent name to open info panel; whole row clickable to pin/unpin
+- **Server-driven thinking indicator** ([#70](https://github.com/oguzbilgic/kern-ai/pull/70)) — thinking dots triggered by server event at start of message handling, replacing client-side guessing
+- **Sidebar behavior** ([#71](https://github.com/oguzbilgic/kern-ai/pull/71)) — hamburger toggles collapsed ↔ previous state; small windows use mini sidebar instead of overlay
+
+### Improvements
+- **Ollama embeddings** — agents using Ollama provider now get local embeddings via `nomic-embed-text` for recall and segments, no API key needed
+- **Auto-detect embedding dimension mismatch** — when switching embedding models (e.g. OpenAI → Ollama), vector tables are automatically rebuilt with the correct dimensions instead of failing silently
+- Document `.kern/.env` secrets location in KERN.md template
+
+### Fixes
+- Provider errors (502, HTML error pages) now show clean messages instead of raw HTML ([#84](https://github.com/oguzbilgic/kern-ai/pull/84))
+- Scroll-to-bottom button overlapping multi-line input ([#72](https://github.com/oguzbilgic/kern-ai/issues/72)) — repositions dynamically above input pill; chat re-anchors on window resize
+- Chat loses scroll position on window resize ([#73](https://github.com/oguzbilgic/kern-ai/issues/73))
+- URL auto-linking capturing trailing punctuation
+
+## next-desktop
+
+### Features
+- **Cmd+1-9 agent switching** — switch between agents with keyboard shortcuts; uses `KernBridge.switchAgent()` bridge API
+
+## desktop-v0.1.0
+
+### Features
+- **Desktop app** ([#62](https://github.com/oguzbilgic/kern-ai/pull/62)) — native Tauri 2.0 wrapper that loads kern web UI in a single window
+  - Connect screen with server URL + token input, saved server list
+  - Auto-reconnect to last server on launch
+  - App menu: Logout, Reconnect, Reload (Cmd+R), Open in Browser, About
+  - File drag-and-drop into chat
+  - External links open in system browser
+  - macOS ad-hoc code signing with DMG packaging
+  - CI builds for macOS ARM/Intel and Linux; Windows build available via manual dispatch
+  - Desktop CI triggers on `desktop/*` branches only
+
+## v0.21.0
+
+### Features
+- **Ollama provider** ([#69](https://github.com/oguzbilgic/kern-ai/pull/69)) — run agents on local models via Ollama. `kern init` auto-discovers pulled models. Set `OLLAMA_BASE_URL` in `.env` for remote servers.
+- **Advanced prompt caching** ([#67](https://github.com/oguzbilgic/kern-ai/pull/67)) — dual cache breakpoints and turn-safe trim snapping for near-perfect cache hit rates
+  - Stable prefix breakpoint snapped every 20 messages + turn breakpoint at last user message
+  - Trim boundary snapped to L0 segment edges then walked back to nearest user message to prevent orphaned tool results
+  - Caching logic consolidated in `context.ts` — removed duplication between runtime and context modules
+  - New `docs/caching.md` with full design documentation
+
+### Improvements
+- **Web UI redesign** ([#59](https://github.com/oguzbilgic/kern-ai/pull/59))
+  - Centered conversation layout with narrower bubbles, redesigned input pill with inline file attachments
+  - Resizable sidebar — drag the edge to switch between full, mini (avatars only), and collapsed states
+  - Syntax highlighting in code blocks, bash command formatting with line breaking, refreshed header with info panel
+  - Emoji-only messages render large without bubble background
+
+### Fixes
+- **Non-Anthropic OpenRouter models** ([#65](https://github.com/oguzbilgic/kern-ai/pull/65)) — GPT-5.4 and Gemini stopped streaming after first text message due to Responses API routing. Fixed by forcing Chat Completions API. OpenAI models on OpenRouter still lack multi-step interleaved text+tool support due to upstream Responses API incompatibility.
+
+## v0.20.0
+
+### Features
+- **Prompt caching for Anthropic models** ([#54](https://github.com/oguzbilgic/kern-ai/pull/54)) — system prompt marked with `cache_control: ephemeral` for Anthropic models (direct or via OpenRouter), enabling ~90% cost reduction on cached input tokens
+  - Cache read/write stats logged per request with hit rate percentage
+  - Cache stats visible in `/status` output and persisted in `usage.json`
+- **Stable summary caching** ([#54](https://github.com/oguzbilgic/kern-ai/pull/54)) — trim boundary snapped to nearest L0 segment edge, keeping the conversation summary identical across consecutive turns and maximizing cache hits
+- **Breadth-first summary expansion** ([#54](https://github.com/oguzbilgic/kern-ai/pull/54)) — expand highest-level segments first (L2→L1 before L1→L0) for balanced coverage across full conversation history instead of over-detailing recent segments
+
+### Improvements
+- **Syntax highlighting in chat** — fenced code blocks in assistant messages now get language-aware syntax highlighting via highlight.js (same theme as tool output)
+- **Auto-link bare URLs** — plain `https://` URLs in messages are now clickable links
+- **Status output cleanup** — message count and trimmed count moved to messages line; cache stats on separate line from API usage
+
+### Config changes
+- `maxContextTokens` default: 50k → 100k (affordable with prompt caching)
+- `summaryBudget` default: 20% → 75% (summary is cached, effectively free)
+
+## v0.19.0
+
+### Features
+- **Multi-modal media** ([#38](https://github.com/oguzbilgic/kern-ai/pull/38)) — send images and files to your agent from any interface. Content-addressed storage in `.kern/media/` (SHA-256 hashed filenames).
+  - **Telegram**: photos, documents, stickers, voice, video, and audio
+  - **Slack**: files shared in messages
+  - **Web UI**: drag-and-drop or file picker upload with inline preview
+  - Inline image rendering and file download links in chat history
+  - Media served via `/media/:filename` endpoint, proxied with auth through web server
+- **Image pre-digest** ([#38](https://github.com/oguzbilgic/kern-ai/pull/38)) — images automatically described by a vision model on arrival. Descriptions cached and reused across turns, saving tokens and enabling text-only models.
+  - Model fallback chain: `mediaModel` config → agent's main model → provider default
+  - Config: `mediaDigest` (boolean, default `true`), `mediaModel` (string, optional)
+- **PDF tool** ([#38](https://github.com/oguzbilgic/kern-ai/pull/38)) — `pdf(file, pages?, prompt?)` for reading and analyzing PDFs.
+  - Text extraction via `unpdf`. Page ranges: `1-5`, `2,4,7-9`. Header shows total page count.
+  - Optional `prompt` sends extracted text to the AI model for analysis
+- **Image tool** ([#38](https://github.com/oguzbilgic/kern-ai/pull/38)) — `image(file, prompt?)` for on-demand vision analysis of any image on disk or in `.kern/media/`.
+- **Web search** ([#37](https://github.com/oguzbilgic/kern-ai/pull/37)) — `websearch` tool searches DuckDuckGo, returns markdown results with titles, URLs, and snippets.
+- **Web fetch** ([#37](https://github.com/oguzbilgic/kern-ai/pull/37)) — `webfetch` tool fetches any URL with automatic HTML-to-markdown conversion. JSON and plain text returned as-is. `raw` option for original HTML.
+
+## v0.18.1
 
 ### Changes
-- `kern init` writes minimal config: `model`, `provider`, `toolScope` only
-- Removed stale `telegram.allowedUsers` and `telegram.showTools` config fields
-- Dropped legacy `tools` array support (use `toolScope` instead)
+- **USERS.md injection** ([#33](https://github.com/oguzbilgic/kern-ai/pull/33)) — `USERS.md` is now auto-injected into the system prompt. Agents always know their paired users without reading the file manually.
+- **Notes filtering** ([#34](https://github.com/oguzbilgic/kern-ai/pull/34)) — only `YYYY-MM-DD.md` files in `notes/` are recognized as daily notes. Stray files are ignored.
+- **Browser title** ([#35](https://github.com/oguzbilgic/kern-ai/pull/35)) — tab title shows active agent name instead of "kern", with `⋯` indicator while agent is thinking.
+
+## v0.18.0
+
+### Features
+- **Memory UI** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — unified web UI overlay for inspecting all agent memory. Five tabs: Sessions, Segments, Notes, Recall, and Context. Tab switcher with underline-style navigation and per-tab action buttons.
+  - **Sessions**: session list with message counts, durations, role breakdowns, daily/hourly activity charts. Live session indicator. Click to expand details.
+  - **Segments**: hierarchical segment tree with L0/L1/L2 levels. Fixed L1 segment visibility bug (segments with parent_id were excluded from level index). Collapsible rolled-up groups. Detail pane with dark background, markdown summaries, token compression stats, and resummarize action.
+  - **Notes**: notes summaries with regeneration trigger. Rendered as markdown.
+  - **Recall**: stats cards (messages, chunks, sessions, date range) and search interface.
+  - **Context**: structured view parsing XML prompt tags into collapsible sections with token cost bars. Raw message count and timestamp. Real token breakdown from `/status`.
+
+### Changes
+- **New APIs** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — `/sessions` (with `currentSessionId`), `/context/system`, `/context/segments`, `/recall/stats`. Context breakdown in `/status` reports system + summary + messages token counts.
+- **Token estimation** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — improved from chars/4 to chars/3.3 with per-message overhead (~25% more accurate).
+- **Config rename** ([#32](https://github.com/oguzbilgic/kern-ai/pull/32)) — `historyBudget` → `summaryBudget`.
+
+## v0.17.0
+
+### Features
+- **Android app** ([#15](https://github.com/oguzbilgic/kern-ai/pull/15)) — native mobile app for chatting with kern from Android devices.
+  - Connects to any `kern web` server (local, LAN, Tailscale, or tunnel)
+  - Improves mobile streaming reliability
+  - Adds voice input and text-to-speech
+- **Segment summary improvements** ([#29](https://github.com/oguzbilgic/kern-ai/pull/29)) — summaries preserve request → action → outcome causality while keeping the concrete details that make an event recognizable later.
+  - Summaries are grounded with `IDENTITY.md` and `USERS.md` so operator, channel, and participant distinctions survive compression better
+  - Added single-segment `Resummarize` to regenerate one summary in place
+  - `composeHistory()` now returns the exact selected segment metadata, not just rendered text
+- **Service management** ([#28](https://github.com/oguzbilgic/kern-ai/pull/28)) — `kern install` sets up user-level systemd services for agents and the web daemon. Crash recovery, boot persistence, one command.
+  - `kern install` — all agents + web. `kern install <name>` or `kern install --web` for individual.
+  - `kern uninstall [name]` — remove services.
+  - `kern start/stop/restart` automatically delegate to systemd when installed, fall back to PID daemon otherwise.
+  - `kern remove` cleans up the systemd service before unregistering.
+  - Hints shown after `kern init`, `kern start`, and in `kern status` when systemd is available but not installed.
+- **Context inspection** ([#29](https://github.com/oguzbilgic/kern-ai/pull/29)) — new APIs and web UI make prompt composition inspectable.
+  - `/prompt/system` replaced by `GET /context/system`
+  - Added `GET /context/segments` for the exact segments currently injected into prompt history
+  - System prompt overlay supports `Markdown` / `Raw` views
+  - Segment detail panel renders markdown summaries, has cleaner metadata layout, and preserves expanded/selected state during live refresh
+  - Segment overlay shows `All` / `Context` filters, clearer modal styling, and confirmation prompts for `Clean` / `Rebuild`
+- **Cross-platform shell** ([#25](https://github.com/oguzbilgic/kern-ai/pull/25)) — `bash` tool on Unix, `pwsh` tool on Windows. One shell tool per platform, selected automatically. No config needed.
+  - `grep` works on Unix only; on Windows suggests `Select-String` via pwsh
+
+### Changes
+- **Logging** ([#24](https://github.com/oguzbilgic/kern-ai/pull/24)) — structured, leveled, colored log output. All levels written to file, filtering only at read time.
+  - `kern logs` — follow mode by default. `-n 50` for last N lines. `--level warn` to filter.
+  - `kern({ action: "logs" })` — agent can inspect its own logs (default warn+).
+- **Status overhaul** ([#28](https://github.com/oguzbilgic/kern-ai/pull/28)) — `kern status` now shows the web daemon alongside agents. New `mode` field (systemd/daemon/—) shows how each process is managed.
+- **Config validation** ([#23](https://github.com/oguzbilgic/kern-ai/pull/23)) — warns on unknown fields and wrong types at startup. Invalid values ignored, defaults apply.
+- **Config cleanup** ([#23](https://github.com/oguzbilgic/kern-ai/pull/23)) — `kern init` now writes minimal config and stale legacy fields are ignored.
+  - `kern init` writes `model`, `provider`, and `toolScope` only
+  - Removed stale `telegram.allowedUsers` and `telegram.showTools` config fields
+  - Dropped legacy `tools` array support (use `toolScope` instead)
 
 ## v0.16.0
 

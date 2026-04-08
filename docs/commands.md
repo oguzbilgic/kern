@@ -20,9 +20,46 @@ Create a new agent or reconfigure an existing one.
 kern init my-agent --api-key sk-or-...
 kern init my-agent --api-key sk-or-... --provider anthropic --model claude-opus-4.6
 kern init my-agent --api-key sk-or-... --telegram-token 123:ABC --slack-bot-token xoxb-... --slack-app-token xapp-...
+kern init my-agent --provider ollama --api-key http://localhost:11434 --model gemma4:31b
 ```
 
-Defaults to openrouter + claude-opus-4.6 when flags are used.
+Defaults to openrouter + claude-opus-4.6 when flags are used. For Ollama, `--api-key` is the server URL.
+
+## kern install [name|--web]
+
+Install systemd user services for agents and the web daemon. Provides auto-restart on crash and boot persistence.
+
+- No argument: installs all registered agents + web
+- With name: installs a single agent
+- `--web`: installs only the web daemon
+- Migrates from PID-based daemon: stops existing process before installing
+- Warns if `loginctl enable-linger` is not enabled (required for services to survive logout)
+- Idempotent — safe to run again after adding new agents
+
+Services are written to `~/.config/systemd/user/`:
+- `kern-agent-<name>.service` for each agent
+- `kern-web.service` for the web daemon
+
+```bash
+kern install          # all agents + web
+kern install atlas    # single agent
+kern install --web    # web only
+```
+
+Requires Linux with systemd. On systems without systemd, use `kern start` instead.
+
+## kern uninstall [name]
+
+Remove systemd services installed by `kern install`.
+
+- No argument: uninstalls all agent services + web
+- With name: uninstalls a single agent service
+- Stops and disables the service, deletes the unit file
+
+```bash
+kern uninstall        # all
+kern uninstall atlas  # single agent
+```
 
 ## kern start [name|path]
 
@@ -34,6 +71,7 @@ Start agents as background daemons.
 - Waits 2 seconds after fork, verifies process is alive
 - Shows error log if startup fails
 - Writes PID and port to `~/.kern/agents.json`
+- If a systemd service is installed for the agent, delegates to `systemctl --user start`
 
 ## kern stop [name]
 
@@ -42,19 +80,21 @@ Stop agents.
 - No argument: stops all running agents
 - With name: stops that agent
 - Sends SIGTERM, clears PID from registry
+- If a systemd service is installed, delegates to `systemctl --user stop`
 
 ## kern restart [name]
 
-Stop then start. 500ms delay between for clean shutdown.
+Stop then start. 500ms delay between for clean shutdown. Delegates to systemd when installed.
 
 ## kern list
 
-Show all registered agents with status.
+Show all registered agents and the web daemon with status.
 
 - Green dot: running (shows PID and port)
 - Dim dot: stopped
 - Red dot: path not found
-- Shows model, tool scope, session count
+- Shows model, tool scope, and mode (systemd/daemon/—)
+- Shows web daemon status and port
 
 Aliases: `kern ls`, `kern status`
 
@@ -82,7 +122,7 @@ Follow agent logs. Structured, leveled, colored output.
 
 ## kern remove \<name\>
 
-Unregister an agent. Stops it if running. Does not delete files.
+Unregister an agent. Uninstalls systemd service if installed, stops it if running. Does not delete files.
 
 Alias: `kern rm`
 
@@ -130,6 +170,7 @@ kern web token    # print URL with auth token
 - `kern web start` and `kern web token` always print the full URL with token
 - Port configurable in `~/.kern/config.json` (default 9000)
 - PID tracked in `~/.kern/web.pid`, logs in `~/.kern/web.log`
+- If installed via `kern install`, start/stop/restart delegate to systemd
 
 ## kern hub \<start|stop|status\>
 

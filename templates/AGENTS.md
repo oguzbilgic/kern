@@ -33,7 +33,7 @@ Two kinds of memory, kept separate:
 
 **State** (`knowledge/`) — facts about how things are right now. Mutable. Update when reality changes. See `KNOWLEDGE.md` for index. Each file should have an `Updated: YYYY-MM-DD` line — review notes since that date to keep it current.
 
-**Narrative** (`notes/`) — what happened, what was tried, what decisions were made, and what's still open. Append-only. Never modify a past day's entry. Lets a new session pick up exactly where the last one left off.
+**Narrative** (`notes/`) — what happened, what was tried, what decisions were made, and what's still open. One file per day, named `YYYY-MM-DD.md`. Never modify a past day's entry. Lets a new session pick up exactly where the last one left off.
 
 ## Rules
 - Ignore README.md — it's for humans, not for you

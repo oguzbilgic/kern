@@ -16,21 +16,28 @@ export interface KernConfig {
   // Context window
   maxContextTokens: number;
   maxToolResultChars: number;
-  historyBudget: number;
+  summaryBudget: number;
 
   // Memory
   recall: boolean;
   autoRecall: boolean;
+
+  // Media
+  mediaDigest: boolean;
+  mediaModel: string;
+  mediaContext: number;
 
   // Runtime
   heartbeatInterval: number;
   hub?: string;
 }
 
+const shell = process.platform === "win32" ? "pwsh" : "bash";
+
 const TOOL_SCOPES: Record<ToolScope, string[]> = {
-  full: ["bash", "read", "write", "edit", "glob", "grep", "webfetch", "kern", "message", "recall"],
-  write: ["read", "write", "edit", "glob", "grep", "webfetch", "kern", "message", "recall"],
-  read: ["read", "glob", "grep", "webfetch", "kern", "recall"],
+  full: [shell, "read", "write", "edit", "glob", "grep", "webfetch", "websearch", "kern", "message", "recall", "pdf", "image"],
+  write: ["read", "write", "edit", "glob", "grep", "webfetch", "websearch", "kern", "message", "recall", "pdf", "image"],
+  read: ["read", "glob", "grep", "webfetch", "websearch", "kern", "recall", "pdf", "image"],
 };
 
 export const configDefaults: KernConfig = {
@@ -38,11 +45,14 @@ export const configDefaults: KernConfig = {
   provider: "openrouter",
   toolScope: "full",
   maxSteps: 30,
-  maxContextTokens: 50000,
+  maxContextTokens: 100000,
   maxToolResultChars: 20000,
-  historyBudget: 0.2,
+  summaryBudget: 0.75,
   recall: true,
   autoRecall: false,
+  mediaDigest: true,
+  mediaModel: "",
+  mediaContext: 0,
   heartbeatInterval: 60,
 };
 
@@ -53,9 +63,12 @@ const FIELD_TYPES: Record<string, string> = {
   maxSteps: "number",
   maxContextTokens: "number",
   maxToolResultChars: "number",
-  historyBudget: "number",
+  summaryBudget: "number",
   recall: "boolean",
   autoRecall: "boolean",
+  mediaDigest: "boolean",
+  mediaModel: "string",
+  mediaContext: "number",
   heartbeatInterval: "number",
   hub: "string",
 };

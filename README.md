@@ -4,6 +4,8 @@ AI agents built for coworking.
 
 One brain across every channel. Your agent sits in Slack channels, Telegram DMs, the terminal, and the browser. It knows who's talking, reads the room, and remembers everything. Humans and agents, same channels, same conversation.
 
+![kern web UI](https://kern-ai.com/images/web-ui.png)
+
 ## Why kern
 
 Most agent frameworks give you sessions that reset, memory that's a black box, or infrastructure you have to manage. kern takes a different approach:
@@ -11,7 +13,7 @@ Most agent frameworks give you sessions that reset, memory that's a black box, o
 - **One brain** — a single continuous session across every interface. Message from Telegram, pick up in the terminal, continue in the browser. The agent always knows what happened.
 - **Context-aware** — the agent knows who's talking and where. It sees the user, the channel, and the interface — so it can adjust tone, filter context, and keep track of different conversations within the same session.
 - **A folder is the agent** — AGENTS.md defines behavior, IDENTITY.md defines who it is, knowledge/ and notes/ are its memory. Everything is plain text, git-tracked, and inspectable.
-- **No infra** — no server, no database, no vector store. A folder, an API key, and `npm install -g kern-ai`.
+- **No external infra** — no hosted server or managed database required. Runs locally with a folder, SQLite, an API key, and `npm install -g kern-ai`.
 
 kern pairs with [agent-kernel](https://github.com/oguzbilgic/agent-kernel) — the kernel defines how an agent remembers, kern runs it.
 
@@ -25,7 +27,7 @@ kern tui
 
 The init wizard scaffolds your agent, asks for a provider and API key, then starts it. `kern tui` opens an interactive chat. `kern web start` opens it in the browser.
 
-For automation: `kern init my-agent --api-key sk-or-...` (no prompts, defaults to openrouter + opus 4.6).
+For automation: `kern init my-agent --api-key sk-or-...` (no prompts, defaults to openrouter + opus 4.6). For Ollama: `kern init my-agent --provider ollama --api-key http://localhost:11434 --model gemma4:31b`.
 
 ## How it works
 
@@ -56,7 +58,7 @@ my-agent/
     config.json          # model, provider, toolScope (committed)
     .env                 # API keys, bot tokens (gitignored)
     sessions/            # conversation history (gitignored)
-    recall.db            # semantic search index (gitignored)
+    recall.db            # memory database (gitignored)
 ```
 
 Everything the agent needs is in this folder. Move it, zip it, clone it — the agent comes with it. Run `kern init` on any existing repo to adopt it as a kern agent.
@@ -68,18 +70,20 @@ kern init <name>          # create or configure an agent
 kern start [name|path]    # start agents in background
 kern stop [name]          # stop agents
 kern restart [name]       # restart agents
+kern install [name|--web] # install systemd services (auto-restart, boot persistence)
+kern uninstall [name]     # remove systemd services
 kern tui [name]           # interactive chat
 kern web <start|stop|status|token>  # web UI server
 kern hub <start|stop|status>  # agent-to-agent hub
 kern logs [name]          # follow agent logs
-kern list                 # show all agents
+kern list                 # show all agents and web status
 kern remove <name>        # unregister an agent
 kern backup <name>        # backup agent to .tar.gz
 kern restore <file>       # restore agent from backup
-kern import opencode         # import session from OpenCode
+kern import opencode      # import session from OpenCode
 ```
 
-Agents auto-register when you init, start, or run them. `kern list` shows every agent with its running state.
+Agents auto-register when you init, start, or run them. `kern list` shows every agent and the web daemon with running state and mode (systemd/daemon).
 
 ### Web UI
 
@@ -145,6 +149,14 @@ Set `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` in `.kern/.env`. Uses Socket Mode �
 
 Invite the bot to channels where it should listen.
 
+## Media
+
+Send images and files through any interface — Telegram, Slack, or Web UI. Files are stored locally in `.kern/media/` with content-addressed naming.
+
+By default, images are pre-digested: a vision model describes each image once, and the description is cached. The chat model sees text instead of raw image data — works with any model, saves tokens. Set `mediaDigest: false` to send raw images inline instead.
+
+See [Media docs](docs/media.md) for details.
+
 ## Memory
 
 Agents remember across sessions through three mechanisms:
@@ -159,6 +171,12 @@ On startup, the agent's system prompt is automatically injected with:
 - Compressed conversation history from segments (when messages have been trimmed)
 
 This means the agent boots with recent context — no manual reading required. Summaries are cached in SQLite and regenerated in the background on day rollover.
+
+### Memory UI
+
+The web UI includes a Memory overlay with five tabs for examining all aspects of agent memory: sessions, segments, notes, recall, and context. See the full context pipeline — from raw messages through segment hierarchy to the final system prompt — with token breakdowns and compression ratios.
+
+![Memory UI — Segments](https://kern-ai.com/images/segments-2.png)
 
 ## Heartbeat
 
@@ -191,14 +209,14 @@ Structured, leveled logs with colored labels. Stored in `.kern/logs/kern.log`. A
   "model": "anthropic/claude-opus-4.6",
   "provider": "openrouter",
   "toolScope": "full",
-  "maxContextTokens": 50000,
+  "maxContextTokens": 100000,
   "maxToolResultChars": 20000,
-  "historyBudget": 0.2,
+  "summaryBudget": 0.75,
   "hub": "local"
 }
 ```
 
-`maxContextTokens` controls the sliding context window — older messages are trimmed to stay within budget. `maxToolResultChars` caps individual tool results in context (full results stay in session JSONL and are searchable via recall). `historyBudget` controls what fraction of the context window is reserved for compressed segment summaries when old messages are trimmed (default 20%). Set to `0` to disable. `hub` connects to a hub: `"default"` (kern.ai), `"local"` (localhost:4000), or a custom hostname.
+`maxContextTokens` controls the sliding context window — older messages are trimmed to stay within budget. `maxToolResultChars` caps individual tool results in context (full results stay in session JSONL and are searchable via recall). `summaryBudget` controls what fraction of the context window is reserved for compressed segment summaries when old messages are trimmed (default 75%, cached via prompt caching so effectively free). Set to `0` to disable. `hub` connects to a hub: `"default"` (kern.ai), `"local"` (localhost:4000), or a custom hostname.
 
 Auth tokens are auto-generated on first start and stored in `.kern/.env`. Ed25519 keypairs generated for hub authentication. The web proxy injects agent tokens automatically — no manual setup needed.
 
@@ -216,15 +234,18 @@ Controls `kern web` and `kern hub` servers. Optional — defaults apply if the f
 
 ### Tool scopes
 
-- **full** — bash, read, write, edit, glob, grep, webfetch, kern, message, recall
-- **write** — read, write, edit, glob, grep, webfetch, kern, message, recall
-- **read** — read, glob, grep, webfetch, kern, recall
+- **full** — shell (bash/pwsh), read, write, edit, glob, grep, webfetch, websearch, kern, message, recall
+- **write** — read, write, edit, glob, grep, webfetch, websearch, kern, message, recall
+- **read** — read, glob, grep, webfetch, websearch, kern, recall
+
+Shell tool is platform-specific: `bash` on Unix/Linux, `pwsh` on Windows. Selected automatically.
 
 ### Providers
 
 - **openrouter** — any model via OpenRouter (default)
 - **anthropic** — direct Anthropic API
 - **openai** — OpenAI / Azure
+- **ollama** — local models via [Ollama](https://ollama.com)
 
 ## Documentation
 

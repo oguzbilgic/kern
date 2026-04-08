@@ -12,11 +12,14 @@ const SUMMARY_PROMPT = `Summarize the following daily notes into a brief context
 
 let generating = false;
 
-// Read sorted .md files from notes/ directory
+// Match only YYYY-MM-DD.md files — one daily note per day, nothing else.
+const DAILY_NOTE_RE = /^\d{4}-\d{2}-\d{2}\.md$/;
+
+// Read sorted daily note files from notes/ directory
 async function listNotes(notesDir: string): Promise<string[]> {
   if (!existsSync(notesDir)) return [];
   const files = await readdir(notesDir);
-  return files.filter(f => f.endsWith(".md")).sort();
+  return files.filter(f => DAILY_NOTE_RE.test(f)).sort();
 }
 
 // Generate summary from notes content
@@ -61,6 +64,33 @@ function regenerateInBackground(
       generating = false;
     }
   })();
+}
+
+/**
+ * Force-regenerate the notes summary (ignores cache).
+ */
+export async function regenerateNotesSummary(
+  agentDir: string,
+  config: KernConfig,
+  memoryDB: MemoryDB,
+): Promise<{ ok: boolean; source_key: string; chars: number }> {
+  const notesDir = join(agentDir, "notes");
+  const mdFiles = await listNotes(notesDir);
+  if (mdFiles.length < 2) throw new Error("Need at least 2 daily notes to generate summary");
+
+  const latestFile = mdFiles[mdFiles.length - 1];
+  const prevFiles = mdFiles.slice(-6, -1);
+  const contents = await Promise.all(
+    prevFiles.map(f => readFile(join(notesDir, f), "utf-8")),
+  );
+  const combined = contents.join("\n\n---\n\n");
+  log("notes", `force-regenerating summary from ${prevFiles.length} notes (${combined.length} chars)`);
+  const summary = await generateSummary(combined, config);
+  const dateStart = prevFiles[0].replace(".md", "");
+  const dateEnd = prevFiles[prevFiles.length - 1].replace(".md", "");
+  memoryDB.saveSummary(SUMMARY_TYPE, dateStart, dateEnd, latestFile, summary);
+  log("notes", `summary regenerated (${summary.length} chars)`);
+  return { ok: true, source_key: latestFile, chars: summary.length };
 }
 
 /**

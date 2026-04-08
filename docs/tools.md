@@ -1,10 +1,10 @@
 # Tools
 
-kern provides 11 built-in tools. Availability depends on `toolScope` in config.
+kern provides built-in tools. Availability depends on `toolScope` in config.
 
 ## bash
 
-Run shell commands. Full access to the system.
+Run shell commands on Unix/Linux. Full access to the system.
 
 ```
 bash({ command: "ls -la", timeout: 120000 })
@@ -13,7 +13,20 @@ bash({ command: "ls -la", timeout: 120000 })
 - `command` — shell command to execute
 - `timeout` — optional, milliseconds (default 120000)
 
-Scope: `full` only.
+Scope: `full` only. Unix/Linux only — on Windows, `pwsh` is provided instead.
+
+## pwsh
+
+Run PowerShell commands on Windows. Full access to the system.
+
+```
+pwsh({ command: "Get-Process", timeout: 120000 })
+```
+
+- `command` — PowerShell command to execute
+- `timeout` — optional, milliseconds (default 120000)
+
+Scope: `full` only. Windows only — on Unix/Linux, `bash` is provided instead. Detects `pwsh` (PS 7+) with fallback to `powershell` (5.1).
 
 ## read
 
@@ -68,13 +81,53 @@ grep({ pattern: "TODO", path: ".", include: "*.md" })
 
 ## webfetch
 
-Fetch a URL and return the response body.
+Fetch a URL. HTML pages are automatically converted to clean markdown. JSON and plain text are returned as-is.
 
 ```
-webfetch({ url: "https://example.com", timeout: 30000 })
+webfetch({ url: "https://example.com" })
+webfetch({ url: "https://example.com", raw: true })
 ```
+
+- `url` — the URL to fetch
+- `raw` — return raw HTML instead of markdown (default: false)
 
 Truncates responses over 50000 chars.
+
+## websearch
+
+Search the web using DuckDuckGo. Returns results as markdown with titles, links, and snippets.
+
+```
+websearch({ query: "node.js html to markdown library" })
+```
+
+- `query` — the search query
+
+## pdf
+
+Read or analyze a PDF file. Returns extracted text for specified pages.
+
+```
+pdf({ file: "report.pdf" })                           // page 1 text
+pdf({ file: "report.pdf", pages: "1-5" })             // pages 1-5
+pdf({ file: "report.pdf", prompt: "Summarize this" }) // all pages + AI analysis
+```
+
+- `file` — path to PDF file
+- `pages` — page range: `"1"`, `"1-5"`, `"2,4,7-9"`. Default: page 1 (without prompt), all pages (with prompt)
+- `prompt` — optional question to ask about the PDF content
+
+## image
+
+Analyze an image file using the AI model.
+
+```
+image({ file: "screenshot.png" })
+image({ file: "screenshot.png", prompt: "What error is shown?" })
+```
+
+- `file` — path to image file, or filename from `.kern/media/`
+- `prompt` — what to analyze (default: "Describe this image.")
 
 ## kern
 

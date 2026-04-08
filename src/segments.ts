@@ -1,11 +1,11 @@
 import { embed, embedMany, generateText } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
 import { log } from "./log.js";
+import { extractText } from "./media.js";
+import { createEmbeddingModel, createSummaryModel } from "./model.js";
 import type { MemoryDB } from "./memory.js";
 import type Database from "better-sqlite3";
-
-const EMBEDDING_MODEL = "openai/text-embedding-3-small";
-const SUMMARY_MODEL = "openai/gpt-4.1-mini";
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
 
 // Segmentation parameters
 const TOPIC_THRESHOLD = 0.80;   // cosine distance — hard cut at topic shift
@@ -22,6 +22,104 @@ const EMBED_BATCH_SIZE = 100;
 
 // Max messages to process per indexSession call (prevents OOM on large backfills)
 const MAX_CHUNK_SIZE = 500;
+
+function readPromptFile(path: string): string | null {
+  try {
+    if (!existsSync(path)) return null;
+    return readFileSync(path, "utf-8").trim();
+  } catch {
+    return null;
+  }
+}
+
+function buildSummarizerContext(): string {
+  const cwd = process.cwd();
+  const identity = readPromptFile(join(cwd, "IDENTITY.md"));
+  const users = readPromptFile(join(cwd, "USERS.md"));
+
+  const parts = [
+    "Agent context:",
+    identity ? `\n<identity>\n${identity}\n</identity>` : "",
+    users ? `\n<users>\n${users}\n</users>` : "",
+    `\nIdentity preservation rules:\n- Preserve speaker distinctions when relevant. Do not flatten every inbound human into \"the user\".\n- Distinguish operator, system messages, and other people in channels/DMs.\n- Prefer names or roles when known (for example: operator, David on Slack, a participant in #di-agent-chat).\n- Do not include opaque platform user IDs unless they are the only identifier available and truly necessary.\n- Keep channel/interface context only when it matters to what happened.`,
+  ].filter(Boolean);
+
+  return parts.join("\n").trim();
+}
+
+const SUMMARIZER_CONTEXT = buildSummarizerContext();
+
+function segmentSummaryPrompt(inputText: string, targetTokens: number): string {
+  return `You are writing compact internal memory notes for your future self.
+
+Task:
+- Summarize only what happened in this conversation segment.
+- Focus on: requests, actions taken, decisions made, concrete outcomes, and unresolved follow-ups.
+- Keep this tightly scoped to the segment. Do not turn it into a multi-day or project-wide recap.
+
+Style:
+- Write concise bullet points.
+- Prefer dense factual notes over polished narrative prose.
+- Keep a light sense of narrative when useful: preserve why something happened, not just what happened.
+- Prefer bullets that connect request or intent -> action -> outcome when that context matters.
+- No section headers.
+- No boilerplate like "Participants and Roles", "What I Did", "Results", "Open Items", or "Additional Notes".
+- Do not explain the environment unless it directly affected what happened in this segment.
+- Keep the specific details that give the event its identity.
+- Avoid turning identifiable events into generic summaries.
+- Remove repetition first; keep the details that will help future me recognize what this was.
+- Omit low-value detail and repeated chatter.
+
+Perspective and identity:
+- Use first person when describing my actions or decisions.
+- Preserve who said or wanted what when relevant.
+- Do not collapse distinct humans/agents/channels into a generic "user".
+- Prefer names or roles over raw IDs.
+
+Compression:
+- Favor 4-10 bullets unless the segment truly contains only one topic.
+- Keep only details that would matter for future recall or rollups.
+- IMPORTANT: Keep your response under ${targetTokens} tokens.
+
+${SUMMARIZER_CONTEXT}
+
+<conversation_segment>
+${inputText}
+</conversation_segment>`;
+}
+
+function rollupSummaryPrompt(inputText: string, targetTokens: number, childCount: number): string {
+  return `You are writing compact internal memory notes for your future self.
+
+Task:
+- The input is ${childCount} sequential lower-level conversation summaries.
+- Produce a higher-level rollup of the main themes, decisions, outcomes, and unresolved follow-ups across them.
+- Stay faithful to the children. Do not introduce broad project recap or background that is not clearly supported.
+
+Style:
+- Write concise bullet points.
+- No section headers.
+- No boilerplate or executive-summary framing.
+- Prefer dense factual notes that compress well for future rollups.
+- Preserve important causal links: why a change happened, what I did, and what came out of it.
+- Keep the specific details that make an event recognizable later; compress prose before compressing identity.
+
+Perspective and identity:
+- Use first person when describing my actions or decisions.
+- Preserve important distinctions between operator, other humans, agents, and channels when they matter.
+- Prefer names or roles over raw IDs.
+
+Compression:
+- Keep only details that matter at the higher level.
+- Merge repetition.
+- IMPORTANT: Keep your response under ${targetTokens} tokens.
+
+${SUMMARIZER_CONTEXT}
+
+<conversation_summaries>
+${inputText}
+</conversation_summaries>`;
+}
 
 interface MessageRow {
   id: number;
@@ -44,35 +142,24 @@ interface Segment {
 
 export class SegmentIndex {
   private db: Database.Database;
-  private embeddingModel: ReturnType<ReturnType<typeof createOpenAI>["embeddingModel"]>;
-  private summaryModel: ReturnType<ReturnType<typeof createOpenAI>["chat"]>;
+  private embeddingModel: Parameters<typeof embed>[0]["model"];
+  private summaryModel: Parameters<typeof generateText>[0]["model"];
   private abortController: AbortController | null = null;
 
   constructor(memoryDB: MemoryDB, provider: string) {
     this.db = memoryDB.db;
 
-    const apiKey = provider === "openrouter"
-      ? process.env.OPENROUTER_API_KEY
-      : provider === "openai"
-        ? process.env.OPENAI_API_KEY
-        : process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
-
-    if (!apiKey) {
-      throw new Error("No API key for embeddings");
+    const embModel = createEmbeddingModel(provider);
+    if (!embModel) {
+      throw new Error("No embedding model available (need OPENROUTER_API_KEY, OPENAI_API_KEY, or Ollama provider)");
     }
+    this.embeddingModel = embModel;
 
-    const client = createOpenAI({
-      baseURL: provider === "openai" ? undefined : "https://openrouter.ai/api/v1",
-      apiKey,
-      headers: provider !== "openai" ? {
-        "HTTP-Referer": "https://github.com/oguzbilgic/kern-ai",
-        "X-Title": "kern-ai",
-      } : undefined,
-    });
-    const modelId = provider === "openai" ? "text-embedding-3-small" : EMBEDDING_MODEL;
-    this.embeddingModel = client.embeddingModel(modelId);
-    const summaryModelId = provider === "openai" ? "gpt-4.1-nano" : SUMMARY_MODEL;
-    this.summaryModel = client.chat(summaryModelId);
+    const sumModel = createSummaryModel(provider);
+    if (!sumModel) {
+      throw new Error("No summary model available");
+    }
+    this.summaryModel = sumModel;
   }
 
   /**
@@ -96,7 +183,7 @@ export class SegmentIndex {
     // For incremental indexing, wait for enough content to detect topic boundaries
     if (lastSegmented > 0) {
       if (allMessages.length < MIN_TAIL_MESSAGES) return 0;
-      const tailTokens = allMessages.reduce((sum, m) => sum + Math.ceil(m.content.length / 4), 0);
+      const tailTokens = allMessages.reduce((sum, m) => sum + Math.ceil(extractText(m.content).length / 4), 0);
       if (tailTokens < MIN_TAIL_TOKENS) return 0;
     }
 
@@ -198,6 +285,69 @@ export class SegmentIndex {
     });
   }
 
+  async resummarizeSegment(id: number): Promise<{ ok: true; id: number; level: number }> {
+    const seg = this.db.prepare(
+      `SELECT id, session_id, msg_start, msg_end, level, summary, token_count
+       FROM semantic_segments
+       WHERE id = ?`
+    ).get(id) as {
+      id: number;
+      session_id: string;
+      msg_start: number;
+      msg_end: number;
+      level: number;
+      summary: string;
+      token_count: number;
+    } | undefined;
+
+    if (!seg) throw new Error(`segment ${id} not found`);
+
+    let inputText = "";
+    let targetTokens = 0;
+    let prompt = "";
+
+    if (seg.level === 0) {
+      const rows = this.db.prepare(
+        `SELECT role, content FROM messages
+         WHERE session_id = ? AND msg_index >= ? AND msg_index < ?
+         ORDER BY msg_index`
+      ).all(seg.session_id, seg.msg_start, seg.msg_end) as Array<{ role: string; content: string }>;
+
+      inputText = rows.map((m) => `${m.role}: ${extractText(m.content)}`).join("\n");
+      inputText = inputText.replace(/^tool: .{500,}$/gm, (m) => m.slice(0, 300) + '... [truncated]').slice(0, 60000);
+      targetTokens = Math.max(200, Math.min(1500, Math.round(seg.token_count / 10)));
+      prompt = segmentSummaryPrompt(inputText, targetTokens);
+    } else {
+      const children = this.db.prepare(
+        `SELECT msg_start, msg_end, summary
+         FROM semantic_segments
+         WHERE parent_id = ?
+         ORDER BY msg_start`
+      ).all(id) as Array<{ msg_start: number; msg_end: number; summary: string }>;
+
+      if (children.length === 0) throw new Error(`segment ${id} has no children`);
+      inputText = children.map((seg, i) => `[Segment ${i + 1}, msgs ${seg.msg_start}-${seg.msg_end}]\n${seg.summary}`).join("\n\n");
+      targetTokens = 1500;
+      prompt = rollupSummaryPrompt(inputText, targetTokens, children.length);
+    }
+
+    const result = await generateText({
+      model: this.summaryModel,
+      prompt,
+      maxOutputTokens: targetTokens,
+    });
+
+    const summaryText = result.text.trim();
+    if (!summaryText) throw new Error(`empty summary for segment ${id}`);
+
+    const summaryTokens = result.usage?.outputTokens ?? Math.ceil(summaryText.length / 4);
+    this.db.prepare(
+      "UPDATE semantic_segments SET summary = ?, summarized = 1, summary_token_count = ? WHERE id = ?"
+    ).run(summaryText, summaryTokens, id);
+
+    return { ok: true, id, level: seg.level };
+  }
+
   /**
    * Summarize all unsummarized segments.
    * Idempotent — safe to call repeatedly. Picks up segments from any session
@@ -228,7 +378,7 @@ export class SegmentIndex {
 
         const result = await generateText({
           model: this.summaryModel,
-          prompt: `You are an AI agent writing notes for your future self. Summarize what happened in this conversation: what the user wanted, what you did, what the results and outcomes were, and what's still unresolved. Write in first person ("I did X", "User asked Y"). Focus on intent and outcomes, not individual commands. Be specific — include names, values, and key results. No filler. Bullet points if multiple topics. IMPORTANT: Keep your response under ${targetTokens} tokens.\n\n${inputText}`,
+          prompt: segmentSummaryPrompt(inputText, targetTokens),
           maxOutputTokens: targetTokens,
         });
 
@@ -316,7 +466,7 @@ export class SegmentIndex {
           try {
             const result = await generateText({
               model: this.summaryModel,
-              prompt: `You are an AI agent writing notes for your future self. Below are ${group.length} sequential conversation summaries. Write a higher-level summary that captures the key themes, decisions, and outcomes across all of them. Write in first person. Be specific. Bullet points. Keep under ${targetTokens} tokens.\n\n${childSummaries}`,
+              prompt: rollupSummaryPrompt(childSummaries, targetTokens, group.length),
               maxOutputTokens: targetTokens,
             });
 
@@ -372,7 +522,7 @@ export class SegmentIndex {
 
       // Build segment text from full message content (not truncated embedding text)
       const segMsgs = messages.slice(segStart, end);
-      const text = segMsgs.map((m) => `${m.role}: ${m.content}`).join("\n");
+      const text = segMsgs.map((m) => `${m.role}: ${extractText(m.content)}`).join("\n");
       const tokenCount = Math.ceil(text.length / 4);
 
       // Average the embeddings for this segment
@@ -497,15 +647,19 @@ export class SegmentIndex {
     if (msg.role === "tool") {
       return content.length > 300 ? content.slice(0, 300) + "..." : content;
     }
-    // Assistant tool calls: extract tool names
-    if (msg.role === "assistant" && content.startsWith("[{")) {
+    // Assistant tool calls or user messages with array content: parse and extract text
+    if (content.startsWith("[")) {
       try {
         const parts = JSON.parse(content);
-        return parts.map((p: any) => {
-          if (p.type === "tool-call") return `[tool: ${p.toolName}]`;
-          if (p.type === "text") return p.text;
-          return "";
-        }).filter(Boolean).join(" ");
+        if (Array.isArray(parts)) {
+          return parts.map((p: any) => {
+            if (p.type === "text") return p.text;
+            if (p.type === "tool-call") return `[tool: ${p.toolName}]`;
+            if (p.type === "image") return `[image]`;
+            if (p.type === "file") return `[file: ${p.filename || p.mediaType || "file"}]`;
+            return "";
+          }).filter(Boolean).join(" ");
+        }
       } catch {
         return content.length > 500 ? content.slice(0, 500) + "..." : content;
       }
@@ -551,11 +705,43 @@ export class SegmentIndex {
   }
 
   /**
+   * Return sorted L0 segment msg_start values for a session.
+   * Used to snap trim boundaries to stable segment edges for cache stability.
+   */
+  getL0Boundaries(sessionId: string): number[] {
+    const rows = this.db.prepare(
+      `SELECT msg_end FROM semantic_segments
+       WHERE session_id = ? AND level = 0
+       ORDER BY msg_end ASC`
+    ).all(sessionId) as Array<{ msg_end: number }>;
+    return rows.map(r => r.msg_end);
+  }
+
+  /**
    * Compose compressed history for context injection.
    * Fills a token budget with segment summaries from the trimmed region.
    * Recency bias: expands most recent segments to lower (more detailed) levels first.
+   *
+   * trimmedBeforeMsg is snapped down to the nearest L0 segment boundary
+   * so the summary tree stays stable across consecutive turns (better cache hits).
    */
-  composeHistory(sessionId: string, trimmedBeforeMsg: number, budgetTokens: number): { text: string; levelCounts: Record<number, number>; tokens: number } | null {
+  composeHistory(sessionId: string, trimmedBeforeMsg: number, budgetTokens: number): {
+    text: string;
+    levelCounts: Record<number, number>;
+    tokens: number;
+    segments: Array<{
+      id: number;
+      level: number;
+      msg_start: number;
+      msg_end: number;
+      start_time: string | null;
+      end_time: string | null;
+      summary: string;
+      token_count: number;
+      summary_token_count: number;
+      parent_id: number | null;
+    }>;
+  } | null {
     // Get all summarized segments for this session
     const allSegments = this.db.prepare(
       `SELECT id, msg_start, msg_end, start_time, end_time, parent_id, level, summary, token_count, summary_token_count
@@ -571,8 +757,18 @@ export class SegmentIndex {
 
     if (allSegments.length === 0) return null;
 
-    // Only segments covering the trimmed region (before trim boundary)
-    const trimmedSegments = allSegments.filter(s => s.msg_start < trimmedBeforeMsg);
+    // Snap trim boundary down to nearest L0 segment end for cache stability.
+    // This prevents the summary from changing every turn as new messages shift
+    // the trim boundary by 1-2 messages.
+    const l0Boundaries = allSegments
+      .filter(s => s.level === 0 && s.msg_end <= trimmedBeforeMsg)
+      .map(s => s.msg_end);
+    const snappedBoundary = l0Boundaries.length > 0
+      ? Math.max(...l0Boundaries)
+      : trimmedBeforeMsg;
+
+    // Only segments covering the trimmed region (before snapped boundary)
+    const trimmedSegments = allSegments.filter(s => s.msg_start < snappedBoundary);
     if (trimmedSegments.length === 0) return null;
 
     // Build a map of parent → children for expansion
@@ -594,14 +790,18 @@ export class SegmentIndex {
 
     let usedTokens = selected.reduce((s, seg) => s + seg.summary_token_count, 0);
 
-    // Expand most recent segments to lower levels if budget allows
-    // Work from the end (nearest to trim boundary) backward
+    // Expand segments breadth-first by level, then recency within each level.
+    // This ensures all L2s expand to L1s before any L1 expands to L0,
+    // giving balanced coverage across the full history.
     let expanded = true;
     while (expanded && usedTokens < budgetTokens) {
       expanded = false;
-      // Find the rightmost (most recent) segment that has children
+      // Find the highest level segment that has children (breadth-first),
+      // breaking ties by recency (rightmost)
+      const maxLevel = Math.max(...selected.map(s => s.level));
       for (let i = selected.length - 1; i >= 0; i--) {
         const seg = selected[i];
+        if (seg.level < maxLevel) continue; // expand highest level first
         const children = childrenOf.get(seg.id);
         if (!children || children.length === 0) continue;
 
@@ -643,7 +843,7 @@ export class SegmentIndex {
       lines.push(summaryLines.join("\n"));
     }
 
-    return { text: lines.join('\n\n'), levelCounts, tokens: usedTokens };
+    return { text: lines.join('\n\n'), levelCounts, tokens: usedTokens, segments: selected };
   }
 
   getStats(): { segments: number; level0: number; levels: Record<number, number> } {

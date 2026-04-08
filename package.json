@@ -1,6 +1,6 @@
 {
   "name": "kern-ai",
-  "version": "0.16.0-next",
+  "version": "0.21.0-next",
   "description": "Simple agent runtime. Persistent memory, tools, Telegram.",
   "type": "module",
   "bin": {
@@ -37,6 +37,7 @@
     "@ai-sdk/anthropic": "^2.0.0",
     "@ai-sdk/openai": "^3.0.48",
     "@inquirer/prompts": "^8.3.2",
+    "@openrouter/ai-sdk-provider": "^2.3.3",
     "@slack/bolt": "^4.6.0",
     "ai": "^6.0.0",
     "better-sqlite3": "^12.8.0",
@@ -47,14 +48,15 @@
     "ink-spinner": "^5.0.0",
     "react": "^19.2.4",
     "sqlite-vec": "^0.1.8",
-    "ws": "^8.20.0",
+    "turndown": "^7.2.4",
+    "unpdf": "^1.4.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.14",
-    "@types/ws": "^8.18.1",
+    "@types/turndown": "^5.0.6",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   },

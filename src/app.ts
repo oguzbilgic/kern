@@ -9,7 +9,7 @@ import { readFile, appendFile } from "fs/promises";
 import { join, basename } from "path";
 import { randomBytes } from "crypto";
 import type { Interface, MessageHandler } from "./interfaces/types.js";
-import { registerAgent, setPortAndToken } from "./registry.js";
+import { registerAgent, setPortAndToken, setPid } from "./registry.js";
 import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
@@ -17,6 +17,7 @@ import { setRecallIndex } from "./tools/recall.js";
 import { RecallIndex } from "./recall.js";
 import { SegmentIndex } from "./segments.js";
 import { MemoryDB } from "./memory.js";
+import { regenerateNotesSummary } from "./notes.js";
 import { MessageQueue } from "./queue.js";
 import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, setSegmentStatsFn, setHubStatusFn, setHubPairConfirmFn, type InterfaceStatus } from "./tools/kern.js";
 import { log } from "./log.js";
@@ -25,11 +26,23 @@ async function handleSlashCommand(cmd: string, userId: string, iface: string, ag
   switch (cmd) {
     case "/restart": {
       log("kern", `restart requested by ${userId} via ${iface}`);
-      setTimeout(async () => {
-        const { spawn } = await import("child_process");
-        spawn("kern", ["restart", agentName], { detached: true, stdio: "ignore" }).unref();
-      }, 2000);
-      return "Restarting in 2 seconds...";
+      const { spawn } = await import("child_process");
+      const child = spawn("kern", ["restart", agentName], { stdio: "pipe" });
+
+      const result = await new Promise<{ code: number | null; stderr: string }>((resolve) => {
+        let stderr = "";
+        child.stderr.on("data", (chunk) => {
+          stderr += chunk.toString();
+        });
+        child.on("close", (code) => resolve({ code, stderr: stderr.trim() }));
+        child.on("error", (err) => resolve({ code: 1, stderr: err.message }));
+      });
+
+      if (result.code === 0) {
+        return "Restart initiated.";
+      }
+
+      return `Restart failed: ${result.stderr || `exit code ${result.code}`}`;
     }
 
     case "/status": {
@@ -81,11 +94,15 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   ensureKeypair(agentDir);
 
   const runtime = new Runtime(agentDir);
-  await runtime.init();
 
-  // Initialize memory DB (always) and recall index (opt-out via "recall": false)
-  const memoryDB = new MemoryDB(agentDir);
+  // Probe embedding model dimensions before creating DB
+  const embeddingDims = await MemoryDB.detectEmbeddingDimensions(config.provider);
+
+  // Initialize memory DB before runtime.init() so media sidecar can backfill
+  const memoryDB = new MemoryDB(agentDir, embeddingDims);
   runtime.setMemoryDB(memoryDB);
+
+  await runtime.init();
 
   let recallIndex: RecallIndex | null = null;
   let recallBuilding = false;
@@ -154,6 +171,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   // Start HTTP server
   const server = new AgentServer();
+  server.setAgentDir(agentDir);
 
   // Message queue — serializes messages, same-channel injection
   const queue = new MessageQueue();
@@ -191,7 +209,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     const result = await runtime.handleMessage(context, (event: StreamEvent) => {
       server.broadcast(event);
       msg.onEvent?.(event);
-    });
+    }, msg.attachments);
 
     // Index new messages for recall + segments (async, non-blocking)
     const sessionId = runtime.getSessionId();
@@ -214,7 +232,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   let _hubInterface: HubInterface | null = null;
 
   // Helper to enqueue from any interface
-  const enqueueMessage = async (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void) => {
+  const enqueueMessage = async (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void, attachments?: import("./interfaces/types.js").Attachment[]) => {
     // Slash commands bypass the queue — instant response even if queue is busy
     const cmd = text.trim();
     if (cmd.startsWith("/")) {
@@ -228,15 +246,15 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
         return result;
       }
     }
-    return queue.enqueue({ text, userId, interface: iface, channel }, onEvent);
+    return queue.enqueue({ text, userId, interface: iface, channel, attachments }, onEvent);
   };
 
   server.setStatusFn(() => {
     return { ...getStatusDataFn(), agentName };
   });
 
-  server.setMessageHandler(async (text, userId, iface, channel) => {
-    await enqueueMessage(text, userId, iface, channel);
+  server.setMessageHandler(async (text, userId, iface, channel, attachments) => {
+    await enqueueMessage(text, userId, iface, channel, undefined, attachments);
   });
 
   // History: return messages from session, paginated
@@ -253,7 +271,16 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   server.setSystemPromptFn(async () => {
     const latestSystem = await runtime.getSystemPrompt();
     const built = runtime.buildPromptContext();
-    return { system: built.system || latestSystem };
+    const systemText = typeof built.system === "string" ? built.system : built.system?.content;
+    return { system: systemText || latestSystem };
+  });
+
+  server.setContextSegmentsFn(() => {
+    const built = runtime.buildPromptContext();
+    return {
+      tokenCount: built.stats.summaryTokens,
+      segments: built.stats.summarySegments,
+    };
   });
 
   server.setSegmentsFn((sessionId?: string) => {
@@ -309,8 +336,59 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     }
   });
 
+  server.setSegmentResummarizeFn(async (id: number) => {
+    if (!segmentIndex) throw new Error("segments not enabled");
+    return segmentIndex.resummarizeSegment(id);
+  });
+
+  // Notes summaries API
+  server.setSummariesFn(() => {
+    return memoryDB.getAllSummaries("daily_notes");
+  });
+
+  server.setSummaryRegenerateFn(async () => {
+    return regenerateNotesSummary(agentDir, config, memoryDB);
+  });
+
+  // Sessions API
+  server.setSessionListFn(() => {
+    return memoryDB.getSessionList();
+  });
+
+  server.setCurrentSessionIdFn(() => {
+    return runtime.getSessionId();
+  });
+
+  server.setSessionActivityFn((sessionId: string) => {
+    return {
+      daily: memoryDB.getSessionActivity(sessionId),
+      hourly: memoryDB.getSessionHourlyActivity(sessionId),
+    };
+  });
+
+  // Media API
+  server.setMediaListFn(() => {
+    const files = memoryDB.getMediaList();
+    const stats = memoryDB.getMediaStats();
+    return { files, stats };
+  });
+
+  // Recall API
+  if (recallIndex) {
+    server.setRecallStatsFn(() => {
+      const stats = recallIndex!.getStats();
+      return { ...stats, building: recallBuilding };
+    });
+
+    server.setRecallSearchFn(async (query: string, limit: number) => {
+      const results = await recallIndex!.search(query, limit);
+      return { query, results };
+    });
+  }
+
   const port = await server.start("127.0.0.1");
   await setPortAndToken(agentName, port, process.env.KERN_AUTH_TOKEN || null);
+  await setPid(agentName, process.pid);
 
   // Start Telegram if configured
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -319,7 +397,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     telegramBot = new TelegramInterface(telegramToken, pairing);
     await telegramBot.start({
       onMessage: async (msg, onEvent) => {
-        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "", onEvent);
+        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "", onEvent, msg.attachments);
       },
     });
   }
@@ -332,7 +410,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     slackBot = new SlackInterface(slackBotToken, slackAppToken, pairing);
     await slackBot.start({
       onMessage: async (msg, onEvent) => {
-        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "");
+        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "", undefined, msg.attachments);
       },
     });
   }

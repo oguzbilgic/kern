@@ -1,8 +1,10 @@
 // @ts-ignore — bolt CJS/ESM interop
 import { App as SlackApp } from "@slack/bolt";
-import type { Interface, StartOptions } from "./types.js";
+import type { Attachment, Interface, StartOptions } from "./types.js";
 import type { PairingManager } from "../pairing.js";
 import { log } from "../log.js";
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 function mdToSlack(text: string): string {
   let s = text;
@@ -17,10 +19,19 @@ function mdToSlack(text: string): string {
   return s;
 }
 
+/** Map MIME type to attachment type */
+function mimeToType(mime: string): Attachment["type"] {
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("video/")) return "video";
+  if (mime.startsWith("audio/")) return "audio";
+  return "document";
+}
+
 export class SlackInterface implements Interface {
   private app: InstanceType<typeof SlackApp>;
   private pairing: PairingManager | null;
   private botUserId: string = "";
+  private botToken: string;
   private _status: "connected" | "disconnected" | "error" = "disconnected";
   private _statusDetail?: string;
 
@@ -30,6 +41,7 @@ export class SlackInterface implements Interface {
       appToken,
       socketMode: true,
     });
+    this.botToken = botToken;
     this.pairing = pairing || null;
   }
 
@@ -46,8 +58,11 @@ export class SlackInterface implements Interface {
 
     // Listen to all messages
     this.app.message(async ({ message, say, client }: any) => {
-      // Skip bot messages and message_changed events
-      if (!("user" in message) || !("text" in message)) return;
+      // Skip bot messages, message_changed events, and messages with no content
+      const hasUser = "user" in message;
+      const hasText = "text" in message && message.text !== undefined;
+      const hasFiles = "files" in message;
+      if (!hasUser || (!hasText && !hasFiles)) return;
       if (message.user === this.botUserId) return;
 
       const userId = message.user;
@@ -72,7 +87,44 @@ export class SlackInterface implements Interface {
       }
       const channelId = message.channel;
       const threadTs = ("thread_ts" in message ? message.thread_ts : undefined) as string | undefined;
-      log("slack", `message from ${userId} in ${channelId}: ${text.slice(0, 50)}`);
+
+      // Download file attachments
+      const attachments: Attachment[] = [];
+      if (message.files && Array.isArray(message.files)) {
+        for (const file of message.files) {
+          try {
+            if (file.size && file.size > MAX_FILE_SIZE) {
+              log.warn("slack", `file too large (${(file.size / 1024 / 1024).toFixed(1)}MB), skipping: ${file.name}`);
+              continue;
+            }
+            const url = file.url_private_download || file.url_private;
+            if (!url) continue;
+            const resp = await fetch(url, {
+              headers: { Authorization: `Bearer ${this.botToken}` },
+            });
+            if (!resp.ok) {
+              log.warn("slack", `file download failed: ${resp.status} for ${file.name}`);
+              continue;
+            }
+            const buffer = Buffer.from(await resp.arrayBuffer());
+            const mime = file.mimetype || "application/octet-stream";
+            attachments.push({
+              type: mimeToType(mime),
+              data: buffer,
+              mimeType: mime,
+              filename: file.name,
+              size: buffer.length,
+            });
+          } catch (err: any) {
+            log.warn("slack", `file download error: ${err.message}`);
+          }
+        }
+      }
+
+      const hasContent = text || attachments.length > 0;
+      if (!hasContent) return;
+
+      log("slack", `message from ${userId} in ${channelId}: ${(text || "[media]").slice(0, 50)}${attachments.length ? ` +${attachments.length} file(s)` : ""}`);
 
       // Determine if DM or channel
       let channelName = channelId;
@@ -101,10 +153,10 @@ export class SlackInterface implements Interface {
       // Clean @mention from text
       let cleanText = text.replace(new RegExp(`<@${this.botUserId}>`, "g"), "").trim();
 
-      // If just a bare mention with no text, skip
-      if (!cleanText && !isMentioned) return;
+      // If just a bare mention with no text and no files, skip
+      if (!cleanText && !isMentioned && attachments.length === 0) return;
       // If mentioned with no text, use "hello" as default
-      if (!cleanText && isMentioned) cleanText = "(mentioned with no message)";
+      if (!cleanText && isMentioned && attachments.length === 0) cleanText = "(mentioned with no message)";
 
       // Build channel label
       const channelLabel = isDM ? `slack-dm` : channelName;
@@ -112,11 +164,12 @@ export class SlackInterface implements Interface {
       try {
         const response = await onMessage(
           {
-            text: cleanText,
+            text: cleanText || "",
             userId,
             chatId: channelId,
             interface: "slack",
             channel: channelLabel,
+            attachments: attachments.length > 0 ? attachments : undefined,
           },
           () => {}, // events handled by SSE broadcast in app.ts
         );
