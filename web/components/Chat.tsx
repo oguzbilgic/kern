@@ -54,10 +54,7 @@ export function Chat({ messages, streamParts, thinking, agentName, token }: Chat
     });
   }, [messages, streamParts, thinking]);
 
-  // Show dots when thinking AND the last stream part isn't assistant text
-  const lastPart = streamParts[streamParts.length - 1];
-  const isStreamingText = lastPart?.role === "assistant" && lastPart.text.length > 0;
-  const showDots = thinking && !isStreamingText;
+  const showDots = thinking;
 
   const renderMsg = (msg: ChatMessage) =>
     msg.role === "tool" ? (
