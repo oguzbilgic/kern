@@ -3,6 +3,7 @@
 import { useAuth } from "../hooks/useAuth";
 import { useAgents } from "../hooks/useAgents";
 import { useAgent } from "../hooks/useAgent";
+import { Login } from "../components/Login";
 import { Sidebar } from "../components/Sidebar";
 import { Chat } from "../components/Chat";
 import { Input } from "../components/Input";
@@ -23,11 +24,9 @@ export default function Home() {
     );
   }
 
-  // No token found — prompt for one
+  // No token — show login
   if (!token) {
-    return (
-      <TokenPrompt onSubmit={setToken} />
-    );
+    return <Login onLogin={setToken} />;
   }
 
   return (
@@ -65,38 +64,6 @@ export default function Home() {
           onSend={(text: string, attachments?: Attachment[]) => send(text, attachments)}
           disabled={!connected}
         />
-      </div>
-    </div>
-  );
-}
-
-function TokenPrompt({ onSubmit }: { onSubmit: (token: string) => void }) {
-  return (
-    <div className="flex items-center justify-center h-full">
-      <div className="flex flex-col gap-3 items-center">
-        <div className="text-sm text-[var(--text-dim)]">Enter access token</div>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const input = (e.target as HTMLFormElement).elements.namedItem("token") as HTMLInputElement;
-            if (input.value.trim()) onSubmit(input.value.trim());
-          }}
-          className="flex gap-2"
-        >
-          <input
-            name="token"
-            type="password"
-            placeholder="Token..."
-            className="bg-[var(--bg-surface)] border border-[var(--border)] rounded px-3 py-1.5 text-sm text-[var(--text)] outline-none focus:border-[var(--accent-dim)]"
-            autoFocus
-          />
-          <button
-            type="submit"
-            className="bg-[var(--accent)] text-white text-sm px-3 py-1.5 rounded hover:opacity-90"
-          >
-            Connect
-          </button>
-        </form>
       </div>
     </div>
   );
