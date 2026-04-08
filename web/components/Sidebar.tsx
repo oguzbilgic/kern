@@ -36,7 +36,7 @@ function AgentRow({
   return (
     <button
       onClick={onSelect}
-      className={`flex items-center gap-2.5 w-full px-2 py-1.5 rounded text-sm text-left transition-colors ${
+      className={`flex items-center gap-2.5 w-full px-2 py-1.5 rounded text-sm text-left transition-colors cursor-pointer ${
         isActive
           ? "bg-[var(--bg-surface)]"
           : "hover:bg-[var(--bg-surface)]/50"
