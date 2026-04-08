@@ -343,7 +343,7 @@ export function ToolCall({ msg, colored = true, peek = false }: { msg: ChatMessa
 
       {/* Expanded output */}
       {isOpen && msg.toolOutput && (
-        <div className="mt-1 ml-4 max-h-[400px] overflow-auto rounded font-mono bg-[#161616] p-3 text-xs">
+        <div className="mt-1 max-h-[400px] overflow-auto rounded font-mono bg-[#161616] p-3 text-xs">
           {renderToolOutput(msg)}
         </div>
       )}
