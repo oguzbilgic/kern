@@ -88,7 +88,7 @@ function SessionsTab({ agentName, token, serverUrl }: TabProps) {
   const [activeSession, setActiveSession] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getSessions(agentName, token).then((d) => {
+    api.getSessions(agentName, token, serverUrl).then((d) => {
       if (d?.sessions) {
         setData(d);
         const first = d.currentSessionId || d.sessions?.[0]?.session_id;
@@ -101,7 +101,7 @@ function SessionsTab({ agentName, token, serverUrl }: TabProps) {
 
   useEffect(() => {
     if (activeSession) {
-      api.getSessionActivity(agentName, token, activeSession).then(setActivity).catch(() => {});
+      api.getSessionActivity(agentName, token, serverUrl, activeSession).then(setActivity).catch(() => {});
     }
   }, [agentName, token, activeSession]);
 
@@ -175,8 +175,8 @@ function SegmentsTab({ agentName, token, serverUrl }: TabProps) {
   const [rebuilding, setRebuilding] = useState(false);
 
   const load = useCallback(() => {
-    api.getSegments(agentName, token).then(setSegments).catch(() => setSegments({ segments: [] }));
-    api.getContextSegments(agentName, token).then((d) => {
+    api.getSegments(agentName, token, serverUrl).then(setSegments).catch(() => setSegments({ segments: [] }));
+    api.getContextSegments(agentName, token, serverUrl).then((d) => {
       if (d?.segments) setContextIds(new Set(d.segments.map((s: any) => s.id)));
     }).catch(() => {});
   }, [agentName, token]);
@@ -224,7 +224,7 @@ function SegmentsTab({ agentName, token, serverUrl }: TabProps) {
         </div>
         <div className="flex gap-1">
           <button
-            onClick={() => { setRebuilding(true); api.rebuildSegments(agentName, token).finally(() => { setRebuilding(false); load(); }); }}
+            onClick={() => { setRebuilding(true); api.rebuildSegments(agentName, token, serverUrl).finally(() => { setRebuilding(false); load(); }); }}
             className="px-2 py-0.5 text-xs rounded text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)]"
             disabled={rebuilding}
           >
@@ -273,7 +273,7 @@ function SegmentsTab({ agentName, token, serverUrl }: TabProps) {
               {selected.summary_token_count && ` → ${selected.summary_token_count} summary tokens`}
             </span>
             <button
-              onClick={() => api.resummarizeSegment(agentName, token, selected.id).then(load)}
+              onClick={() => api.resummarizeSegment(agentName, token, serverUrl, selected.id).then(load)}
               className="px-2 py-0.5 text-[10px] rounded border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"
             >
               Resummarize
@@ -304,7 +304,7 @@ function NotesTab({ agentName, token, serverUrl }: TabProps) {
   const [regenerating, setRegenerating] = useState(false);
 
   const load = useCallback(() => {
-    api.getSummaries(agentName, token).then((d) => {
+    api.getSummaries(agentName, token, serverUrl).then((d) => {
       setSummaries(Array.isArray(d) ? d : (d?.summaries || []));
     }).catch(() => setSummaries([]));
   }, [agentName, token]);
@@ -316,7 +316,7 @@ function NotesTab({ agentName, token, serverUrl }: TabProps) {
       <div className="flex items-center justify-between">
         <span className="text-xs text-[var(--text-muted)]">{summaries?.length ?? 0} summaries</span>
         <button
-          onClick={() => { setRegenerating(true); api.regenerateSummary(agentName, token).finally(() => { setRegenerating(false); load(); }); }}
+          onClick={() => { setRegenerating(true); api.regenerateSummary(agentName, token, serverUrl).finally(() => { setRegenerating(false); load(); }); }}
           className="px-2 py-0.5 text-xs rounded border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"
           disabled={regenerating}
         >
@@ -349,13 +349,13 @@ function RecallTab({ agentName, token, serverUrl }: TabProps) {
   const [searching, setSearching] = useState(false);
 
   useEffect(() => {
-    api.getRecallStats(agentName, token).then(setStats).catch(() => setStats(null));
+    api.getRecallStats(agentName, token, serverUrl).then(setStats).catch(() => setStats(null));
   }, [agentName, token]);
 
   const search = () => {
     if (!query.trim()) return;
     setSearching(true);
-    api.recallSearch(agentName, token, query).then((d) => setResults(d?.results || [])).catch(() => setResults([])).finally(() => setSearching(false));
+    api.recallSearch(agentName, token, serverUrl, query).then((d) => setResults(d?.results || [])).catch(() => setResults([])).finally(() => setSearching(false));
   };
 
   return (
@@ -412,7 +412,7 @@ function ContextTab({ agentName, token, serverUrl }: TabProps) {
   const [view, setView] = useState<"structured" | "raw">("structured");
 
   useEffect(() => {
-    api.getSystemPrompt(agentName, token).then(setPrompt).catch(() => {});
+    api.getSystemPrompt(agentName, token, serverUrl).then(setPrompt).catch(() => {});
   }, [agentName, token]);
 
   if (prompt === null) return <div className="text-[var(--text-muted)] text-sm">Loading...</div>;

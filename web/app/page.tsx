@@ -134,6 +134,7 @@ export default function Home() {
           onClose={() => setInspectorOpen(false)}
           agentName={activeAgent.name}
           token={validToken}
+          serverUrl={activeAgent.serverUrl}
         />
       )}
     </div>

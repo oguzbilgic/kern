@@ -130,63 +130,63 @@ export async function getHistory(agentName: string, token?: string | null, limit
   return res.json();
 }
 
-export async function getSystemPrompt(agentName: string, token?: string | null): Promise<string> {
-  const res = await fetch(`${agentUrl(agentName)}/context/system`, { headers: headers(token) });
+export async function getSystemPrompt(agentName: string, token?: string | null, serverUrl?: string): Promise<string> {
+  const res = await fetch(`${agentUrl(agentName, serverUrl)}/context/system`, { headers: headers(token) });
   return res.text();
 }
 
-export async function getContextSegments(agentName: string, token?: string | null) {
-  const res = await fetch(`${agentUrl(agentName)}/context/segments`, { headers: headers(token) });
+export async function getContextSegments(agentName: string, token?: string | null, serverUrl?: string) {
+  const res = await fetch(`${agentUrl(agentName, serverUrl)}/context/segments`, { headers: headers(token) });
   return res.json();
 }
 
-export async function getSessions(agentName: string, token?: string | null) {
-  const res = await fetch(`${agentUrl(agentName)}/sessions`, { headers: headers(token) });
+export async function getSessions(agentName: string, token?: string | null, serverUrl?: string) {
+  const res = await fetch(`${agentUrl(agentName, serverUrl)}/sessions`, { headers: headers(token) });
   return res.json();
 }
 
-export async function getSessionActivity(agentName: string, token: string | null, sessionId: string) {
-  const res = await fetch(`${agentUrl(agentName)}/sessions/${sessionId}/activity`, { headers: headers(token) });
+export async function getSessionActivity(agentName: string, token: string | null, serverUrl?: string, sessionId?: string) {
+  const res = await fetch(`${agentUrl(agentName, serverUrl)}/sessions/${sessionId}/activity`, { headers: headers(token) });
   return res.json();
 }
 
-export async function getSummaries(agentName: string, token?: string | null) {
-  const res = await fetch(`${agentUrl(agentName)}/summaries`, { headers: headers(token) });
+export async function getSummaries(agentName: string, token?: string | null, serverUrl?: string) {
+  const res = await fetch(`${agentUrl(agentName, serverUrl)}/summaries`, { headers: headers(token) });
   return res.json();
 }
 
-export async function regenerateSummary(agentName: string, token?: string | null) {
-  const res = await fetch(`${agentUrl(agentName)}/summaries/regenerate`, { method: "POST", headers: headers(token) });
+export async function regenerateSummary(agentName: string, token?: string | null, serverUrl?: string) {
+  const res = await fetch(`${agentUrl(agentName, serverUrl)}/summaries/regenerate`, { method: "POST", headers: headers(token) });
   return res.json();
 }
 
-export async function recallSearch(agentName: string, token: string | null, query: string, limit = 10) {
-  const params = new URLSearchParams({ q: query, limit: String(limit) });
-  const res = await fetch(`${agentUrl(agentName)}/recall/search?${params}`, { headers: headers(token) });
+export async function recallSearch(agentName: string, token: string | null, serverUrl?: string, query?: string, limit = 10) {
+  const params = new URLSearchParams({ q: query || "", limit: String(limit) });
+  const res = await fetch(`${agentUrl(agentName, serverUrl)}/recall/search?${params}`, { headers: headers(token) });
   return res.json();
 }
 
-export async function getRecallStats(agentName: string, token?: string | null) {
-  const res = await fetch(`${agentUrl(agentName)}/recall/stats`, { headers: headers(token) });
+export async function getRecallStats(agentName: string, token?: string | null, serverUrl?: string) {
+  const res = await fetch(`${agentUrl(agentName, serverUrl)}/recall/stats`, { headers: headers(token) });
   return res.json();
 }
 
-export async function getMediaList(agentName: string, token?: string | null) {
-  const res = await fetch(`${agentUrl(agentName)}/media/list`, { headers: headers(token) });
+export async function getMediaList(agentName: string, token?: string | null, serverUrl?: string) {
+  const res = await fetch(`${agentUrl(agentName, serverUrl)}/media/list`, { headers: headers(token) });
   return res.json();
 }
 
-export async function getSegments(agentName: string, token?: string | null) {
-  const res = await fetch(`${agentUrl(agentName)}/segments`, { headers: headers(token) });
+export async function getSegments(agentName: string, token?: string | null, serverUrl?: string) {
+  const res = await fetch(`${agentUrl(agentName, serverUrl)}/segments`, { headers: headers(token) });
   return res.json();
 }
 
-export async function rebuildSegments(agentName: string, token?: string | null) {
-  const res = await fetch(`${agentUrl(agentName)}/segments/rebuild`, { method: "POST", headers: headers(token) });
+export async function rebuildSegments(agentName: string, token?: string | null, serverUrl?: string) {
+  const res = await fetch(`${agentUrl(agentName, serverUrl)}/segments/rebuild`, { method: "POST", headers: headers(token) });
   return res.json();
 }
 
-export async function resummarizeSegment(agentName: string, token: string | null, segmentId: number) {
-  const res = await fetch(`${agentUrl(agentName)}/segments/${segmentId}/resummarize`, { method: "POST", headers: headers(token) });
+export async function resummarizeSegment(agentName: string, token: string | null, serverUrl?: string, segmentId?: number) {
+  const res = await fetch(`${agentUrl(agentName, serverUrl)}/segments/${segmentId}/resummarize`, { method: "POST", headers: headers(token) });
   return res.json();
 }
