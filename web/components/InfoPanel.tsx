@@ -38,8 +38,11 @@ export function PinnedStats({ status, pinned }: { status: StatusData | null; pin
 
   return (
     <div className="flex items-baseline gap-3">
-      {items.map(([, value]) => (
-        <span key={value} className="text-[11px] text-[var(--text-muted)] font-mono">{value}</span>
+      {items.map(([label, value]) => (
+        <span key={label} className="inline-flex items-baseline gap-1.5 text-[11px]">
+          <span className="text-[var(--text-muted)]">{label}</span>
+          <span className="text-[var(--text-dim)] font-mono">{value}</span>
+        </span>
       ))}
     </div>
   );
@@ -60,11 +63,11 @@ export function InfoPanel({ status, connected, pinned, onTogglePin, onClose }: I
           {rows.map(([label, value]) => (
             <tr
               key={label}
-              className="cursor-pointer hover:bg-[var(--bg)]/50 transition-colors"
+              className="cursor-pointer"
               onClick={() => onTogglePin(label)}
             >
               <td className="pr-1 py-[2px] align-top">
-                <span className={`text-[10px] ${pinned.has(label) ? "text-[var(--accent)]" : "text-[var(--border)]"}`}>
+                <span className={`text-[10px] ${pinned.has(label) ? "text-[var(--text-dim)]" : "text-[var(--border)]"}`}>
                   {pinned.has(label) ? "●" : "○"}
                 </span>
               </td>
