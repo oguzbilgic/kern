@@ -108,7 +108,7 @@ export function FlatLayout({ messages, streamParts, thinking, agentName, token, 
       <div ref={containerRef} className="h-full overflow-y-auto px-4 pt-4 pb-1">
         <div className="flex flex-col gap-2">
           {allMsgs.map(renderMsg)}
-          {showDots && <div className="pl-[42px]"><ThinkingDots /></div>}
+          {showDots && <div className="pl-[42px]"><ThinkingDots agentName={agentName} /></div>}
           <div ref={bottomRef} />
         </div>
       </div>
