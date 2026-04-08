@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, type DragEvent } from "react";
+import { useState, useCallback, useEffect, type DragEvent } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { useServers } from "../hooks/useServers";
+import { useServers, agentKey } from "../hooks/useServers";
 import { useAgent } from "../hooks/useAgent";
 import { Login } from "../components/Login";
 import { Sidebar } from "../components/Sidebar";
@@ -37,6 +37,37 @@ export default function Home() {
       return next;
     });
   }, []);
+
+  // KernBridge — stable API for desktop app (Tauri) and Android WebView
+  useEffect(() => {
+    const runningAgents = () => agents.filter((a) => a.running);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).KernBridge = {
+      switchAgent(index: number) {
+        const running = runningAgents();
+        if (index >= 0 && index < running.length) setActive(agentKey(running[index]));
+      },
+      getAgents() {
+        return runningAgents().map((a) => a.name);
+      },
+      getState() {
+        return {
+          agent: activeAgent?.name ?? null,
+          connected,
+          busy: thinking,
+        };
+      },
+      send(text: string) {
+        if (text) send(text);
+      },
+    };
+
+    return () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (window as any).KernBridge;
+    };
+  }, [agents, activeAgent, connected, thinking, send, setActive]);
 
   const handleDrop = useCallback(async (e: DragEvent) => {
     e.preventDefault();

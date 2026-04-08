@@ -75,45 +75,49 @@ export function Chat({ messages, streamParts, thinking, agentName, token }: Chat
     );
 
   return (
-    <div
-      ref={containerRef}
-      className="flex-1 overflow-y-auto px-4 py-4 relative"
-      style={{ maxWidth: 800, margin: "0 auto", width: "100%" }}
-    >
-      {/* History messages */}
-      {messages.map(renderMsg)}
+    <div className="flex-1 overflow-hidden relative" style={{ maxWidth: 800, margin: "0 auto", width: "100%" }}>
+      <div
+        ref={containerRef}
+        className="h-full overflow-y-auto px-4 py-4"
+      >
+        {/* History messages */}
+        {messages.map(renderMsg)}
 
-      {/* Streaming parts */}
-      {streamParts.map(renderMsg)}
+        {/* Streaming parts */}
+        {streamParts.map(renderMsg)}
 
-      {/* Thinking indicator */}
-      {showDots && <ThinkingDots />}
+        {/* Thinking indicator */}
+        {showDots && <ThinkingDots />}
 
-      <div ref={bottomRef} />
+        <div ref={bottomRef} />
+      </div>
 
-      {/* Scroll-to-bottom button */}
+      {/* Scroll-to-bottom button — positioned relative to chat container */}
       {showScrollBtn && (
         <button
           onClick={scrollToBottom}
-          className="fixed z-10"
           style={{
-            bottom: 80,
+            position: "absolute",
+            bottom: 12,
             left: "50%",
             transform: "translateX(-50%)",
-            width: 36,
-            height: 36,
+            width: 40,
+            height: 40,
             borderRadius: "50%",
-            background: "var(--bg-surface)",
+            background: "var(--bg-secondary, var(--bg-surface))",
             border: "1px solid var(--border)",
-            color: "var(--text-muted)",
+            color: "var(--text)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             cursor: "pointer",
-            fontSize: 16,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-            transition: "opacity 0.15s",
+            fontSize: 20,
+            boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
+            opacity: 0.85,
+            zIndex: 10,
           }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.85"; }}
           title="Scroll to bottom"
         >
           ↓
