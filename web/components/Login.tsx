@@ -21,7 +21,6 @@ export function Login({ onLogin }: LoginProps) {
     setError(null);
 
     try {
-      // Validate token by fetching agents
       await api.fetchAgents(t);
       onLogin(t);
     } catch {
@@ -33,12 +32,11 @@ export function Login({ onLogin }: LoginProps) {
   return (
     <div className="flex items-center justify-center h-full w-full bg-[var(--bg)]">
       <div className="flex flex-col items-center gap-6 w-[320px]">
-        {/* Logo / branding */}
-        <div className="flex flex-col items-center gap-2">
-          <div className="w-12 h-12 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] flex items-center justify-center text-xl font-bold text-[var(--accent)]">
-            k.
+        {/* Logo */}
+        <div className="flex flex-col items-center gap-3">
+          <div className="text-2xl font-bold text-[var(--text)]">
+            <span className="text-[var(--accent)]">k</span>ern
           </div>
-          <h1 className="text-lg font-semibold text-[var(--text)]">kern</h1>
           <p className="text-xs text-[var(--text-muted)]">Enter your access token to connect</p>
         </div>
 
@@ -63,14 +61,14 @@ export function Login({ onLogin }: LoginProps) {
           <button
             type="submit"
             disabled={!token.trim() || loading}
-            className="w-full bg-[var(--accent)] text-white text-sm font-medium py-2.5 rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+            className="w-full bg-[var(--accent)] text-[var(--bg)] text-sm font-medium py-2.5 rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
           >
             {loading ? "Connecting..." : "Connect"}
           </button>
         </form>
 
         <p className="text-[11px] text-[var(--text-muted)] text-center leading-relaxed">
-          Run <code className="text-[var(--text-dim)] font-mono">kern web token</code> to get your token
+          Run <code className="text-[var(--text-dim)] font-mono bg-[var(--bg-surface)] px-1.5 py-0.5 rounded">kern web token</code> to get your token
         </p>
       </div>
     </div>
