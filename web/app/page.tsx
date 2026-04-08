@@ -185,7 +185,7 @@ export default function Home() {
         />
 
         {thinking && (
-          <div style={{ maxWidth: prefs.chatLayout === "flat" ? undefined : 800, margin: "0 auto", width: "100%", paddingLeft: prefs.chatLayout === "flat" ? 42 : 16, paddingRight: 16 }}>
+          <div style={{ maxWidth: prefs.chatLayout === "flat" ? undefined : 800, margin: "0 auto", width: "100%", paddingLeft: prefs.chatLayout === "flat" ? 58 : 32, paddingRight: 16 }}>
             <ThinkingDots agentName={prefs.chatLayout === "flat" ? activeAgent?.name : undefined} activity={activity} />
           </div>
         )}
