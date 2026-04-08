@@ -35,8 +35,8 @@ function AgentRow({
       {/* Avatar with status dot / unread badge */}
       <div className="relative flex-shrink-0">
         <div
-          className="w-10 h-10 rounded-md flex items-center justify-center text-[16px] font-bold uppercase"
-          style={{ backgroundColor: avatarColor(agent.name), color: "#fff" }}
+          className="w-10 h-10 flex items-center justify-center text-[16px] font-bold uppercase"
+          style={{ borderRadius: "22%", backgroundColor: avatarColor(agent.name), color: "#fff" }}
         >
           {agent.name[0]}
         </div>
@@ -203,7 +203,8 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
           title="Add server"
         >
           <div className="relative flex-shrink-0">
-            <div className="w-10 h-10 rounded-md flex items-center justify-center border border-dashed border-[var(--text-muted)]">
+            <div className="w-10 h-10 flex items-center justify-center border border-dashed border-[var(--text-muted)]"
+              style={{ borderRadius: "22%" }}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round">
                 <line x1="8" y1="4" x2="8" y2="12" />
                 <line x1="4" y1="8" x2="12" y2="8" />
