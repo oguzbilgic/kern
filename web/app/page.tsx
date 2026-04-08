@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useAgents } from "../hooks/useAgents";
 import { useAgent } from "../hooks/useAgent";
@@ -13,8 +14,8 @@ export default function Home() {
   const { token, setToken } = useAuth();
   const validToken = token ?? null;
   const { agents, activeAgent, activeState, active, setActive, addServer, removeServer } = useAgents(validToken);
-  const activeServerUrl = activeState?.server?.url || undefined;
-  const { messages, streamParts, thinking, connected, status, send } = useAgent(activeAgent, validToken, activeServerUrl);
+  const activeServerUrl = useMemo(() => activeState?.server?.url || undefined, [active]);
+  const { messages, streamParts, thinking, connected, status, send } = useAgent(activeAgent?.name ?? null, validToken, activeServerUrl);
 
   // Still checking auth state
   if (token === undefined) {

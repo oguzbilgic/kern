@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { Agent, ChatMessage, StreamEvent, Attachment, StatusData } from "../lib/types";
+import type { ChatMessage, StreamEvent, Attachment, StatusData } from "../lib/types";
 import * as api from "../lib/api";
 import { historyToMessages, parseUserContent } from "../lib/messages";
 
@@ -14,7 +14,7 @@ interface UseAgentReturn {
   send: (text: string, attachments?: Attachment[]) => Promise<void>;
 }
 
-export function useAgent(agent: Agent | null, token: string | null, serverUrl?: string): UseAgentReturn {
+export function useAgent(agentName: string | null, token: string | null, serverUrl?: string): UseAgentReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streamParts, setStreamParts] = useState<ChatMessage[]>([]);
   const [thinking, setThinking] = useState(false);
@@ -23,7 +23,6 @@ export function useAgent(agent: Agent | null, token: string | null, serverUrl?: 
   const sseRef = useRef<api.SSEConnection | null>(null);
   const partsRef = useRef<ChatMessage[]>([]);
 
-  const agentName = agent?.name || null;
   const baseUrl = serverUrl || "";
 
   // Helper: get or create the last text part in the stream

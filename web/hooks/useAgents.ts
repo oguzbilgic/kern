@@ -51,19 +51,29 @@ export function useAgents(token: string | null) {
         const agents = await api.fetchAgents(server.token, server.url);
         for (const agent of agents) {
           const key = server.url ? `${server.url}::${agent.name}` : agent.name;
-          const existing = agentStates.get(key);
           newStates.set(key, {
             agent: { ...agent, server: server.url || "local" },
             server,
-            online: existing?.online ?? agent.running,
-            thinking: existing?.thinking ?? false,
-            unread: existing?.unread ?? 0,
+            online: agent.running,
+            thinking: false,
+            unread: 0,
           });
         }
       } catch { /* ignore unreachable servers */ }
     }
 
-    setAgentStates(newStates);
+    // Merge with existing states to preserve runtime flags (online, thinking, unread)
+    setAgentStates((prev) => {
+      const merged = new Map<string, AgentState>();
+      for (const [key, state] of newStates) {
+        const existing = prev.get(key);
+        merged.set(key, existing
+          ? { ...existing, agent: state.agent, server: state.server }
+          : state
+        );
+      }
+      return merged;
+    });
 
     // Auto-select first running agent if none active
     if (!activeRef.current) {
