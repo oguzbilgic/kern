@@ -10,3 +10,8 @@ android/.gradle/
 android/app/build/
 android/build/
 android/local.properties
+-e 
+# Next.js frontend build output
+web/out/
+web/.next/
+web/node_modules/

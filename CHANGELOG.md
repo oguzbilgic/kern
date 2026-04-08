@@ -1,5 +1,14 @@
 # Changelog
 
+## next
+
+### Features
+- **Web UI rewrite** ([#92](https://github.com/oguzbilgic/kern-ai/pull/92)) — rebuilt from scratch in React/Next.js + TypeScript + Tailwind, replacing the 5800-line vanilla JS single file
+  - **Two chat layouts**: Bubble (iMessage-style) and Flat (Slack-style with avatars, usernames, and continuation grouping)
+  - **Activity narration** — thinking indicator shows what the agent is doing in real time ("running command", "editing file") with animated transitions and hover tooltip
+  - **User preferences** — dropdown to toggle layout, show/hide tools, colored tool names, peek last tool output, and pick from 11 dark code themes
+  - Channel-specific avatars and colors for Telegram, Slack, and Hub messages in Flat layout
+
 ## v0.22.0
 
 ### Features

@@ -277,22 +277,37 @@ export class AgentServer {
         if (!this.isHeartbeat(text || "")) {
           const excludeId = connectionId || undefined;
           log("server", `incoming broadcast: interface=${iface || "web"} user=${userId || "tui"} exclude=${excludeId || "none"} clients=${this.clients.length}`);
-          this.broadcast({
-            type: "incoming" as any,
+          const incomingEvent: any = {
+            type: "incoming",
             text: text || "",
             fromInterface: iface || "web",
             fromUserId: userId || "tui",
             fromChannel: channel || "web",
-          }, excludeId);
+          };
+          // Include media data URLs for other tabs to render
+          if (rawAttachments?.length) {
+            incomingEvent.media = rawAttachments
+              .filter((a: any) => a.data && a.mimeType)
+              .map((a: any) => ({
+                type: a.type === "image" ? "image" : "file",
+                url: `data:${a.mimeType};base64,${a.data}`,
+                filename: a.filename,
+              }));
+          }
+          this.broadcast(incomingEvent, excludeId);
         }
 
         // Handle async — don't await, response already sent
         if (this.onMessage) {
           this.onMessage(text || "", userId || "tui", iface || "tui", channel || "tui", attachments).catch(() => {});
         }
-      } catch {
-        res.writeHead(400);
-        res.end(JSON.stringify({ error: "invalid JSON" }));
+      } catch (err) {
+        if (!res.headersSent) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: "invalid JSON" }));
+        } else {
+          log.warn("server", `error after response sent: ${err}`);
+        }
       }
       return;
     }
