@@ -7,8 +7,7 @@ import { historyToMessages } from "../lib/messages";
 
 interface UseAgentReturn {
   messages: ChatMessage[];
-  streaming: string;
-  streamingTools: ChatMessage[];
+  streamParts: ChatMessage[];
   thinking: boolean;
   connected: boolean;
   status: StatusData | null;
@@ -17,16 +16,29 @@ interface UseAgentReturn {
 
 export function useAgent(agent: Agent | null, token: string | null): UseAgentReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [streaming, setStreaming] = useState("");
-  const [streamingTools, setStreamingTools] = useState<ChatMessage[]>([]);
+  const [streamParts, setStreamParts] = useState<ChatMessage[]>([]);
   const [thinking, setThinking] = useState(false);
   const [connected, setConnected] = useState(false);
   const [status, setStatus] = useState<StatusData | null>(null);
   const sseRef = useRef<api.SSEConnection | null>(null);
-  const streamBufRef = useRef("");
-  const toolsRef = useRef<ChatMessage[]>([]);
+  const partsRef = useRef<ChatMessage[]>([]);
 
   const agentName = agent?.name || null;
+
+  // Helper: get or create the last text part in the stream
+  function getOrCreateTextPart(): ChatMessage {
+    const parts = partsRef.current;
+    const last = parts[parts.length - 1];
+    if (last && last.role === "assistant") return last;
+    // Create new text part
+    const textPart: ChatMessage = {
+      id: `stream-text-${Date.now()}-${Math.random()}`,
+      role: "assistant",
+      text: "",
+    };
+    parts.push(textPart);
+    return textPart;
+  }
 
   // Load history on agent change
   useEffect(() => {
@@ -48,8 +60,8 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
     }
 
     setMessages([]);
-    setStreaming("");
-    setStreamingTools([]);
+    partsRef.current = [];
+    setStreamParts([]);
     setThinking(false);
     load();
     return () => { cancelled = true; };
@@ -66,11 +78,13 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
             setThinking(true);
             break;
 
-          case "text-delta":
-            streamBufRef.current += ev.text || ev.delta || "";
-            setStreaming(streamBufRef.current);
+          case "text-delta": {
+            const textPart = getOrCreateTextPart();
+            textPart.text += ev.text || ev.delta || "";
+            setStreamParts([...partsRef.current]);
             setThinking(false);
             break;
+          }
 
           case "tool-call": {
             setThinking(true);
@@ -82,57 +96,50 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
               toolInput: ev.toolInput,
               streaming: true,
             };
-            toolsRef.current = [...toolsRef.current, tool];
-            setStreamingTools([...toolsRef.current]);
+            partsRef.current.push(tool);
+            setStreamParts([...partsRef.current]);
             break;
           }
 
-          case "tool-result":
-            if (toolsRef.current.length > 0) {
-              const updated = [...toolsRef.current];
-              const last = { ...updated[updated.length - 1] };
-              last.toolOutput = ev.output || ev.result;
-              last.streaming = false;
-              updated[updated.length - 1] = last;
-              toolsRef.current = updated;
-              setStreamingTools(updated);
+          case "tool-result": {
+            // Find last streaming tool
+            const parts = partsRef.current;
+            for (let i = parts.length - 1; i >= 0; i--) {
+              if (parts[i].role === "tool" && parts[i].streaming) {
+                parts[i] = { ...parts[i], toolOutput: ev.output || ev.result, streaming: false };
+                break;
+              }
             }
+            setStreamParts([...partsRef.current]);
             setThinking(false);
             break;
+          }
 
           case "recall": {
-            const recallTool: ChatMessage = {
+            const recallPart: ChatMessage = {
               id: `stream-recall-${Date.now()}`,
               role: "tool",
               text: "",
               toolName: "recall",
               toolOutput: ev.text,
             };
-            toolsRef.current = [...toolsRef.current, recallTool];
-            setStreamingTools([...toolsRef.current]);
+            partsRef.current.push(recallPart);
+            setStreamParts([...partsRef.current]);
             break;
           }
 
           case "finish": {
-            const tools = [...toolsRef.current];
-            const text = streamBufRef.current;
+            // Flush all stream parts into messages
+            const flushed = partsRef.current.filter(
+              (p) => p.role === "tool" || (p.role === "assistant" && p.text.trim())
+            );
 
-            setMessages((prev) => {
-              const next = [...prev, ...tools];
-              if (text.trim()) {
-                next.push({
-                  id: `msg-${Date.now()}`,
-                  role: "assistant",
-                  text: text.trim(),
-                });
-              }
-              return next;
-            });
+            if (flushed.length > 0) {
+              setMessages((prev) => [...prev, ...flushed]);
+            }
 
-            streamBufRef.current = "";
-            toolsRef.current = [];
-            setStreaming("");
-            setStreamingTools([]);
+            partsRef.current = [];
+            setStreamParts([]);
             setThinking(false);
 
             api.getStatus(agentName!, token).then(setStatus).catch(() => {});
@@ -149,10 +156,8 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
               },
             ]);
             setThinking(false);
-            setStreaming("");
-            setStreamingTools([]);
-            streamBufRef.current = "";
-            toolsRef.current = [];
+            partsRef.current = [];
+            setStreamParts([]);
             break;
         }
       },
@@ -196,5 +201,5 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
     [agentName, token]
   );
 
-  return { messages, streaming, streamingTools, thinking, connected, status, send };
+  return { messages, streamParts, thinking, connected, status, send };
 }

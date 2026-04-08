@@ -9,12 +9,11 @@ import { ThinkingDots } from "./ThinkingDots";
 
 interface ChatProps {
   messages: ChatMessage[];
-  streaming: string;
+  streamParts: ChatMessage[];
   thinking: boolean;
-  streamingTools: ChatMessage[];
 }
 
-export function Chat({ messages, streaming, thinking, streamingTools }: ChatProps) {
+export function Chat({ messages, streamParts, thinking }: ChatProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
@@ -34,7 +33,6 @@ export function Chat({ messages, streaming, thinking, streamingTools }: ChatProp
 
     el.addEventListener("scroll", onScroll);
 
-    // Expose for scrollToBottom
     (el as unknown as { _setProgrammatic: (v: boolean) => void })._setProgrammatic = (v: boolean) => {
       programmaticScroll = v;
     };
@@ -53,7 +51,9 @@ export function Chat({ messages, streaming, thinking, streamingTools }: ChatProp
       bottomRef.current?.scrollIntoView({ behavior: "instant" });
       requestAnimationFrame(() => setter?.(false));
     });
-  }, [messages, streaming, thinking]);
+  }, [messages, streamParts, thinking]);
+
+  const isStreaming = streamParts.length > 0 || thinking;
 
   return (
     <div
@@ -62,29 +62,32 @@ export function Chat({ messages, streaming, thinking, streamingTools }: ChatProp
       style={{ maxWidth: 800, margin: "0 auto", width: "100%" }}
     >
       {/* History messages */}
-      {messages.map((msg) => (
-        <Message key={msg.id} msg={msg} />
-      ))}
+      {messages.map((msg) =>
+        msg.role === "tool" ? (
+          <ToolCall key={msg.id} msg={msg} />
+        ) : (
+          <Message key={msg.id} msg={msg} />
+        )
+      )}
 
-      {/* Streaming tool calls */}
-      {streamingTools.map((tool) => (
-        <ToolCall key={tool.id} msg={tool} />
-      ))}
-
-      {/* Streaming text */}
-      {streaming && (
-        <div className="flex justify-start mb-2">
-          <div className="max-w-[72%] text-sm leading-relaxed text-[var(--text)]">
-            <div
-              className="markdown-body"
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(streaming) }}
-            />
+      {/* Streaming parts — rendered in order (interleaved text + tools) */}
+      {streamParts.map((part) =>
+        part.role === "tool" ? (
+          <ToolCall key={part.id} msg={part} />
+        ) : part.role === "assistant" && part.text ? (
+          <div key={part.id} className="flex justify-start mb-2">
+            <div className="max-w-[72%] text-sm leading-relaxed text-[var(--text)]">
+              <div
+                className="markdown-body"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(part.text) }}
+              />
+            </div>
           </div>
-        </div>
+        ) : null
       )}
 
       {/* Thinking indicator */}
-      {thinking && !streaming && <ThinkingDots />}
+      {thinking && !streamParts.some((p) => p.role === "assistant" && p.text) && <ThinkingDots />}
 
       <div ref={bottomRef} />
     </div>

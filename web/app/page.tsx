@@ -13,7 +13,7 @@ export default function Home() {
   const { token, setToken } = useAuth();
   const validToken = token ?? null;
   const { agents, activeAgent, setActive } = useAgents(validToken);
-  const { messages, streaming, streamingTools, thinking, connected, status, send } = useAgent(activeAgent, validToken);
+  const { messages, streamParts, thinking, connected, status, send } = useAgent(activeAgent, validToken);
 
   // Still checking auth state
   if (token === undefined) {
@@ -59,9 +59,8 @@ export default function Home() {
         {/* Chat area */}
         <Chat
           messages={messages}
-          streaming={streaming}
+          streamParts={streamParts}
           thinking={thinking}
-          streamingTools={streamingTools}
         />
 
         {/* Input */}
