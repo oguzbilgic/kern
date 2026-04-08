@@ -86,8 +86,8 @@ export function Chat({ messages, streamParts, thinking }: ChatProps) {
         ) : null
       )}
 
-      {/* Thinking indicator */}
-      {thinking && !streamParts.some((p) => p.role === "assistant" && p.text) && <ThinkingDots />}
+      {/* Thinking indicator — visible whenever agent is busy and not actively streaming text */}
+      {thinking && <ThinkingDots />}
 
       <div ref={bottomRef} />
     </div>

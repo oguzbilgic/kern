@@ -64,6 +64,18 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
     setStreamParts([]);
     setThinking(false);
     load();
+
+    // Poll status to detect busy state on refresh
+    async function checkBusy() {
+      try {
+        const s = await api.getStatus(agentName!, token);
+        if (!cancelled && s?.queue && typeof s.queue === "string" && s.queue.startsWith("busy")) {
+          setThinking(true);
+        }
+      } catch {}
+    }
+    checkBusy();
+
     return () => { cancelled = true; };
   }, [agentName, token]);
 
@@ -111,7 +123,7 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
               }
             }
             setStreamParts([...partsRef.current]);
-            setThinking(false);
+            setThinking(true); // Still busy — waiting for next step
             break;
           }
 
