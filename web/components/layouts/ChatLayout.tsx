@@ -76,7 +76,7 @@ export function ChatLayout({ messages, streamParts, thinking, agentName, token, 
 
   return (
     <div className="flex-1 overflow-hidden relative">
-      <div ref={containerRef} className="h-full overflow-y-auto px-4 py-4">
+      <div ref={containerRef} className="h-full overflow-y-auto px-4 pt-4 pb-1">
         <div className="flex flex-col gap-2" style={{ maxWidth: 800, margin: "0 auto" }}>
           {allMsgs.map(renderMsg)}
           {showDots && <ThinkingDots />}
