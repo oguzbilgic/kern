@@ -12,9 +12,11 @@ const SLASH_COMMANDS = [
 interface InputProps {
   onSend: (text: string, attachments?: Attachment[]) => void;
   disabled?: boolean;
+  externalAttachments?: Attachment[];
+  onExternalConsumed?: () => void;
 }
 
-function fileToAttachment(file: File): Promise<Attachment> {
+export function fileToAttachment(file: File): Promise<Attachment> {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -40,7 +42,7 @@ function fileToAttachment(file: File): Promise<Attachment> {
   });
 }
 
-export function Input({ onSend, disabled }: InputProps) {
+export function Input({ onSend, disabled, externalAttachments, onExternalConsumed }: InputProps) {
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [cmdFiltered, setCmdFiltered] = useState<typeof SLASH_COMMANDS>([]);
@@ -50,6 +52,14 @@ export function Input({ onSend, disabled }: InputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const canSend = text.trim() || attachments.length > 0;
+
+  // Consume externally added attachments (drag-and-drop)
+  useEffect(() => {
+    if (externalAttachments?.length) {
+      setAttachments((prev) => [...prev, ...externalAttachments]);
+      onExternalConsumed?.();
+    }
+  }, [externalAttachments, onExternalConsumed]);
 
   // Update slash popup based on input
   useEffect(() => {

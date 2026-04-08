@@ -1,12 +1,13 @@
 "use client";
 
+import { useState, useCallback, type DragEvent } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useServers } from "../hooks/useServers";
 import { useAgent } from "../hooks/useAgent";
 import { Login } from "../components/Login";
 import { Sidebar } from "../components/Sidebar";
 import { Chat } from "../components/Chat";
-import { Input } from "../components/Input";
+import { Input, fileToAttachment } from "../components/Input";
 import type { Attachment } from "../lib/types";
 
 export default function Home() {
@@ -14,6 +15,21 @@ export default function Home() {
   const validToken = token ?? null;
   const { agents, activeAgent, active, setActive, addServer, removeServer } = useServers(validToken);
   const { messages, streamParts, thinking, connected, status, send } = useAgent(activeAgent, { withHistory: true });
+  const [dragOver, setDragOver] = useState(false);
+  const [externalAttachments, setExternalAttachments] = useState<Attachment[]>([]);
+
+  const handleDrop = useCallback(async (e: DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const files = e.dataTransfer?.files;
+    if (!files?.length) return;
+    const atts: Attachment[] = [];
+    for (const file of Array.from(files)) {
+      if (file.size > 20 * 1024 * 1024) continue;
+      atts.push(await fileToAttachment(file));
+    }
+    if (atts.length) setExternalAttachments((prev) => [...prev, ...atts]);
+  }, []);
 
   if (token === undefined) {
     return (
@@ -44,7 +60,31 @@ export default function Home() {
         onRemoveServer={removeServer}
       />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div
+        className="flex-1 flex flex-col min-w-0 relative"
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={(e) => {
+          // Only leave if exiting the container
+          if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+          setDragOver(false);
+        }}
+        onDrop={handleDrop}
+      >
+        {/* Drag overlay */}
+        {dragOver && (
+          <div
+            className="absolute inset-0 z-50 flex items-center justify-center"
+            style={{
+              background: "rgba(0,0,0,0.6)",
+              backdropFilter: "blur(4px)",
+            }}
+          >
+            <div className="text-base text-[var(--text-muted)] font-medium">
+              Drop files to attach
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="h-12 border-b border-[var(--border)] flex items-center px-4 gap-3 flex-shrink-0">
           <div className="flex items-center gap-2">
@@ -73,6 +113,8 @@ export default function Home() {
         <Input
           onSend={(text: string, attachments?: Attachment[]) => send(text, attachments)}
           disabled={!connected}
+          externalAttachments={externalAttachments}
+          onExternalConsumed={() => setExternalAttachments([])}
         />
       </div>
     </div>
