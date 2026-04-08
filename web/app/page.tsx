@@ -107,18 +107,20 @@ export default function Home() {
 
         {/* Header */}
         <div className="h-12 border-b border-[var(--border)] flex items-center px-4 gap-3 flex-shrink-0">
-          <button
-            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => setInfoOpen((v) => !v)}
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${connected ? "bg-[var(--green)]" : "bg-[var(--text-muted)]"}`}
-            />
-            <span className="text-sm font-semibold">
-              {activeAgent?.name || "no agent"}
-            </span>
-          </button>
-          <PinnedStats status={status} pinned={pinned} />
+          <div className="flex items-center gap-3">
+            <button
+              className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => setInfoOpen((v) => !v)}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${connected ? "bg-[var(--green)]" : "bg-[var(--text-muted)]"}`}
+              />
+              <span className="text-sm font-semibold">
+                {activeAgent?.name || "no agent"}
+              </span>
+            </button>
+            <PinnedStats status={status} pinned={pinned} />
+          </div>
           <div className="ml-auto">
             <button
               onClick={() => setInspectorOpen(true)}
