@@ -35,7 +35,7 @@ export function Login({ onLogin }: LoginProps) {
         {/* Logo */}
         <div className="flex flex-col items-center gap-3">
           <div className="text-2xl font-bold text-[var(--text)]">
-            <span className="text-[var(--accent)]">k</span>ern
+            kern<span className="text-[var(--accent)]">.</span>
           </div>
           <p className="text-xs text-[var(--text-muted)]">Enter your access token to connect</p>
         </div>
