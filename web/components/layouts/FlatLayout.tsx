@@ -56,8 +56,21 @@ export function FlatLayout({ messages, streamParts, thinking, agentName, token, 
     }
 
     const props = analyzeMessage(msg, agentName);
-    if (props.isError || props.isCommand || props.isEmoji) {
+    if (props.isError || props.isEmoji) {
       return <div key={msg.id}><SpecialMessage props={props} agentName={agentName} token={token} /></div>;
+    }
+
+    if (props.isCommand) {
+      return (
+        <div key={msg.id} className="flex items-start gap-2.5 opacity-60">
+          <div className="w-10 h-10 rounded-[22%] flex items-center justify-center text-base shrink-0"
+            style={{ background: "#2a3a2a", color: "#7ee787" }}>/</div>
+          <div className="flex flex-col min-w-0 pt-1">
+            <span className="text-xs font-medium" style={{ color: "#7ee787" }}>{msg.meta || "/command"}</span>
+            <div className="text-xs font-mono text-[var(--text-dim)] whitespace-pre-wrap mt-0.5">{msg.text}</div>
+          </div>
+        </div>
+      );
     }
 
     const { isUser, isHeartbeat, isNoReply, isIncoming, channel, senderName } = props;
