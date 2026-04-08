@@ -61,12 +61,13 @@ export function FlatLayout({ messages, streamParts, thinking, agentName, token, 
     }
 
     if (props.isCommand) {
+      const cmdName = msg.meta?.replace(/^\//, "") || "command";
       return (
         <div key={msg.id} className="flex items-start gap-2.5 opacity-60">
-          <div className="w-10 h-10 rounded-[22%] flex items-center justify-center text-base shrink-0"
+          <div className="w-8 h-8 rounded-md flex items-center justify-center text-sm flex-shrink-0 mt-0.5"
             style={{ background: "#2a3a2a", color: "#7ee787" }}>/</div>
-          <div className="flex flex-col min-w-0 pt-1">
-            <span className="text-xs font-medium" style={{ color: "#7ee787" }}>{msg.meta || "/command"}</span>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-semibold" style={{ color: "#7ee787" }}>{cmdName}</span>
             <div className="text-xs font-mono text-[var(--text-dim)] whitespace-pre-wrap mt-0.5">{msg.text}</div>
           </div>
         </div>
