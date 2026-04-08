@@ -27,7 +27,7 @@ function AgentRow({
   return (
     <button
       onClick={onSelect}
-      className={`flex items-center gap-2.5 w-full rounded-lg text-sm text-left transition-colors cursor-pointer px-2.5 py-2 mb-0.5 overflow-hidden ${
+      className={`flex items-center gap-2.5 w-full rounded-lg text-sm text-left transition-colors cursor-pointer p-2.5 mb-0.5 overflow-hidden ${
         isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"
       } ${!agent.running ? "opacity-50" : ""}`}
       title={mini ? agent.name : undefined}
@@ -199,7 +199,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
         {/* Add server row — matches agent row style */}
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2.5 w-full rounded-lg text-sm text-left transition-colors cursor-pointer px-2.5 py-2 mb-0.5 overflow-hidden hover:bg-white/[0.05]"
+          className="flex items-center gap-2.5 w-full rounded-lg text-sm text-left transition-colors cursor-pointer p-2.5 mb-0.5 overflow-hidden hover:bg-white/[0.05]"
           title="Add server"
         >
           <div className="relative flex-shrink-0">
