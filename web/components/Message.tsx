@@ -117,7 +117,7 @@ export function Message({ msg, agentName, token }: { msg: ChatMessage; agentName
               emoji
                 ? "text-4xl bg-transparent"
                 : isUser
-                  ? "bg-[var(--user-bg)] text-white rounded-br-sm"
+                  ? "bg-[var(--bg-surface)] text-[#d4d4d4] rounded-br-sm"
                   : isIncoming
                     ? "bg-[var(--bg-surface)] rounded-bl-sm"
                     : "text-[var(--text)]"
