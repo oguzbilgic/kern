@@ -133,13 +133,17 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
-  // Static PWA files
-  if (req.method === "GET" && staticFiles[url]) {
-    const { file, contentType } = staticFiles[url];
+  // Static files (PWA, CSS, JS)
+  const MIME: Record<string, string> = { ".css": "text/css", ".js": "application/javascript", ".json": "application/manifest+json", ".svg": "image/svg+xml" };
+  if (req.method === "GET" && (staticFiles[url] || url.startsWith("/css/") || url.startsWith("/js/"))) {
+    const ext = url.substring(url.lastIndexOf("."));
+    const contentType = staticFiles[url]?.contentType ?? MIME[ext];
+    if (!contentType || url.includes("..")) { res.writeHead(404); res.end(); return; }
+    const file = staticFiles[url]?.file ?? url.slice(1); // e.g. "css/base.css"
     const filePath = join(import.meta.dirname, "..", "templates", "web", file);
     if (existsSync(filePath)) {
       const content = await readFile(filePath, "utf-8");
-      res.writeHead(200, { "Content-Type": contentType });
+      res.writeHead(200, { "Content-Type": `${contentType}; charset=utf-8` });
       res.end(content);
     } else {
       res.writeHead(404);

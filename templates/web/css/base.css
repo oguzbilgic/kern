@@ -1,0 +1,51 @@
+* { scrollbar-color: var(--border) transparent; scrollbar-width: thin; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border); }
+:root {
+  --bg: #1a1a1a;
+  --bg-surface: #252525;
+  --bg-sidebar: #141414;
+  --bg-input: #1a1a1a;
+  --border: #2a2a2a;
+  --text: #EDEDED;
+  --text-dim: #A0A0A0;
+  --text-muted: #707070;
+  --accent: #58a6ff;
+  --accent-dim: #1f6feb;
+  --green: #12c905;
+  --red: #fc533a;
+  --orange: #fcd53a;
+  --tool-bg: #141414;
+  --user-bg: #0d419d;
+  --magenta: #bc8cff;
+  --yellow: #d29922;
+  --cyan: #56d4dd;
+  --tool-bash: #f85149;
+  --tool-read: #e6edf3;
+  --tool-write: #3fb950;
+  --tool-edit: #d29922;
+  --tool-glob: #bc8cff;
+  --tool-grep: #58a6ff;
+  --tool-webfetch: #e6edf3;
+  --tool-kern: #e6edf3;
+  --tool-message: #3fb950;
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  background: var(--bg);
+  color: var(--text);
+  height: 100dvh;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+}
+
