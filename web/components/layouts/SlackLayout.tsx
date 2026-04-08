@@ -57,19 +57,20 @@ export function SlackLayout({ messages, streamParts, thinking, agentName, token,
     }
 
     const props = analyzeMessage(msg, agentName);
-    if (props.isHeartbeat || props.isError || props.isCommand || props.isNoReply || props.isEmoji) {
+    if (props.isError || props.isCommand || props.isNoReply || props.isEmoji) {
       return <div key={msg.id}><SpecialMessage props={props} agentName={agentName} token={token} /></div>;
     }
 
-    const { isUser, senderName } = props;
+    const { isUser, isHeartbeat, senderName } = props;
+    const isUserSide = isUser || isHeartbeat;
     const continuation = group?.continuation ?? false;
 
     return (
-      <div key={msg.id} className="flex items-start gap-2.5">
+      <div key={msg.id} className={`flex items-start gap-2.5 ${isHeartbeat ? "opacity-40" : ""}`}>
         {continuation ? (
           <div className="w-8 flex-shrink-0" />
         ) : (
-          <Avatar name={senderName} isUser={isUser} />
+          <Avatar name={senderName} isUser={isUserSide} />
         )}
         <div className="flex flex-col min-w-0 max-w-[95%]">
           {!continuation && (

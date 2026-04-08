@@ -242,7 +242,7 @@ export function analyzeMessage(msg: ChatMessage, agentName?: string): MessagePro
     !msg.text?.trim()
   );
   const isEmoji = isUser && isEmojiOnly(msg.text);
-  const senderName = isUser ? "You" : isIncoming ? (msg.meta || "incoming") : (agentName || "Agent");
+  const senderName = isUser || isHeartbeat ? "You" : isIncoming ? (msg.meta || "incoming") : (agentName || "Agent");
   const initials = senderName.charAt(0).toUpperCase();
 
   return { msg, isUser, isAssistant, isIncoming, isHeartbeat, isCommand, isError, isNoReply, isEmoji, senderName, initials };
