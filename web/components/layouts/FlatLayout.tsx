@@ -14,6 +14,7 @@ interface FlatLayoutProps {
   thinking: boolean;
   agentName?: string;
   token?: string;
+  serverUrl?: string;
   showTools: boolean;
   coloredTools: boolean;
   peekLastTool: boolean;
@@ -29,7 +30,7 @@ function Avatar({ name, isUser }: { name: string; isUser: boolean }) {
   );
 }
 
-export function FlatLayout({ messages, streamParts, thinking, agentName, token, showTools, coloredTools, peekLastTool }: FlatLayoutProps) {
+export function FlatLayout({ messages, streamParts, thinking, agentName, token, serverUrl, showTools, coloredTools, peekLastTool }: FlatLayoutProps) {
   const { containerRef, bottomRef, showScrollBtn, scrollToBottom, allMsgs, lastToolId, groups, showDots } = useChat({
     messages, streamParts, thinking, showTools, peekLastTool,
   });
@@ -103,7 +104,7 @@ export function FlatLayout({ messages, streamParts, thinking, agentName, token, 
           )}
 
           {msg.media && msg.media.length > 0 && (
-            <MediaAttachments media={msg.media} agentName={agentName} token={token} />
+            <MediaAttachments media={msg.media} agentName={agentName} token={token} serverUrl={serverUrl} />
           )}
 
           {!isHeartbeat && !isNoReply && (msg.text || !msg.media?.length) && (

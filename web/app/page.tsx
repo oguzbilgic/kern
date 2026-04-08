@@ -178,6 +178,7 @@ export default function Home() {
           thinking={thinking}
           agentName={activeAgent?.name}
           token={activeAgent?.token ?? undefined}
+          serverUrl={activeAgent?.serverUrl}
           layout={prefs.chatLayout}
           showTools={prefs.showTools}
           coloredTools={prefs.coloredTools}

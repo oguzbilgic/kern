@@ -10,14 +10,15 @@ interface ChatProps {
   thinking: boolean;
   agentName?: string;
   token?: string;
+  serverUrl?: string;
   layout: "bubble" | "flat";
   showTools?: boolean;
   coloredTools?: boolean;
   peekLastTool?: boolean;
 }
 
-export function Chat({ messages, streamParts, thinking, agentName, token, layout, showTools = true, coloredTools = true, peekLastTool = true }: ChatProps) {
-  const shared = { messages, streamParts, thinking, agentName, token, showTools, coloredTools, peekLastTool };
+export function Chat({ messages, streamParts, thinking, agentName, token, serverUrl, layout, showTools = true, coloredTools = true, peekLastTool = true }: ChatProps) {
+  const shared = { messages, streamParts, thinking, agentName, token, serverUrl, showTools, coloredTools, peekLastTool };
 
   if (layout === "flat") {
     return <FlatLayout {...shared} />;

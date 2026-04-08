@@ -5,11 +5,12 @@ import type { MessageProps } from "../lib/messages";
 import { renderMarkdown } from "../lib/markdown";
 import { formatTime } from "../lib/messages";
 
-export function MediaAttachments({ media, agentName, token }: { media: MediaItem[]; agentName?: string; token?: string }) {
+export function MediaAttachments({ media, agentName, token, serverUrl }: { media: MediaItem[]; agentName?: string; token?: string; serverUrl?: string }) {
   if (!media.length) return null;
   const qs = token ? `?token=${token}` : "";
+  const base = serverUrl ? `${serverUrl}/api/agents/${agentName}` : `/api/agents/${agentName}`;
   const resolveUrl = (url: string) =>
-    url.startsWith("data:") ? url : `/api/agents/${agentName}/media/${url}${qs}`;
+    url.startsWith("data:") ? url : `${base}/media/${url}${qs}`;
   return (
     <div className="flex flex-wrap gap-2 mt-1">
       {media.map((m, i) =>

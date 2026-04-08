@@ -14,12 +14,13 @@ interface BubbleLayoutProps {
   thinking: boolean;
   agentName?: string;
   token?: string;
+  serverUrl?: string;
   showTools: boolean;
   coloredTools: boolean;
   peekLastTool: boolean;
 }
 
-export function BubbleLayout({ messages, streamParts, thinking, agentName, token, showTools, coloredTools, peekLastTool }: BubbleLayoutProps) {
+export function BubbleLayout({ messages, streamParts, thinking, agentName, token, serverUrl, showTools, coloredTools, peekLastTool }: BubbleLayoutProps) {
   const { containerRef, bottomRef, showScrollBtn, scrollToBottom, allMsgs, lastToolId, groups, showDots } = useChat({
     messages, streamParts, thinking, showTools, peekLastTool,
   });
@@ -50,7 +51,7 @@ export function BubbleLayout({ messages, streamParts, thinking, agentName, token
           )}
 
           {msg.media && msg.media.length > 0 && (
-            <MediaAttachments media={msg.media} agentName={agentName} token={token} />
+            <MediaAttachments media={msg.media} agentName={agentName} token={token} serverUrl={serverUrl} />
           )}
 
           {(msg.text || !msg.media?.length) && (
