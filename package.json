@@ -10,7 +10,8 @@
   "files": [
     "dist",
     "templates",
-    "docs"
+    "docs",
+    "web/out"
   ],
   "scripts": {
     "build": "npm run build:server && npm run build:web",
