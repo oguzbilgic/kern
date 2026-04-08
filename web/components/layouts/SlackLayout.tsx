@@ -62,15 +62,17 @@ export function SlackLayout({ messages, streamParts, thinking, agentName, token,
     }
 
     const { isUser, isHeartbeat, senderName } = props;
-    const isUserSide = isUser || isHeartbeat;
     const continuation = group?.continuation ?? false;
 
     return (
       <div key={msg.id} className={`flex items-start gap-2.5 ${isHeartbeat ? "opacity-40" : ""}`}>
         {continuation ? (
           <div className="w-8 flex-shrink-0" />
+        ) : isHeartbeat ? (
+          <div className="w-8 h-8 rounded-md flex items-center justify-center text-sm flex-shrink-0 mt-0.5"
+            style={{ backgroundColor: "#3d2b2b", color: "#e06c75" }}>♡</div>
         ) : (
-          <Avatar name={senderName} isUser={isUserSide} />
+          <Avatar name={senderName} isUser={isUser} />
         )}
         <div className="flex flex-col min-w-0 max-w-[95%]">
           {!continuation && (
