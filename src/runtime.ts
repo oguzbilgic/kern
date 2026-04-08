@@ -229,6 +229,8 @@ export class Runtime {
 
       const pendingInjections = this.pendingInjections;
       let persistedCount = 0;
+      // Accumulate mid-turn injections so they persist across all subsequent steps
+      const midTurnMessages: { role: "user"; content: string }[] = [];
 
       const result = streamText({
         model,
@@ -262,27 +264,21 @@ export class Runtime {
         prepareStep: ({ messages, stepNumber }) => {
           if (stepNumber === 0 || !pendingInjections) return {};
 
+          // Collect new injections and add to persistent mid-turn list
           const injections = pendingInjections();
-          if (injections.length === 0) return {};
-
-          log("runtime", `prepareStep: injecting ${injections.length} same-channel message(s) at step ${stepNumber}`);
-
-          // Inject pending same-channel messages wrapped in <system-reminder>
-          const injectedMessages = injections.map((msg) => {
-            const text = typeof msg.content === "string" ? msg.content : extractText(msg.content);
-            return {
-              role: "user" as const,
-              content: `<system-reminder>\nThe user sent a new message while you were working:\n${text}\n\nPlease address this message and continue with your tasks.\n</system-reminder>`,
-            };
-          });
-
-          // Append to session so they persist
           for (const msg of injections) {
+            const text = typeof msg.content === "string" ? msg.content : extractText(msg.content);
+            midTurnMessages.push({ role: "user" as const, content: text });
+            // Persist to session JSONL
             this.session.append([{ role: "user", content: msg.content }]);
           }
 
+          if (midTurnMessages.length === 0) return {};
+
+          log("runtime", `prepareStep: injecting ${midTurnMessages.length} mid-turn message(s) at step ${stepNumber}`);
+
           return {
-            messages: [...messages, ...injectedMessages],
+            messages: [...messages, ...midTurnMessages],
           };
         },
       });
