@@ -111,18 +111,35 @@ export function useAgents(token: string | null) {
       // Skip if already connected
       if (sseRefs.current.has(key)) continue;
 
+      const IDLE_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+      let idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+      const resetIdle = () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        // Only set idle timeout for background agents
+        if (key !== activeRef.current) {
+          idleTimer = setTimeout(() => {
+            conn.close();
+            sseRefs.current.delete(key);
+          }, IDLE_TIMEOUT);
+        }
+      };
+
       const conn = api.connectSSE(state.agent.name, state.server.token, {
         onEvent(ev) {
+          resetIdle();
           if (ev.type === "text-delta" || ev.type === "finish") {
             setAgentStates((prev) => {
               const next = new Map(prev);
               const s = next.get(key);
               if (!s) return prev;
 
-              if (ev.type === "text-delta" && key !== activeRef.current) {
-                next.set(key, { ...s, thinking: false, unread: s.unread + (ev.text ? 1 : 0) });
+              if (ev.type === "text-delta") {
+                next.set(key, { ...s, thinking: true });
               } else if (ev.type === "finish") {
-                next.set(key, { ...s, thinking: false });
+                // Increment unread once per completed turn, not per delta
+                const unread = key !== activeRef.current ? s.unread + 1 : s.unread;
+                next.set(key, { ...s, thinking: false, unread });
               }
               return next;
             });
@@ -136,6 +153,7 @@ export function useAgents(token: string | null) {
           }
         },
         onConnect() {
+          resetIdle();
           setAgentStates((prev) => {
             const next = new Map(prev);
             const s = next.get(key);
@@ -144,6 +162,7 @@ export function useAgents(token: string | null) {
           });
         },
         onDisconnect() {
+          if (idleTimer) clearTimeout(idleTimer);
           sseRefs.current.delete(key);
           setAgentStates((prev) => {
             const next = new Map(prev);
@@ -154,6 +173,7 @@ export function useAgents(token: string | null) {
         },
       }, state.server.url);
 
+      resetIdle(); // Start idle timer for background agents
       sseRefs.current.set(key, conn);
     }
 

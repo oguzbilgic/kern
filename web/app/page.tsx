@@ -14,8 +14,9 @@ export default function Home() {
   const { token, setToken } = useAuth();
   const validToken = token ?? null;
   const { agents, activeAgent, activeState, active, setActive, addServer, removeServer } = useAgents(validToken);
-  const activeServerUrl = useMemo(() => activeState?.server?.url || undefined, [active]);
-  const { messages, streamParts, thinking, connected, status, send } = useAgent(activeAgent?.name ?? null, validToken, activeServerUrl);
+  const activeServerUrl = useMemo(() => activeState?.server?.url || undefined, [active, activeState?.server?.url]);
+  const activeToken = activeState?.server?.token || validToken;
+  const { messages, streamParts, thinking, connected, status, send } = useAgent(activeAgent?.name ?? null, activeToken, activeServerUrl);
 
   // Still checking auth state
   if (token === undefined) {
