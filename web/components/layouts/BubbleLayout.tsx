@@ -58,7 +58,7 @@ export function BubbleLayout({ messages, streamParts, thinking, agentName, token
             <div className={`rounded-lg px-3 py-2 text-sm leading-relaxed ${
               isUser ? "bg-[var(--bg-surface)] text-[#d4d4d4] rounded-br-sm"
                 : isIncoming ? "bg-[var(--bg-surface)] rounded-bl-sm"
-                  : "text-[var(--text)]"
+                  : "bg-[var(--bg-surface)] text-[var(--text)] rounded-bl-sm"
             }`}>
               <MessageBody msg={msg} />
             </div>
