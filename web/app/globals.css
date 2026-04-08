@@ -51,6 +51,10 @@ body {
 .markdown-body pre code {
   color: var(--text-dim);
 }
+.markdown-body pre code.hljs {
+  background: transparent;
+  padding: 0;
+}
 .markdown-body strong { font-weight: 600; }
 .markdown-body em { font-style: italic; }
 .markdown-body a {

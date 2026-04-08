@@ -10,6 +10,7 @@ import { Chat } from "../components/Chat";
 import { Input, fileToAttachment } from "../components/Input";
 import { Inspector } from "../components/Inspector";
 import { InfoPanel, PinnedStats } from "../components/InfoPanel";
+import { ThemePicker, usePreferences } from "../components/ThemePicker";
 import type { Attachment } from "../lib/types";
 
 export default function Home() {
@@ -19,6 +20,7 @@ export default function Home() {
   const { messages, streamParts, thinking, connected, status, send } = useAgent(activeAgent, { withHistory: true });
   const [dragOver, setDragOver] = useState(false);
   const [externalAttachments, setExternalAttachments] = useState<Attachment[]>([]);
+  const { prefs, setPrefs } = usePreferences();
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [pinned, setPinned] = useState<Set<string>>(() => {
@@ -152,12 +154,14 @@ export default function Home() {
             </button>
             <PinnedStats status={status} pinned={pinned} />
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            <ThemePicker prefs={prefs} onPrefsChange={setPrefs} />
             <button
               onClick={() => setInspectorOpen(true)}
-              className="px-2 py-1 text-xs rounded text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-surface)] transition-colors"
+              className="px-1.5 py-1 text-sm rounded text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-surface)] transition-colors leading-none cursor-pointer"
+              title="Memory"
             >
-              Memory
+              ⋮
             </button>
           </div>
         </div>
@@ -173,6 +177,9 @@ export default function Home() {
           thinking={thinking}
           agentName={activeAgent?.name}
           token={activeAgent?.token ?? undefined}
+          fullWidth={prefs.layout === "full"}
+          coloredTools={prefs.coloredTools}
+          peekLastTool={prefs.peekLastTool}
         />
 
         <Input
@@ -180,6 +187,7 @@ export default function Home() {
           disabled={!connected}
           externalAttachments={externalAttachments}
           onExternalConsumed={() => setExternalAttachments([])}
+          fullWidth={prefs.layout === "full"}
         />
       </div>
 

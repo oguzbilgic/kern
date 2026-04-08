@@ -14,6 +14,7 @@ interface InputProps {
   disabled?: boolean;
   externalAttachments?: Attachment[];
   onExternalConsumed?: () => void;
+  fullWidth?: boolean;
 }
 
 export function fileToAttachment(file: File): Promise<Attachment> {
@@ -42,7 +43,7 @@ export function fileToAttachment(file: File): Promise<Attachment> {
   });
 }
 
-export function Input({ onSend, disabled, externalAttachments, onExternalConsumed }: InputProps) {
+export function Input({ onSend, disabled, externalAttachments, onExternalConsumed, fullWidth }: InputProps) {
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [cmdFiltered, setCmdFiltered] = useState<typeof SLASH_COMMANDS>([]);
@@ -146,7 +147,7 @@ export function Input({ onSend, disabled, externalAttachments, onExternalConsume
       className="px-4 py-3 flex-shrink-0 flex justify-center"
       style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
     >
-    <div style={{ width: "100%", maxWidth: 800 }}>
+    <div style={{ width: "100%", maxWidth: fullWidth ? undefined : 800 }}>
       {/* Attachment previews */}
       {attachments.length > 0 && (
         <div className="flex gap-2 mb-2 flex-wrap">

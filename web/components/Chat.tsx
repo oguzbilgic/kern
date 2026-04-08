@@ -12,9 +12,12 @@ interface ChatProps {
   thinking: boolean;
   agentName?: string;
   token?: string;
+  fullWidth?: boolean;
+  coloredTools?: boolean;
+  peekLastTool?: boolean;
 }
 
-export function Chat({ messages, streamParts, thinking, agentName, token }: ChatProps) {
+export function Chat({ messages, streamParts, thinking, agentName, token, fullWidth, coloredTools = true, peekLastTool = true }: ChatProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
@@ -67,29 +70,37 @@ export function Chat({ messages, streamParts, thinking, agentName, token }: Chat
 
   const showDots = thinking;
 
+  // Find last tool call ID for peek feature
+  const allMsgs = [...messages, ...streamParts];
+  const lastToolId = peekLastTool
+    ? [...allMsgs].reverse().find((m) => m.role === "tool")?.id
+    : undefined;
+
   const renderMsg = (msg: ChatMessage) =>
     msg.role === "tool" ? (
-      <ToolCall key={msg.id} msg={msg} />
+      <ToolCall key={msg.id} msg={msg} colored={coloredTools} peek={msg.id === lastToolId} />
     ) : (
       <Message key={msg.id} msg={msg} agentName={agentName} token={token} />
     );
 
   return (
-    <div className="flex-1 overflow-hidden relative" style={{ maxWidth: 800, margin: "0 auto", width: "100%" }}>
+    <div className="flex-1 overflow-hidden relative">
       <div
         ref={containerRef}
         className="h-full overflow-y-auto px-4 py-4"
       >
-        {/* History messages */}
-        {messages.map(renderMsg)}
+        <div style={{ maxWidth: fullWidth ? undefined : 800, margin: "0 auto" }}>
+          {/* History messages */}
+          {messages.map(renderMsg)}
 
-        {/* Streaming parts */}
-        {streamParts.map(renderMsg)}
+          {/* Streaming parts */}
+          {streamParts.map(renderMsg)}
 
-        {/* Thinking indicator */}
-        {showDots && <ThinkingDots />}
+          {/* Thinking indicator */}
+          {showDots && <ThinkingDots />}
 
-        <div ref={bottomRef} />
+          <div ref={bottomRef} />
+        </div>
       </div>
 
       {/* Scroll-to-bottom button — positioned relative to chat container */}

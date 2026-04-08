@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { AgentInfo } from "../lib/types";
 import { useAgent } from "../hooks/useAgent";
 import { agentKey } from "../hooks/useServers";
@@ -13,44 +13,39 @@ function avatarColor(name: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-// Each agent row has its own light useAgent for SSE status
 function AgentRow({
   agent,
   isActive,
   activeThinking,
+  mini,
   onSelect,
 }: {
   agent: AgentInfo;
   isActive: boolean;
   activeThinking?: boolean;
+  mini: boolean;
   onSelect: () => void;
 }) {
-  // Active agent's useAgent is in page.tsx (withHistory: true).
-  // Skip light SSE here to avoid duplicate connection.
   const light = useAgent(isActive ? null : agent, { withHistory: false });
-
-  // Active agent gets thinking from props, background agents from light SSE
   const thinking = isActive ? activeThinking : light.thinking;
   const unread = isActive ? 0 : light.unread;
 
   return (
     <button
       onClick={onSelect}
-      className={`flex items-center gap-2.5 w-full px-2 py-1.5 rounded text-sm text-left transition-colors cursor-pointer ${
-        isActive
-          ? "bg-[var(--bg-surface)]"
-          : "hover:bg-[var(--bg-surface)]/50"
+      className={`flex items-center gap-2.5 w-full rounded-lg text-sm text-left transition-colors cursor-pointer px-2.5 py-2 mb-0.5 overflow-hidden ${
+        isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"
       } ${!agent.running ? "opacity-50" : ""}`}
+      title={mini ? agent.name : undefined}
     >
       {/* Avatar with status dot / unread badge */}
       <div className="relative flex-shrink-0">
         <div
-          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold uppercase"
+          className="w-10 h-10 rounded-full flex items-center justify-center text-[16px] font-bold uppercase"
           style={{ backgroundColor: avatarColor(agent.name), color: "#fff" }}
         >
           {agent.name[0]}
         </div>
-        {/* Unified dot: grows into unread badge, pulses when thinking, muted when offline */}
         {(thinking || !agent.running || (unread > 0 && !isActive)) && (
           <span
             className={`absolute flex items-center justify-center rounded-full border-2 border-[var(--bg-sidebar)] transition-all duration-200 ${
@@ -59,7 +54,7 @@ function AgentRow({
                 : "w-3 h-3 bottom-0 right-0"
             } ${
               thinking
-                ? "bg-[var(--accent)]" + " [animation:dot-pulse_1.5s_ease-in-out_infinite]"
+                ? "bg-[var(--accent)] [animation:dot-pulse_1.5s_ease-in-out_infinite]"
                 : unread > 0 && !isActive
                   ? ""
                   : "bg-[var(--text-muted)]"
@@ -70,9 +65,9 @@ function AgentRow({
         )}
       </div>
 
-      {/* Name */}
+      {/* Name — always rendered, clipped by overflow */}
       <div className="flex-1 min-w-0">
-        <span className="truncate">{agent.name}</span>
+        <span className="truncate whitespace-nowrap">{agent.name}</span>
       </div>
     </button>
   );
@@ -93,6 +88,37 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
   const [newUrl, setNewUrl] = useState("");
   const [newToken, setNewToken] = useState("");
 
+  // Mini/full state persisted in localStorage
+  const [mini, setMini] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("kern-sidebar-mini") === "true";
+  });
+  const [userSet, setUserSet] = useState(false); // track manual toggle
+
+  useEffect(() => {
+    localStorage.setItem("kern-sidebar-mini", String(mini));
+  }, [mini]);
+
+  // Manual toggle wrapper
+  function toggleMini() {
+    setUserSet(true);
+    setMini((m) => !m);
+  }
+
+  // Auto-collapse on narrow, auto-expand on wide — unless user manually toggled
+  useEffect(() => {
+    function check() {
+      if (window.innerWidth < 768) {
+        setMini(true);
+        setUserSet(false); // reset so widening will auto-expand
+      } else if (window.innerWidth >= 1024 && !userSet) {
+        setMini(false);
+      }
+    }
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [userSet]);
+
   // Group agents by server
   const grouped = new Map<string, AgentInfo[]>();
   for (const agent of agents) {
@@ -110,28 +136,35 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
   }
 
   return (
-    <div className="w-[200px] bg-[var(--bg-sidebar)] border-r border-[var(--border)] flex flex-col flex-shrink-0">
-      {/* Logo + logout */}
-      <div className="h-12 flex items-center justify-between px-4 border-b border-[var(--border)]">
-        <span className="text-sm font-semibold">
-          kern<span className="text-[var(--accent)]">.</span>
-        </span>
-        {onLogout && (
-          <button
-            onClick={onLogout}
-            className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-dim)] transition-colors"
-            title="Logout"
-          >
-            Logout
-          </button>
-        )}
+    <div
+      className="bg-[var(--bg-sidebar)] flex flex-col flex-shrink-0 transition-[width] duration-200 relative overflow-hidden"
+      style={{ width: mini ? 75 : 200 }}
+    >
+      {/* Right edge toggle strip */}
+      <div
+        onClick={toggleMini}
+        className="absolute top-0 right-0 w-[2px] h-full cursor-col-resize hover:bg-[var(--accent)] transition-colors duration-150 z-10"
+        style={{ background: "var(--border)" }}
+        title={mini ? "Expand sidebar" : "Collapse sidebar"}
+      />
+      {/* Header: logo toggles mini/full */}
+      <div className="h-12 flex items-center border-b border-[var(--border)] px-4 whitespace-nowrap">
+        <button
+          onClick={toggleMini}
+          className="cursor-pointer hover:opacity-80 transition-opacity"
+          title={mini ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <span className="text-sm font-semibold">
+            kern<span className="text-[var(--accent)]">.</span>
+          </span>
+        </button>
       </div>
 
-      {/* Agent list grouped by server */}
+      {/* Agent list */}
       <div className="flex-1 overflow-y-auto p-2">
         {Array.from(grouped.entries()).map(([server, serverAgents]) => (
-          <div key={server} className="mb-3">
-            {/* Server header — only show for remote servers */}
+          <div key={server} className="mb-1.5">
+            {/* Server header — only for remote, clips in mini */}
             {server !== "local" && (
               <div className="flex items-center justify-between px-2 mb-1">
                 <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider truncate">
@@ -155,6 +188,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
                   agent={agent}
                   isActive={key === active}
                   activeThinking={key === active ? activeThinking : undefined}
+                  mini={mini}
                   onSelect={() => onSelect(key)}
                 />
               );
@@ -167,17 +201,41 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
             No agents found.
           </div>
         )}
-      </div>
 
-      {/* Add server button */}
-      <div className="p-2 border-t border-[var(--border)]">
+        {/* Add server row — matches agent row style */}
         <button
           onClick={() => setShowAddModal(true)}
-          className="w-full text-xs text-[var(--text-muted)] hover:text-[var(--text-dim)] py-1.5 transition-colors"
+          className="flex items-center gap-2.5 w-full rounded-lg text-sm text-left transition-colors cursor-pointer px-2.5 py-2 mb-0.5 overflow-hidden hover:bg-white/[0.05]"
+          title="Add server"
         >
-          + Add server
+          <div className="relative flex-shrink-0">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center border border-dashed border-[var(--text-muted)]">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round">
+                <line x1="8" y1="4" x2="8" y2="12" />
+                <line x1="4" y1="8" x2="12" y2="8" />
+              </svg>
+            </div>
+          </div>
+          <span className="text-[var(--text-muted)] text-xs whitespace-nowrap">Add server</span>
         </button>
       </div>
+
+      {/* Footer: logout */}
+      {onLogout && (
+        <div className="py-2 px-4 border-t border-[var(--border)] flex justify-end">
+          <button
+            onClick={onLogout}
+            className="text-[var(--text-muted)] hover:text-[var(--text-dim)] transition-colors cursor-pointer"
+            title="Logout"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M6 2H4a2 2 0 00-2 2v8a2 2 0 002 2h2" />
+              <path d="M10 11l3-3-3-3" />
+              <line x1="6" y1="8" x2="13" y2="8" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Add server modal */}
       {showAddModal && (
