@@ -11,6 +11,7 @@ import { Input, fileToAttachment } from "../components/Input";
 import { Inspector } from "../components/Inspector";
 import { InfoPanel, PinnedStats } from "../components/InfoPanel";
 import { ThemePicker, usePreferences } from "../components/ThemePicker";
+import { ThinkingDots } from "../components/ThinkingDots";
 import type { Attachment } from "../lib/types";
 
 export default function Home() {
@@ -182,6 +183,12 @@ export default function Home() {
           coloredTools={prefs.coloredTools}
           peekLastTool={prefs.peekLastTool}
         />
+
+        {thinking && (
+          <div style={{ maxWidth: prefs.chatLayout === "flat" ? undefined : 800, margin: "0 auto", width: "100%", paddingLeft: prefs.chatLayout === "flat" ? 42 : 16, paddingRight: 16 }}>
+            <ThinkingDots agentName={prefs.chatLayout === "flat" ? activeAgent?.name : undefined} />
+          </div>
+        )}
 
         <Input
           onSend={(text: string, attachments?: Attachment[]) => send(text, attachments)}

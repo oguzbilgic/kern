@@ -5,7 +5,6 @@ import { analyzeMessage, formatTime, getChannelInfo } from "../../lib/messages";
 import { avatarColor } from "../../lib/colors";
 import { SpecialMessage, MediaAttachments, MessageBody } from "../MessageContent";
 import { ToolCall } from "../ToolCall";
-import { ThinkingDots } from "../ThinkingDots";
 import { ScrollToBottom } from "../ScrollToBottom";
 import { useChat } from "../../hooks/useChat";
 
@@ -108,7 +107,6 @@ export function FlatLayout({ messages, streamParts, thinking, agentName, token, 
       <div ref={containerRef} className="h-full overflow-y-auto px-4 pt-4 pb-1">
         <div className="flex flex-col gap-2">
           {allMsgs.map(renderMsg)}
-          {showDots && <div className="pl-[42px]"><ThinkingDots agentName={agentName} /></div>}
           <div ref={bottomRef} />
         </div>
       </div>

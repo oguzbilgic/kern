@@ -5,7 +5,6 @@ import type { MessageGroupInfo } from "../../lib/messages";
 import { analyzeMessage, formatTime } from "../../lib/messages";
 import { SpecialMessage, MediaAttachments, MessageBody } from "../MessageContent";
 import { ToolCall } from "../ToolCall";
-import { ThinkingDots } from "../ThinkingDots";
 import { ScrollToBottom } from "../ScrollToBottom";
 import { useChat } from "../../hooks/useChat";
 
@@ -79,7 +78,6 @@ export function BubbleLayout({ messages, streamParts, thinking, agentName, token
       <div ref={containerRef} className="h-full overflow-y-auto px-4 pt-4 pb-1">
         <div className="flex flex-col gap-2" style={{ maxWidth: 800, margin: "0 auto", paddingLeft: 16, paddingRight: 16 }}>
           {allMsgs.map(renderMsg)}
-          {showDots && <ThinkingDots />}
           <div ref={bottomRef} />
         </div>
       </div>
