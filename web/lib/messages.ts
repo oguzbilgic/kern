@@ -1,6 +1,6 @@
 // Message parsing and transformation utilities
 
-import type { HistoryMessage, ChatMessage, ParsedUserMessage, ContentPart } from "./types";
+import type { HistoryMessage, ChatMessage, ParsedUserMessage, ContentPart, MediaItem } from "./types";
 
 let msgCounter = 0;
 
@@ -38,6 +38,23 @@ function extractText(content: string | ContentPart[]): string {
     .join("\n");
 }
 
+function extractMedia(content: string | ContentPart[]): MediaItem[] {
+  if (!Array.isArray(content)) return [];
+  const items: MediaItem[] = [];
+  for (const p of content) {
+    if (p.type === "image") {
+      const ref = p.image;
+      const file = ref?.startsWith("kern-media://") ? ref.slice("kern-media://".length) : null;
+      if (file) items.push({ type: "image", url: file, filename: p.filename });
+    } else if (p.type === "file") {
+      const ref = typeof p.data === "string" ? p.data : undefined;
+      const file = ref?.startsWith("kern-media://") ? ref.slice("kern-media://".length) : null;
+      if (file) items.push({ type: "file", url: file, filename: p.filename });
+    }
+  }
+  return items;
+}
+
 function extractToolResultOutput(part: ContentPart): string {
   const output = part.output;
   if (!output) return part.text || "";
@@ -71,6 +88,7 @@ export function historyToMessages(history: HistoryMessage[]): ChatMessage[] {
     if (msg.role === "user") {
       const text = extractText(content);
       const parsed = parseUserContent(text);
+      const media = extractMedia(content);
       if (parsed.type === "heartbeat") {
         messages.push({
           id: `msg-${msgCounter++}`,
@@ -87,6 +105,7 @@ export function historyToMessages(history: HistoryMessage[]): ChatMessage[] {
           meta: parsed.meta,
           timestamp: parsed.timestamp,
           iface: parsed.iface,
+          ...(media.length > 0 && { media }),
         });
       } else {
         messages.push({
@@ -95,6 +114,7 @@ export function historyToMessages(history: HistoryMessage[]): ChatMessage[] {
           text: parsed.text,
           timestamp: parsed.timestamp,
           iface: parsed.iface,
+          ...(media.length > 0 && { media }),
         });
       }
       continue;

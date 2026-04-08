@@ -53,6 +53,7 @@ export interface StatusData {
 export interface ContentPart {
   type: "text" | "image" | "file" | "tool-call" | "tool-result";
   text?: string;
+  image?: string;
   data?: string;
   mimeType?: string;
   filename?: string;
@@ -92,14 +93,22 @@ export interface ParsedUserMessage {
   iface?: string;
 }
 
+export interface MediaItem {
+  type: "image" | "file";
+  url: string;
+  filename?: string;
+}
+
 // A rendered message block in the chat UI
 export interface ChatMessage {
   id: string;
-  role: "user" | "assistant" | "tool" | "heartbeat" | "incoming" | "error";
+  role: "user" | "assistant" | "tool" | "heartbeat" | "incoming" | "error" | "command";
   text: string;
   timestamp?: string | null;
   iface?: string;
   meta?: string;
+  // Media
+  media?: MediaItem[];
   // Tool fields
   toolName?: string;
   toolInput?: Record<string, unknown>;

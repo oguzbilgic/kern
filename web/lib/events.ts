@@ -130,7 +130,7 @@ export function processStreamEvent(
     case "command-result":
       result.append.push({
         id: `cmd-${Date.now()}`,
-        role: "assistant",
+        role: "command",
         text: ev.text,
         meta: `/${ev.command}`,
       });

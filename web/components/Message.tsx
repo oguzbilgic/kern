@@ -1,11 +1,41 @@
 "use client";
 
-import type { ChatMessage } from "../lib/types";
+import type { ChatMessage, MediaItem } from "../lib/types";
 import { renderMarkdown } from "../lib/markdown";
 import { isEmojiOnly, formatTime } from "../lib/messages";
 import { ToolCall } from "./ToolCall";
 
-export function Message({ msg }: { msg: ChatMessage }) {
+function MediaAttachments({ media, agentName, token }: { media: MediaItem[]; agentName?: string; token?: string }) {
+  if (!media.length || !agentName) return null;
+  const qs = token ? `?token=${token}` : "";
+  return (
+    <div className="flex flex-wrap gap-2 mt-1">
+      {media.map((m, i) =>
+        m.type === "image" ? (
+          <img
+            key={i}
+            src={`/api/agents/${agentName}/media/${m.url}${qs}`}
+            alt={m.filename || m.url}
+            className="rounded-lg max-w-[280px] max-h-[280px] object-cover border border-[var(--border)]"
+            loading="lazy"
+          />
+        ) : (
+          <a
+            key={i}
+            href={`/api/agents/${agentName}/media/${m.url}${qs}`}
+            target="_blank"
+            rel="noopener"
+            className="flex items-center gap-1.5 text-xs text-[var(--accent)] bg-[var(--bg-surface)] rounded-lg px-3 py-2 border border-[var(--border)] hover:opacity-80"
+          >
+            📎 {m.filename || m.url}
+          </a>
+        )
+      )}
+    </div>
+  );
+}
+
+export function Message({ msg, agentName, token }: { msg: ChatMessage; agentName?: string; token?: string }) {
   if (msg.role === "tool") {
     return <ToolCall msg={msg} />;
   }
@@ -25,6 +55,24 @@ export function Message({ msg }: { msg: ChatMessage }) {
       <div className="flex justify-start mb-2">
         <div className="rounded-lg px-3 py-2 text-sm bg-red-900/30 text-[var(--red)] max-w-[80%]">
           {msg.text}
+        </div>
+      </div>
+    );
+  }
+
+  if (msg.role === "command") {
+    return (
+      <div className="flex justify-start mb-2">
+        <div className="flex flex-col max-w-[90%]">
+          {msg.meta && (
+            <div className="text-[10px] text-[var(--text-muted)] mb-0.5">{msg.meta}</div>
+          )}
+          <div
+            className="text-xs font-mono text-[var(--text-dim)] whitespace-pre-wrap px-3 py-2 border-l-[3px] border-[var(--green)]"
+            style={{ background: "var(--bg-surface)" }}
+          >
+            {msg.text}
+          </div>
         </div>
       </div>
     );
@@ -55,27 +103,34 @@ export function Message({ msg }: { msg: ChatMessage }) {
           </div>
         )}
 
+        {/* Media attachments */}
+        {msg.media && msg.media.length > 0 && (
+          <MediaAttachments media={msg.media} agentName={agentName} token={token} />
+        )}
+
         {/* Message bubble */}
-        <div
-          className={`rounded-lg px-3 py-2 text-sm leading-relaxed ${
-            emoji
-              ? "text-4xl bg-transparent"
-              : isUser
-                ? "bg-[var(--user-bg)] text-white rounded-br-sm"
-                : isIncoming
-                  ? "bg-[var(--bg-surface)] rounded-bl-sm"
-                  : "text-[var(--text)]"
-          }`}
-        >
-          {msg.role === "assistant" ? (
-            <div
-              className="markdown-body"
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.text) }}
-            />
-          ) : (
-            <span className="whitespace-pre-wrap">{msg.text}</span>
-          )}
-        </div>
+        {(msg.text || !msg.media?.length) && (
+          <div
+            className={`rounded-lg px-3 py-2 text-sm leading-relaxed ${
+              emoji
+                ? "text-4xl bg-transparent"
+                : isUser
+                  ? "bg-[var(--user-bg)] text-white rounded-br-sm"
+                  : isIncoming
+                    ? "bg-[var(--bg-surface)] rounded-bl-sm"
+                    : "text-[var(--text)]"
+            }`}
+          >
+            {msg.role === "assistant" ? (
+              <div
+                className="markdown-body"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.text) }}
+              />
+            ) : (
+              <span className="whitespace-pre-wrap">{msg.text}</span>
+            )}
+          </div>
+        )}
 
         {/* Timestamp */}
         {msg.timestamp && (

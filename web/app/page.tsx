@@ -66,6 +66,8 @@ export default function Home() {
           messages={messages}
           streamParts={streamParts}
           thinking={thinking}
+          agentName={activeAgent?.name}
+          token={token ?? undefined}
         />
 
         <Input

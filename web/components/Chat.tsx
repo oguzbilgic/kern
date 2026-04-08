@@ -11,9 +11,11 @@ interface ChatProps {
   messages: ChatMessage[];
   streamParts: ChatMessage[];
   thinking: boolean;
+  agentName?: string;
+  token?: string;
 }
 
-export function Chat({ messages, streamParts, thinking }: ChatProps) {
+export function Chat({ messages, streamParts, thinking, agentName, token }: ChatProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
@@ -54,10 +56,16 @@ export function Chat({ messages, streamParts, thinking }: ChatProps) {
   }, [messages, streamParts, thinking]);
 
   // Show dots when thinking AND the last stream part isn't assistant text
-  // (hide dots only while text is actively streaming, show during tool phases)
   const lastPart = streamParts[streamParts.length - 1];
   const isStreamingText = lastPart?.role === "assistant" && lastPart.text.length > 0;
   const showDots = thinking && !isStreamingText;
+
+  const renderMsg = (msg: ChatMessage) =>
+    msg.role === "tool" ? (
+      <ToolCall key={msg.id} msg={msg} />
+    ) : (
+      <Message key={msg.id} msg={msg} agentName={agentName} token={token} />
+    );
 
   return (
     <div
@@ -66,13 +74,7 @@ export function Chat({ messages, streamParts, thinking }: ChatProps) {
       style={{ maxWidth: 800, margin: "0 auto", width: "100%" }}
     >
       {/* History messages */}
-      {messages.map((msg) =>
-        msg.role === "tool" ? (
-          <ToolCall key={msg.id} msg={msg} />
-        ) : (
-          <Message key={msg.id} msg={msg} />
-        )
-      )}
+      {messages.map(renderMsg)}
 
       {/* Streaming parts — rendered in order (interleaved text + tools) */}
       {streamParts.map((part) =>
@@ -92,7 +94,7 @@ export function Chat({ messages, streamParts, thinking }: ChatProps) {
         ) : null
       )}
 
-      {/* Thinking indicator — visible when busy and no text streaming */}
+      {/* Thinking indicator */}
       {showDots && <ThinkingDots />}
 
       <div ref={bottomRef} />
