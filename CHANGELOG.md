@@ -1,5 +1,31 @@
 # Changelog
 
+## next
+
+### Features
+- **New web UI** ([#92](https://github.com/oguzbilgic/kern-ai/pull/92)) — complete rewrite from vanilla JS to React/Next.js + TypeScript + Tailwind
+  - **Two chat layouts**: Bubble (iMessage-style) and Flat (Slack-style with avatars, usernames, and message grouping)
+  - **Activity narration** — thinking indicator shows what the agent is doing in real time ("running command", "editing file", "searching the web") with animated transitions and hover tooltip showing details
+  - **User preferences** — toggle chat layout, show/hide tool calls, colored tool names, peek last tool output, code theme picker (11 dark themes loaded from CDN)
+  - **Tool call UI** — expand/collapse tool output, syntax highlighting for code, inline diffs for edits, formatted bash commands with prompt styling
+  - **Memory inspector** — 6-tab overlay (Sessions, Segments, Notes, Recall, Media, Context) with remote server support
+  - **Agent info panel** — click agent name to see full status; pin fields to header for at-a-glance monitoring
+  - **Media rendering** — inline images, file links, drag-and-drop upload with preview
+  - **Slash command autocomplete** — type `/` for popup with keyboard navigation and instant send
+  - Channel-specific avatars and colors for Telegram, Slack, and Hub messages in Flat layout
+  - Heartbeat and NO_REPLY messages styled subtly — dimmed, no message body in Flat layout
+  - Emoji-only messages render large without bubble background
+  - Scroll-to-bottom button appears on manual scroll-up
+  - KernBridge API preserved for desktop app and Android WebView
+
+### Improvements
+- Modular component architecture — hooks for agent state, server discovery, auth, chat scroll, and preferences; layouts share business logic via shared hooks and message parsing
+- Sidebar squircle avatars with uniform padding
+- Mid-turn message ordering — incoming messages buffered into stream during active agent turns
+
+### Removed
+- Legacy `templates/web/` (5800-line single HTML file) replaced entirely by `web/` Next.js app
+
 ## v0.22.0
 
 ### Features
