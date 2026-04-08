@@ -326,9 +326,6 @@ export function ToolCall({ msg, colored = true, peek = false }: { msg: ChatMessa
   const color = colored ? (TOOL_COLORS[msg.toolName || ""] || "#e6edf3") : "#e6edf3";
   const isOpen = expanded || peek;
 
-  // Bash tool gets special styling — show as code block
-  const isBash = msg.toolName === "bash";
-
   return (
     <div>
       {/* Tool header — clickable */}
@@ -346,11 +343,7 @@ export function ToolCall({ msg, colored = true, peek = false }: { msg: ChatMessa
 
       {/* Expanded output */}
       {isOpen && msg.toolOutput && (
-        <div className={`mt-1 ml-4 max-h-[400px] overflow-auto rounded font-mono ${
-          isBash
-            ? "bg-[#161616] p-3 text-xs"
-            : "border-l-2 border-[var(--border)] pl-3 py-1 text-xs"
-        }`}>
+        <div className="mt-1 ml-4 max-h-[400px] overflow-auto rounded font-mono bg-[#161616] p-3 text-xs">
           {renderToolOutput(msg)}
         </div>
       )}
