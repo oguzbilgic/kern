@@ -241,23 +241,18 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
     async (text: string, attachments?: Attachment[]) => {
       if (!agentName) return;
 
-      const isSlash = text.startsWith("/");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `msg-${Date.now()}`,
+          role: "user",
+          text,
+          timestamp: new Date().toISOString(),
+          iface: "web",
+        },
+      ]);
 
-      // Slash commands don't show as user messages — they get command-result events back
-      if (!isSlash) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `msg-${Date.now()}`,
-            role: "user",
-            text,
-            timestamp: new Date().toISOString(),
-            iface: "web",
-          },
-        ]);
-      }
-
-      setThinking(!isSlash);
+      setThinking(!text.startsWith("/"));
 
       await api.sendMessage(agentName, token, text, {
         connectionId: sseRef.current?.connectionId,
