@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #1a1a1a;
+  --bg-surface: #252525;
+  --bg-sidebar: #141414;
+  --bg-input: #1a1a1a;
+  --border: #2a2a2a;
+  --text: #ededed;
+  --text-dim: #a0a0a0;
+  --text-muted: #707070;
+  --accent: #58a6ff;
+  --accent-dim: #1f6feb;
+  --green: #12c905;
+  --red: #fc533a;
+  --orange: #fcd53a;
+  --user-bg: #0d419d;
+  --font-mono: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
+}
+
+* {
+  scrollbar-color: var(--border) transparent;
+  scrollbar-width: thin;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+}

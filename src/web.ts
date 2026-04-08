@@ -119,35 +119,45 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
-  // Web UI
-  if (url === "/" && req.method === "GET") {
-    const webUiPath = join(import.meta.dirname, "..", "templates", "web", "index.html");
-    if (existsSync(webUiPath)) {
-      const html = await readFile(webUiPath, "utf-8");
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      res.end(html);
-    } else {
-      res.writeHead(500, { "Content-Type": "text/plain" });
-      res.end("Web UI not found. Check kern installation.");
-    }
-    return;
-  }
+  // Static file serving — Next.js static export from web/out/
+  // Falls back to templates/web/ for legacy single-file UI
+  const STATIC_MIME: Record<string, string> = {
+    ".html": "text/html", ".css": "text/css", ".js": "application/javascript",
+    ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png",
+    ".ico": "image/x-icon", ".txt": "text/plain", ".woff2": "font/woff2",
+  };
 
-  // Static files (PWA, CSS, JS)
-  const MIME: Record<string, string> = { ".css": "text/css", ".js": "application/javascript", ".json": "application/manifest+json", ".svg": "image/svg+xml" };
-  if (req.method === "GET" && (staticFiles[url] || url.startsWith("/css/") || url.startsWith("/js/"))) {
-    const ext = url.substring(url.lastIndexOf("."));
-    const contentType = staticFiles[url]?.contentType ?? MIME[ext];
-    if (!contentType || url.includes("..")) { res.writeHead(404); res.end(); return; }
-    const file = staticFiles[url]?.file ?? url.slice(1); // e.g. "css/base.css"
-    const filePath = join(import.meta.dirname, "..", "templates", "web", file);
+  if (req.method === "GET" && !url.startsWith("/api/")) {
+    // Try Next.js static export first, then legacy templates/web/
+    const nextOutDir = join(import.meta.dirname, "..", "web", "out");
+    const legacyDir = join(import.meta.dirname, "..", "templates", "web");
+    const serveDir = existsSync(nextOutDir) ? nextOutDir : legacyDir;
+
+    let filePath: string;
+    if (url === "/") {
+      filePath = join(serveDir, "index.html");
+    } else if (url.includes("..")) {
+      res.writeHead(403); res.end(); return;
+    } else {
+      filePath = join(serveDir, url);
+    }
+
     if (existsSync(filePath)) {
-      const content = await readFile(filePath, "utf-8");
-      res.writeHead(200, { "Content-Type": `${contentType}; charset=utf-8` });
+      const ext = filePath.substring(filePath.lastIndexOf("."));
+      const contentType = STATIC_MIME[ext] ?? "application/octet-stream";
+      const content = await readFile(filePath);
+      res.writeHead(200, { "Content-Type": contentType });
       res.end(content);
     } else {
-      res.writeHead(404);
-      res.end();
+      // SPA fallback — serve index.html for client-side routing
+      const indexPath = join(serveDir, "index.html");
+      if (existsSync(indexPath)) {
+        const html = await readFile(indexPath);
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end(html);
+      } else {
+        res.writeHead(404); res.end();
+      }
     }
     return;
   }
