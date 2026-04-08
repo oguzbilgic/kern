@@ -18,7 +18,6 @@ const THEMES = [
 
 const CDN = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles";
 const STORAGE_KEY = "kern-hljs-theme";
-const LAYOUT_KEY = "kern-chat-layout";
 const DEFAULT_THEME = "github-dark-dimmed";
 
 function loadTheme(theme: string) {
@@ -33,19 +32,17 @@ function loadTheme(theme: string) {
   link.href = `${CDN}/${theme}.min.css`;
 }
 
-export type ChatLayout = "constrained" | "full";
+export type ChatLayout = "chat" | "slack";
 
 export interface Preferences {
-  layout: ChatLayout;
-  alignLeft: boolean;
+  chatLayout: ChatLayout;
   coloredTools: boolean;
   peekLastTool: boolean;
   showTools: boolean;
 }
 
 const PREFS_DEFAULTS: Preferences = {
-  layout: "constrained",
-  alignLeft: false,
+  chatLayout: "chat",
   coloredTools: true,
   peekLastTool: true,
   showTools: true,
@@ -101,7 +98,7 @@ export function ThemePicker({ prefs, onPrefsChange }: { prefs: Preferences; onPr
       <button
         onClick={() => setOpen((v) => !v)}
         className="px-1.5 py-1 text-sm rounded text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-surface)] transition-colors leading-none cursor-pointer"
-        title="Code theme"
+        title="Preferences"
       >
         ◐
       </button>
@@ -110,23 +107,17 @@ export function ThemePicker({ prefs, onPrefsChange }: { prefs: Preferences; onPr
           <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
             Layout
           </div>
-          {(["constrained", "full"] as const).map((l) => (
+          {([["chat", "Chat"], ["slack", "Slack"]] as const).map(([key, label]) => (
             <button
-              key={l}
-              onClick={() => onPrefsChange({ layout: l })}
+              key={key}
+              onClick={() => onPrefsChange({ chatLayout: key })}
               className={`w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--border)] transition-colors cursor-pointer ${
-                l === prefs.layout ? "text-[var(--accent)]" : "text-[var(--text-dim)]"
+                key === prefs.chatLayout ? "text-[var(--accent)]" : "text-[var(--text-dim)]"
               }`}
             >
-              {l === prefs.layout && "● "}{l === "constrained" ? "Constrained (800px)" : "Full width"}
+              {key === prefs.chatLayout && "● "}{label}
             </button>
           ))}
-          <button
-            onClick={() => onPrefsChange({ alignLeft: !prefs.alignLeft })}
-            className="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--border)] transition-colors cursor-pointer text-[var(--text-dim)]"
-          >
-            {prefs.alignLeft ? "●" : "○"} Align all messages left
-          </button>
           <div className="border-t border-[var(--border)] my-1" />
           <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
             Tools

@@ -213,3 +213,69 @@ export function formatTime(isoString: string | null | undefined): string {
     return "";
   }
 }
+
+// Parsed message props — all the business logic about a message, no rendering
+export interface MessageProps {
+  msg: ChatMessage;
+  isUser: boolean;
+  isAssistant: boolean;
+  isIncoming: boolean;
+  isHeartbeat: boolean;
+  isCommand: boolean;
+  isError: boolean;
+  isNoReply: boolean;
+  isEmoji: boolean;
+  senderName: string;
+  initials: string;
+}
+
+export function analyzeMessage(msg: ChatMessage, agentName?: string): MessageProps {
+  const isUser = msg.role === "user";
+  const isAssistant = msg.role === "assistant";
+  const isIncoming = msg.role === "incoming";
+  const isHeartbeat = msg.role === "heartbeat";
+  const isCommand = msg.role === "command";
+  const isError = msg.role === "error";
+  const isNoReply = isAssistant && (
+    msg.text === "NO_REPLY" ||
+    msg.text === "(no text response)" ||
+    !msg.text?.trim()
+  );
+  const isEmoji = isUser && isEmojiOnly(msg.text);
+  const senderName = isUser ? "You" : isIncoming ? (msg.meta || "incoming") : (agentName || "Agent");
+  const initials = senderName.charAt(0).toUpperCase();
+
+  return { msg, isUser, isAssistant, isIncoming, isHeartbeat, isCommand, isError, isNoReply, isEmoji, senderName, initials };
+}
+
+// Compute continuation and tool-header flags for a message list
+export interface MessageGroupInfo {
+  continuation: boolean;
+  needsAgentHeader: boolean;
+}
+
+export function computeGroups(msgs: ChatMessage[], showTools: boolean): Map<string, MessageGroupInfo> {
+  const result = new Map<string, MessageGroupInfo>();
+  let prevVisibleRole: string | null = null;
+
+  for (const msg of msgs) {
+    if (msg.role === "tool" && !showTools) {
+      result.set(msg.id, { continuation: false, needsAgentHeader: false });
+      continue;
+    }
+
+    if (msg.role === "tool") {
+      const needsAgentHeader = prevVisibleRole !== "assistant";
+      prevVisibleRole = "assistant";
+      result.set(msg.id, { continuation: false, needsAgentHeader });
+      continue;
+    }
+
+    const role = msg.role;
+    const continuation = role === prevVisibleRole;
+    prevVisibleRole = role;
+    result.set(msg.id, { continuation, needsAgentHeader: false });
+  }
+
+  return result;
+}

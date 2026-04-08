@@ -177,8 +177,7 @@ export default function Home() {
           thinking={thinking}
           agentName={activeAgent?.name}
           token={activeAgent?.token ?? undefined}
-          fullWidth={prefs.layout === "full"}
-          alignLeft={prefs.alignLeft}
+          layout={prefs.chatLayout}
           showTools={prefs.showTools}
           coloredTools={prefs.coloredTools}
           peekLastTool={prefs.peekLastTool}
@@ -189,7 +188,7 @@ export default function Home() {
           disabled={!connected}
           externalAttachments={externalAttachments}
           onExternalConsumed={() => setExternalAttachments([])}
-          fullWidth={prefs.layout === "full"}
+          fullWidth={prefs.chatLayout === "slack"}
         />
       </div>
 
