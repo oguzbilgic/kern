@@ -7,6 +7,9 @@ import { parseUserContent } from "./messages";
  * Process an SSE event against the current streaming parts buffer.
  * Returns updated parts array and any messages to append to history.
  * Pure function — caller manages React state.
+ *
+ * Note: thinking state is NOT managed here. The caller (useAgent)
+ * handles thinking based on event types directly.
  */
 export function processStreamEvent(
   ev: StreamEvent,
@@ -14,19 +17,16 @@ export function processStreamEvent(
 ): {
   parts: ChatMessage[];
   append: ChatMessage[];
-  thinking: boolean | null; // null = no change
   flush: boolean;
 } {
   const result = {
     parts: [...parts],
     append: [] as ChatMessage[],
-    thinking: null as boolean | null,
     flush: false,
   };
 
   switch (ev.type) {
     case "thinking":
-      result.thinking = true;
       break;
 
     case "text-delta": {
@@ -40,7 +40,6 @@ export function processStreamEvent(
           text: ev.text,
         });
       }
-      result.thinking = false;
       break;
     }
 
@@ -53,7 +52,6 @@ export function processStreamEvent(
         toolInput: ev.toolInput,
         streaming: true,
       });
-      result.thinking = true;
       break;
 
     case "tool-result": {
@@ -67,7 +65,6 @@ export function processStreamEvent(
           break;
         }
       }
-      result.thinking = true;
       break;
     }
 
@@ -86,7 +83,6 @@ export function processStreamEvent(
         (p) => p.role === "tool" || (p.role === "assistant" && p.text.trim())
       );
       result.parts = [];
-      result.thinking = false;
       result.flush = true;
       break;
     }
@@ -146,7 +142,6 @@ export function processStreamEvent(
         role: "error",
         text: ev.error,
       });
-      result.thinking = false;
       result.parts = [];
       break;
   }

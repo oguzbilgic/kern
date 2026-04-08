@@ -53,7 +53,9 @@ export function Chat({ messages, streamParts, thinking }: ChatProps) {
     });
   }, [messages, streamParts, thinking]);
 
-  const isStreaming = streamParts.length > 0 || thinking;
+  // Show dots when thinking AND no text is currently streaming
+  const hasStreamingText = streamParts.some((p) => p.role === "assistant" && p.text);
+  const showDots = thinking && !hasStreamingText;
 
   return (
     <div
@@ -86,8 +88,8 @@ export function Chat({ messages, streamParts, thinking }: ChatProps) {
         ) : null
       )}
 
-      {/* Thinking indicator — visible whenever agent is busy and not actively streaming text */}
-      {thinking && <ThinkingDots />}
+      {/* Thinking indicator — visible when busy and no text streaming */}
+      {showDots && <ThinkingDots />}
 
       <div ref={bottomRef} />
     </div>

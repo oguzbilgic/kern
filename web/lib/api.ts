@@ -1,7 +1,7 @@
 // Pure API functions — no React, no state
 // All agent requests go through the web proxy: /api/agents/{name}/*
 
-import type { Agent, StreamEvent, StatusData, HistoryMessage, Attachment } from "./types";
+import type { StreamEvent, StatusData, HistoryMessage, Attachment } from "./types";
 
 function headers(token?: string | null): Record<string, string> {
   const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -37,6 +37,7 @@ export function connectSSE(
     : `${base}/events`;
   const es = new EventSource(url);
   let connectionId: string | null = null;
+  let closed = false;
 
   es.onopen = () => {
     callbacks.onConnect?.();
@@ -53,19 +54,30 @@ export function connectSSE(
     } catch { /* ignore */ }
   };
 
+  // Let EventSource auto-reconnect on transient errors.
+  // Only call onDisconnect so UI can show status, but don't close.
   es.onerror = () => {
-    es.close();
-    callbacks.onDisconnect?.();
+    if (!closed) {
+      callbacks.onDisconnect?.();
+    }
   };
 
   return {
-    close() { es.close(); callbacks.onDisconnect?.(); },
+    close() {
+      closed = true;
+      es.close();
+    },
     get connectionId() { return connectionId; },
   };
 }
 
-// Discovery
-export async function fetchAgents(token?: string | null, serverUrl?: string): Promise<Agent[]> {
+// Discovery — returns raw agent list from a server
+export interface RawAgent {
+  name: string;
+  running: boolean;
+}
+
+export async function fetchAgents(token?: string | null, serverUrl?: string): Promise<RawAgent[]> {
   const base = serverUrl || "";
   const res = await fetch(`${base}/api/agents`, { headers: headers(token) });
   if (!res.ok) return [];

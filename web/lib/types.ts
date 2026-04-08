@@ -1,9 +1,10 @@
 // Shared type definitions
 
-export interface Agent {
+export interface AgentInfo {
   name: string;
   running: boolean;
-  server?: string;
+  serverUrl?: string; // undefined = local proxy
+  token: string;
 }
 
 export interface ServerConfig {
@@ -106,13 +107,4 @@ export interface ChatMessage {
   toolCallId?: string;
   // Streaming
   streaming?: boolean;
-}
-
-// Agent state tracked by useServers for sidebar
-export interface AgentState {
-  agent: Agent;
-  server: ServerConfig;
-  online: boolean;
-  thinking: boolean;
-  unread: number;
 }

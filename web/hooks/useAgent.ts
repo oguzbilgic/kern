@@ -1,41 +1,64 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { ChatMessage, StreamEvent, Attachment, StatusData } from "../lib/types";
+import type { AgentInfo, ChatMessage, StreamEvent, Attachment, StatusData } from "../lib/types";
 import * as api from "../lib/api";
 import { historyToMessages } from "../lib/messages";
 import { processStreamEvent } from "../lib/events";
 
-interface UseAgentReturn {
+export interface AgentState {
   messages: ChatMessage[];
   streamParts: ChatMessage[];
   thinking: boolean;
   connected: boolean;
+  unread: number;
   status: StatusData | null;
   send: (text: string, attachments?: Attachment[]) => Promise<void>;
 }
 
-export function useAgent(agentName: string | null, token: string | null, serverUrl?: string): UseAgentReturn {
+const NOOP_SEND = async () => {};
+
+const EMPTY_STATE: AgentState = {
+  messages: [],
+  streamParts: [],
+  thinking: false,
+  connected: false,
+  unread: 0,
+  status: null,
+  send: NOOP_SEND,
+};
+
+export function useAgent(
+  agent: AgentInfo | null,
+  opts: { withHistory: boolean } = { withHistory: false }
+): AgentState {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streamParts, setStreamParts] = useState<ChatMessage[]>([]);
   const [thinking, setThinking] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [unread, setUnread] = useState(0);
   const [status, setStatus] = useState<StatusData | null>(null);
+
   const sseRef = useRef<api.SSEConnection | null>(null);
   const partsRef = useRef<ChatMessage[]>([]);
+  // Track if we're in an active turn (between thinking/tool and finish)
+  const inTurnRef = useRef(false);
 
-  const baseUrl = serverUrl || "";
+  const name = agent?.name ?? null;
+  const token = agent?.token ?? null;
+  const serverUrl = agent?.serverUrl;
+  const withHistory = opts.withHistory;
 
-  // Load history + status on agent change
+  // Load history + status on agent change (only when withHistory)
   useEffect(() => {
-    if (!agentName) return;
+    if (!name || !withHistory) return;
     let cancelled = false;
 
     async function load() {
       try {
         const [history, statusData] = await Promise.all([
-          api.getHistory(agentName!, token, 100, baseUrl || undefined),
-          api.getStatus(agentName!, token, baseUrl || undefined),
+          api.getHistory(name!, token, 100, serverUrl),
+          api.getStatus(name!, token, serverUrl),
         ]);
         if (cancelled) return;
         setMessages(historyToMessages(history));
@@ -44,6 +67,7 @@ export function useAgent(agentName: string | null, token: string | null, serverU
         // Detect busy state on load
         if (statusData?.queue && typeof statusData.queue === "string" && statusData.queue.startsWith("busy")) {
           setThinking(true);
+          inTurnRef.current = true;
         }
       } catch {
         if (!cancelled) setMessages([]);
@@ -54,58 +78,94 @@ export function useAgent(agentName: string | null, token: string | null, serverU
     partsRef.current = [];
     setStreamParts([]);
     setThinking(false);
+    inTurnRef.current = false;
     load();
 
     return () => { cancelled = true; };
-  }, [agentName, token, baseUrl]);
+  }, [name, token, serverUrl, withHistory]);
 
-  // SSE connection
+  // Reset unread when becoming active (withHistory)
   useEffect(() => {
-    if (!agentName) return;
+    if (withHistory) setUnread(0);
+  }, [name, withHistory]);
 
-    const sse = api.connectSSE(agentName, token, {
+  // SSE connection — always active for running agents
+  useEffect(() => {
+    if (!name) return;
+
+    const sse = api.connectSSE(name, token, {
       onEvent(ev: StreamEvent) {
-        const result = processStreamEvent(ev, partsRef.current);
+        if (withHistory) {
+          // Full mode: process streaming parts
+          const result = processStreamEvent(ev, partsRef.current);
 
-        // Update streaming parts
-        partsRef.current = result.parts;
-        setStreamParts([...result.parts]);
+          partsRef.current = result.parts;
+          setStreamParts([...result.parts]);
 
-        // Update thinking state
-        if (result.thinking !== null) {
-          setThinking(result.thinking);
-        }
-
-        // Append completed messages (with delay on flush for final text-delta)
-        if (result.flush) {
-          setTimeout(() => {
-            if (result.append.length > 0) {
-              setMessages((prev) => [...prev, ...result.append]);
-            }
-            partsRef.current = [];
-            setStreamParts([]);
+          // Thinking: true on turn start, stays true until finish
+          if (ev.type === "thinking" || ev.type === "tool-call" || ev.type === "tool-result") {
+            inTurnRef.current = true;
+            setThinking(true);
+          } else if (ev.type === "text-delta") {
+            // Text is streaming — keep inTurn but hide dots via render condition
+            inTurnRef.current = true;
+          } else if (ev.type === "finish" || ev.type === "error") {
+            inTurnRef.current = false;
             setThinking(false);
-            api.getStatus(agentName!, token, baseUrl || undefined).then(setStatus).catch(() => {});
-          }, 50);
-        } else if (result.append.length > 0) {
-          setMessages((prev) => [...prev, ...result.append]);
+          }
+
+          // Append completed messages
+          if (result.flush) {
+            setTimeout(() => {
+              if (result.append.length > 0) {
+                setMessages((prev) => [...prev, ...result.append]);
+              }
+              partsRef.current = [];
+              setStreamParts([]);
+              setThinking(false);
+              inTurnRef.current = false;
+              api.getStatus(name!, token, serverUrl).then(setStatus).catch(() => {});
+            }, 50);
+          } else if (result.append.length > 0) {
+            setMessages((prev) => [...prev, ...result.append]);
+          }
+        } else {
+          // Light mode: only track thinking + unread for sidebar
+          if (ev.type === "thinking" || ev.type === "tool-call" || ev.type === "tool-result") {
+            inTurnRef.current = true;
+            setThinking(true);
+          } else if (ev.type === "text-delta") {
+            inTurnRef.current = true;
+          } else if (ev.type === "finish") {
+            inTurnRef.current = false;
+            setThinking(false);
+            setUnread((n) => n + 1);
+          } else if (ev.type === "error") {
+            inTurnRef.current = false;
+            setThinking(false);
+          }
         }
       },
-      onConnect() { setConnected(true); },
-      onDisconnect() { setConnected(false); },
-    }, baseUrl || undefined);
+      onConnect() {
+        setConnected(true);
+      },
+      onDisconnect() {
+        setConnected(false);
+      },
+    }, serverUrl);
 
     sseRef.current = sse;
     return () => {
       sse.close();
       sseRef.current = null;
     };
-  }, [agentName, token, baseUrl]);
+  }, [name, token, serverUrl, withHistory]);
 
   const send = useCallback(
     async (text: string, attachments?: Attachment[]) => {
-      if (!agentName) return;
+      if (!name) return;
 
+      // Append user message to chat
       setMessages((prev) => [
         ...prev,
         {
@@ -117,16 +177,30 @@ export function useAgent(agentName: string | null, token: string | null, serverU
         },
       ]);
 
-      setThinking(!text.startsWith("/"));
+      // Show thinking immediately for non-slash commands
+      if (!text.startsWith("/")) {
+        setThinking(true);
+        inTurnRef.current = true;
+      }
 
-      await api.sendMessage(agentName, token, text, {
+      await api.sendMessage(name, token, text, {
         connectionId: sseRef.current?.connectionId,
         attachments,
-        serverUrl: baseUrl || undefined,
+        serverUrl,
       });
     },
-    [agentName, token, baseUrl]
+    [name, token, serverUrl]
   );
 
-  return { messages, streamParts, thinking, connected, status, send };
+  if (!agent) return EMPTY_STATE;
+
+  return {
+    messages,
+    streamParts,
+    thinking,
+    connected,
+    unread,
+    status,
+    send: withHistory ? send : NOOP_SEND,
+  };
 }

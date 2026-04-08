@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useServers } from "../hooks/useServers";
 import { useAgent } from "../hooks/useAgent";
@@ -13,10 +12,8 @@ import type { Attachment } from "../lib/types";
 export default function Home() {
   const { token, setToken } = useAuth();
   const validToken = token ?? null;
-  const { agents, activeAgent, activeState, active, setActive, addServer, removeServer } = useServers(validToken);
-  const activeServerUrl = useMemo(() => activeState?.server?.url || undefined, [active, activeState?.server?.url]);
-  const activeToken = activeState?.server?.token || validToken;
-  const { messages, streamParts, thinking, connected, status, send } = useAgent(activeAgent?.name ?? null, activeToken, activeServerUrl);
+  const { agents, activeAgent, active, setActive, addServer, removeServer } = useServers(validToken);
+  const { messages, streamParts, thinking, connected, status, send } = useAgent(activeAgent, { withHistory: true });
 
   if (token === undefined) {
     return (

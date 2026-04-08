@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { AgentState } from "../lib/types";
+import type { AgentInfo } from "../lib/types";
+import { useAgent } from "../hooks/useAgent";
+import { agentKey } from "../hooks/useServers";
 
 const AVATAR_COLORS = ["#e06c75", "#e5c07b", "#98c379", "#56b6c2", "#61afef", "#c678dd", "#be5046", "#d19a66"];
 
@@ -11,8 +13,68 @@ function avatarColor(name: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
+// Each agent row has its own light useAgent for SSE status
+function AgentRow({
+  agent,
+  isActive,
+  onSelect,
+}: {
+  agent: AgentInfo;
+  isActive: boolean;
+  onSelect: () => void;
+}) {
+  // Active agent's useAgent is in page.tsx (withHistory: true).
+  // Skip light SSE here to avoid duplicate connection.
+  const light = useAgent(isActive ? null : agent, { withHistory: false });
+
+  // For active agent, we know it's connected (page.tsx handles it)
+  const thinking = isActive ? false : light.thinking;
+  const unread = isActive ? 0 : light.unread;
+
+  return (
+    <button
+      onClick={onSelect}
+      className={`flex items-center gap-2.5 w-full px-2 py-1.5 rounded text-sm text-left transition-colors ${
+        isActive
+          ? "bg-[var(--bg-surface)]"
+          : "hover:bg-[var(--bg-surface)]/50"
+      } ${!agent.running ? "opacity-50" : ""}`}
+    >
+      {/* Avatar with status dot */}
+      <div className="relative flex-shrink-0">
+        <div
+          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold uppercase"
+          style={{ backgroundColor: avatarColor(agent.name), color: "#fff" }}
+        >
+          {agent.name[0]}
+        </div>
+        {/* Status dot: thinking=pulse, not-running=muted */}
+        {(thinking || !agent.running) && (
+          <span
+            className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[var(--bg-sidebar)] ${
+              thinking
+                ? "bg-[var(--accent)] animate-pulse"
+                : "bg-[var(--text-muted)]"
+            }`}
+          />
+        )}
+      </div>
+
+      {/* Name + unread */}
+      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+        <span className="truncate">{agent.name}</span>
+        {unread > 0 && !isActive && (
+          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[var(--accent)] text-[11px] font-bold text-white flex items-center justify-center">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
+      </div>
+    </button>
+  );
+}
+
 interface SidebarProps {
-  agents: AgentState[];
+  agents: AgentInfo[];
   active: string | null;
   onSelect: (key: string) => void;
   onLogout?: () => void;
@@ -26,15 +88,11 @@ export function Sidebar({ agents, active, onSelect, onLogout, onAddServer, onRem
   const [newToken, setNewToken] = useState("");
 
   // Group agents by server
-  const grouped = new Map<string, AgentState[]>();
-  for (const state of agents) {
-    const server = state.agent.server || "local";
+  const grouped = new Map<string, AgentInfo[]>();
+  for (const agent of agents) {
+    const server = agent.serverUrl || "local";
     if (!grouped.has(server)) grouped.set(server, []);
-    grouped.get(server)!.push(state);
-  }
-
-  function agentKey(state: AgentState): string {
-    return state.server.url ? `${state.server.url}::${state.agent.name}` : state.agent.name;
+    grouped.get(server)!.push(agent);
   }
 
   function handleAddServer() {
@@ -83,49 +141,15 @@ export function Sidebar({ agents, active, onSelect, onLogout, onAddServer, onRem
               </div>
             )}
 
-            {serverAgents.map((state) => {
-              const key = agentKey(state);
-              const isActive = key === active;
+            {serverAgents.map((agent) => {
+              const key = agentKey(agent);
               return (
-                <button
+                <AgentRow
                   key={key}
-                  onClick={() => onSelect(key)}
-                  className={`flex items-center gap-2.5 w-full px-2 py-1.5 rounded text-sm text-left transition-colors ${
-                    isActive
-                      ? "bg-[var(--bg-surface)]"
-                      : "hover:bg-[var(--bg-surface)]/50"
-                  } ${!state.agent.running ? "opacity-50" : ""}`}
-                >
-                  {/* Avatar with status dot */}
-                  <div className="relative flex-shrink-0">
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold uppercase"
-                      style={{ backgroundColor: avatarColor(state.agent.name), color: "#fff" }}
-                    >
-                      {state.agent.name[0]}
-                    </div>
-                    {/* Status dot: thinking=pulse, offline=muted, online=hidden */}
-                    {(state.thinking || !state.online) && (
-                      <span
-                        className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[var(--bg-sidebar)] ${
-                          state.thinking
-                            ? "bg-[var(--accent)] animate-pulse"
-                            : "bg-[var(--text-muted)]"
-                        }`}
-                      />
-                    )}
-                  </div>
-
-                  {/* Name + unread */}
-                  <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                    <span className="truncate">{state.agent.name}</span>
-                    {state.unread > 0 && !isActive && (
-                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[var(--accent)] text-[11px] font-bold text-white flex items-center justify-center">
-                        {state.unread > 9 ? "9+" : state.unread}
-                      </span>
-                    )}
-                  </div>
-                </button>
+                  agent={agent}
+                  isActive={key === active}
+                  onSelect={() => onSelect(key)}
+                />
               );
             })}
           </div>
