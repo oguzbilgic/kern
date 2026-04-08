@@ -140,7 +140,7 @@ export function useAgent(
           } else if (ev.type === "tool-result") {
             inTurnRef.current = true;
             setThinking(true);
-            setActivity("thinking");
+            // Keep current tool activity visible
           } else if (ev.type === "text-delta") {
             inTurnRef.current = true;
             setThinking(true);
@@ -179,7 +179,7 @@ export function useAgent(
           } else if (ev.type === "tool-result") {
             inTurnRef.current = true;
             setThinking(true);
-            setActivity("thinking");
+            // Keep current tool activity visible
           } else if (ev.type === "text-delta") {
             inTurnRef.current = true;
             setThinking(true);
