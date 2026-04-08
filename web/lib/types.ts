@@ -16,7 +16,10 @@ export interface StreamEvent {
     | "recall"
     | "finish"
     | "error"
-    | "command-result";
+    | "command-result"
+    | "incoming"
+    | "outgoing"
+    | "heartbeat";
   connectionId?: string;
   text?: string;
   delta?: string;
@@ -25,6 +28,11 @@ export interface StreamEvent {
   output?: string;
   result?: string;
   error?: string;
+  // Cross-channel fields
+  fromInterface?: string;
+  fromUserId?: string;
+  fromChannel?: string;
+  command?: string;
 }
 
 export interface StatusData {

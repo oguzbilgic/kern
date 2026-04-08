@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Agent, ChatMessage, StreamEvent, Attachment, StatusData } from "../lib/types";
 import * as api from "../lib/api";
-import { historyToMessages } from "../lib/messages";
+import { historyToMessages, parseUserContent } from "../lib/messages";
 
 interface UseAgentReturn {
   messages: ChatMessage[];
@@ -145,6 +145,55 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
             api.getStatus(agentName!, token).then(setStatus).catch(() => {});
             break;
           }
+
+          case "incoming": {
+            const parsed = parseUserContent(ev.text || "");
+            if (parsed.type === "heartbeat") {
+              setMessages((prev) => [...prev, {
+                id: `hb-${Date.now()}`,
+                role: "heartbeat",
+                text: "♡ heartbeat",
+                iface: "heartbeat",
+              }]);
+            } else {
+              setMessages((prev) => [...prev, {
+                id: `in-${Date.now()}`,
+                role: "incoming",
+                text: parsed.text || ev.text || "",
+                meta: `[${ev.fromInterface || "?"} ${ev.fromUserId || ""}]`.trim(),
+                iface: ev.fromInterface,
+              }]);
+            }
+            break;
+          }
+
+          case "outgoing":
+            setMessages((prev) => [...prev, {
+              id: `out-${Date.now()}`,
+              role: "assistant",
+              text: ev.text || "",
+              meta: `→ ${ev.fromInterface || "?"}`,
+              iface: ev.fromInterface,
+            }]);
+            break;
+
+          case "heartbeat":
+            setMessages((prev) => [...prev, {
+              id: `hb-${Date.now()}`,
+              role: "heartbeat",
+              text: "♡ heartbeat",
+              iface: "heartbeat",
+            }]);
+            break;
+
+          case "command-result":
+            setMessages((prev) => [...prev, {
+              id: `cmd-${Date.now()}`,
+              role: "assistant",
+              text: ev.text || "",
+              meta: `/${ev.command}`,
+            }]);
+            break;
 
           case "error":
             setMessages((prev) => [
