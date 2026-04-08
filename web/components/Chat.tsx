@@ -53,9 +53,11 @@ export function Chat({ messages, streamParts, thinking }: ChatProps) {
     });
   }, [messages, streamParts, thinking]);
 
-  // Show dots when thinking AND no text is currently streaming
-  const hasStreamingText = streamParts.some((p) => p.role === "assistant" && p.text);
-  const showDots = thinking && !hasStreamingText;
+  // Show dots when thinking AND the last stream part isn't assistant text
+  // (hide dots only while text is actively streaming, show during tool phases)
+  const lastPart = streamParts[streamParts.length - 1];
+  const isStreamingText = lastPart?.role === "assistant" && lastPart.text.length > 0;
+  const showDots = thinking && !isStreamingText;
 
   return (
     <div

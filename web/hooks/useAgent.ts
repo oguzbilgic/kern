@@ -107,8 +107,9 @@ export function useAgent(
             inTurnRef.current = true;
             setThinking(true);
           } else if (ev.type === "text-delta") {
-            // Text is streaming — keep inTurn but hide dots via render condition
+            // Text is streaming — keep thinking true (dots hidden by render condition)
             inTurnRef.current = true;
+            setThinking(true);
           } else if (ev.type === "finish" || ev.type === "error") {
             inTurnRef.current = false;
             setThinking(false);
@@ -136,6 +137,7 @@ export function useAgent(
             setThinking(true);
           } else if (ev.type === "text-delta") {
             inTurnRef.current = true;
+            setThinking(true);
           } else if (ev.type === "finish") {
             inTurnRef.current = false;
             setThinking(false);

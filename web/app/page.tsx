@@ -37,6 +37,7 @@ export default function Home() {
       <Sidebar
         agents={agents}
         active={active}
+        activeThinking={thinking}
         onSelect={setActive}
         onLogout={handleLogout}
         onAddServer={addServer}

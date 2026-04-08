@@ -17,18 +17,20 @@ function avatarColor(name: string): string {
 function AgentRow({
   agent,
   isActive,
+  activeThinking,
   onSelect,
 }: {
   agent: AgentInfo;
   isActive: boolean;
+  activeThinking?: boolean;
   onSelect: () => void;
 }) {
   // Active agent's useAgent is in page.tsx (withHistory: true).
   // Skip light SSE here to avoid duplicate connection.
   const light = useAgent(isActive ? null : agent, { withHistory: false });
 
-  // For active agent, we know it's connected (page.tsx handles it)
-  const thinking = isActive ? false : light.thinking;
+  // Active agent gets thinking from props, background agents from light SSE
+  const thinking = isActive ? activeThinking : light.thinking;
   const unread = isActive ? 0 : light.unread;
 
   return (
@@ -76,13 +78,14 @@ function AgentRow({
 interface SidebarProps {
   agents: AgentInfo[];
   active: string | null;
+  activeThinking?: boolean;
   onSelect: (key: string) => void;
   onLogout?: () => void;
   onAddServer?: (url: string, token: string) => void;
   onRemoveServer?: (url: string) => void;
 }
 
-export function Sidebar({ agents, active, onSelect, onLogout, onAddServer, onRemoveServer }: SidebarProps) {
+export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, onAddServer, onRemoveServer }: SidebarProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newUrl, setNewUrl] = useState("");
   const [newToken, setNewToken] = useState("");
@@ -148,6 +151,7 @@ export function Sidebar({ agents, active, onSelect, onLogout, onAddServer, onRem
                   key={key}
                   agent={agent}
                   isActive={key === active}
+                  activeThinking={key === active ? activeThinking : undefined}
                   onSelect={() => onSelect(key)}
                 />
               );
