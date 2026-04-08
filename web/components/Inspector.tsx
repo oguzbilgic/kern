@@ -89,10 +89,14 @@ function SessionsTab({ agentName, token, serverUrl }: TabProps) {
 
   useEffect(() => {
     api.getSessions(agentName, token).then((d) => {
-      setData(d);
-      const first = d.currentSessionId || d.sessions?.[0]?.session_id;
-      setActiveSession(first ?? null);
-    }).catch(() => {});
+      if (d?.sessions) {
+        setData(d);
+        const first = d.currentSessionId || d.sessions?.[0]?.session_id;
+        setActiveSession(first ?? null);
+      } else {
+        setData({ sessions: [], currentSessionId: null });
+      }
+    }).catch(() => setData({ sessions: [], currentSessionId: null }));
   }, [agentName, token]);
 
   useEffect(() => {
@@ -102,6 +106,7 @@ function SessionsTab({ agentName, token, serverUrl }: TabProps) {
   }, [agentName, token, activeSession]);
 
   if (!data) return <div className="text-[var(--text-muted)] text-sm">Loading...</div>;
+  if (!data.sessions.length) return <div className="text-[var(--text-muted)] text-sm">No session data available</div>;
 
   return (
     <div className="space-y-3">
@@ -170,7 +175,7 @@ function SegmentsTab({ agentName, token, serverUrl }: TabProps) {
   const [rebuilding, setRebuilding] = useState(false);
 
   const load = useCallback(() => {
-    api.getSegments(agentName, token).then(setSegments).catch(() => {});
+    api.getSegments(agentName, token).then(setSegments).catch(() => setSegments({ segments: [] }));
     api.getContextSegments(agentName, token).then((d) => {
       if (d?.segments) setContextIds(new Set(d.segments.map((s: any) => s.id)));
     }).catch(() => {});
@@ -178,7 +183,6 @@ function SegmentsTab({ agentName, token, serverUrl }: TabProps) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Auto-refresh while open
   useEffect(() => {
     const iv = setInterval(load, 5000);
     return () => clearInterval(iv);
@@ -187,6 +191,7 @@ function SegmentsTab({ agentName, token, serverUrl }: TabProps) {
   if (!segments) return <div className="text-[var(--text-muted)] text-sm">Loading...</div>;
 
   const allSegs: any[] = segments.segments || [];
+  if (!allSegs.length) return <div className="text-[var(--text-muted)] text-sm">No segments available</div>;
   const filtered = filter === "context"
     ? allSegs.filter((s: any) => contextIds.has(s.id))
     : allSegs;
@@ -300,9 +305,8 @@ function NotesTab({ agentName, token, serverUrl }: TabProps) {
 
   const load = useCallback(() => {
     api.getSummaries(agentName, token).then((d) => {
-      // API returns flat array or { summaries: [...] }
-      setSummaries(Array.isArray(d) ? d : (d.summaries || []));
-    }).catch(() => {});
+      setSummaries(Array.isArray(d) ? d : (d?.summaries || []));
+    }).catch(() => setSummaries([]));
   }, [agentName, token]);
 
   useEffect(() => { load(); }, [load]);
@@ -345,13 +349,13 @@ function RecallTab({ agentName, token, serverUrl }: TabProps) {
   const [searching, setSearching] = useState(false);
 
   useEffect(() => {
-    api.getRecallStats(agentName, token).then(setStats).catch(() => {});
+    api.getRecallStats(agentName, token).then(setStats).catch(() => setStats(null));
   }, [agentName, token]);
 
   const search = () => {
     if (!query.trim()) return;
     setSearching(true);
-    api.recallSearch(agentName, token, query).then((d) => setResults(d.results || [])).finally(() => setSearching(false));
+    api.recallSearch(agentName, token, query).then((d) => setResults(d?.results || [])).catch(() => setResults([])).finally(() => setSearching(false));
   };
 
   return (
