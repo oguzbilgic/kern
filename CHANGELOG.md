@@ -1,5 +1,10 @@
 # Changelog
 
+## next
+
+### Fixes
+- **Mid-turn steering** ([#94](https://github.com/oguzbilgic/kern-ai/pull/94)) — operator messages sent during an agent's turn now persist across all steps instead of being lost after one step
+
 ## v0.23.2
 
 ### Improvements
