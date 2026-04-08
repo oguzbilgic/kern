@@ -120,7 +120,6 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   }
 
   // Static file serving — Next.js static export from web/out/
-  // Falls back to templates/web/ for legacy single-file UI
   const STATIC_MIME: Record<string, string> = {
     ".html": "text/html", ".css": "text/css", ".js": "application/javascript",
     ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png",
@@ -128,10 +127,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   };
 
   if (req.method === "GET" && !url.startsWith("/api/")) {
-    // Try Next.js static export first, then legacy templates/web/
-    const nextOutDir = join(import.meta.dirname, "..", "web", "out");
-    const legacyDir = join(import.meta.dirname, "..", "templates", "web");
-    const serveDir = existsSync(nextOutDir) ? nextOutDir : legacyDir;
+    const serveDir = join(import.meta.dirname, "..", "web", "out");
 
     let filePath: string;
     if (url === "/") {
