@@ -276,20 +276,20 @@ export class TelegramInterface implements Interface {
           (event) => {
             const now = Date.now();
             if (event.type === "tool-call") {
-              if (!this.showTools) return;
-              // If we had text streaming, finalize that message and start new one for tools
+              // If we had text streaming, finalize that message and start new one for next text
               if (streaming && currentText) {
                 this.editMessage(ctx, activeMessageId, currentText).catch(() => {});
                 textBlocks.push(currentText);
                 streaming = false;
                 currentText = "";
                 toolLines = [];
-                // New message for tools + next text
+                // New message for next text block
                 pendingNewMessage = ctx.reply("...").then((msg) => {
                   activeMessageId = msg.message_id;
                   pendingNewMessage = null;
                 }).catch(() => { pendingNewMessage = null; });
               }
+              if (!this.showTools) return;
               const detail = event.toolDetail ? ` ${event.toolDetail}` : "";
               toolLines.push(`⚙ ${event.toolName}${detail}`);
               if (now - lastEditTime > 500 && !pendingNewMessage) {
