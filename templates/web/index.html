@@ -1300,6 +1300,68 @@
   }
   .switcher-server-header .switcher-item-remove { display: inline; font-size: 12px; }
 
+  .switcher-hub-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    font-size: 13px; color: var(--text-dim);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .switcher-hub-item:hover { background: rgba(255,255,255,0.04); }
+  .switcher-hub-item .hub-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: rgba(99,102,241,0.12);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: var(--accent); flex-shrink: 0;
+  }
+  .switcher-hub-item .hub-info { display: flex; flex-direction: column; gap: 1px; flex: 1; }
+  .switcher-hub-item .hub-name { font-size: 13px; color: var(--text-dim); }
+  .switcher-hub-item .hub-meta { font-size: 11px; color: var(--text-muted); }
+
+  .hub-footer {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+    font-size: 13px; color: var(--text-muted);
+    text-decoration: none; flex-shrink: 0;
+  }
+  .hub-footer:hover { color: var(--text-dim); background: rgba(255,255,255,0.03); }
+  .hub-footer .hub-dot { color: var(--accent); }
+  .sidebar.mini .hub-footer { display: none; }
+
+  .hub-modal { width: min(400px, 90vw); }
+  .hub-modal-stats { display: flex; gap: 12px; margin-bottom: 14px; }
+  .hub-stat {
+    flex: 1; padding: 10px 12px;
+    background: var(--bg); border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .hub-stat-value { font-size: 18px; font-weight: 600; color: var(--text); }
+  .hub-stat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .hub-modal-agents { margin-bottom: 8px; }
+  .hub-modal-agents-title {
+    font-size: 11px; font-weight: 600; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;
+  }
+  .hub-agent-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 0; font-size: 13px; color: var(--text-dim);
+  }
+  .hub-agent-row.offline { opacity: 0.4; }
+  .hub-agent-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  .hub-agent-row.offline .hub-agent-dot { background: var(--text-muted); }
+  .hub-agent-id { margin-left: auto; font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+
+  .switcher-item-avatar .online-dot.hub {
+    background: var(--accent);
+    border-radius: 2px;
+    transform: rotate(45deg);
+  }
+  .switcher-item-avatar .online-dot.hub.has-unread {
+    border-radius: 2px;
+    transform: rotate(45deg);
+  }
+
   /* --- Overlay Modals --- */
   /* Overlay accent — warm amber */
   .segments-overlay, .segments-overlay * {
@@ -2343,6 +2405,9 @@
     <button class="filter-btn" id="logout-btn" title="Logout" style="font-size:14px;">&#x23FB;</button>
   </div>
   <div class="sidebar-list" id="switcher-list"></div>
+  <a id="hub-link" href="#" target="_blank" class="hub-footer" style="display:none;">
+    <span class="hub-dot">◆</span> Hub
+  </a>
   <div class="sidebar-footer">
     <span class="sidebar-version" id="sidebar-version"></span>
     <a href="https://kern-ai.com/docs" target="_blank" rel="noopener">Docs</a>
@@ -2369,6 +2434,18 @@
     <div class="modal-actions">
       <button class="btn-cancel" id="add-cancel-btn">Cancel</button>
       <button class="btn-add" id="add-server-btn">Add</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="hub-modal">
+  <div class="modal hub-modal">
+    <div class="modal-title">Hub</div>
+    <div class="modal-desc" id="hub-modal-url"></div>
+    <div class="hub-modal-stats" id="hub-modal-stats"></div>
+    <div class="hub-modal-agents" id="hub-modal-agents"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="hub-modal-close">Close</button>
     </div>
   </div>
 </div>
@@ -2898,6 +2975,16 @@ function buildStatusRows(status) {
   if (status.telegram) rows.push({ key: 'telegram', label: 'telegram', value: esc(status.telegram) });
   if (status.slack) rows.push({ key: 'slack', label: 'slack', value: esc(status.slack) });
   if (status.recall) rows.push({ key: 'recall', label: 'recall', value: esc(status.recall) });
+  if (status.hub) {
+    const hubMatch = status.hub.match(/^(wss?:\/\/[^\s]+)\s*\((.+)\)$/);
+    if (hubMatch) {
+      const hubPort = hubMatch[1].match(/:(\d+)/)?.[1] || '4000';
+      const hubDash = `${location.protocol}//${location.hostname}:${hubPort}`;
+      rows.push({ key: 'hub', label: 'hub', value: `<a href="${esc(hubDash)}" target="_blank" style="color:var(--accent);text-decoration:none">${esc(hubDash)}</a> (${esc(hubMatch[2])})` });
+    } else {
+      rows.push({ key: 'hub', label: 'hub', value: esc(status.hub) });
+    }
+  }
   rows.push({ key: 'queue', label: 'queue', value: esc(status.queue) });
   rows.push({ key: 'tools', label: 'tools', value: esc(status.toolScope) });
   return rows;
@@ -4110,6 +4197,7 @@ function setActiveAgent(name) {
 
 // All discovered agents grouped by server — fetched fresh each time
 let allAgents = [];
+let allHubs = [];
 
 // --- Multi-agent connection manager ---
 const IDLE_TIMEOUT = 15 * 60 * 1000; // 15 minutes
@@ -4289,6 +4377,7 @@ function renderSwitcher() {
         const initial = agent.name.charAt(0).toUpperCase();
         const conn = getAgentConn(agent.name);
         const dotClasses = [state];
+        if (agent.hubConnected) dotClasses.push('hub');
         if (conn.thinking) dotClasses.push('thinking');
         if (conn.unread > 0 && state !== 'active') dotClasses.push('has-unread');
         const dotContent = (conn.unread > 0 && state !== 'active')
@@ -4316,6 +4405,35 @@ function renderSwitcher() {
         }
         list.appendChild(item);
       }
+
+      // Hub item for this server
+      const serverHub = allHubs.find(h => h.server === serverUrl);
+      if (serverHub) {
+        const hubItem = document.createElement('div');
+        hubItem.className = 'switcher-hub-item';
+        if (serverHub.running) {
+          const onlineCount = serverHub.agents.filter(a => a.online).length;
+          const totalCount = serverHub.agents.length;
+          hubItem.innerHTML = `
+            <div class="hub-icon">◆</div>
+            <div class="hub-info">
+              <div class="hub-name">Hub</div>
+              <div class="hub-meta">${onlineCount}/${totalCount} agents online</div>
+            </div>
+          `;
+          hubItem.addEventListener('click', () => showHubModal(serverHub, serverUrl));
+        } else {
+          hubItem.style.cursor = 'default';
+          hubItem.innerHTML = `
+            <div class="hub-icon" style="background:rgba(255,255,255,0.06);color:var(--text-muted)">◆</div>
+            <div class="hub-info">
+              <div class="hub-name">Hub</div>
+              <div class="hub-meta">Offline</div>
+            </div>
+          `;
+        }
+        list.appendChild(hubItem);
+      }
     }
   }
   // Add server row
@@ -4327,6 +4445,91 @@ function renderSwitcher() {
     $('add-url').focus();
   });
   list.appendChild(addItem);
+
+  // Update hub footer link
+  discoverHub();
+}
+
+async function showHubModal(hub, serverUrl) {
+  const modal = $('hub-modal');
+  const token = getServerToken(serverUrl);
+  const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+  let stats = null;
+  try {
+    const res = await fetch(`${serverUrl}/api/hub/stats`, { headers });
+    if (res.ok) stats = await res.json();
+  } catch {}
+
+  let hubUrl = serverUrl;
+  try {
+    const hubRes = await fetch(`${serverUrl}/api/hub`, { headers });
+    if (hubRes.ok) {
+      const hubData = await hubRes.json();
+      if (hubData.port) {
+        const u = new URL(serverUrl);
+        hubUrl = `${u.protocol}//${u.hostname}:${hubData.port}`;
+      }
+    }
+  } catch {}
+  $('hub-modal-url').textContent = hubUrl;
+
+  const statsEl = $('hub-modal-stats');
+  if (stats) {
+    const h = Math.floor(stats.uptime / 3600);
+    const m = Math.floor((stats.uptime % 3600) / 60);
+    const uptimeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+    statsEl.innerHTML = `
+      <div class="hub-stat"><div class="hub-stat-value">${stats.agents.online}/${stats.agents.registered}</div><div class="hub-stat-label">Agents online</div></div>
+      <div class="hub-stat"><div class="hub-stat-value">${stats.messages}</div><div class="hub-stat-label">Messages</div></div>
+      <div class="hub-stat"><div class="hub-stat-value">${uptimeStr}</div><div class="hub-stat-label">Uptime</div></div>
+    `;
+  } else {
+    statsEl.innerHTML = '';
+  }
+
+  const agentsEl = $('hub-modal-agents');
+  const agents = hub.agents || [];
+  agentsEl.innerHTML = `
+    <div class="hub-modal-agents-title">Connected agents</div>
+    ${agents
+      .sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0) || a.name.localeCompare(b.name))
+      .map(a => `<div class="hub-agent-row${a.online ? '' : ' offline'}"><span class="hub-agent-dot"></span><span>${escapeHtml(a.name)}</span>${a.id ? `<span class="hub-agent-id">${escapeHtml(a.id)}</span>` : ''}</div>`)
+      .join('')}
+    ${agents.length === 0 ? '<div style="font-size:12px;color:var(--text-muted)">No agents connected</div>' : ''}
+  `;
+
+  modal.classList.add('open');
+}
+
+$('hub-modal-close').addEventListener('click', () => $('hub-modal').classList.remove('open'));
+$('hub-modal').addEventListener('click', (e) => { if (e.target === $('hub-modal')) $('hub-modal').classList.remove('open'); });
+
+async function discoverHub() {
+  try {
+    const hubLink = $('hub-link');
+    if (allHubs.length > 0 && allHubs[0].running) {
+      const serverUrl = allHubs[0].server || location.origin;
+      const token = getServerToken(serverUrl);
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      let hubUrl = serverUrl;
+      try {
+        const hubRes = await fetch(`${serverUrl}/api/hub`, { headers });
+        if (hubRes.ok) {
+          const hubData = await hubRes.json();
+          if (hubData.port) {
+            const u = new URL(serverUrl);
+            hubUrl = `${u.protocol}//${u.hostname}:${hubData.port}`;
+          }
+        }
+      } catch {}
+      hubLink.href = hubUrl;
+      hubLink.style.display = 'flex';
+      hubLink.title = `Hub at ${hubUrl}`;
+    } else {
+      hubLink.style.display = 'none';
+    }
+  } catch {}
 }
 
 function switchToAgent(agent) {
@@ -4472,20 +4675,50 @@ async function fetchServerAgents(serverUrl) {
     const token = getServerToken(serverUrl);
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     const res = await fetch(`${serverUrl}/api/agents`, { headers });
-    if (res.status === 401) return { agents: [], status: 'unauthorized' };
-    if (!res.ok) return { agents: [], status: 'error' };
+    if (res.status === 401) return { agents: [], hub: null, status: 'unauthorized' };
+    if (!res.ok) return { agents: [], hub: null, status: 'error' };
     const data = await res.json();
-    if (!Array.isArray(data)) return { agents: [], status: 'ok' };
-    return {
-      status: 'ok',
-      agents: data.map(a => ({
+    if (!Array.isArray(data)) return { agents: [], hub: null, status: 'ok' };
+
+    // Also fetch hub info
+    let hub = null;
+    try {
+      const hubRes = await fetch(`${serverUrl}/api/hub`, { headers });
+      if (hubRes.ok) {
+        const hubData = await hubRes.json();
+        if (hubData.configured) {
+          hub = { running: hubData.running, port: hubData.port, agents: [], server: serverUrl };
+          if (hubData.running) {
+            const hubAgentsRes = await fetch(`${serverUrl}/api/hub/agents`, { headers });
+            if (hubAgentsRes.ok) hub.agents = await hubAgentsRes.json();
+          }
+        }
+      }
+    } catch {}
+
+    // Fetch hub connection status for each running agent
+    const agentList = await Promise.all(data.map(async (a) => {
+      const agent = {
         name: a.name,
         url: a.running ? `${serverUrl}/api/agents/${a.name}` : null,
         running: a.running,
         server: serverUrl,
-      })),
-    };
-  } catch { return { agents: [], status: 'error' }; }
+        hubConnected: false,
+      };
+      if (a.running) {
+        try {
+          const statusRes = await fetch(`${serverUrl}/api/agents/${a.name}/status`, { headers });
+          if (statusRes.ok) {
+            const status = await statusRes.json();
+            if (status.hub && status.hub.includes('connected')) agent.hubConnected = true;
+          }
+        } catch {}
+      }
+      return agent;
+    }));
+
+    return { status: 'ok', hub, agents: agentList };
+  } catch { return { agents: [], hub: null, status: 'error' }; }
 }
 
 // Discover agents from local server + all saved remote servers
@@ -4497,6 +4730,7 @@ async function discoverAllAgents() {
   const allUrls = [localUrl, ...remoteUrls];
   const results = await Promise.all(allUrls.map(url => fetchServerAgents(url)));
   allAgents = results.flatMap(r => r.agents);
+  allHubs = results.map(r => r.hub).filter(Boolean);
   // Fetch status for all running agents in background
   fetchAllAgentStatuses();
   // Return local server status
