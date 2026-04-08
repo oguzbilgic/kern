@@ -1,71 +1,100 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useAuth } from "../hooks/useAuth";
+import { useAgents } from "../hooks/useAgents";
+import { useAgent } from "../hooks/useAgent";
+import { Sidebar } from "../components/Sidebar";
+import { Chat } from "../components/Chat";
+import { Input } from "../components/Input";
+import type { Attachment } from "../lib/types";
 
 export default function Home() {
-  const [status, setStatus] = useState<string>("connecting...");
-  const [agents, setAgents] = useState<string[]>([]);
+  const { token, setToken } = useAuth();
+  const { agents, activeAgent, setActive } = useAgents(token);
+  const { messages, streaming, streamingTools, thinking, connected, status, send } = useAgent(activeAgent, token);
 
-  useEffect(() => {
-    const token = localStorage.getItem("kern-token") || new URLSearchParams(window.location.search).get("token");
-    if (token) {
-      localStorage.setItem("kern-token", token);
-      // Clean URL
-      if (window.location.search.includes("token")) {
-        window.history.replaceState({}, "", window.location.pathname);
-      }
-    }
+  // Token prompt if not authenticated
+  if (token === null) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-sm text-[var(--text-dim)]">Loading...</div>
+      </div>
+    );
+  }
 
-    async function discover() {
-      try {
-        const res = await fetch("/api/agents", {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (res.status === 401) {
-          setStatus("unauthorized — need token");
-          return;
-        }
-        const data = await res.json();
-        setAgents(data.map((a: { name: string }) => a.name));
-        setStatus("connected");
-      } catch {
-        setStatus("failed to connect");
-      }
-    }
-
-    discover();
-  }, []);
+  if (!token) {
+    return (
+      <TokenPrompt onSubmit={setToken} />
+    );
+  }
 
   return (
     <div className="flex h-full w-full">
-      {/* Sidebar */}
-      <div className="w-[200px] bg-[var(--bg-sidebar)] border-r border-[var(--border)] flex flex-col p-3">
-        <div className="text-sm font-semibold mb-4">
-          kern<span className="text-[var(--accent)]">.</span>
-        </div>
-        <div className="flex flex-col gap-1">
-          {agents.map((name) => (
-            <div
-              key={name}
-              className="flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-[var(--bg-surface)] cursor-pointer"
-            >
-              <div className="w-6 h-6 rounded-full bg-[var(--accent-dim)] flex items-center justify-center text-xs font-bold uppercase">
-                {name[0]}
-              </div>
-              {name}
-            </div>
-          ))}
-        </div>
-      </div>
+      <Sidebar agents={agents} active={activeAgent?.name || null} onSelect={setActive} />
 
-      {/* Main */}
-      <div className="flex-1 flex flex-col">
-        <div className="h-12 border-b border-[var(--border)] flex items-center px-4 text-sm font-semibold">
-          kern
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <div className="h-12 border-b border-[var(--border)] flex items-center px-4 gap-3 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full ${connected ? "bg-[var(--green)]" : "bg-[var(--text-muted)]"}`}
+            />
+            <span className="text-sm font-semibold">
+              {activeAgent?.name || "no agent"}
+            </span>
+          </div>
+          {status?.model && (
+            <span className="text-xs text-[var(--text-muted)]">
+              {status.model}
+            </span>
+          )}
         </div>
-        <div className="flex-1 flex items-center justify-center text-[var(--text-dim)] text-sm">
-          {status}
-        </div>
+
+        {/* Chat area */}
+        <Chat
+          messages={messages}
+          streaming={streaming}
+          thinking={thinking}
+          streamingTools={streamingTools}
+        />
+
+        {/* Input */}
+        <Input
+          onSend={(text: string, attachments?: Attachment[]) => send(text, attachments)}
+          disabled={!connected}
+        />
+      </div>
+    </div>
+  );
+}
+
+function TokenPrompt({ onSubmit }: { onSubmit: (token: string) => void }) {
+  return (
+    <div className="flex items-center justify-center h-full">
+      <div className="flex flex-col gap-3 items-center">
+        <div className="text-sm text-[var(--text-dim)]">Enter access token</div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const input = (e.target as HTMLFormElement).elements.namedItem("token") as HTMLInputElement;
+            if (input.value.trim()) onSubmit(input.value.trim());
+          }}
+          className="flex gap-2"
+        >
+          <input
+            name="token"
+            type="password"
+            placeholder="Token..."
+            className="bg-[var(--bg-surface)] border border-[var(--border)] rounded px-3 py-1.5 text-sm text-[var(--text)] outline-none focus:border-[var(--accent-dim)]"
+            autoFocus
+          />
+          <button
+            type="submit"
+            className="bg-[var(--accent)] text-white text-sm px-3 py-1.5 rounded hover:opacity-90"
+          >
+            Connect
+          </button>
+        </form>
       </div>
     </div>
   );
