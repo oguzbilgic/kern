@@ -10,15 +10,18 @@ interface UseChatOptions {
   thinking: boolean;
   showTools: boolean;
   peekLastTool: boolean;
+  loadMore?: () => Promise<void>;
+  hasMore?: boolean;
+  loadingMore?: boolean;
 }
 
-export function useChat({ messages, streamParts, thinking, showTools, peekLastTool }: UseChatOptions) {
+export function useChat({ messages, streamParts, thinking, showTools, peekLastTool, loadMore, hasMore, loadingMore }: UseChatOptions) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
 
-  // Track user scroll
+  // Track user scroll + infinite scroll up
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -29,11 +32,23 @@ export function useChat({ messages, streamParts, thinking, showTools, peekLastTo
       const atBottom = el!.scrollHeight - el!.scrollTop - el!.clientHeight < 40;
       userScrolledUp.current = !atBottom;
       setShowScrollBtn(!atBottom);
+
+      // Load more when scrolled near top
+      if (el!.scrollTop < 200 && hasMore && !loadingMore && loadMore) {
+        const prevHeight = el!.scrollHeight;
+        loadMore().then(() => {
+          // Preserve scroll position after prepending
+          requestAnimationFrame(() => {
+            const newHeight = el!.scrollHeight;
+            el!.scrollTop += newHeight - prevHeight;
+          });
+        });
+      }
     }
     el.addEventListener("scroll", onScroll);
     (el as any)._setProgrammatic = (v: boolean) => { programmaticScroll = v; };
     return () => el.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [hasMore, loadingMore, loadMore]);
 
   // Auto-scroll on new content
   useEffect(() => {
@@ -76,5 +91,6 @@ export function useChat({ messages, streamParts, thinking, showTools, peekLastTo
     lastToolId,
     groups,
     showDots: thinking,
+    loadingMore: loadingMore ?? false,
   };
 }

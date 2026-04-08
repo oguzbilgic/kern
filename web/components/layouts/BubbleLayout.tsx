@@ -18,11 +18,14 @@ interface BubbleLayoutProps {
   showTools: boolean;
   coloredTools: boolean;
   peekLastTool: boolean;
+  loadMore?: () => Promise<void>;
+  hasMore?: boolean;
+  loadingMore?: boolean;
 }
 
-export function BubbleLayout({ messages, streamParts, thinking, agentName, token, serverUrl, showTools, coloredTools, peekLastTool }: BubbleLayoutProps) {
-  const { containerRef, bottomRef, showScrollBtn, scrollToBottom, allMsgs, lastToolId, groups, showDots } = useChat({
-    messages, streamParts, thinking, showTools, peekLastTool,
+export function BubbleLayout({ messages, streamParts, thinking, agentName, token, serverUrl, showTools, coloredTools, peekLastTool, loadMore, hasMore, loadingMore }: BubbleLayoutProps) {
+  const { containerRef, bottomRef, showScrollBtn, scrollToBottom, allMsgs, lastToolId, groups, showDots, loadingMore: isLoadingMore } = useChat({
+    messages, streamParts, thinking, showTools, peekLastTool, loadMore, hasMore, loadingMore,
   });
 
   const renderMsg = (msg: ChatMessage) => {
@@ -78,6 +81,9 @@ export function BubbleLayout({ messages, streamParts, thinking, agentName, token
     <div className="flex-1 overflow-hidden relative">
       <div ref={containerRef} className="h-full overflow-y-auto px-4 pt-4 pb-1">
         <div className="flex flex-col gap-2" style={{ maxWidth: 800, margin: "0 auto", paddingLeft: 16, paddingRight: 16 }}>
+          {isLoadingMore && (
+            <div className="text-center py-2 text-xs" style={{ color: "var(--text-dim)" }}>Loading…</div>
+          )}
           {allMsgs.map(renderMsg)}
           <div ref={bottomRef} />
         </div>
