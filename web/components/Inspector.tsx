@@ -189,6 +189,43 @@ function EmptyState({ text }: { text: string }) {
 }
 
 // ─── Sessions Tab ───────────────────────────────────────
+function formatDuration(start: string, end: string) {
+  if (!start) return "—";
+  const ms = (end ? new Date(end).getTime() : Date.now()) - new Date(start).getTime();
+  const days = Math.floor(ms / 86400000);
+  if (days > 1) return `${days} days`;
+  const hrs = Math.floor(ms / 3600000);
+  if (hrs > 0) return `${hrs}h`;
+  return `${Math.floor(ms / 60000)}m`;
+}
+
+function ActivityChart({ data, color, label }: { data: { key: string; count: number }[]; color: string; label: string }) {
+  if (!data?.length) return null;
+  const max = Math.max(...data.map(d => d.count), 1);
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 4 }}>
+        {label}
+      </div>
+      <div style={{
+        display: "flex", alignItems: "flex-end", gap: 2, height: 64,
+        background: "rgba(0,0,0,0.15)", borderRadius: 6, padding: 8,
+      }}>
+        {data.map((d, i) => (
+          <div key={i} style={{
+            flex: 1, background: color, opacity: 0.5, borderRadius: "2px 2px 0 0",
+            height: `${(d.count / max) * 100}%`, minHeight: d.count > 0 ? 2 : 0,
+          }} title={`${d.key}: ${d.count}`} />
+        ))}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, fontFamily: "var(--font-mono)", color: "var(--text-muted)", marginTop: 2 }}>
+        <span>{data[0].key}</span>
+        <span>{data[data.length - 1].key}</span>
+      </div>
+    </div>
+  );
+}
+
 function SessionsTab({ agentName, token, serverUrl }: TabProps) {
   const [data, setData] = useState<{ sessions: any[]; currentSessionId: string | null } | null>(null);
   const [activity, setActivity] = useState<any>(null);
@@ -219,6 +256,8 @@ function SessionsTab({ agentName, token, serverUrl }: TabProps) {
       {data.sessions.map((s: any) => {
         const isLive = s.session_id === data.currentSessionId;
         const isActive = activeSession === s.session_id;
+        const roles = s.roles || {};
+        const duration = formatDuration(s.first_ts, s.last_ts);
         return (
           <div
             key={s.session_id}
@@ -243,55 +282,54 @@ function SessionsTab({ agentName, token, serverUrl }: TabProps) {
                 )}
               </div>
               <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                {s.messages?.toLocaleString() ?? "?"} messages
+                {s.first_ts ? new Date(s.first_ts).toLocaleDateString() : "?"} — {s.last_ts ? new Date(s.last_ts).toLocaleDateString() : "now"}
               </span>
             </div>
-            {s.first_ts && (
-              <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                {new Date(s.first_ts).toLocaleDateString()} — {s.last_ts ? new Date(s.last_ts).toLocaleDateString() : "now"}
-              </div>
+
+            {/* Stats row */}
+            <div style={{
+              display: "flex", gap: isActive ? 16 : 12, flexWrap: "wrap",
+              marginTop: isActive ? 8 : 0,
+            }}>
+              {[
+                { label: "Messages", value: s.messages?.toLocaleString() ?? "?" },
+                { label: "Duration", value: duration },
+                ...(isActive ? [
+                  { label: "User", value: (roles.user || 0).toLocaleString() },
+                  { label: "Assistant", value: (roles.assistant || 0).toLocaleString() },
+                  { label: "Tool", value: (roles.tool || 0).toLocaleString() },
+                ] : []),
+              ].map((stat, i) => (
+                <div key={i} style={{ textAlign: "center" as const }}>
+                  <div style={{ fontSize: isActive ? 16 : 13, fontWeight: 600, color: "var(--text)", fontFamily: "var(--font-mono)" }}>
+                    {stat.value}
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: 0.3 }}>
+                    {stat.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Activity charts for active session */}
+            {isActive && activity?.daily?.length > 0 && (
+              <ActivityChart
+                data={activity.daily.map((d: any) => ({ key: d.date, count: d.count }))}
+                color={accent}
+                label="Daily activity"
+              />
             )}
+            {isActive && activity?.hourly?.length > 0 && (() => {
+              const hourMap = Object.fromEntries(activity.hourly.map((h: any) => [h.hour, h.count]));
+              const full24 = Array.from({ length: 24 }, (_, i) => ({
+                key: `${String(i).padStart(2, "0")}:00`,
+                count: hourMap[i] || 0,
+              }));
+              return <ActivityChart data={full24} color="#8b5cf6" label="Hourly distribution (UTC)" />;
+            })()}
           </div>
         );
       })}
-
-      {activity?.daily?.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 4 }}>
-            Daily activity
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-end",
-              gap: 2,
-              height: 80,
-              background: "rgba(0,0,0,0.15)",
-              borderRadius: 6,
-              padding: 8,
-            }}
-          >
-            {(() => {
-              const max = Math.max(...activity.daily.map((d: any) => d.count), 1);
-              return activity.daily.map((d: any, i: number) => (
-                <div
-                  key={i}
-                  style={{
-                    flex: 1,
-                    background: accent,
-                    opacity: 0.5,
-                    borderRadius: "2px 2px 0 0",
-                    height: `${(d.count / max) * 100}%`,
-                    minHeight: d.count > 0 ? 2 : 0,
-                    transition: "height 0.3s",
-                  }}
-                  title={`${d.date}: ${d.count}`}
-                />
-              ));
-            })()}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -300,7 +338,7 @@ function SessionsTab({ agentName, token, serverUrl }: TabProps) {
 function SegmentsTab({ agentName, token, serverUrl }: TabProps) {
   const [segments, setSegments] = useState<any>(null);
   const [contextIds, setContextIds] = useState<Set<number>>(new Set());
-  const [filter, setFilter] = useState<"all" | "context">("all");
+  const [filter, setFilter] = useState<"all" | "context">("context");
   const [selected, setSelected] = useState<any>(null);
   const [rebuilding, setRebuilding] = useState(false);
   const [resummarizing, setResummarizing] = useState(false);
@@ -415,60 +453,66 @@ function SegmentsTab({ agentName, token, serverUrl }: TabProps) {
         ))}
       </div>
 
-      {/* Right: detail panel */}
-      {selected && (
-        <div style={{
-          width: 520,
-          flexShrink: 0,
-          borderLeft: "1px solid var(--border)",
-          padding: "18px 20px",
-          overflowY: "auto",
-          background: "var(--bg-sidebar)",
-        }}>
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ color: "var(--text)", fontSize: 16, fontWeight: 600, lineHeight: 1.3, marginBottom: 8 }}>
-              L{selected.level} Segment
+      {/* Right: detail panel — always visible */}
+      <div style={{
+        width: 520,
+        flexShrink: 0,
+        borderLeft: "1px solid var(--border)",
+        padding: "18px 20px",
+        overflowY: "auto",
+        background: "var(--bg-sidebar)",
+      }}>
+        {selected ? (
+          <>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ color: "var(--text)", fontSize: 16, fontWeight: 600, lineHeight: 1.3, marginBottom: 8 }}>
+                L{selected.level} Segment
+              </div>
+              <div style={{ color: "var(--text-muted)", fontSize: 12, fontFamily: "var(--font-mono)", lineHeight: 1.6 }}>
+                Messages {selected.msg_start}–{selected.msg_end}
+                <br />
+                {selected.token_count?.toLocaleString()} tokens
+                {selected.summary_token_count ? ` → ${selected.summary_token_count} summary tokens (${Math.round(selected.token_count / selected.summary_token_count)}:1 compression)` : ""}
+              </div>
             </div>
-            <div style={{ color: "var(--text-muted)", fontSize: 12, fontFamily: "var(--font-mono)", lineHeight: 1.6 }}>
-              Messages {selected.msg_start}–{selected.msg_end}
-              <br />
-              {selected.token_count?.toLocaleString()} tokens
-              {selected.summary_token_count ? ` → ${selected.summary_token_count} summary tokens (${Math.round(selected.token_count / selected.summary_token_count)}:1 compression)` : ""}
+
+            {selected.start_time && (
+              <div style={{ color: "var(--text-muted)", fontSize: 12, fontFamily: "var(--font-mono)", lineHeight: 1.5, marginBottom: 12 }}>
+                {new Date(selected.start_time).toLocaleString()} —<br />
+                {selected.end_time ? new Date(selected.end_time).toLocaleString() : "now"}
+              </div>
+            )}
+
+            <div style={{ marginBottom: 12, display: "flex", gap: 8 }}>
+              <ActionBtn
+                onClick={() => {
+                  setResummarizing(true);
+                  api.resummarizeSegment(agentName, token, serverUrl, selected.id)
+                    .then(load)
+                    .finally(() => setResummarizing(false));
+                }}
+                disabled={resummarizing}
+              >
+                ↻ {resummarizing ? "Resummarizing…" : "Resummarize"}
+              </ActionBtn>
             </div>
+
+            {selected.summary ? (
+              <div
+                style={{ color: "var(--text)", fontSize: 13, lineHeight: 1.6 }}
+                className="markdown-body"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(selected.summary) }}
+              />
+            ) : (
+              <div style={{ color: "var(--text-muted)", fontSize: 13, fontStyle: "italic" }}>No summary yet</div>
+            )}
+          </>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-muted)", fontSize: 13 }}>
+            Click a segment to view details
           </div>
-
-          {selected.start_time && (
-            <div style={{ color: "var(--text-muted)", fontSize: 12, fontFamily: "var(--font-mono)", lineHeight: 1.5, marginBottom: 12 }}>
-              {new Date(selected.start_time).toLocaleString()} —<br />
-              {selected.end_time ? new Date(selected.end_time).toLocaleString() : "now"}
-            </div>
-          )}
-
-          <div style={{ marginBottom: 12, display: "flex", gap: 8 }}>
-            <ActionBtn
-              onClick={() => {
-                setResummarizing(true);
-                api.resummarizeSegment(agentName, token, serverUrl, selected.id)
-                  .then(load)
-                  .finally(() => setResummarizing(false));
-              }}
-              disabled={resummarizing}
-            >
-              ↻ {resummarizing ? "Resummarizing…" : "Resummarize"}
-            </ActionBtn>
-          </div>
-
-          {selected.summary ? (
-            <div
-              style={{ color: "var(--text)", fontSize: 13, lineHeight: 1.6 }}
-              className="markdown-body"
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(selected.summary) }}
-            />
-          ) : (
-            <div style={{ color: "var(--text-muted)", fontSize: 13, fontStyle: "italic" }}>No summary yet</div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
