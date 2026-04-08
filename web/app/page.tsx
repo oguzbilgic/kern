@@ -117,7 +117,7 @@ export default function Home() {
           streamParts={streamParts}
           thinking={thinking}
           agentName={activeAgent?.name}
-          token={token ?? undefined}
+          token={activeAgent?.token ?? undefined}
         />
 
         <Input
@@ -133,7 +133,7 @@ export default function Home() {
           open={inspectorOpen}
           onClose={() => setInspectorOpen(false)}
           agentName={activeAgent.name}
-          token={validToken}
+          token={activeAgent.token}
           serverUrl={activeAgent.serverUrl}
         />
       )}
