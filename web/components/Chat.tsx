@@ -80,11 +80,13 @@ export function Chat({ messages, streamParts, thinking }: ChatProps) {
           <ToolCall key={part.id} msg={part} />
         ) : part.role === "assistant" && part.text ? (
           <div key={part.id} className="flex justify-start mb-2">
-            <div className="max-w-[72%] text-sm leading-relaxed text-[var(--text)]">
-              <div
-                className="markdown-body"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(part.text) }}
-              />
+            <div className="flex flex-col max-w-[72%]">
+              <div className="rounded-lg px-3 py-2 text-sm leading-relaxed text-[var(--text)]">
+                <div
+                  className="markdown-body"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(part.text) }}
+                />
+              </div>
             </div>
           </div>
         ) : null
