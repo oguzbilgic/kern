@@ -5,6 +5,7 @@
 ### Features
 - **Hide tool calls in Telegram** ([#76](https://github.com/oguzbilgic/kern-ai/issues/76)) — new `telegramTools` config (default `false`) controls whether tool call progress lines (`⚙ bash`, etc.) appear in Telegram messages
 - **Infinite scroll** ([#53](https://github.com/oguzbilgic/kern-ai/issues/53)) — scroll up in chat to load older messages; uses existing paginated `/history` API with scroll-position preservation
+- **Rendered HTML blocks** ([#103](https://github.com/oguzbilgic/kern-ai/issues/103)) — agents can output rich visual content using ` ```render ` fenced blocks; web UI renders as sandboxed iframes with auto-height and fullscreen toggle
 
 ### Improvements
 - **Markdown rendering** ([#95](https://github.com/oguzbilgic/kern-ai/issues/95)) — replaced hand-rolled regex parser with `marked`; fixes loose lists, nested bullets, multi-paragraph list items, adds GFM strikethrough and task lists

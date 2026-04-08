@@ -40,10 +40,15 @@ hljs.registerLanguage("go", go);
 hljs.registerLanguage("sql", sql);
 hljs.registerLanguage("shell", shell);
 
+// Unique ID counter for render block iframes
+let renderBlockId = 0;
+
 const marked = new Marked(
   markedHighlight({
     langPrefix: "hljs language-",
     highlight(code: string, lang: string) {
+      // Skip highlighting for render blocks — handled by code renderer
+      if (lang === "render") return code;
       if (lang && hljs.getLanguage(lang)) {
         try { return hljs.highlight(code, { language: lang }).value; } catch { /* fall through */ }
       }
@@ -55,6 +60,37 @@ const marked = new Marked(
     gfm: true,
     breaks: true,
     renderer: {
+      code({ text, lang }) {
+        if (lang === "render") {
+          const id = `render-block-${++renderBlockId}`;
+          // Parse optional height hint from <!-- height: N --> comment
+          const heightMatch = text.match(/<!--\s*height:\s*(\d+)\s*-->/);
+          const height = heightMatch ? `${heightMatch[1]}px` : "300px";
+          // Escape HTML for srcdoc attribute
+          const escaped = text
+            .replace(/&/g, "&amp;")
+            .replace(/"/g, "&quot;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+          // Auto-height script: content measures itself, posts height to parent
+          const autoHeightScript = `&lt;script&gt;new ResizeObserver(()=&gt;parent.postMessage({type:&quot;render-block-resize&quot;,id:&quot;${id}&quot;,height:document.body.scrollHeight},&quot;*&quot;)).observe(document.body)&lt;/script&gt;`;
+          return `<div class="render-block" data-id="${id}">
+            <div class="render-block-header">
+              <span class="render-block-label">rendered</span>
+              <button class="render-block-fullscreen" onclick="toggleRenderFullscreen(this)" title="Fullscreen">⛶</button>
+            </div>
+            <iframe
+              id="${id}"
+              sandbox="allow-scripts"
+              srcdoc="${escaped}${autoHeightScript}"
+              style="width:100%;height:${height};border:none;border-radius:0 0 6px 6px;background:#1a1a1a;"
+            ></iframe>
+          </div>`;
+        }
+        // Default code block rendering (highlight.js already applied by markedHighlight)
+        const langClass = lang ? ` class="hljs language-${lang}"` : "";
+        return `<pre><code${langClass}>${text}</code></pre>`;
+      },
       link({ href, text }) {
         // Block javascript: URLs
         if (/^javascript:/i.test(href)) return text;

@@ -6,10 +6,42 @@ export const metadata: Metadata = {
   description: "Agent runtime",
 };
 
+// Global script for render block iframe features
+const renderBlockScript = `
+  // Fullscreen toggle for render blocks
+  window.toggleRenderFullscreen = function(btn) {
+    var block = btn.closest('.render-block');
+    if (!block) return;
+    block.classList.toggle('fullscreen');
+    btn.textContent = block.classList.contains('fullscreen') ? '✕' : '⛶';
+    // ESC to exit fullscreen
+    if (block.classList.contains('fullscreen')) {
+      var handler = function(e) {
+        if (e.key === 'Escape') {
+          block.classList.remove('fullscreen');
+          btn.textContent = '⛶';
+          document.removeEventListener('keydown', handler);
+        }
+      };
+      document.addEventListener('keydown', handler);
+    }
+  };
+  // Auto-resize iframes based on content height
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'render-block-resize' && e.data.id) {
+      var iframe = document.getElementById(e.data.id);
+      if (iframe) iframe.style.height = Math.min(e.data.height + 2, 800) + 'px';
+    }
+  });
+`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="h-dvh overflow-hidden flex">{children}</body>
+      <body className="h-dvh overflow-hidden flex">
+        {children}
+        <script dangerouslySetInnerHTML={{ __html: renderBlockScript }} />
+      </body>
     </html>
   );
 }

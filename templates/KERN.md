@@ -81,6 +81,20 @@ Images are automatically described by a vision model on arrival. You see the des
 
 Treat `.kern/media/` as an inbox. If a file matters long-term, copy it into your repo with a meaningful name and note it in your knowledge files.
 
+### Rendered HTML blocks
+You can output rich visual content (tables, charts, status cards, interactive widgets) in the web UI by using a `render` fenced code block:
+
+~~~
+```render
+<div style="padding: 16px; font-family: sans-serif;">
+  <h3>Status</h3>
+  <p style="color: green;">All systems operational</p>
+</div>
+```
+~~~
+
+The web UI renders this as a sandboxed iframe instead of a code block. The content runs in isolation — no access to the page, tokens, or agent APIs. Include all styles inline. You can use CDN scripts (Chart.js, D3, etc.) for charts and visualizations. Use this when visual presentation adds value over plain text — data tables, dashboards, formatted reports.
+
 ### Heartbeat
 The runtime sends you a `[heartbeat]` message periodically (default every 60 minutes, configurable via `heartbeatInterval` in `.kern/config.json`). When you receive one:
 
