@@ -89,7 +89,7 @@ export function SlackLayout({ messages, streamParts, thinking, agentName, token,
             <MediaAttachments media={msg.media} agentName={agentName} token={token} />
           )}
 
-          {(msg.text || !msg.media?.length) && (
+          {!isHeartbeat && (msg.text || !msg.media?.length) && (
             <div className={`text-sm leading-relaxed text-[#c8c8c8] ${isNoReply ? "italic" : ""}`}>
               <MessageBody msg={msg} />
             </div>
