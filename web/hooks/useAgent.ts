@@ -67,7 +67,7 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
             break;
 
           case "text-delta":
-            streamBufRef.current += ev.delta || "";
+            streamBufRef.current += ev.text || ev.delta || "";
             setStreaming(streamBufRef.current);
             setThinking(false);
             break;

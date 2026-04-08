@@ -2,7 +2,6 @@
 
 export interface Agent {
   name: string;
-  url: string;
   running: boolean;
   server?: string;
 }
@@ -52,11 +51,18 @@ export interface StatusData {
 }
 
 export interface ContentPart {
-  type: "text" | "image" | "file";
+  type: "text" | "image" | "file" | "tool-call" | "tool-result";
   text?: string;
   data?: string;
   mimeType?: string;
   filename?: string;
+  // tool-call fields
+  toolName?: string;
+  toolCallId?: string;
+  input?: Record<string, unknown>;
+  // tool-result fields
+  output?: { type: string; value: string } | string | ContentPart[];
+  value?: string;
 }
 
 export interface HistoryMessage {

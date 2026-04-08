@@ -38,12 +38,31 @@ function extractText(content: string | ContentPart[]): string {
     .join("\n");
 }
 
+function extractToolResultOutput(part: ContentPart): string {
+  const output = part.output;
+  if (!output) return part.text || "";
+  if (typeof output === "string") return output;
+  // Array of parts
+  if (Array.isArray(output)) {
+    return output
+      .filter((p: ContentPart) => p.type === "text")
+      .map((p: ContentPart) => p.text || p.value || "")
+      .join("\n");
+  }
+  // SDK format: { type: "text", value: "..." }
+  const obj = output as { type: string; value: string };
+  if (obj.type === "text" && obj.value) return obj.value;
+  return JSON.stringify(output);
+}
+
 export function historyToMessages(history: HistoryMessage[]): ChatMessage[] {
   const messages: ChatMessage[] = [];
 
   for (const msg of history) {
+    const content = msg.content;
+
     if (msg.role === "user") {
-      const text = extractText(msg.content);
+      const text = extractText(content);
       const parsed = parseUserContent(text);
       if (parsed.type === "heartbeat") {
         messages.push({
@@ -71,35 +90,70 @@ export function historyToMessages(history: HistoryMessage[]): ChatMessage[] {
           iface: parsed.iface,
         });
       }
-    } else if (msg.role === "assistant") {
-      const text = extractText(msg.content);
-      // Tool calls are embedded in assistant messages
-      if (msg.toolName) {
+      continue;
+    }
+
+    if (msg.role === "assistant") {
+      if (typeof content === "string") {
+        if (content.trim()) {
+          messages.push({
+            id: `msg-${msgCounter++}`,
+            role: "assistant",
+            text: content.trim(),
+          });
+        }
+        continue;
+      }
+
+      // Content is array of parts — can contain text AND tool-calls
+      if (Array.isArray(content)) {
+        for (const part of content) {
+          if (part.type === "text" && part.text?.trim()) {
+            messages.push({
+              id: `msg-${msgCounter++}`,
+              role: "assistant",
+              text: part.text.trim(),
+            });
+          } else if (part.type === "tool-call") {
+            messages.push({
+              id: `msg-${msgCounter++}`,
+              role: "tool",
+              text: "",
+              toolName: part.toolName,
+              toolInput: part.input,
+            });
+          }
+        }
+      }
+      continue;
+    }
+
+    if (msg.role === "tool") {
+      if (typeof content === "string") {
         messages.push({
           id: `msg-${msgCounter++}`,
           role: "tool",
-          text: "",
-          toolName: msg.toolName,
-          toolInput: msg.toolInput,
-          toolOutput: typeof msg.result === "string" ? msg.result : extractText(msg.result || []),
+          text: content,
         });
-      } else if (text.trim()) {
-        messages.push({
-          id: `msg-${msgCounter++}`,
-          role: "assistant",
-          text: text.trim(),
-        });
+        continue;
       }
-    } else if (msg.role === "tool") {
-      // Standalone tool result
-      messages.push({
-        id: `msg-${msgCounter++}`,
-        role: "tool",
-        text: "",
-        toolName: msg.toolName,
-        toolInput: msg.toolInput,
-        toolOutput: typeof msg.content === "string" ? msg.content : extractText(msg.content),
-      });
+
+      // Content is array of tool-result parts
+      if (Array.isArray(content)) {
+        for (const part of content) {
+          if (part.type === "tool-result") {
+            messages.push({
+              id: `msg-${msgCounter++}`,
+              role: "tool",
+              text: "",
+              toolName: part.toolName,
+              toolInput: part.input,
+              toolOutput: extractToolResultOutput(part),
+            });
+          }
+        }
+      }
+      continue;
     }
   }
 
