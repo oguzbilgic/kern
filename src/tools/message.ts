@@ -1,8 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-type SendResult = boolean | { ok: boolean; error?: string; detail?: string };
-type SendFn = (userId: string, iface: string, text: string) => Promise<SendResult>;
+type SendFn = (userId: string, iface: string, text: string) => Promise<boolean>;
 
 let _sendFn: SendFn | null = null;
 
@@ -21,13 +20,8 @@ export const messageTool = tool({
   execute: async ({ userId, interface: iface, text }) => {
     if (!_sendFn) return "Error: messaging not available — no send function configured.";
     try {
-      const result = await _sendFn(userId, iface, text);
-      if (result === true || (typeof result === "object" && result.ok)) {
-        return `Message sent to ${userId} on ${iface}.`;
-      }
-      if (typeof result === "object" && result.detail) {
-        return `Failed to send: ${result.detail}`;
-      }
+      const sent = await _sendFn(userId, iface, text);
+      if (sent) return `Message sent to ${userId} on ${iface}.`;
       return `Failed to send — user ${userId} not found on ${iface}, or interface not connected.`;
     } catch (e: any) {
       return `Error sending message: ${e.message}`;

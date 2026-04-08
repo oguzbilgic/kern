@@ -3,7 +3,6 @@ import { updateKernel } from "./kernel.js";
 import { TelegramInterface } from "./interfaces/telegram.js";
 import { SlackInterface } from "./interfaces/slack.js";
 import { CliInterface } from "./interfaces/cli.js";
-import { HubInterface } from "./interfaces/hub.js";
 import { loadConfig } from "./config.js";
 import { readFile, appendFile } from "fs/promises";
 import { join, basename } from "path";
@@ -19,7 +18,7 @@ import { SegmentIndex } from "./segments.js";
 import { MemoryDB } from "./memory.js";
 import { regenerateNotesSummary } from "./notes.js";
 import { MessageQueue } from "./queue.js";
-import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, setSegmentStatsFn, setHubStatusFn, setHubPairConfirmFn, type InterfaceStatus } from "./tools/kern.js";
+import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, setSegmentStatsFn, type InterfaceStatus } from "./tools/kern.js";
 import { log } from "./log.js";
 
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
@@ -52,13 +51,13 @@ async function handleSlashCommand(cmd: string, userId: string, iface: string, ag
 
     case "/help":
       return [
-        "/status   — agent status, uptime, token usage",
+        "/status   — show agent status, uptime, token usage",
         "/restart  — restart the agent process",
         "/help     — show this help",
       ].join("\n");
 
     default:
-      return null;
+      return null; // unknown command — fall through to LLM
   }
 }
 
@@ -88,10 +87,6 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       log("kern", `generated auth token: ${token.slice(0, 8)}...`);
     }
   }
-
-  // Ensure keypair exists for hub communication
-  const { ensureKeypair } = await import("./keys.js");
-  ensureKeypair(agentDir);
 
   const runtime = new Runtime(agentDir);
 
@@ -180,7 +175,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   queue.setHandler(async (msg, getPendingMessages) => {
 
     const time = new Date().toISOString();
-    const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}, time: ${time}] ${msg.text}`;
+    const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}, time: ${time}]\n${msg.text}`;
 
     // Broadcast incoming to other clients.
     // Messages from /message POST (web, tui) are already broadcast by the server
@@ -202,7 +197,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       const pending = getPendingMessages();
       return pending.map((p) => ({
         role: "user",
-        content: `[via ${p.interface}${p.channel ? `, ${p.channel}` : ""}, user: ${p.userId}, time: ${new Date().toISOString()}] ${p.text}`,
+        content: `[via ${p.interface}${p.channel ? `, ${p.channel}` : ""}, user: ${p.userId}, time: ${new Date().toISOString()}]\n${p.text}`,
       }));
     });
 
@@ -228,8 +223,6 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
     return result;
   });
-
-  let _hubInterface: HubInterface | null = null;
 
   // Helper to enqueue from any interface
   const enqueueMessage = async (text: string, userId: string, iface: string, channel: string, onEvent?: (e: StreamEvent) => void, attachments?: import("./interfaces/types.js").Attachment[]) => {
@@ -415,34 +408,6 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     });
   }
 
-  // Start hub if configured
-  if (!forceCli && config.hub) {
-    const hubInterface = new HubInterface(agentDir, agentName, config.hub, pairing);
-    _hubInterface = hubInterface;
-    await hubInterface.start(async (msg, onEvent) => {
-      try {
-        const response = await enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "");
-        // Auto-reply back to sender — agents handle loop prevention via NO_REPLY
-        const trimmed = (response || "").trim();
-        const suppress = !trimmed || trimmed.includes("NO_REPLY") || trimmed === "(no text response)";
-        if (!suppress) {
-          const result = await hubInterface!.sendMessage(msg.userId, response);
-          if (!result.ok) {
-            log("hub", `reply failed to ${msg.userId}: ${result.error} — ${result.detail}`);
-          }
-        }
-        return response;
-      } catch (e: any) {
-        log("hub", `error processing message: ${e.message}`);
-        return "";
-      }
-    });
-    setHubStatusFn(() => ({ url: hubInterface!.getUrl(), connected: hubInterface!.isConnected(), id: hubInterface!.getMyId() }));
-    setHubPairConfirmFn(async (userId: string) => {
-      return hubInterface!.sendPairConfirmation(userId);
-    });
-  }
-
   // Register interface status reporting
   setInterfaceStatusFn(() => {
     const statuses: InterfaceStatus[] = [];
@@ -451,9 +416,6 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     }
     if (slackBot) {
       statuses.push({ name: "slack", status: slackBot.status, detail: slackBot.statusDetail });
-    }
-    if (_hubInterface) {
-      statuses.push({ name: "hub", status: _hubInterface.isConnected() ? "connected" : "disconnected", detail: _hubInterface.getUrl() });
     }
     return statuses;
   });
@@ -485,25 +447,6 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
         });
       }
       return sent;
-    }
-    if (iface === "hub" && _hubInterface) {
-      // Auto-pair on send — if agent is sending, it trusts the recipient
-      if (!pairing.isPaired(userId)) {
-        await pairing.autoPairFirst(userId, "hub", userId);
-        log("hub", `auto-paired ${userId} (outgoing message)`);
-      }
-      const result = await _hubInterface.sendMessage(userId, text);
-      if (result.ok) {
-        server.broadcast({
-          type: "outgoing" as any,
-          text,
-          fromInterface: iface,
-          fromUserId: userId,
-        });
-      } else {
-        log("hub", `delivery failed to ${userId}: ${result.error} — ${result.detail}`);
-      }
-      return result;
     }
     return false;
   });

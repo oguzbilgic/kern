@@ -23,8 +23,6 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 | `maxContextTokens` | `100000` | Token budget for context window. Messages beyond this are trimmed oldest-first. Full history stays in session JSONL files. |
 | `maxToolResultChars` | `20000` | Max characters per tool result in context. Oversized results are truncated in context only. Full results stay in session storage. Set to `0` to disable. |
 | `heartbeatInterval` | `60` | Minutes between heartbeat prompts. Agent reviews notes, updates knowledge. 0 to disable. |
-| `host` | `0.0.0.0` | Bind address for the agent's HTTP API. Default binds to all interfaces. Set to `127.0.0.1` for localhost only. |
-| `hub` | *(none)* | Hub connection. `"default"` (kern.ai public hub), `"local"` (localhost:4000), or a custom hostname:port. Omit to disable. |
 | `recall` | `true` | Enable recall and segments (embedding-based features). Set to `false` to disable. Requires an embedding API key. Session storage and notes summaries work regardless. |
 | `summaryBudget` | `0.75` | Fraction of `maxContextTokens` for compressed conversation summaries from segments. Cached via prompt caching, so effectively free for supported models. Set to `0` to disable. See [Context](context.md#conversation-summary). |
 | `autoRecall` | `false` | Automatically inject relevant old context before each turn. Requires recall enabled. |
@@ -80,13 +78,12 @@ You never need to set either token manually unless you want specific values.
 
 ## Global: ~/.kern/config.json
 
-Global settings for `kern web` and `kern hub`. Optional — defaults apply if the file doesn't exist.
+Global settings for the `kern web` server. Optional — defaults apply if the file doesn't exist.
 
 ```json
 {
   "web_port": 9000,
-  "web_host": "0.0.0.0",
-  "hub_port": 4000
+  "web_host": "0.0.0.0"
 }
 ```
 
@@ -94,7 +91,6 @@ Global settings for `kern web` and `kern hub`. Optional — defaults apply if th
 |-------|---------|-------------|
 | `web_port` | `9000` | Port for the `kern web` UI server. |
 | `web_host` | `0.0.0.0` | Bind address for the web UI server. |
-| `hub_port` | `4000` | Port for the `kern hub` server. |
 
 ## Global: ~/.kern/agents.json
 
@@ -104,31 +100,4 @@ Tracks all registered agents with their name, path, PID, port, and auth token. U
 
 ## .kern/ local files
 
-SQLite database for agent memory. Always created on startup. Contains:
-
-- `messages` — raw message content
-- `chunks` — turn-level summaries for recall search
-- `vec_chunks` — embeddings (sqlite-vec)
-- `index_state` — tracks indexing progress per session
-- `summaries` — cached notes summaries
-- `semantic_segments` — hierarchical segment tree (L0, L1, L2...)
-- `vec_segments` — segment embeddings
-- `segment_state` — tracks segmentation progress per session
-
-Gitignored. Safe to delete — rebuilds from session JSONL files on next start, summaries regenerate on next cache miss.
-
-## .kern/sessions/
-
-Conversation history as JSONL files. One file per session. First line is metadata, rest are messages. Gitignored.
-
-## .kern/keys/
-
-Ed25519 keypair for hub authentication. Generated on `kern init` or first agent start.
-
-- `private.pem` — private key (mode 0600)
-- `public.pem` — public key, shared with hub on connect
-
-## .kern/pairing.json
-
-Pending and paired user data for all interfaces (Telegram, Slack, Hub). Paired via the `kern` tool's `pair` action — agent handles pairing and updates USERS.md. Codes expire on restart. Paired users persist.
-
+Local files (sessions, database, logs) live in `.kern/` and are gitignored.

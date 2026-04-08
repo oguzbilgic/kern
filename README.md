@@ -34,8 +34,7 @@ For automation: `kern init my-agent --api-key sk-or-...` (no prompts, defaults t
 ```
 TUI ──────────────┐
 Web UI ───────────┤
-Hub (agents) ─────┤── kern ── one session ── one folder
-Telegram DM ──────┤
+Telegram DM ──────┤── kern ── one session ── one folder
 #engineering ─────┤
 Slack DM ─────────┘
 ```
@@ -74,7 +73,6 @@ kern install [name|--web] # install systemd services (auto-restart, boot persist
 kern uninstall [name]     # remove systemd services
 kern tui [name]           # interactive chat
 kern web <start|stop|status|token>  # web UI server
-kern hub <start|stop|status>  # agent-to-agent hub
 kern logs [name]          # follow agent logs
 kern list                 # show all agents and web status
 kern remove <name>        # unregister an agent
@@ -100,23 +98,9 @@ The web UI proxies all agent requests — agents bind to localhost only and are 
 
 Works over Tailscale or LAN. Add remote kern servers in the sidebar.
 
-### Hub
-
-`kern hub start` runs a WebSocket relay for agent-to-agent communication. Agents connect, authenticate with Ed25519 keys, and message each other.
-
-```bash
-kern hub start    # start hub server (default port 4000)
-kern hub stop     # stop it
-kern hub status   # check if running
-```
-
-Agents connect by setting `"hub": "local"` in their `.kern/config.json`. Other options: `"default"` (kern.ai public hub) or a custom hostname.
-
-Agents pair using KERN-XXXX codes — same pairing system as Telegram/Slack. First contact generates a code, operator tells the agent to pair, agent updates USERS.md.
-
 ### Slash commands
 
-Type these in any channel (TUI, Web, Telegram, Slack, Hub). Handled by the runtime — no LLM call, instant response.
+Type these in any channel (TUI, Web, Telegram, Slack). Handled by the runtime — no LLM call, instant response.
 
 ```
 /status     # agent status, model, uptime, session size
@@ -180,7 +164,7 @@ The web UI includes a Memory overlay with five tabs for examining all aspects of
 
 ## Heartbeat
 
-Kern sends a periodic `[heartbeat]` to the agent. The agent reviews notes, updates knowledge files, and messages the operator if something needs attention. Visible in the TUI and web UI only — Telegram, Slack, and hub never see it.
+Kern sends a periodic `[heartbeat]` to the agent. The agent reviews notes, updates knowledge files, and messages the operator if something needs attention. Visible in the TUI only — Telegram and Slack never see it.
 
 ```json
 {
@@ -211,26 +195,24 @@ Structured, leveled logs with colored labels. Stored in `.kern/logs/kern.log`. A
   "toolScope": "full",
   "maxContextTokens": 100000,
   "maxToolResultChars": 20000,
-  "summaryBudget": 0.75,
-  "hub": "local"
+  "summaryBudget": 0.75
 }
 ```
 
-`maxContextTokens` controls the sliding context window — older messages are trimmed to stay within budget. `maxToolResultChars` caps individual tool results in context (full results stay in session JSONL and are searchable via recall). `summaryBudget` controls what fraction of the context window is reserved for compressed segment summaries when old messages are trimmed (default 75%, cached via prompt caching so effectively free). Set to `0` to disable. `hub` connects to a hub: `"default"` (kern.ai), `"local"` (localhost:4000), or a custom hostname.
+`maxContextTokens` controls the sliding context window — older messages are trimmed to stay within budget. `maxToolResultChars` caps individual tool results in context (full results stay in session JSONL and are searchable via recall). `summaryBudget` controls what fraction of the context window is reserved for compressed segment summaries when old messages are trimmed (default 75%, cached via prompt caching so effectively free). Set to `0` to disable.
 
-Auth tokens are auto-generated on first start and stored in `.kern/.env`. Ed25519 keypairs generated for hub authentication. The web proxy injects agent tokens automatically — no manual setup needed.
+Agent auth tokens are auto-generated on first start and stored in `.kern/.env`. The web proxy injects them automatically — no manual setup needed.
 
 ### Global: `~/.kern/config.json`
 
 ```json
 {
   "web_port": 9000,
-  "web_host": "0.0.0.0",
-  "hub_port": 4000
+  "web_host": "0.0.0.0"
 }
 ```
 
-Controls `kern web` and `kern hub` servers. Optional — defaults apply if the file doesn't exist.
+Controls the `kern web` server. Optional — defaults apply if the file doesn't exist.
 
 ### Tool scopes
 

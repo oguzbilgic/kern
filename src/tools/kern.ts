@@ -21,22 +21,12 @@ let _getSessionStats: (() => SessionStats) | null = null;
 let _reloadFn: (() => Promise<void>) | null = null;
 let _pairingManager: any = null;
 let _getQueueStatus: (() => { processing: boolean; pending: number; activeChannel: string | null }) | null = null;
-let _getHubStatus: (() => { url: string; connected: boolean; id: string | null } | null) | null = null;
-let _hubPairConfirmFn: ((userId: string) => Promise<boolean>) | null = null;
 let _getInterfaceStatuses: (() => InterfaceStatus[]) | null = null;
 let _getRecallStats: (() => { chunks: number; sessions: number; messages: number; building: boolean } | null) | null = null;
 let _getSegmentStats: (() => { segments: number; level0: number; levels: Record<number, number> } | null) | null = null;
 
-export function setHubPairConfirmFn(fn: (userId: string) => Promise<boolean>) {
-  _hubPairConfirmFn = fn;
-}
-
 export function setQueueStatusFn(fn: () => { processing: boolean; pending: number; activeChannel: string | null }) {
   _getQueueStatus = fn;
-}
-
-export function setHubStatusFn(fn: () => { url: string; connected: boolean; id: string | null } | null) {
-  _getHubStatus = fn;
 }
 
 export function setInterfaceStatusFn(fn: () => InterfaceStatus[]) {
@@ -145,7 +135,6 @@ export interface StatusData {
   promptTokens: number;
   completionTokens: number;
   queue: string;
-  hub: string | null;
   telegram: string | null;
   slack: string | null;
   recall: string | null;
@@ -225,7 +214,6 @@ export function getStatusData(): StatusData {
     promptTokens: _totalPromptTokens,
     completionTokens: _totalCompletionTokens,
     queue: queueStr,
-    hub: _getHubStatus ? (() => { const h = _getHubStatus!(); return h ? `${h.url} (${h.connected ? 'connected' : 'disconnected'})${h.id ? ` id: ${h.id}` : ''}` : null; })() : null,
     telegram: tg ? (tg.detail ? `${tg.status} (${tg.detail})` : tg.status) : null,
     slack: sl ? (sl.detail ? `${sl.status} (${sl.detail})` : sl.status) : null,
     recall: _getRecallStats ? (() => {
@@ -272,7 +260,6 @@ export function formatStatus(data: StatusData): string {
     `api usage: ${data.apiUsage}`,
     data.cacheUsage ? `cache: ${data.cacheUsage}` : "",
     `queue: ${data.queue}`,
-    data.hub ? `hub: ${data.hub}` : "",
     `uptime: ${data.uptime}`,
   ].filter(Boolean).join("\n");
 }
@@ -342,10 +329,6 @@ export const kernTool = tool({
         if (!code) return "Provide a pairing code. Usage: kern({ action: 'pair', code: 'KERN-XXXX' })";
         const result = await _pairingManager.pair(code);
         if (!result) return `Invalid or expired pairing code: ${code}`;
-        // Send hub confirmation so the other agent auto-pairs us
-        if (result.interface === "hub" && _hubPairConfirmFn) {
-          await _hubPairConfirmFn(result.userId);
-        }
         return `Paired! User ${result.userId} from ${result.interface} is now approved.\n\nYou should now update USERS.md with their identity, role, and any access notes your operator provided.`;
       }
 
