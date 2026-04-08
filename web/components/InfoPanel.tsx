@@ -6,55 +6,45 @@ interface InfoPanelProps {
   onClose: () => void;
 }
 
-function Tag({ label, value }: { label: string; value?: string }) {
-  if (!value) return null;
-  return (
-    <span className="inline-flex items-baseline gap-1 text-[11px] whitespace-nowrap">
-      <span className="text-[var(--text-muted)]">{label}</span>
-      <span className="text-[var(--text-dim)] font-mono">{value}</span>
-    </span>
-  );
-}
-
-const SEP = <span className="text-[var(--border)]">·</span>;
-
 export function InfoPanel({ status, connected, onClose }: InfoPanelProps) {
   if (!status) return null;
 
   const bd = status.contextBreakdown;
 
-  const all: { label: string; value?: string }[] = [
-    { label: "model", value: status.model },
-    { label: "v", value: status.version },
-    { label: "up", value: status.uptime },
-    { label: "session", value: status.session },
-    { label: "context", value: status.context },
-    ...(bd ? [{ label: "msgs", value: `${bd.messageCount} · ${bd.messageTokens.toLocaleString()}t` }] : []),
-    ...(bd?.summaryTokens ? [{ label: "summary", value: `${bd.summaryTokens.toLocaleString()}t` }] : []),
-    { label: "api", value: status.apiUsage },
-    { label: "cache", value: status.cacheUsage },
-    { label: "tools", value: status.toolScope },
-    { label: "queue", value: status.queue },
-    { label: "recall", value: status.recall },
-    { label: "tg", value: status.telegram },
-    { label: "slack", value: status.slack },
-    { label: "hub", value: status.hub },
-  ];
-  const tags = all.filter((t): t is { label: string; value: string } => !!t.value);
+  const rows: [string, string][] = [
+    ["Model", status.model],
+    ["Version", status.version],
+    ["Uptime", status.uptime],
+    ["Session", status.session],
+    ["Context", status.context],
+    ...(bd ? [["Messages", `${bd.messageCount} msgs · ${bd.messageTokens.toLocaleString()} tokens`] as [string, string]] : []),
+    ...(bd?.summaryTokens ? [["Summary", `${bd.summaryTokens.toLocaleString()} tokens`] as [string, string]] : []),
+    ...(bd?.systemPromptTokens ? [["System prompt", `${bd.systemPromptTokens.toLocaleString()} tokens`] as [string, string]] : []),
+    ["API usage", status.apiUsage],
+    ["Cache", status.cacheUsage],
+    ["Tools", status.toolScope],
+    ["Queue", status.queue],
+    ["Recall", status.recall],
+    ["Telegram", status.telegram],
+    ["Slack", status.slack],
+    ["Hub", status.hub],
+  ].filter((r): r is [string, string] => !!r[1]);
 
   return (
     <div
-      className="absolute left-0 right-0 top-12 z-40 border-b border-[var(--border)] bg-[var(--bg-surface)] px-4 py-2"
+      className="absolute left-0 right-0 top-12 z-40 border-b border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3"
       onClick={onClose}
     >
-      <div className="flex items-baseline gap-2 flex-wrap">
-        {tags.map((t, i) => (
-          <span key={t.label} className="inline-flex items-baseline gap-2">
-            {i > 0 && SEP}
-            <Tag label={t.label} value={t.value} />
-          </span>
-        ))}
-      </div>
+      <table className="text-[11px]">
+        <tbody>
+          {rows.map(([label, value]) => (
+            <tr key={label}>
+              <td className="text-[var(--text-muted)] pr-4 py-[2px] align-top whitespace-nowrap">{label}</td>
+              <td className="text-[var(--text-dim)] font-mono py-[2px]">{value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
