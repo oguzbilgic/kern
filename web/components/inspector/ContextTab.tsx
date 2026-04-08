@@ -10,6 +10,7 @@ interface PromptSectionData {
   tag: string;
   attrs: Record<string, string>;
   content: string;
+  children?: PromptSectionData[];
 }
 
 function parsePromptSections(prompt: string): PromptSectionData[] {
@@ -29,7 +30,15 @@ function parsePromptSections(prompt: string): PromptSectionData[] {
     while ((am = attrRegex.exec(match[2])) !== null) {
       attrs[am[1]] = am[2];
     }
-    sections.push({ tag: match[1], attrs, content: match[3].trim() });
+    const content = match[3].trim();
+    const section: PromptSectionData = { tag: match[1], attrs, content };
+
+    // Parse nested <summary> blocks inside conversation_summary
+    if (match[1] === "conversation_summary" || match[1] === "notes_summary") {
+      section.children = parsePromptSections(content);
+    }
+
+    sections.push(section);
     lastIndex = regex.lastIndex;
   }
   if (lastIndex < prompt.length) {
@@ -100,35 +109,120 @@ export function ContextTab({ agentName, token, serverUrl }: TabProps) {
           {prompt}
         </pre>
       ) : (
-        <StructuredPrompt prompt={prompt} totalTokens={totalTokens} systemTokens={systemTokens} summaryTokens={summaryTokens} messageTokens={messageTokens} />
+        <StructuredPrompt prompt={prompt} totalTokens={totalTokens} messageTokens={messageTokens} />
+      )}
+    </div>
+  );
+}
+
+// ─── Color map ──────────────────────────────────────────
+const typeColor: Record<string, string> = {
+  document: accent,
+  notes_summary: "#8b5cf6",
+  tools: "#f59e0b",
+  conversation_summary: "#10b981",
+  summary: "#10b981",
+  text: "#6b7280",
+};
+
+// ─── Section Card ───────────────────────────────────────
+function SectionCard({ section, index, depth = 0 }: { section: PromptSectionData; index: number; depth?: number }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const color = typeColor[section.tag] || "#6b7280";
+  const tokens = Math.round(section.content.length / 3.3);
+
+  // Extract first line for summary preview
+  const firstLine = section.attrs.path || section.tag;
+  const levelLabel = section.attrs.level ? ` [${section.attrs.level}]` : "";
+  const label = `${firstLine}${levelLabel}`;
+
+  // For summary children inside conversation_summary, show message range
+  const msgRange = section.attrs.messages ? ` · msgs ${section.attrs.messages}` : "";
+
+  return (
+    <div style={{
+      background: depth > 0 ? "transparent" : "var(--bg)",
+      border: depth > 0 ? "none" : "1px solid var(--border)",
+      borderRadius: depth > 0 ? 0 : 10,
+      marginBottom: depth > 0 ? 2 : 10,
+      overflow: "hidden",
+      borderTop: depth > 0 ? "1px solid var(--border)" : undefined,
+    }}>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: depth > 0 ? "8px 14px 8px 24px" : "10px 14px",
+          cursor: "pointer",
+          borderLeft: `3px solid ${color}`,
+          gap: 12,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
+          <span style={{
+            fontSize: 11,
+            color: "var(--text-muted)",
+            transition: "transform 0.15s",
+            display: "inline-block",
+            transform: isOpen ? "rotate(90deg)" : "none",
+            flexShrink: 0,
+          }}>
+            ▶
+          </span>
+          <span style={{
+            fontSize: depth > 0 ? 12 : 13,
+            fontWeight: 500,
+            color: "var(--text)",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}>
+            {label}
+          </span>
+        </div>
+        <span style={{
+          fontSize: 11,
+          fontFamily: "var(--font-mono)",
+          color: "var(--text-muted)",
+          whiteSpace: "nowrap",
+          flexShrink: 0,
+        }}>
+          {msgRange && <span style={{ marginRight: 8 }}>{msgRange}</span>}
+          ~{tokens > 1000 ? `${(tokens / 1000).toFixed(1)}k` : tokens} tokens
+        </span>
+      </div>
+      {isOpen && (
+        <div style={{
+          borderTop: "1px solid var(--border)",
+          ...(section.children && section.children.length > 0
+            ? { padding: 0 }
+            : { padding: "0 14px 14px" }),
+        }}>
+          {section.children && section.children.length > 0 ? (
+            // Render nested children as sub-cards
+            section.children.map((child, i) => (
+              <SectionCard key={i} section={child} index={i} depth={depth + 1} />
+            ))
+          ) : (
+            <div
+              className="markdown-body"
+              style={{ color: "var(--text)", fontSize: 13, lineHeight: 1.6, paddingTop: 12 }}
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(section.content) }}
+            />
+          )}
+        </div>
       )}
     </div>
   );
 }
 
 // ─── Structured View ────────────────────────────────────
-function StructuredPrompt({ prompt, totalTokens, systemTokens, summaryTokens, messageTokens }: {
-  prompt: string; totalTokens: number; systemTokens?: number; summaryTokens?: number; messageTokens?: number;
+function StructuredPrompt({ prompt, totalTokens, messageTokens }: {
+  prompt: string; totalTokens: number; messageTokens?: number;
 }) {
   const sections = parsePromptSections(prompt);
-  const [openSections, setOpenSections] = useState<Set<number>>(new Set());
-
-  const toggle = (i: number) => {
-    setOpenSections((prev) => {
-      const next = new Set(prev);
-      next.has(i) ? next.delete(i) : next.add(i);
-      return next;
-    });
-  };
-
-  const typeColor: Record<string, string> = {
-    document: accent,
-    notes_summary: "#8b5cf6",
-    tools: "#f59e0b",
-    conversation_summary: "#10b981",
-    summary: "#10b981",
-    text: "#6b7280",
-  };
 
   return (
     <div>
@@ -155,10 +249,8 @@ function StructuredPrompt({ prompt, totalTokens, systemTokens, summaryTokens, me
                 color: "rgba(255,255,255,0.85)",
                 overflow: "hidden",
                 whiteSpace: "nowrap",
-                cursor: "pointer",
               }}
               title={`${s.attrs.path || s.tag}: ~${tokens} tokens`}
-              onClick={() => toggle(i)}
             >
               {pct > 5 ? (s.attrs.path || s.tag) : ""}
             </div>
@@ -190,61 +282,9 @@ function StructuredPrompt({ prompt, totalTokens, systemTokens, summaryTokens, me
       </div>
 
       {/* Sections */}
-      {sections.map((s, i) => {
-        const isOpen = openSections.has(i);
-        const color = typeColor[s.tag] || "#6b7280";
-        const tokens = Math.round(s.content.length / 3.3);
-
-        return (
-          <div key={i} style={{
-            background: "var(--bg)",
-            border: "1px solid var(--border)",
-            borderRadius: 10,
-            marginBottom: 10,
-            overflow: "hidden",
-          }}>
-            <div
-              onClick={() => toggle(i)}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "10px 14px",
-                cursor: "pointer",
-                borderLeft: `3px solid ${color}`,
-                gap: 12,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                  transition: "transform 0.15s",
-                  display: "inline-block",
-                  transform: isOpen ? "rotate(90deg)" : "none",
-                }}>
-                  ▶
-                </span>
-                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>
-                  {s.attrs.path || s.tag}
-                </span>
-              </div>
-              <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
-                ~{tokens > 1000 ? `${(tokens / 1000).toFixed(1)}k` : tokens} tokens
-              </span>
-            </div>
-            {isOpen && (
-              <div style={{ padding: "0 14px 14px", borderTop: "1px solid var(--border)" }}>
-                <div
-                  className="markdown-body"
-                  style={{ color: "var(--text)", fontSize: 13, lineHeight: 1.6, paddingTop: 12 }}
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(s.content) }}
-                />
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {sections.map((s, i) => (
+        <SectionCard key={i} section={s} index={i} />
+      ))}
 
       {/* Raw Messages section */}
       {messageTokens && messageTokens > 0 && (

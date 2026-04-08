@@ -83,13 +83,34 @@ export function Message({ msg, agentName, token }: { msg: ChatMessage; agentName
   const isUser = msg.role === "user";
   const isIncoming = msg.role === "incoming";
   const emoji = isUser && isEmojiOnly(msg.text);
-  const noReply = msg.role === "assistant" && (msg.text === "NO_REPLY" || msg.text === "(no text response)");
+  const noReply = msg.role === "assistant" && (
+    msg.text === "NO_REPLY" ||
+    msg.text === "(no text response)" ||
+    !msg.text?.trim()
+  );
 
+  // Dim NO_REPLY / empty assistant messages
   if (noReply) {
     return (
       <div className="flex justify-start mb-2">
-        <div className="text-xs text-[var(--text-muted)] italic px-3 py-1">
-          {msg.text}
+        <div className="text-xs text-[var(--text-muted)] italic px-3 py-1 opacity-50">
+          {msg.text || "(no text response)"}
+        </div>
+      </div>
+    );
+  }
+
+  // Emoji-only messages — large font, no bubble
+  if (emoji) {
+    return (
+      <div className={`flex ${isUser || isIncoming ? "justify-end" : "justify-start"} mb-2`}>
+        <div className="flex flex-col">
+          <span className="text-4xl leading-tight">{msg.text}</span>
+          {msg.timestamp && (
+            <div className={`text-[10px] text-[var(--text-muted)] mt-0.5 ${isUser || isIncoming ? "text-right" : "text-left"}`}>
+              {formatTime(msg.timestamp)}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -114,13 +135,11 @@ export function Message({ msg, agentName, token }: { msg: ChatMessage; agentName
         {(msg.text || !msg.media?.length) && (
           <div
             className={`rounded-lg px-3 py-2 text-sm leading-relaxed ${
-              emoji
-                ? "text-4xl bg-transparent"
-                : isUser
-                  ? "bg-[var(--bg-surface)] text-[#d4d4d4] rounded-br-sm"
-                  : isIncoming
-                    ? "bg-[var(--bg-surface)] rounded-bl-sm"
-                    : "text-[var(--text)]"
+              isUser
+                ? "bg-[var(--bg-surface)] text-[#d4d4d4] rounded-br-sm"
+                : isIncoming
+                  ? "bg-[var(--bg-surface)] rounded-bl-sm"
+                  : "text-[var(--text)]"
             }`}
           >
             {msg.role === "assistant" ? (
