@@ -27,11 +27,37 @@ function toolActivity(toolName?: string): string {
   }
 }
 
+// Extract key argument from tool input for tooltip
+function toolDetail(toolName?: string, input?: Record<string, unknown>): string {
+  if (!toolName || !input) return "";
+  switch (toolName) {
+    case "bash": return truncDetail(String(input.command || ""));
+    case "read": return String(input.path || "");
+    case "write": return String(input.path || "");
+    case "edit": return String(input.path || "");
+    case "glob": return String(input.pattern || "");
+    case "grep": return String(input.pattern || "");
+    case "webfetch": return String(input.url || "");
+    case "websearch": return String(input.query || "");
+    case "pdf": return String(input.file || "");
+    case "image": return String(input.file || "");
+    case "recall": return truncDetail(String(input.query || ""));
+    case "kern": return String(input.action || "");
+    case "message": return String(input.userId || "");
+    default: return "";
+  }
+}
+
+function truncDetail(s: string, max = 80): string {
+  return s.length > max ? s.slice(0, max) + "…" : s;
+}
+
 export interface AgentState {
   messages: ChatMessage[];
   streamParts: ChatMessage[];
   thinking: boolean;
   activity: string;
+  activityDetail: string;
   connected: boolean;
   unread: number;
   status: StatusData | null;
@@ -45,6 +71,7 @@ const EMPTY_STATE: AgentState = {
   streamParts: [],
   thinking: false,
   activity: "",
+  activityDetail: "",
   connected: false,
   unread: 0,
   status: null,
@@ -59,6 +86,7 @@ export function useAgent(
   const [streamParts, setStreamParts] = useState<ChatMessage[]>([]);
   const [thinking, setThinking] = useState(false);
   const [activity, setActivity] = useState("");
+  const [activityDetail, setActivityDetail] = useState("");
   const [connected, setConnected] = useState(false);
   const [unread, setUnread] = useState(0);
   const [status, setStatus] = useState<StatusData | null>(null);
@@ -133,10 +161,12 @@ export function useAgent(
             inTurnRef.current = true;
             setThinking(true);
             setActivity("thinking");
+            setActivityDetail("");
           } else if (ev.type === "tool-call") {
             inTurnRef.current = true;
             setThinking(true);
             setActivity(toolActivity(ev.toolName));
+            setActivityDetail(toolDetail(ev.toolName, ev.toolInput as Record<string, unknown>));
           } else if (ev.type === "tool-result") {
             inTurnRef.current = true;
             setThinking(true);
@@ -148,6 +178,7 @@ export function useAgent(
             inTurnRef.current = false;
             setThinking(false);
             setActivity("");
+            setActivityDetail("");
           }
 
           // Append completed messages
@@ -161,6 +192,7 @@ export function useAgent(
             setStreamParts([]);
             setThinking(false);
             setActivity("");
+            setActivityDetail("");
             inTurnRef.current = false;
             api.getStatus(name!, token, serverUrl).then(setStatus).catch(() => {});
           } else if (result.append.length > 0) {
@@ -172,10 +204,12 @@ export function useAgent(
             inTurnRef.current = true;
             setThinking(true);
             setActivity("thinking");
+            setActivityDetail("");
           } else if (ev.type === "tool-call") {
             inTurnRef.current = true;
             setThinking(true);
             setActivity(toolActivity(ev.toolName));
+            setActivityDetail(toolDetail(ev.toolName, ev.toolInput as Record<string, unknown>));
           } else if (ev.type === "tool-result") {
             inTurnRef.current = true;
             setThinking(true);
@@ -264,6 +298,7 @@ export function useAgent(
     streamParts,
     thinking,
     activity,
+    activityDetail,
     connected,
     unread,
     status,

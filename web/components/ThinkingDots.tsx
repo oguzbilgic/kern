@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 
-export function ThinkingDots({ agentName, activity }: { agentName?: string; activity?: string }) {
+export function ThinkingDots({ agentName, activity, detail }: { agentName?: string; activity?: string; detail?: string }) {
   const dots = (
     <span className="inline-flex items-center gap-1 ml-0.5">
       {[0, 1, 2].map((i) => (
@@ -25,7 +25,10 @@ export function ThinkingDots({ agentName, activity }: { agentName?: string; acti
       : "is thinking";
 
     return (
-      <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] py-1">
+      <div
+        className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] py-1 cursor-default"
+        title={detail || undefined}
+      >
         <span className="font-medium">{agentName}</span>
         <FlipText text={label} />
         {dots}
@@ -34,7 +37,7 @@ export function ThinkingDots({ agentName, activity }: { agentName?: string; acti
   }
 
   return (
-    <div className="flex justify-start py-1">
+    <div className="flex justify-start py-1" title={detail || undefined}>
       {dots}
     </div>
   );
