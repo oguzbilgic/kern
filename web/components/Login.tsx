@@ -70,6 +70,11 @@ export function Login({ onLogin }: LoginProps) {
         <p className="text-[11px] text-[var(--text-muted)] text-center leading-relaxed">
           Run <code className="text-[var(--text-dim)] font-mono bg-[var(--bg-surface)] px-1.5 py-0.5 rounded">kern web token</code> to get your token
         </p>
+
+        <div className="flex items-center gap-4 text-[11px] text-[var(--text-muted)]">
+          <a href="https://kern-ai.com" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-dim)] transition-colors">Website</a>
+          <a href="https://github.com/oguzbilgic/kern-ai" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-dim)] transition-colors">GitHub</a>
+        </div>
       </div>
     </div>
   );
