@@ -1,6 +1,6 @@
 "use client";
 
-export function ThinkingDots({ agentName }: { agentName?: string }) {
+export function ThinkingDots({ agentName, activity }: { agentName?: string; activity?: string }) {
   const dots = (
     <span className="inline-flex items-center gap-1 ml-0.5">
       {[0, 1, 2].map((i) => (
@@ -24,10 +24,13 @@ export function ThinkingDots({ agentName }: { agentName?: string }) {
   );
 
   if (agentName) {
+    const label = activity && activity !== "thinking"
+      ? `is ${activity}`
+      : "is thinking";
     return (
       <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] py-1">
         <span className="font-medium">{agentName}</span>
-        <span>is thinking</span>
+        <span>{label}</span>
         {dots}
       </div>
     );

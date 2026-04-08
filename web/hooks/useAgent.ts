@@ -6,10 +6,32 @@ import * as api from "../lib/api";
 import { historyToMessages } from "../lib/messages";
 import { processStreamEvent } from "../lib/events";
 
+// Map tool names to human-readable activity labels
+function toolActivity(toolName?: string): string {
+  if (!toolName) return "thinking";
+  switch (toolName) {
+    case "bash": return "running command";
+    case "read": return "reading";
+    case "write": return "writing";
+    case "edit": return "editing";
+    case "glob": return "searching files";
+    case "grep": return "searching";
+    case "webfetch": return "fetching";
+    case "websearch": return "searching the web";
+    case "recall": return "recalling";
+    case "pdf": return "reading PDF";
+    case "image": return "analyzing image";
+    case "kern": return "checking status";
+    case "message": return "sending message";
+    default: return `using ${toolName}`;
+  }
+}
+
 export interface AgentState {
   messages: ChatMessage[];
   streamParts: ChatMessage[];
   thinking: boolean;
+  activity: string;
   connected: boolean;
   unread: number;
   status: StatusData | null;
@@ -22,6 +44,7 @@ const EMPTY_STATE: AgentState = {
   messages: [],
   streamParts: [],
   thinking: false,
+  activity: "",
   connected: false,
   unread: 0,
   status: null,
@@ -35,6 +58,7 @@ export function useAgent(
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streamParts, setStreamParts] = useState<ChatMessage[]>([]);
   const [thinking, setThinking] = useState(false);
+  const [activity, setActivity] = useState("");
   const [connected, setConnected] = useState(false);
   const [unread, setUnread] = useState(0);
   const [status, setStatus] = useState<StatusData | null>(null);
@@ -79,6 +103,7 @@ export function useAgent(
     partsRef.current = [];
     setStreamParts([]);
     setThinking(false);
+    setActivity("");
     inTurnRef.current = false;
     load();
 
@@ -103,17 +128,26 @@ export function useAgent(
           partsRef.current = result.parts;
           setStreamParts([...result.parts]);
 
-          // Thinking: true on turn start, stays true until finish
-          if (ev.type === "thinking" || ev.type === "tool-call" || ev.type === "tool-result") {
+          // Thinking + activity tracking
+          if (ev.type === "thinking") {
             inTurnRef.current = true;
             setThinking(true);
+            setActivity("thinking");
+          } else if (ev.type === "tool-call") {
+            inTurnRef.current = true;
+            setThinking(true);
+            setActivity(toolActivity(ev.toolName));
+          } else if (ev.type === "tool-result") {
+            inTurnRef.current = true;
+            setThinking(true);
+            setActivity("thinking");
           } else if (ev.type === "text-delta") {
-            // Text is streaming — keep thinking true (dots hidden by render condition)
             inTurnRef.current = true;
             setThinking(true);
           } else if (ev.type === "finish" || ev.type === "error") {
             inTurnRef.current = false;
             setThinking(false);
+            setActivity("");
           }
 
           // Append completed messages
@@ -126,6 +160,7 @@ export function useAgent(
             partsRef.current = [];
             setStreamParts([]);
             setThinking(false);
+            setActivity("");
             inTurnRef.current = false;
             api.getStatus(name!, token, serverUrl).then(setStatus).catch(() => {});
           } else if (result.append.length > 0) {
@@ -133,9 +168,18 @@ export function useAgent(
           }
         } else {
           // Light mode: only track thinking + unread for sidebar
-          if (ev.type === "thinking" || ev.type === "tool-call" || ev.type === "tool-result") {
+          if (ev.type === "thinking") {
             inTurnRef.current = true;
             setThinking(true);
+            setActivity("thinking");
+          } else if (ev.type === "tool-call") {
+            inTurnRef.current = true;
+            setThinking(true);
+            setActivity(toolActivity(ev.toolName));
+          } else if (ev.type === "tool-result") {
+            inTurnRef.current = true;
+            setThinking(true);
+            setActivity("thinking");
           } else if (ev.type === "text-delta") {
             inTurnRef.current = true;
             setThinking(true);
@@ -200,6 +244,7 @@ export function useAgent(
       // Show thinking immediately for non-slash commands
       if (!text.startsWith("/")) {
         setThinking(true);
+        setActivity("thinking");
         inTurnRef.current = true;
       }
 
@@ -218,6 +263,7 @@ export function useAgent(
     messages,
     streamParts,
     thinking,
+    activity,
     connected,
     unread,
     status,
