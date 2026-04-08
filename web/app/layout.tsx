@@ -26,11 +26,13 @@ const renderBlockScript = `
       document.addEventListener('keydown', handler);
     }
   };
-  // Auto-resize iframes based on content height
+  // Auto-resize iframes based on content height (debounced, skip no-ops)
   window.addEventListener('message', function(e) {
     if (e.data && e.data.type === 'render-block-resize' && e.data.id) {
       var iframe = document.getElementById(e.data.id);
-      if (iframe) iframe.style.height = Math.min(e.data.height + 2, 800) + 'px';
+      if (!iframe) return;
+      var newHeight = Math.min(e.data.height + 2, 800) + 'px';
+      if (iframe.style.height !== newHeight) iframe.style.height = newHeight;
     }
   });
 `;
