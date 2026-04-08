@@ -8,6 +8,7 @@ import { Login } from "../components/Login";
 import { Sidebar } from "../components/Sidebar";
 import { Chat } from "../components/Chat";
 import { Input, fileToAttachment } from "../components/Input";
+import { Inspector } from "../components/Inspector";
 import type { Attachment } from "../lib/types";
 
 export default function Home() {
@@ -17,6 +18,7 @@ export default function Home() {
   const { messages, streamParts, thinking, connected, status, send } = useAgent(activeAgent, { withHistory: true });
   const [dragOver, setDragOver] = useState(false);
   const [externalAttachments, setExternalAttachments] = useState<Attachment[]>([]);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
 
   const handleDrop = useCallback(async (e: DragEvent) => {
     e.preventDefault();
@@ -100,6 +102,14 @@ export default function Home() {
               {status.model}
             </span>
           )}
+          <div className="ml-auto">
+            <button
+              onClick={() => setInspectorOpen(true)}
+              className="px-2 py-1 text-xs rounded text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-surface)] transition-colors"
+            >
+              Memory
+            </button>
+          </div>
         </div>
 
         <Chat
@@ -117,6 +127,15 @@ export default function Home() {
           onExternalConsumed={() => setExternalAttachments([])}
         />
       </div>
+
+      {activeAgent && (
+        <Inspector
+          open={inspectorOpen}
+          onClose={() => setInspectorOpen(false)}
+          agentName={activeAgent.name}
+          token={validToken}
+        />
+      )}
     </div>
   );
 }
