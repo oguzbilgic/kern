@@ -1,8 +1,8 @@
 "use client";
 
 import type { ChatMessage } from "../lib/types";
-import { ChatLayout } from "./layouts/ChatLayout";
-import { SlackLayout } from "./layouts/SlackLayout";
+import { BubbleLayout } from "./layouts/BubbleLayout";
+import { FlatLayout } from "./layouts/FlatLayout";
 
 interface ChatProps {
   messages: ChatMessage[];
@@ -10,7 +10,7 @@ interface ChatProps {
   thinking: boolean;
   agentName?: string;
   token?: string;
-  layout: "chat" | "slack";
+  layout: "bubble" | "flat";
   showTools?: boolean;
   coloredTools?: boolean;
   peekLastTool?: boolean;
@@ -19,8 +19,8 @@ interface ChatProps {
 export function Chat({ messages, streamParts, thinking, agentName, token, layout, showTools = true, coloredTools = true, peekLastTool = true }: ChatProps) {
   const shared = { messages, streamParts, thinking, agentName, token, showTools, coloredTools, peekLastTool };
 
-  if (layout === "slack") {
-    return <SlackLayout {...shared} />;
+  if (layout === "flat") {
+    return <FlatLayout {...shared} />;
   }
-  return <ChatLayout {...shared} />;
+  return <BubbleLayout {...shared} />;
 }

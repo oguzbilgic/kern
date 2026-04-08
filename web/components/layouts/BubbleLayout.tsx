@@ -9,7 +9,7 @@ import { ThinkingDots } from "../ThinkingDots";
 import { ScrollToBottom } from "../ScrollToBottom";
 import { useChat } from "../../hooks/useChat";
 
-interface ChatLayoutProps {
+interface BubbleLayoutProps {
   messages: ChatMessage[];
   streamParts: ChatMessage[];
   thinking: boolean;
@@ -20,7 +20,7 @@ interface ChatLayoutProps {
   peekLastTool: boolean;
 }
 
-export function ChatLayout({ messages, streamParts, thinking, agentName, token, showTools, coloredTools, peekLastTool }: ChatLayoutProps) {
+export function BubbleLayout({ messages, streamParts, thinking, agentName, token, showTools, coloredTools, peekLastTool }: BubbleLayoutProps) {
   const { containerRef, bottomRef, showScrollBtn, scrollToBottom, allMsgs, lastToolId, groups, showDots } = useChat({
     messages, streamParts, thinking, showTools, peekLastTool,
   });

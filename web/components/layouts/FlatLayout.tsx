@@ -9,7 +9,7 @@ import { ThinkingDots } from "../ThinkingDots";
 import { ScrollToBottom } from "../ScrollToBottom";
 import { useChat } from "../../hooks/useChat";
 
-interface SlackLayoutProps {
+interface FlatLayoutProps {
   messages: ChatMessage[];
   streamParts: ChatMessage[];
   thinking: boolean;
@@ -30,7 +30,7 @@ function Avatar({ name, isUser }: { name: string; isUser: boolean }) {
   );
 }
 
-export function SlackLayout({ messages, streamParts, thinking, agentName, token, showTools, coloredTools, peekLastTool }: SlackLayoutProps) {
+export function FlatLayout({ messages, streamParts, thinking, agentName, token, showTools, coloredTools, peekLastTool }: FlatLayoutProps) {
   const { containerRef, bottomRef, showScrollBtn, scrollToBottom, allMsgs, lastToolId, groups, showDots } = useChat({
     messages, streamParts, thinking, showTools, peekLastTool,
   });

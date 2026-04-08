@@ -32,7 +32,7 @@ function loadTheme(theme: string) {
   link.href = `${CDN}/${theme}.min.css`;
 }
 
-export type ChatLayout = "chat" | "slack";
+export type ChatLayout = "bubble" | "flat";
 
 export interface Preferences {
   chatLayout: ChatLayout;
@@ -42,7 +42,7 @@ export interface Preferences {
 }
 
 const PREFS_DEFAULTS: Preferences = {
-  chatLayout: "chat",
+  chatLayout: "bubble",
   coloredTools: true,
   peekLastTool: true,
   showTools: true,
@@ -107,7 +107,7 @@ export function ThemePicker({ prefs, onPrefsChange }: { prefs: Preferences; onPr
           <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
             Layout
           </div>
-          {([["chat", "Chat"], ["slack", "Slack"]] as const).map(([key, label]) => (
+          {([["bubble", "Bubble"], ["flat", "Flat"]] as const).map(([key, label]) => (
             <button
               key={key}
               onClick={() => onPrefsChange({ chatLayout: key })}

@@ -188,7 +188,7 @@ export default function Home() {
           disabled={!connected}
           externalAttachments={externalAttachments}
           onExternalConsumed={() => setExternalAttachments([])}
-          fullWidth={prefs.chatLayout === "slack"}
+          fullWidth={prefs.chatLayout === "flat"}
         />
       </div>
 
