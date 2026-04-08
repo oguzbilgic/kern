@@ -90,7 +90,8 @@ function SessionsTab({ agentName, token, serverUrl }: TabProps) {
   useEffect(() => {
     api.getSessions(agentName, token).then((d) => {
       setData(d);
-      setActiveSession(d.currentSessionId || (d.sessions?.[0]?.id ?? null));
+      const first = d.currentSessionId || d.sessions?.[0]?.session_id;
+      setActiveSession(first ?? null);
     }).catch(() => {});
   }, [agentName, token]);
 
@@ -106,25 +107,30 @@ function SessionsTab({ agentName, token, serverUrl }: TabProps) {
     <div className="space-y-3">
       {data.sessions.map((s: any) => (
         <button
-          key={s.id}
-          onClick={() => setActiveSession(s.id)}
+          key={s.session_id}
+          onClick={() => setActiveSession(s.session_id)}
           className={`w-full text-left px-3 py-2 rounded border transition-colors ${
-            activeSession === s.id
+            activeSession === s.session_id
               ? "border-[var(--accent)] bg-[var(--bg-surface)]"
               : "border-[var(--border)] bg-transparent hover:bg-[var(--bg-surface)]"
           }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-sm text-[var(--text)]">
-              {s.id?.slice(0, 8)}
-              {s.id === data.currentSessionId && (
+              {s.session_id?.slice(0, 8)}
+              {s.session_id === data.currentSessionId && (
                 <span className="ml-2 text-xs text-green-400">● live</span>
               )}
             </span>
             <span className="text-xs text-[var(--text-muted)]">
-              {s.messageCount ?? "?"} messages
+              {s.messages ?? "?"} messages
             </span>
           </div>
+          {s.first_ts && (
+            <div className="text-[10px] text-[var(--text-muted)] mt-0.5">
+              {new Date(s.first_ts).toLocaleDateString()} — {s.last_ts ? new Date(s.last_ts).toLocaleDateString() : "now"}
+            </div>
+          )}
         </button>
       ))}
 
@@ -293,7 +299,10 @@ function NotesTab({ agentName, token, serverUrl }: TabProps) {
   const [regenerating, setRegenerating] = useState(false);
 
   const load = useCallback(() => {
-    api.getSummaries(agentName, token).then((d) => setSummaries(d.summaries || [])).catch(() => {});
+    api.getSummaries(agentName, token).then((d) => {
+      // API returns flat array or { summaries: [...] }
+      setSummaries(Array.isArray(d) ? d : (d.summaries || []));
+    }).catch(() => {});
   }, [agentName, token]);
 
   useEffect(() => { load(); }, [load]);
@@ -312,10 +321,15 @@ function NotesTab({ agentName, token, serverUrl }: TabProps) {
       </div>
       {summaries?.map((s: any, i: number) => (
         <div key={i} className="p-3 rounded border border-[var(--border)] bg-[var(--bg-surface)]">
-          <div className="text-xs text-[var(--text-muted)] mb-1">{s.source_key || s.type}</div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-[var(--text-muted)]">{s.source_key || s.type}</span>
+            {s.date_start && (
+              <span className="text-[10px] text-[var(--text-muted)]">{s.date_start} → {s.date_end}</span>
+            )}
+          </div>
           <div
             className="text-xs text-[var(--text)] markdown-body"
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(s.content || "") }}
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(s.text || s.content || "") }}
           />
         </div>
       ))}
