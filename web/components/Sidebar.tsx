@@ -42,7 +42,7 @@ function AgentRow({
           : "hover:bg-[var(--bg-surface)]/50"
       } ${!agent.running ? "opacity-50" : ""}`}
     >
-      {/* Avatar with status dot */}
+      {/* Avatar with status dot / unread badge */}
       <div className="relative flex-shrink-0">
         <div
           className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold uppercase"
@@ -50,26 +50,29 @@ function AgentRow({
         >
           {agent.name[0]}
         </div>
-        {/* Status dot: thinking=pulse, not-running=muted */}
-        {(thinking || !agent.running) && (
+        {/* Unified dot: grows into unread badge, pulses when thinking, muted when offline */}
+        {(thinking || !agent.running || (unread > 0 && !isActive)) && (
           <span
-            className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[var(--bg-sidebar)] ${
+            className={`absolute flex items-center justify-center rounded-full border-2 border-[var(--bg-sidebar)] transition-all duration-200 ${
+              unread > 0 && !isActive
+                ? "w-[18px] h-[18px] -bottom-[3px] -right-[3px] bg-[var(--accent)] text-[10px] font-bold text-[var(--bg)]"
+                : "w-3 h-3 bottom-0 right-0"
+            } ${
               thinking
                 ? "bg-[var(--accent)] animate-pulse"
-                : "bg-[var(--text-muted)]"
+                : unread > 0 && !isActive
+                  ? ""
+                  : "bg-[var(--text-muted)]"
             }`}
-          />
+          >
+            {unread > 0 && !isActive ? (unread > 99 ? "99+" : unread) : ""}
+          </span>
         )}
       </div>
 
-      {/* Name + unread */}
-      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+      {/* Name */}
+      <div className="flex-1 min-w-0">
         <span className="truncate">{agent.name}</span>
-        {unread > 0 && !isActive && (
-          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[var(--accent)] text-[11px] font-bold text-white flex items-center justify-center">
-            {unread > 9 ? "9+" : unread}
-          </span>
-        )}
       </div>
     </button>
   );

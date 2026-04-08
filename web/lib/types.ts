@@ -20,7 +20,7 @@ export type StreamEvent =
   | { type: "tool-call"; toolName: string; toolInput?: Record<string, unknown> }
   | { type: "tool-result"; output?: string; result?: string }
   | { type: "recall"; text: string }
-  | { type: "finish" }
+  | { type: "finish"; text?: string }
   | { type: "error"; error: string }
   | { type: "command-result"; text: string; command?: string }
   | { type: "incoming"; text: string; fromInterface?: string; fromUserId?: string; fromChannel?: string }

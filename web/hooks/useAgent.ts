@@ -141,7 +141,11 @@ export function useAgent(
           } else if (ev.type === "finish") {
             inTurnRef.current = false;
             setThinking(false);
-            setUnread((n) => n + 1);
+            // Don't count NO_REPLY or empty responses as unread
+            const resp = ev.text?.trim() || "";
+            if (resp && resp !== "NO_REPLY" && resp !== "(no text response)") {
+              setUnread((n) => n + 1);
+            }
           } else if (ev.type === "error") {
             inTurnRef.current = false;
             setThinking(false);
