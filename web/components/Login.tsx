@@ -31,7 +31,7 @@ export function Login({ onLogin }: LoginProps) {
   }
 
   return (
-    <div className="flex items-center justify-center h-full bg-[var(--bg)]">
+    <div className="flex items-center justify-center h-full w-full bg-[var(--bg)]">
       <div className="flex flex-col items-center gap-6 w-[320px]">
         {/* Logo / branding */}
         <div className="flex flex-col items-center gap-2">
