@@ -103,7 +103,13 @@ export async function sendMessage(
     connectionId: opts.connectionId,
   };
   if (opts.attachments?.length) {
-    payload.attachments = opts.attachments;
+    payload.attachments = opts.attachments.map((a) => ({
+      type: a.type,
+      data: a.base64,
+      mimeType: a.mimeType,
+      filename: a.filename,
+      size: a.size || 0,
+    }));
   }
   const res = await fetch(`${agentUrl(agentName, opts.serverUrl)}/message`, {
     method: "POST",

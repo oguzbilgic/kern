@@ -290,9 +290,13 @@ export class AgentServer {
         if (this.onMessage) {
           this.onMessage(text || "", userId || "tui", iface || "tui", channel || "tui", attachments).catch(() => {});
         }
-      } catch {
-        res.writeHead(400);
-        res.end(JSON.stringify({ error: "invalid JSON" }));
+      } catch (err) {
+        if (!res.headersSent) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: "invalid JSON" }));
+        } else {
+          log.warn("server", `error after response sent: ${err}`);
+        }
       }
       return;
     }
