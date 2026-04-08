@@ -184,19 +184,20 @@ export default function Home() {
           peekLastTool={prefs.peekLastTool}
         />
 
-        {thinking && (
-          <div style={{ maxWidth: prefs.chatLayout === "flat" ? undefined : 800, margin: "0 auto", width: "100%", paddingLeft: prefs.chatLayout === "flat" ? 42 : 16, paddingRight: 16 }}>
-            <ThinkingDots agentName={prefs.chatLayout === "flat" ? activeAgent?.name : undefined} />
-          </div>
-        )}
-
-        <Input
-          onSend={(text: string, attachments?: Attachment[]) => send(text, attachments)}
-          disabled={!connected}
-          externalAttachments={externalAttachments}
-          onExternalConsumed={() => setExternalAttachments([])}
-          fullWidth={prefs.chatLayout === "flat"}
-        />
+        <div className="relative">
+          {thinking && (
+            <div className="absolute bottom-full left-0 right-0" style={{ maxWidth: prefs.chatLayout === "flat" ? undefined : 800, margin: "0 auto", paddingLeft: prefs.chatLayout === "flat" ? 42 : 16, paddingRight: 16 }}>
+              <ThinkingDots agentName={prefs.chatLayout === "flat" ? activeAgent?.name : undefined} />
+            </div>
+          )}
+          <Input
+            onSend={(text: string, attachments?: Attachment[]) => send(text, attachments)}
+            disabled={!connected}
+            externalAttachments={externalAttachments}
+            onExternalConsumed={() => setExternalAttachments([])}
+            fullWidth={prefs.chatLayout === "flat"}
+          />
+        </div>
       </div>
 
       {activeAgent && (
