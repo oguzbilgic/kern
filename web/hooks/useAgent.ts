@@ -141,20 +141,22 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
           }
 
           case "finish": {
-            // Flush all stream parts into messages
-            const flushed = partsRef.current.filter(
-              (p) => p.role === "tool" || (p.role === "assistant" && p.text.trim())
-            );
+            // Small delay to ensure last text-delta is processed before flushing
+            setTimeout(() => {
+              const flushed = partsRef.current.filter(
+                (p) => p.role === "tool" || (p.role === "assistant" && p.text.trim())
+              );
 
-            if (flushed.length > 0) {
-              setMessages((prev) => [...prev, ...flushed]);
-            }
+              if (flushed.length > 0) {
+                setMessages((prev) => [...prev, ...flushed]);
+              }
 
-            partsRef.current = [];
-            setStreamParts([]);
-            setThinking(false);
+              partsRef.current = [];
+              setStreamParts([]);
+              setThinking(false);
 
-            api.getStatus(agentName!, token).then(setStatus).catch(() => {});
+              api.getStatus(agentName!, token).then(setStatus).catch(() => {});
+            }, 50);
             break;
           }
 
