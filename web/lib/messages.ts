@@ -227,6 +227,28 @@ export interface MessageProps {
   isEmoji: boolean;
   senderName: string;
   initials: string;
+  channel?: string; // telegram, slack, hub
+}
+
+const CHANNEL_INFO: Record<string, { icon: string; color: string; bg: string }> = {
+  telegram: { icon: "✈", color: "#58a6ff", bg: "#1c2d3d" },
+  slack:    { icon: "#",  color: "#e6b450", bg: "#2d2a1c" },
+  hub:      { icon: "◆",  color: "#a78bfa", bg: "#2a1c3d" },
+};
+
+export function getChannelInfo(channel?: string) {
+  return channel ? CHANNEL_INFO[channel] : undefined;
+}
+
+function parseChannel(meta?: string): string | undefined {
+  if (!meta) return undefined;
+  // incoming: "[telegram 812345]" or "[slack #chan user]"
+  const inMatch = meta.match(/^\[(\w+)/);
+  if (inMatch) return inMatch[1].toLowerCase();
+  // outgoing: "→ telegram"
+  const outMatch = meta.match(/^→\s*(\w+)/);
+  if (outMatch) return outMatch[1].toLowerCase();
+  return undefined;
 }
 
 export function analyzeMessage(msg: ChatMessage, agentName?: string): MessageProps {
@@ -242,10 +264,12 @@ export function analyzeMessage(msg: ChatMessage, agentName?: string): MessagePro
     !msg.text?.trim()
   );
   const isEmoji = isUser && isEmojiOnly(msg.text);
-  const senderName = isUser ? "You" : isHeartbeat ? "heartbeat" : isIncoming ? (msg.meta || "incoming") : (agentName || "Agent");
+  const isOutgoing = isAssistant && !!msg.meta?.startsWith("→");
+  const channel = (isIncoming || isOutgoing) ? parseChannel(msg.meta) : undefined;
+  const senderName = isUser ? "You" : isHeartbeat ? "heartbeat" : isIncoming ? (channel || "incoming") : (agentName || "Agent");
   const initials = senderName.charAt(0).toUpperCase();
 
-  return { msg, isUser, isAssistant, isIncoming, isHeartbeat, isCommand, isError, isNoReply, isEmoji, senderName, initials };
+  return { msg, isUser, isAssistant, isIncoming, isHeartbeat, isCommand, isError, isNoReply, isEmoji, senderName, initials, channel };
 }
 
 // Compute continuation and tool-header flags for a message list

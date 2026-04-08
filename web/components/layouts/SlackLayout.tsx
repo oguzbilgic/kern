@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChatMessage } from "../../lib/types";
-import { analyzeMessage, formatTime } from "../../lib/messages";
+import { analyzeMessage, formatTime, getChannelInfo } from "../../lib/messages";
 import { avatarColor } from "../../lib/colors";
 import { SpecialMessage, MediaAttachments, MessageBody } from "../MessageContent";
 import { ToolCall } from "../ToolCall";
@@ -61,8 +61,9 @@ export function SlackLayout({ messages, streamParts, thinking, agentName, token,
       return <div key={msg.id}><SpecialMessage props={props} agentName={agentName} token={token} /></div>;
     }
 
-    const { isUser, isHeartbeat, isNoReply, senderName } = props;
+    const { isUser, isHeartbeat, isNoReply, isIncoming, channel, senderName } = props;
     const dimmed = isHeartbeat || isNoReply;
+    const chInfo = getChannelInfo(channel);
     const continuation = group?.continuation ?? false;
 
     return (
@@ -72,13 +73,16 @@ export function SlackLayout({ messages, streamParts, thinking, agentName, token,
         ) : isHeartbeat ? (
           <div className="w-8 h-8 rounded-md flex items-center justify-center text-sm flex-shrink-0 mt-0.5"
             style={{ backgroundColor: "#3d2b2b", color: "#e06c75" }}>♡</div>
+        ) : chInfo ? (
+          <div className="w-8 h-8 rounded-md flex items-center justify-center text-sm flex-shrink-0 mt-0.5"
+            style={{ backgroundColor: chInfo.bg, color: chInfo.color }}>{chInfo.icon}</div>
         ) : (
           <Avatar name={senderName} isUser={isUser} />
         )}
         <div className="flex flex-col min-w-0 max-w-[95%]">
           {!continuation && (
             <div className="flex items-baseline gap-2">
-              <span className="text-sm font-semibold text-[var(--text)]">{senderName}</span>
+              <span className="text-sm font-semibold" style={{ color: chInfo?.color || "var(--text)" }}>{senderName}</span>
               {msg.timestamp && (
                 <span className="text-[10px] text-[var(--text-muted)]">{formatTime(msg.timestamp)}</span>
               )}
