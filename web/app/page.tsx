@@ -9,6 +9,7 @@ import { Sidebar } from "../components/Sidebar";
 import { Chat } from "../components/Chat";
 import { Input, fileToAttachment } from "../components/Input";
 import { Inspector } from "../components/Inspector";
+import { InfoPanel } from "../components/InfoPanel";
 import type { Attachment } from "../lib/types";
 
 export default function Home() {
@@ -19,6 +20,7 @@ export default function Home() {
   const [dragOver, setDragOver] = useState(false);
   const [externalAttachments, setExternalAttachments] = useState<Attachment[]>([]);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const handleDrop = useCallback(async (e: DragEvent) => {
     e.preventDefault();
@@ -89,14 +91,17 @@ export default function Home() {
 
         {/* Header */}
         <div className="h-12 border-b border-[var(--border)] flex items-center px-4 gap-3 flex-shrink-0">
-          <div className="flex items-center gap-2">
+          <button
+            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => setInfoOpen((v) => !v)}
+          >
             <span
               className={`w-2 h-2 rounded-full ${connected ? "bg-[var(--green)]" : "bg-[var(--text-muted)]"}`}
             />
             <span className="text-sm font-semibold">
               {activeAgent?.name || "no agent"}
             </span>
-          </div>
+          </button>
           {status?.model && (
             <span className="text-xs text-[var(--text-muted)]">
               {status.model}
@@ -111,6 +116,11 @@ export default function Home() {
             </button>
           </div>
         </div>
+
+        {/* Info panel */}
+        {infoOpen && (
+          <InfoPanel status={status} connected={connected} onClose={() => setInfoOpen(false)} />
+        )}
 
         <Chat
           messages={messages}
