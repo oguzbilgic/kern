@@ -75,6 +75,7 @@ export function useAgent(
     }
 
     setMessages([]);
+    setUnread(0);
     partsRef.current = [];
     setStreamParts([]);
     setThinking(false);
@@ -141,10 +142,12 @@ export function useAgent(
           } else if (ev.type === "finish") {
             inTurnRef.current = false;
             setThinking(false);
-            // Don't count NO_REPLY or empty responses as unread
-            const resp = ev.text?.trim() || "";
-            if (resp && resp !== "NO_REPLY" && resp !== "(no text response)") {
-              setUnread((n) => n + 1);
+            // Don't count NO_REPLY, empty, or active agent responses as unread
+            if (!withHistory) {
+              const resp = ev.text?.trim() || "";
+              if (resp && resp !== "NO_REPLY" && resp !== "(no text response)") {
+                setUnread((n) => n + 1);
+              }
             }
           } else if (ev.type === "error") {
             inTurnRef.current = false;

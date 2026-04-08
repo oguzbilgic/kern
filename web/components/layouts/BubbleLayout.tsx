@@ -77,7 +77,7 @@ export function BubbleLayout({ messages, streamParts, thinking, agentName, token
   return (
     <div className="flex-1 overflow-hidden relative">
       <div ref={containerRef} className="h-full overflow-y-auto px-4 pt-4 pb-1">
-        <div className="flex flex-col gap-2" style={{ maxWidth: 800, margin: "0 auto" }}>
+        <div className="flex flex-col gap-2" style={{ maxWidth: 800, margin: "0 auto", paddingLeft: 16, paddingRight: 16 }}>
           {allMsgs.map(renderMsg)}
           {showDots && <ThinkingDots />}
           <div ref={bottomRef} />
