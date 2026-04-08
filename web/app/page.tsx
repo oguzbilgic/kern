@@ -86,11 +86,7 @@ export default function Home() {
   }, []);
 
   if (token === undefined) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-sm text-[var(--text-dim)]">Loading...</div>
-      </div>
-    );
+    return <div className="h-full w-full bg-[var(--bg)]" />;
   }
 
   if (!token) {
