@@ -30,7 +30,7 @@ export function Login({ onLogin }: LoginProps) {
   }
 
   return (
-    <div className="flex items-center justify-center h-full w-full bg-[var(--bg)]">
+    <div className="flex flex-col items-center justify-center h-full w-full bg-[var(--bg)] relative">
       <div className="flex flex-col items-center gap-6 w-[320px]">
         {/* Logo */}
         <div className="flex flex-col items-center gap-3">
@@ -71,10 +71,11 @@ export function Login({ onLogin }: LoginProps) {
           Run <code className="text-[var(--text-dim)] font-mono bg-[var(--bg-surface)] px-1.5 py-0.5 rounded">kern web token</code> to get your token
         </p>
 
-        <div className="flex items-center gap-4 text-[11px] text-[var(--text-muted)]">
-          <a href="https://kern-ai.com" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-dim)] transition-colors">Website</a>
-          <a href="https://github.com/oguzbilgic/kern-ai" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-dim)] transition-colors">GitHub</a>
-        </div>
+      </div>
+
+      <div className="absolute bottom-6 flex items-center gap-4 text-[11px] text-[var(--text-muted)]">
+        <a href="https://kern-ai.com" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-dim)] transition-colors">Website</a>
+        <a href="https://github.com/oguzbilgic/kern-ai" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-dim)] transition-colors">GitHub</a>
       </div>
     </div>
   );
