@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.23.2
+
+### Improvements
+- Login page polish — correct `kern.` logo, subtle button style, sticky footer with Website and GitHub links, no loading flash
+
+### Fixes
+- Login page centering on full viewport
+
 ## v0.23.1
 
 ### Fixes
