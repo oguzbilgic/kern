@@ -97,7 +97,7 @@ export function useAgent(
       onEvent(ev: StreamEvent) {
         if (withHistory) {
           // Full mode: process streaming parts
-          const result = processStreamEvent(ev, partsRef.current);
+          const result = processStreamEvent(ev, partsRef.current, inTurnRef.current);
 
           partsRef.current = result.parts;
           setStreamParts([...result.parts]);

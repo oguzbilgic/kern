@@ -13,7 +13,8 @@ import { parseUserContent } from "./messages";
  */
 export function processStreamEvent(
   ev: StreamEvent,
-  parts: ChatMessage[]
+  parts: ChatMessage[],
+  inTurn: boolean = false
 ): {
   parts: ChatMessage[];
   append: ChatMessage[];
@@ -89,15 +90,16 @@ export function processStreamEvent(
 
     case "incoming": {
       const parsed = parseUserContent(ev.text);
+      const target = inTurn ? result.parts : result.append;
       if (parsed.type === "heartbeat") {
-        result.append.push({
+        target.push({
           id: `hb-${Date.now()}`,
           role: "heartbeat",
           text: "♡ heartbeat",
           iface: "heartbeat",
         });
       } else {
-        result.append.push({
+        target.push({
           id: `in-${Date.now()}`,
           role: "incoming",
           text: parsed.text || ev.text,
@@ -109,8 +111,9 @@ export function processStreamEvent(
       break;
     }
 
-    case "outgoing":
-      result.append.push({
+    case "outgoing": {
+      const target = inTurn ? result.parts : result.append;
+      target.push({
         id: `out-${Date.now()}`,
         role: "assistant",
         text: ev.text,
@@ -118,15 +121,18 @@ export function processStreamEvent(
         iface: ev.fromInterface,
       });
       break;
+    }
 
-    case "heartbeat":
-      result.append.push({
+    case "heartbeat": {
+      const target = inTurn ? result.parts : result.append;
+      target.push({
         id: `hb-${Date.now()}`,
         role: "heartbeat",
         text: "♡ heartbeat",
         iface: "heartbeat",
       });
       break;
+    }
 
     case "command-result":
       result.append.push({
