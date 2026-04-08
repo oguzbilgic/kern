@@ -6,23 +6,25 @@ import { isEmojiOnly, formatTime } from "../lib/messages";
 import { ToolCall } from "./ToolCall";
 
 function MediaAttachments({ media, agentName, token }: { media: MediaItem[]; agentName?: string; token?: string }) {
-  if (!media.length || !agentName) return null;
+  if (!media.length) return null;
   const qs = token ? `?token=${token}` : "";
+  const resolveUrl = (url: string) =>
+    url.startsWith("data:") ? url : `/api/agents/${agentName}/media/${url}${qs}`;
   return (
     <div className="flex flex-wrap gap-2 mt-1">
       {media.map((m, i) =>
         m.type === "image" ? (
           <img
             key={i}
-            src={`/api/agents/${agentName}/media/${m.url}${qs}`}
-            alt={m.filename || m.url}
+            src={resolveUrl(m.url)}
+            alt={m.filename || "image"}
             className="rounded-lg max-w-[280px] max-h-[280px] object-cover border border-[var(--border)]"
             loading="lazy"
           />
         ) : (
           <a
             key={i}
-            href={`/api/agents/${agentName}/media/${m.url}${qs}`}
+            href={resolveUrl(m.url)}
             target="_blank"
             rel="noopener"
             className="flex items-center gap-1.5 text-xs text-[var(--accent)] bg-[var(--bg-surface)] rounded-lg px-3 py-2 border border-[var(--border)] hover:opacity-80"
