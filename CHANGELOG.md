@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.23.0
 
 ### Features
 - **Web UI rewrite** ([#92](https://github.com/oguzbilgic/kern-ai/pull/92)) — rebuilt from scratch in React/Next.js + TypeScript + Tailwind, replacing the 5800-line vanilla JS single file
