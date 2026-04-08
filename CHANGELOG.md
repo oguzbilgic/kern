@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.23.1
+
+### Fixes
+- Include `web/out/` static export in npm package — v0.23.0 shipped without the web UI build, causing 404 on fresh installs
+
 ## v0.23.0
 
 ### Features
