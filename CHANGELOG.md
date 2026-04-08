@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.22.0
 
 ### Features
 - **Live agent activity in sidebar** ([#75](https://github.com/oguzbilgic/kern-ai/pull/75)) — see which agents are thinking, get unread counts, and know what's happening across all your agents without switching
