@@ -10,8 +10,9 @@ function headers(token?: string | null): Record<string, string> {
 }
 
 /** Build proxied base URL for an agent */
-export function agentUrl(name: string): string {
-  return `/api/agents/${encodeURIComponent(name)}`;
+export function agentUrl(name: string, serverUrl?: string): string {
+  const base = serverUrl || "";
+  return `${base}/api/agents/${encodeURIComponent(name)}`;
 }
 
 // SSE connection — uses proxied events endpoint
@@ -27,11 +28,13 @@ export function connectSSE(
     onEvent: (ev: StreamEvent) => void;
     onConnect?: () => void;
     onDisconnect?: () => void;
-  }
+  },
+  serverUrl?: string
 ): SSEConnection {
+  const base = agentUrl(agentName, serverUrl);
   const url = token
-    ? `${agentUrl(agentName)}/events?token=${encodeURIComponent(token)}`
-    : `${agentUrl(agentName)}/events`;
+    ? `${base}/events?token=${encodeURIComponent(token)}`
+    : `${base}/events`;
   const es = new EventSource(url);
   let connectionId: string | null = null;
 
@@ -62,8 +65,9 @@ export function connectSSE(
 }
 
 // Discovery
-export async function fetchAgents(token?: string | null): Promise<Agent[]> {
-  const res = await fetch("/api/agents", { headers: headers(token) });
+export async function fetchAgents(token?: string | null, serverUrl?: string): Promise<Agent[]> {
+  const base = serverUrl || "";
+  const res = await fetch(`${base}/api/agents`, { headers: headers(token) });
   if (!res.ok) return [];
   return res.json();
 }
@@ -76,6 +80,7 @@ export async function sendMessage(
   opts: {
     connectionId?: string | null;
     attachments?: Attachment[];
+    serverUrl?: string;
   } = {}
 ): Promise<{ ok: boolean }> {
   const payload: Record<string, unknown> = {
@@ -88,7 +93,7 @@ export async function sendMessage(
   if (opts.attachments?.length) {
     payload.attachments = opts.attachments;
   }
-  const res = await fetch(`${agentUrl(agentName)}/message`, {
+  const res = await fetch(`${agentUrl(agentName, opts.serverUrl)}/message`, {
     method: "POST",
     headers: headers(token),
     body: JSON.stringify(payload),
@@ -96,14 +101,14 @@ export async function sendMessage(
   return res.json();
 }
 
-export async function getStatus(agentName: string, token?: string | null): Promise<StatusData> {
-  const res = await fetch(`${agentUrl(agentName)}/status`, { headers: headers(token) });
+export async function getStatus(agentName: string, token?: string | null, serverUrl?: string): Promise<StatusData> {
+  const res = await fetch(`${agentUrl(agentName, serverUrl)}/status`, { headers: headers(token) });
   return res.json();
 }
 
-export async function getHistory(agentName: string, token?: string | null, limit = 100): Promise<HistoryMessage[]> {
+export async function getHistory(agentName: string, token?: string | null, limit = 100, serverUrl?: string): Promise<HistoryMessage[]> {
   const params = new URLSearchParams({ limit: String(limit) });
-  const res = await fetch(`${agentUrl(agentName)}/history?${params}`, { headers: headers(token) });
+  const res = await fetch(`${agentUrl(agentName, serverUrl)}/history?${params}`, { headers: headers(token) });
   return res.json();
 }
 

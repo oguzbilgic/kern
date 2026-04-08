@@ -1,6 +1,7 @@
 "use client";
 
-import type { Agent } from "../lib/types";
+import { useState } from "react";
+import type { AgentState } from "../hooks/useAgents";
 
 const AVATAR_COLORS = ["#e06c75", "#e5c07b", "#98c379", "#56b6c2", "#61afef", "#c678dd", "#be5046", "#d19a66"];
 
@@ -11,13 +12,39 @@ function avatarColor(name: string): string {
 }
 
 interface SidebarProps {
-  agents: Agent[];
+  agents: AgentState[];
   active: string | null;
-  onSelect: (name: string) => void;
+  onSelect: (key: string) => void;
   onLogout?: () => void;
+  onAddServer?: (url: string, token: string) => void;
+  onRemoveServer?: (url: string) => void;
 }
 
-export function Sidebar({ agents, active, onSelect, onLogout }: SidebarProps) {
+export function Sidebar({ agents, active, onSelect, onLogout, onAddServer, onRemoveServer }: SidebarProps) {
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newUrl, setNewUrl] = useState("");
+  const [newToken, setNewToken] = useState("");
+
+  // Group agents by server
+  const grouped = new Map<string, AgentState[]>();
+  for (const state of agents) {
+    const server = state.agent.server || "local";
+    if (!grouped.has(server)) grouped.set(server, []);
+    grouped.get(server)!.push(state);
+  }
+
+  function agentKey(state: AgentState): string {
+    return state.server.url ? `${state.server.url}::${state.agent.name}` : state.agent.name;
+  }
+
+  function handleAddServer() {
+    if (!newUrl.trim()) return;
+    onAddServer?.(newUrl.trim(), newToken.trim());
+    setNewUrl("");
+    setNewToken("");
+    setShowAddModal(false);
+  }
+
   return (
     <div className="w-[200px] bg-[var(--bg-sidebar)] border-r border-[var(--border)] flex flex-col flex-shrink-0">
       {/* Logo + logout */}
@@ -36,42 +63,73 @@ export function Sidebar({ agents, active, onSelect, onLogout }: SidebarProps) {
         )}
       </div>
 
-      {/* Agent list */}
+      {/* Agent list grouped by server */}
       <div className="flex-1 overflow-y-auto p-2">
-        {agents.map((agent) => {
-          const isActive = agent.name === active;
-          return (
-            <button
-              key={agent.name}
-              onClick={() => onSelect(agent.name)}
-              className={`flex items-center gap-2.5 w-full px-2 py-1.5 rounded text-sm text-left transition-colors ${
-                isActive
-                  ? "bg-[var(--bg-surface)]"
-                  : "hover:bg-[var(--bg-surface)]/50"
-              }`}
-            >
-              {/* Avatar */}
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold uppercase flex-shrink-0"
-                style={{ backgroundColor: avatarColor(agent.name) + "33", color: avatarColor(agent.name) }}
-              >
-                {agent.name[0]}
+        {Array.from(grouped.entries()).map(([server, serverAgents]) => (
+          <div key={server} className="mb-3">
+            {/* Server header — only show for remote servers */}
+            {server !== "local" && (
+              <div className="flex items-center justify-between px-2 mb-1">
+                <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider truncate">
+                  {server.replace(/^https?:\/\//, "")}
+                </span>
+                <button
+                  onClick={() => onRemoveServer?.(server)}
+                  className="text-[10px] text-[var(--text-muted)] hover:text-red-400"
+                  title="Remove server"
+                >
+                  ×
+                </button>
               </div>
+            )}
 
-              {/* Name + status */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="truncate">{agent.name}</span>
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                      agent.running ? "bg-[var(--green)]" : "bg-[var(--text-muted)]"
-                    }`}
-                  />
-                </div>
-              </div>
-            </button>
-          );
-        })}
+            {serverAgents.map((state) => {
+              const key = agentKey(state);
+              const isActive = key === active;
+              return (
+                <button
+                  key={key}
+                  onClick={() => onSelect(key)}
+                  className={`flex items-center gap-2.5 w-full px-2 py-1.5 rounded text-sm text-left transition-colors ${
+                    isActive
+                      ? "bg-[var(--bg-surface)]"
+                      : "hover:bg-[var(--bg-surface)]/50"
+                  }`}
+                >
+                  {/* Avatar with status dot */}
+                  <div className="relative flex-shrink-0">
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold uppercase"
+                      style={{ backgroundColor: avatarColor(state.agent.name) + "33", color: avatarColor(state.agent.name) }}
+                    >
+                      {state.agent.name[0]}
+                    </div>
+                    {/* Status dot */}
+                    <span
+                      className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[var(--bg-sidebar)] ${
+                        state.thinking
+                          ? "bg-[var(--accent)] animate-pulse"
+                          : state.online
+                            ? "bg-[var(--green)]"
+                            : "bg-[var(--text-muted)]"
+                      }`}
+                    />
+                  </div>
+
+                  {/* Name + unread */}
+                  <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                    <span className="truncate">{state.agent.name}</span>
+                    {state.unread > 0 && !isActive && (
+                      <span className="flex-shrink-0 w-4 h-4 rounded-full bg-[var(--accent)] text-[10px] font-bold text-white flex items-center justify-center">
+                        {state.unread > 9 ? "9+" : state.unread}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ))}
 
         {agents.length === 0 && (
           <div className="text-xs text-[var(--text-muted)] px-2 py-4">
@@ -79,6 +137,54 @@ export function Sidebar({ agents, active, onSelect, onLogout }: SidebarProps) {
           </div>
         )}
       </div>
+
+      {/* Add server button */}
+      <div className="p-2 border-t border-[var(--border)]">
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="w-full text-xs text-[var(--text-muted)] hover:text-[var(--text-dim)] py-1.5 transition-colors"
+        >
+          + Add server
+        </button>
+      </div>
+
+      {/* Add server modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAddModal(false)}>
+          <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-4 w-80" onClick={(e) => e.stopPropagation()}>
+            <div className="text-sm font-semibold mb-3">Add Server</div>
+            <input
+              type="text"
+              placeholder="Server URL (e.g. http://host:8080)"
+              value={newUrl}
+              onChange={(e) => setNewUrl(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-2 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
+            />
+            <input
+              type="password"
+              placeholder="Access token"
+              value={newToken}
+              onChange={(e) => setNewToken(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-3 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-dim)] px-3 py-1.5"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddServer}
+                disabled={!newUrl.trim()}
+                className="text-xs bg-[var(--accent)] text-white px-3 py-1.5 rounded disabled:opacity-30 hover:opacity-90"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

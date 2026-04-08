@@ -14,7 +14,7 @@ interface UseAgentReturn {
   send: (text: string, attachments?: Attachment[]) => Promise<void>;
 }
 
-export function useAgent(agent: Agent | null, token: string | null): UseAgentReturn {
+export function useAgent(agent: Agent | null, token: string | null, serverUrl?: string): UseAgentReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streamParts, setStreamParts] = useState<ChatMessage[]>([]);
   const [thinking, setThinking] = useState(false);
@@ -24,6 +24,7 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
   const partsRef = useRef<ChatMessage[]>([]);
 
   const agentName = agent?.name || null;
+  const baseUrl = serverUrl || "";
 
   // Helper: get or create the last text part in the stream
   function getOrCreateTextPart(): ChatMessage {
@@ -48,8 +49,8 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
     async function load() {
       try {
         const [history, statusData] = await Promise.all([
-          api.getHistory(agentName!, token),
-          api.getStatus(agentName!, token),
+          api.getHistory(agentName!, token, 100, baseUrl || undefined),
+          api.getStatus(agentName!, token, baseUrl || undefined),
         ]);
         if (cancelled) return;
         setMessages(historyToMessages(history));
@@ -68,7 +69,7 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
     // Poll status to detect busy state on refresh
     async function checkBusy() {
       try {
-        const s = await api.getStatus(agentName!, token);
+        const s = await api.getStatus(agentName!, token, baseUrl || undefined);
         if (!cancelled && s?.queue && typeof s.queue === "string" && s.queue.startsWith("busy")) {
           setThinking(true);
         }
@@ -77,7 +78,7 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
     checkBusy();
 
     return () => { cancelled = true; };
-  }, [agentName, token]);
+  }, [agentName, token, baseUrl]);
 
   // SSE connection
   useEffect(() => {
@@ -155,7 +156,7 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
               setStreamParts([]);
               setThinking(false);
 
-              api.getStatus(agentName!, token).then(setStatus).catch(() => {});
+              api.getStatus(agentName!, token, baseUrl || undefined).then(setStatus).catch(() => {});
             }, 50);
             break;
           }
@@ -230,14 +231,14 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
       onDisconnect() {
         setConnected(false);
       },
-    });
+    }, baseUrl || undefined);
 
     sseRef.current = sse;
     return () => {
       sse.close();
       sseRef.current = null;
     };
-  }, [agentName, token]);
+  }, [agentName, token, baseUrl]);
 
   const send = useCallback(
     async (text: string, attachments?: Attachment[]) => {
@@ -259,9 +260,10 @@ export function useAgent(agent: Agent | null, token: string | null): UseAgentRet
       await api.sendMessage(agentName, token, text, {
         connectionId: sseRef.current?.connectionId,
         attachments,
+        serverUrl: baseUrl || undefined,
       });
     },
-    [agentName, token]
+    [agentName, token, baseUrl]
   );
 
   return { messages, streamParts, thinking, connected, status, send };

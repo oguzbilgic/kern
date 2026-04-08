@@ -12,8 +12,9 @@ import type { Attachment } from "../lib/types";
 export default function Home() {
   const { token, setToken } = useAuth();
   const validToken = token ?? null;
-  const { agents, activeAgent, setActive } = useAgents(validToken);
-  const { messages, streamParts, thinking, connected, status, send } = useAgent(activeAgent, validToken);
+  const { agents, activeAgent, activeState, active, setActive, addServer, removeServer } = useAgents(validToken);
+  const activeServerUrl = activeState?.server?.url || undefined;
+  const { messages, streamParts, thinking, connected, status, send } = useAgent(activeAgent, validToken, activeServerUrl);
 
   // Still checking auth state
   if (token === undefined) {
@@ -36,7 +37,14 @@ export default function Home() {
 
   return (
     <div className="flex h-full w-full">
-      <Sidebar agents={agents} active={activeAgent?.name || null} onSelect={setActive} onLogout={handleLogout} />
+      <Sidebar
+        agents={agents}
+        active={active}
+        onSelect={setActive}
+        onLogout={handleLogout}
+        onAddServer={addServer}
+        onRemoveServer={removeServer}
+      />
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
