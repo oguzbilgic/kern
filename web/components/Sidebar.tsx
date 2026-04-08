@@ -59,7 +59,7 @@ function AgentRow({
                 : "w-3 h-3 bottom-0 right-0"
             } ${
               thinking
-                ? "bg-[var(--accent)] animate-pulse"
+                ? "bg-[var(--accent)]" + " [animation:dot-pulse_1.5s_ease-in-out_infinite]"
                 : unread > 0 && !isActive
                   ? ""
                   : "bg-[var(--text-muted)]"

@@ -99,3 +99,9 @@ body {
   background: var(--bg-surface);
   font-weight: 600;
 }
+
+/* Status dot pulse: alternate between accent and sidebar bg (not opacity) */
+@keyframes dot-pulse {
+  0%, 100% { background-color: var(--accent); }
+  50% { background-color: color-mix(in srgb, var(--accent) 50%, var(--bg-sidebar)); }
+}
