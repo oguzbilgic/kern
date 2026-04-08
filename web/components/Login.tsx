@@ -61,7 +61,7 @@ export function Login({ onLogin }: LoginProps) {
           <button
             type="submit"
             disabled={!token.trim() || loading}
-            className="w-full bg-[var(--accent)] text-[var(--bg)] text-sm font-medium py-2.5 rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+            className="w-full bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text)] text-sm font-medium py-2.5 rounded-lg hover:border-[var(--text-muted)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? "Connecting..." : "Connect"}
           </button>
