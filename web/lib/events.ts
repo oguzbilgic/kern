@@ -103,6 +103,7 @@ export function processStreamEvent(
           text: parsed.text || ev.text,
           meta: `[${ev.fromInterface || "?"} ${ev.fromUserId || ""}]`.trim(),
           iface: ev.fromInterface,
+          media: ev.media,
         });
       }
       break;

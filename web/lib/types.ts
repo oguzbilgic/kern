@@ -23,7 +23,7 @@ export type StreamEvent =
   | { type: "finish"; text?: string }
   | { type: "error"; error: string }
   | { type: "command-result"; text: string; command?: string }
-  | { type: "incoming"; text: string; fromInterface?: string; fromUserId?: string; fromChannel?: string }
+  | { type: "incoming"; text: string; fromInterface?: string; fromUserId?: string; fromChannel?: string; media?: MediaItem[] }
   | { type: "outgoing"; text: string; fromInterface?: string }
   | { type: "heartbeat" };
 

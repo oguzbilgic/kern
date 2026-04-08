@@ -171,7 +171,17 @@ export function useAgent(
     async (text: string, attachments?: Attachment[]) => {
       if (!name) return;
 
-      // Append user message to chat
+      // Append user message to chat (with media preview from attachments)
+      const media: import("../lib/types").MediaItem[] | undefined =
+        attachments?.length
+          ? attachments
+              .filter((a) => a.dataUrl)
+              .map((a) => ({
+                type: (a.type === "image" ? "image" : "file") as "image" | "file",
+                url: a.dataUrl!,
+                filename: a.filename,
+              }))
+          : undefined;
       setMessages((prev) => [
         ...prev,
         {
@@ -180,6 +190,7 @@ export function useAgent(
           text,
           timestamp: new Date().toISOString(),
           iface: "web",
+          media: media?.length ? media : undefined,
         },
       ]);
 
