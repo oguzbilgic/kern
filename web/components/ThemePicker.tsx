@@ -42,10 +42,10 @@ export interface Preferences {
 }
 
 const PREFS_DEFAULTS: Preferences = {
-  chatLayout: "bubble",
+  chatLayout: "flat",
   coloredTools: true,
-  peekLastTool: true,
-  showTools: true,
+  peekLastTool: false,
+  showTools: false,
 };
 
 export function usePreferences() {
