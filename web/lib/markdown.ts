@@ -72,11 +72,17 @@ const marked = new Marked(
             .replace(/"/g, "&quot;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;");
+          // Code-escaped version for raw view
+          const codeEscaped = text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
           // Auto-height script: content measures itself, posts height to parent
           const autoHeightScript = `&lt;script&gt;new ResizeObserver(()=&gt;parent.postMessage({type:&quot;render-block-resize&quot;,id:&quot;${id}&quot;,height:document.body.scrollHeight},&quot;*&quot;)).observe(document.body)&lt;/script&gt;`;
           return `<div class="render-block" data-id="${id}">
             <div class="render-block-header">
               <span class="render-block-label">rendered</span>
+              <button class="render-block-toggle" onclick="toggleRenderSource(this)" title="Toggle source">{ }</button>
               <button class="render-block-fullscreen" onclick="toggleRenderFullscreen(this)" title="Fullscreen">⛶</button>
             </div>
             <iframe
@@ -85,6 +91,7 @@ const marked = new Marked(
               srcdoc="${escaped}${autoHeightScript}"
               style="width:100%;height:${height};border:none;border-radius:0 0 6px 6px;background:#1a1a1a;"
             ></iframe>
+            <pre class="render-block-source" style="display:none;margin:0;padding:12px;background:#161616;border-radius:0 0 6px 6px;overflow-x:auto;font-size:13px;"><code class="hljs language-html">${codeEscaped}</code></pre>
           </div>`;
         }
         // Default code block rendering (highlight.js already applied by markedHighlight)

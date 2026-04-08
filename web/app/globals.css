@@ -132,7 +132,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-.render-block-fullscreen {
+.render-block-fullscreen, .render-block-toggle {
   background: none;
   border: none;
   color: var(--text-muted);
@@ -141,9 +141,12 @@ body {
   padding: 2px 4px;
   border-radius: 4px;
 }
-.render-block-fullscreen:hover {
+.render-block-fullscreen:hover, .render-block-toggle:hover {
   color: var(--text);
   background: rgba(255,255,255,0.06);
+}
+.render-block-toggle.active {
+  color: var(--text);
 }
 .render-block.fullscreen {
   position: fixed;

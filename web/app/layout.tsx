@@ -26,6 +26,18 @@ const renderBlockScript = `
       document.addEventListener('keydown', handler);
     }
   };
+  // Toggle between rendered iframe and raw source code
+  window.toggleRenderSource = function(btn) {
+    var block = btn.closest('.render-block');
+    if (!block) return;
+    var iframe = block.querySelector('iframe');
+    var source = block.querySelector('.render-block-source');
+    if (!iframe || !source) return;
+    var showingSource = source.style.display !== 'none';
+    iframe.style.display = showingSource ? '' : 'none';
+    source.style.display = showingSource ? 'none' : 'block';
+    btn.classList.toggle('active', !showingSource);
+  };
   // Auto-resize iframes based on content height (debounced, skip no-ops)
   window.addEventListener('message', function(e) {
     if (e.data && e.data.type === 'render-block-resize' && e.data.id) {
