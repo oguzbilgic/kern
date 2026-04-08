@@ -37,7 +37,7 @@ export function PinnedStats({ status, pinned }: { status: StatusData | null; pin
   if (items.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-baseline gap-3">
       {items.map(([label, value]) => (
         <span key={label} className="text-[11px] text-[var(--text-muted)] font-mono">{value}</span>
       ))}

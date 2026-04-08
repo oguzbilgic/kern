@@ -107,7 +107,7 @@ export default function Home() {
 
         {/* Header */}
         <div className="h-12 border-b border-[var(--border)] flex items-center px-4 gap-3 flex-shrink-0">
-          <div className="flex items-center gap-3">
+          <div className="flex items-baseline gap-3">
             <button
               className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => setInfoOpen((v) => !v)}
