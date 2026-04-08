@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 
-export function useAuth(): { token: string | null; setToken: (t: string) => void } {
-  const [token, setTokenState] = useState<string | null>(null);
+export function useAuth(): { token: string | null | undefined; setToken: (t: string) => void } {
+  // undefined = not checked yet, null = no token, string = has token
+  const [token, setTokenState] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     // Check URL params first
@@ -17,7 +18,7 @@ export function useAuth(): { token: string | null; setToken: (t: string) => void
     }
     // Fall back to localStorage
     const stored = localStorage.getItem("kern-token");
-    setTokenState(stored);
+    setTokenState(stored ?? null);
   }, []);
 
   function setToken(t: string) {

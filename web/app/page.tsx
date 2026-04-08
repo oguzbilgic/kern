@@ -10,11 +10,12 @@ import type { Attachment } from "../lib/types";
 
 export default function Home() {
   const { token, setToken } = useAuth();
-  const { agents, activeAgent, setActive } = useAgents(token);
-  const { messages, streaming, streamingTools, thinking, connected, status, send } = useAgent(activeAgent, token);
+  const validToken = token ?? null;
+  const { agents, activeAgent, setActive } = useAgents(validToken);
+  const { messages, streaming, streamingTools, thinking, connected, status, send } = useAgent(activeAgent, validToken);
 
-  // Token prompt if not authenticated
-  if (token === null) {
+  // Still checking auth state
+  if (token === undefined) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-sm text-[var(--text-dim)]">Loading...</div>
@@ -22,6 +23,7 @@ export default function Home() {
     );
   }
 
+  // No token found — prompt for one
   if (!token) {
     return (
       <TokenPrompt onSubmit={setToken} />
