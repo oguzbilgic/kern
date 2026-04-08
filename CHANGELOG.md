@@ -2,6 +2,9 @@
 
 ## next
 
+### Features
+- **Hide tool calls in Telegram** ([#76](https://github.com/oguzbilgic/kern-ai/issues/76)) — new `telegramTools` config (default `false`) controls whether tool call progress lines (`⚙ bash`, etc.) appear in Telegram messages
+
 ### Fixes
 - **Mid-turn steering** ([#94](https://github.com/oguzbilgic/kern-ai/pull/94)) — operator messages sent during an agent's turn now persist across all steps instead of being lost after one step
 

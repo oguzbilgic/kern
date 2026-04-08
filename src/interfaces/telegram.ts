@@ -67,12 +67,14 @@ function guessMime(filename?: string, fallback = "application/octet-stream"): st
 export class TelegramInterface implements Interface {
   private bot: Bot;
   private pairing: PairingManager | null;
+  private showTools: boolean;
   private _status: "connected" | "disconnected" | "error" = "disconnected";
   private _statusDetail?: string;
 
-  constructor(token: string, pairing?: PairingManager) {
+  constructor(token: string, pairing?: PairingManager, showTools = false) {
     this.bot = new Bot(token);
     this.pairing = pairing || null;
+    this.showTools = showTools;
   }
 
   get status() { return this._status; }
@@ -274,6 +276,7 @@ export class TelegramInterface implements Interface {
           (event) => {
             const now = Date.now();
             if (event.type === "tool-call") {
+              if (!this.showTools) return;
               // If we had text streaming, finalize that message and start new one for tools
               if (streaming && currentText) {
                 this.editMessage(ctx, activeMessageId, currentText).catch(() => {});

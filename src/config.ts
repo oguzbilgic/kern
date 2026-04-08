@@ -27,6 +27,9 @@ export interface KernConfig {
   mediaModel: string;
   mediaContext: number;
 
+  // Interface
+  telegramTools: boolean;
+
   // Runtime
   heartbeatInterval: number;
 }
@@ -52,6 +55,7 @@ export const configDefaults: KernConfig = {
   mediaDigest: true,
   mediaModel: "",
   mediaContext: 0,
+  telegramTools: false,
   heartbeatInterval: 60,
 };
 
@@ -68,6 +72,7 @@ const FIELD_TYPES: Record<string, string> = {
   mediaDigest: "boolean",
   mediaModel: "string",
   mediaContext: "number",
+  telegramTools: "boolean",
   heartbeatInterval: "number",
 };
 

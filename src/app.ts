@@ -387,7 +387,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
   let telegramBot: TelegramInterface | null = null;
   if (!forceCli && telegramToken) {
-    telegramBot = new TelegramInterface(telegramToken, pairing);
+    telegramBot = new TelegramInterface(telegramToken, pairing, config.telegramTools);
     await telegramBot.start({
       onMessage: async (msg, onEvent) => {
         return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "", onEvent, msg.attachments);
