@@ -5,6 +5,9 @@
 ### Features
 - **Hide tool calls in Telegram** ([#76](https://github.com/oguzbilgic/kern-ai/issues/76)) — new `telegramTools` config (default `false`) controls whether tool call progress lines (`⚙ bash`, etc.) appear in Telegram messages
 
+### Improvements
+- **Markdown rendering** ([#95](https://github.com/oguzbilgic/kern-ai/issues/95)) — replaced hand-rolled regex parser with `marked`; fixes loose lists, nested bullets, multi-paragraph list items, adds GFM strikethrough and task lists
+
 ### Fixes
 - **Mid-turn steering** ([#94](https://github.com/oguzbilgic/kern-ai/pull/94)) — operator messages sent during an agent's turn now persist across all steps instead of being lost after one step
 - **web/out packaging** ([#97](https://github.com/oguzbilgic/kern-ai/issues/97)) — `web/out/` build artifacts no longer tracked in git; npm package still includes them via `web/.npmignore`
