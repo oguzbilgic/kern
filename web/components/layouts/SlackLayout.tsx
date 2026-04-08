@@ -57,15 +57,16 @@ export function SlackLayout({ messages, streamParts, thinking, agentName, token,
     }
 
     const props = analyzeMessage(msg, agentName);
-    if (props.isError || props.isCommand || props.isNoReply || props.isEmoji) {
+    if (props.isError || props.isCommand || props.isEmoji) {
       return <div key={msg.id}><SpecialMessage props={props} agentName={agentName} token={token} /></div>;
     }
 
-    const { isUser, isHeartbeat, senderName } = props;
+    const { isUser, isHeartbeat, isNoReply, senderName } = props;
+    const dimmed = isHeartbeat || isNoReply;
     const continuation = group?.continuation ?? false;
 
     return (
-      <div key={msg.id} className={`flex items-start gap-2.5 ${isHeartbeat ? "opacity-40" : ""}`}>
+      <div key={msg.id} className={`flex items-start gap-2.5 ${dimmed ? "opacity-40" : ""}`}>
         {continuation ? (
           <div className="w-8 flex-shrink-0" />
         ) : isHeartbeat ? (
@@ -89,7 +90,7 @@ export function SlackLayout({ messages, streamParts, thinking, agentName, token,
           )}
 
           {(msg.text || !msg.media?.length) && (
-            <div className="text-sm leading-relaxed text-[#c8c8c8]">
+            <div className={`text-sm leading-relaxed text-[#c8c8c8] ${isNoReply ? "italic" : ""}`}>
               <MessageBody msg={msg} />
             </div>
           )}
