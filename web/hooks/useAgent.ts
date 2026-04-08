@@ -117,16 +117,16 @@ export function useAgent(
 
           // Append completed messages
           if (result.flush) {
-            setTimeout(() => {
-              if (result.append.length > 0) {
-                setMessages((prev) => [...prev, ...result.append]);
-              }
-              partsRef.current = [];
-              setStreamParts([]);
-              setThinking(false);
-              inTurnRef.current = false;
-              api.getStatus(name!, token, serverUrl).then(setStatus).catch(() => {});
-            }, 50);
+            // Flush atomically — append to messages and clear stream in one batch
+            // to prevent layout jump from content disappearing then reappearing
+            if (result.append.length > 0) {
+              setMessages((prev) => [...prev, ...result.append]);
+            }
+            partsRef.current = [];
+            setStreamParts([]);
+            setThinking(false);
+            inTurnRef.current = false;
+            api.getStatus(name!, token, serverUrl).then(setStatus).catch(() => {});
           } else if (result.append.length > 0) {
             setMessages((prev) => [...prev, ...result.append]);
           }

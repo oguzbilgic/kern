@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import type { ChatMessage } from "../lib/types";
-import { renderMarkdown } from "../lib/markdown";
 import { Message } from "./Message";
 import { ToolCall } from "./ToolCall";
 import { ThinkingDots } from "./ThinkingDots";
@@ -76,23 +75,8 @@ export function Chat({ messages, streamParts, thinking, agentName, token }: Chat
       {/* History messages */}
       {messages.map(renderMsg)}
 
-      {/* Streaming parts — rendered in order (interleaved text + tools) */}
-      {streamParts.map((part) =>
-        part.role === "tool" ? (
-          <ToolCall key={part.id} msg={part} />
-        ) : part.role === "assistant" && part.text ? (
-          <div key={part.id} className="flex justify-start mb-2">
-            <div className="flex flex-col max-w-[72%]">
-              <div className="rounded-lg px-3 py-2 text-sm leading-relaxed text-[var(--text)]">
-                <div
-                  className="markdown-body"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(part.text) }}
-                />
-              </div>
-            </div>
-          </div>
-        ) : null
-      )}
+      {/* Streaming parts — rendered with same components as history */}
+      {streamParts.map(renderMsg)}
 
       {/* Thinking indicator */}
       {showDots && <ThinkingDots />}
