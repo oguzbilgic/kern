@@ -67,6 +67,7 @@ export interface ContentPart {
 }
 
 export interface HistoryMessage {
+  index?: number;
   role: "user" | "assistant" | "tool";
   content: string | ContentPart[];
   toolName?: string;

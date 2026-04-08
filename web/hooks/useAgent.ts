@@ -62,9 +62,14 @@ export interface AgentState {
   unread: number;
   status: StatusData | null;
   send: (text: string, attachments?: Attachment[]) => Promise<void>;
+  loadMore: () => Promise<void>;
+  hasMore: boolean;
+  loadingMore: boolean;
 }
 
 const NOOP_SEND = async () => {};
+
+const NOOP_LOAD = async () => {};
 
 const EMPTY_STATE: AgentState = {
   messages: [],
@@ -76,6 +81,9 @@ const EMPTY_STATE: AgentState = {
   unread: 0,
   status: null,
   send: NOOP_SEND,
+  loadMore: NOOP_LOAD,
+  hasMore: false,
+  loadingMore: false,
 };
 
 export function useAgent(
@@ -90,6 +98,9 @@ export function useAgent(
   const [connected, setConnected] = useState(false);
   const [unread, setUnread] = useState(0);
   const [status, setStatus] = useState<StatusData | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const oldestIndexRef = useRef<number | undefined>(undefined);
 
   const sseRef = useRef<api.SSEConnection | null>(null);
   const partsRef = useRef<ChatMessage[]>([]);
@@ -116,6 +127,11 @@ export function useAgent(
         setMessages(historyToMessages(history));
         setStatus(statusData);
 
+        // Track oldest index for pagination
+        const firstIdx = history[0]?.index;
+        oldestIndexRef.current = firstIdx;
+        setHasMore(firstIdx !== undefined && firstIdx > 0);
+
         // Detect busy state on load
         if (statusData?.queue && typeof statusData.queue === "string" && statusData.queue.startsWith("busy")) {
           setThinking(true);
@@ -128,6 +144,8 @@ export function useAgent(
 
     setMessages([]);
     setUnread(0);
+    setHasMore(false);
+    oldestIndexRef.current = undefined;
     partsRef.current = [];
     setStreamParts([]);
     setThinking(false);
@@ -248,6 +266,30 @@ export function useAgent(
     };
   }, [name, token, serverUrl, withHistory]);
 
+  const loadMore = useCallback(
+    async () => {
+      if (!name || !withHistory || oldestIndexRef.current === undefined || oldestIndexRef.current <= 0 || loadingMore) return;
+      setLoadingMore(true);
+      try {
+        const history = await api.getHistory(name, token, 100, serverUrl, oldestIndexRef.current);
+        if (history.length === 0) {
+          setHasMore(false);
+          return;
+        }
+        const firstIdx = history[0]?.index;
+        oldestIndexRef.current = firstIdx;
+        setHasMore(firstIdx !== undefined && firstIdx > 0);
+        const older = historyToMessages(history);
+        setMessages((prev) => [...older, ...prev]);
+      } catch {
+        // silently fail
+      } finally {
+        setLoadingMore(false);
+      }
+    },
+    [name, token, serverUrl, withHistory, loadingMore]
+  );
+
   const send = useCallback(
     async (text: string, attachments?: Attachment[]) => {
       if (!name) return;
@@ -303,5 +345,8 @@ export function useAgent(
     unread,
     status,
     send: withHistory ? send : NOOP_SEND,
+    loadMore: withHistory ? loadMore : NOOP_LOAD,
+    hasMore,
+    loadingMore,
   };
 }

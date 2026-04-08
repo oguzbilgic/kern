@@ -18,7 +18,7 @@ export default function Home() {
   const { token, setToken } = useAuth();
   const validToken = token ?? null;
   const { agents, activeAgent, active, setActive, addServer, removeServer } = useServers(validToken);
-  const { messages, streamParts, thinking, activity, activityDetail, connected, status, send } = useAgent(activeAgent, { withHistory: true });
+  const { messages, streamParts, thinking, activity, activityDetail, connected, status, send, loadMore, hasMore, loadingMore } = useAgent(activeAgent, { withHistory: true });
   const [dragOver, setDragOver] = useState(false);
   const [externalAttachments, setExternalAttachments] = useState<Attachment[]>([]);
   const { prefs, setPrefs } = usePreferences();
@@ -179,6 +179,9 @@ export default function Home() {
           showTools={prefs.showTools}
           coloredTools={prefs.coloredTools}
           peekLastTool={prefs.peekLastTool}
+          loadMore={loadMore}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
         />
 
         {thinking && (

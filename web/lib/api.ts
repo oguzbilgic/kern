@@ -124,8 +124,9 @@ export async function getStatus(agentName: string, token?: string | null, server
   return res.json();
 }
 
-export async function getHistory(agentName: string, token?: string | null, limit = 100, serverUrl?: string): Promise<HistoryMessage[]> {
+export async function getHistory(agentName: string, token?: string | null, limit = 100, serverUrl?: string, before?: number): Promise<HistoryMessage[]> {
   const params = new URLSearchParams({ limit: String(limit) });
+  if (before !== undefined) params.set("before", String(before));
   const res = await fetch(`${agentUrl(agentName, serverUrl)}/history?${params}`, { headers: headers(token) });
   return res.json();
 }
