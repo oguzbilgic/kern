@@ -94,33 +94,33 @@ export function Sidebar({ agents, active, onSelect, onLogout, onAddServer, onRem
                     isActive
                       ? "bg-[var(--bg-surface)]"
                       : "hover:bg-[var(--bg-surface)]/50"
-                  }`}
+                  } ${!state.agent.running ? "opacity-50" : ""}`}
                 >
                   {/* Avatar with status dot */}
                   <div className="relative flex-shrink-0">
                     <div
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold uppercase"
-                      style={{ backgroundColor: avatarColor(state.agent.name) + "33", color: avatarColor(state.agent.name) }}
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold uppercase"
+                      style={{ backgroundColor: avatarColor(state.agent.name), color: "#fff" }}
                     >
                       {state.agent.name[0]}
                     </div>
-                    {/* Status dot */}
-                    <span
-                      className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[var(--bg-sidebar)] ${
-                        state.thinking
-                          ? "bg-[var(--accent)] animate-pulse"
-                          : state.online
-                            ? "bg-[var(--green)]"
+                    {/* Status dot: thinking=pulse, offline=muted, online=hidden */}
+                    {(state.thinking || !state.online) && (
+                      <span
+                        className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[var(--bg-sidebar)] ${
+                          state.thinking
+                            ? "bg-[var(--accent)] animate-pulse"
                             : "bg-[var(--text-muted)]"
-                      }`}
-                    />
+                        }`}
+                      />
+                    )}
                   </div>
 
                   {/* Name + unread */}
                   <div className="flex-1 min-w-0 flex items-center gap-1.5">
                     <span className="truncate">{state.agent.name}</span>
                     {state.unread > 0 && !isActive && (
-                      <span className="flex-shrink-0 w-4 h-4 rounded-full bg-[var(--accent)] text-[10px] font-bold text-white flex items-center justify-center">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[var(--accent)] text-[11px] font-bold text-white flex items-center justify-center">
                         {state.unread > 9 ? "9+" : state.unread}
                       </span>
                     )}
