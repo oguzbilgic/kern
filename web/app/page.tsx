@@ -178,6 +178,8 @@ export default function Home() {
           agentName={activeAgent?.name}
           token={activeAgent?.token ?? undefined}
           fullWidth={prefs.layout === "full"}
+          alignLeft={prefs.alignLeft}
+          showTools={prefs.showTools}
           coloredTools={prefs.coloredTools}
           peekLastTool={prefs.peekLastTool}
         />

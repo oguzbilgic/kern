@@ -37,14 +37,18 @@ export type ChatLayout = "constrained" | "full";
 
 export interface Preferences {
   layout: ChatLayout;
+  alignLeft: boolean;
   coloredTools: boolean;
   peekLastTool: boolean;
+  showTools: boolean;
 }
 
 const PREFS_DEFAULTS: Preferences = {
   layout: "constrained",
+  alignLeft: false,
   coloredTools: true,
   peekLastTool: true,
+  showTools: true,
 };
 
 export function usePreferences() {
@@ -117,10 +121,22 @@ export function ThemePicker({ prefs, onPrefsChange }: { prefs: Preferences; onPr
               {l === prefs.layout && "● "}{l === "constrained" ? "Constrained (800px)" : "Full width"}
             </button>
           ))}
+          <button
+            onClick={() => onPrefsChange({ alignLeft: !prefs.alignLeft })}
+            className="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--border)] transition-colors cursor-pointer text-[var(--text-dim)]"
+          >
+            {prefs.alignLeft ? "●" : "○"} Align all messages left
+          </button>
           <div className="border-t border-[var(--border)] my-1" />
           <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
             Tools
           </div>
+          <button
+            onClick={() => onPrefsChange({ showTools: !prefs.showTools })}
+            className="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--border)] transition-colors cursor-pointer text-[var(--text-dim)]"
+          >
+            {prefs.showTools ? "●" : "○"} Show tool calls
+          </button>
           <button
             onClick={() => onPrefsChange({ coloredTools: !prefs.coloredTools })}
             className="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--border)] transition-colors cursor-pointer text-[var(--text-dim)]"

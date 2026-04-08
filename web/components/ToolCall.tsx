@@ -330,7 +330,7 @@ export function ToolCall({ msg, colored = true, peek = false }: { msg: ChatMessa
   const isBash = msg.toolName === "bash";
 
   return (
-    <div className="mb-1">
+    <div>
       {/* Tool header — clickable */}
       <button
         onClick={() => setExpanded(!expanded)}

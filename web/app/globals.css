@@ -109,3 +109,5 @@ body {
   0%, 100% { background-color: var(--accent); }
   50% { background-color: color-mix(in srgb, var(--accent) 50%, var(--bg-sidebar)); }
 }
+
+

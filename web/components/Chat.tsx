@@ -13,11 +13,13 @@ interface ChatProps {
   agentName?: string;
   token?: string;
   fullWidth?: boolean;
+  alignLeft?: boolean;
+  showTools?: boolean;
   coloredTools?: boolean;
   peekLastTool?: boolean;
 }
 
-export function Chat({ messages, streamParts, thinking, agentName, token, fullWidth, coloredTools = true, peekLastTool = true }: ChatProps) {
+export function Chat({ messages, streamParts, thinking, agentName, token, fullWidth, alignLeft, showTools = true, coloredTools = true, peekLastTool = true }: ChatProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
@@ -70,18 +72,39 @@ export function Chat({ messages, streamParts, thinking, agentName, token, fullWi
 
   const showDots = thinking;
 
-  // Find last tool call ID for peek feature
+  // Peek last tool: only if it's the very last message (no text after it)
   const allMsgs = [...messages, ...streamParts];
-  const lastToolId = peekLastTool
-    ? [...allMsgs].reverse().find((m) => m.role === "tool")?.id
-    : undefined;
+  const lastMsg = allMsgs[allMsgs.length - 1];
+  const lastToolId = peekLastTool && lastMsg?.role === "tool" ? lastMsg.id : undefined;
 
-  const renderMsg = (msg: ChatMessage) =>
-    msg.role === "tool" ? (
-      <ToolCall key={msg.id} msg={msg} colored={coloredTools} peek={msg.id === lastToolId} />
-    ) : (
-      <Message key={msg.id} msg={msg} agentName={agentName} token={token} />
-    );
+  // Determine effective sender role for grouping (tool counts as assistant)
+  const senderRole = (msg: ChatMessage) =>
+    msg.role === "tool" ? "assistant" : msg.role;
+
+  const renderMsgs = (msgs: ChatMessage[]) => {
+    let prevRole: string | null = null;
+    return msgs.map((msg) => {
+      // Hidden tools: skip entirely, don't affect grouping
+      if (msg.role === "tool" && !showTools) return null;
+
+      if (msg.role === "tool") {
+        // Visible tool: doesn't affect prevRole for continuation
+        return (
+          <div key={msg.id} style={alignLeft ? { marginLeft: 42 } : undefined}>
+            <ToolCall msg={msg} colored={coloredTools} peek={msg.id === lastToolId} />
+          </div>
+        );
+      }
+
+      const role = senderRole(msg);
+      const continuation = alignLeft && role === prevRole;
+      prevRole = role;
+
+      return (
+        <Message key={msg.id} msg={msg} agentName={agentName} token={token} fullWidth={fullWidth} alignLeft={alignLeft} continuation={continuation} />
+      );
+    });
+  };
 
   return (
     <div className="flex-1 overflow-hidden relative">
@@ -89,12 +112,12 @@ export function Chat({ messages, streamParts, thinking, agentName, token, fullWi
         ref={containerRef}
         className="h-full overflow-y-auto px-4 py-4"
       >
-        <div style={{ maxWidth: fullWidth ? undefined : 800, margin: "0 auto" }}>
+        <div className="flex flex-col gap-2" style={{ maxWidth: fullWidth ? undefined : 800, margin: "0 auto" }}>
           {/* History messages */}
-          {messages.map(renderMsg)}
+          {renderMsgs(messages)}
 
           {/* Streaming parts */}
-          {streamParts.map(renderMsg)}
+          {renderMsgs(streamParts)}
 
           {/* Thinking indicator */}
           {showDots && <ThinkingDots />}
