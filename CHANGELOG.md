@@ -7,6 +7,7 @@
 
 ### Fixes
 - **Mid-turn steering** ([#94](https://github.com/oguzbilgic/kern-ai/pull/94)) — operator messages sent during an agent's turn now persist across all steps instead of being lost after one step
+- **web/out packaging** ([#97](https://github.com/oguzbilgic/kern-ai/issues/97)) — `web/out/` build artifacts no longer tracked in git; npm package still includes them via `web/.npmignore`
 
 ## v0.23.2
 
