@@ -1,0 +1,7 @@
+# npm uses this instead of .gitignore
+# web/out/ must be included in the npm package
+node_modules/
+.next/
+src/
+*.tsbuildinfo
+next-env.d.ts
