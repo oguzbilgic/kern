@@ -9,7 +9,7 @@ import { Sidebar } from "../components/Sidebar";
 import { Chat } from "../components/Chat";
 import { Input, fileToAttachment } from "../components/Input";
 import { Inspector } from "../components/Inspector";
-import { InfoPanel } from "../components/InfoPanel";
+import { InfoPanel, PinnedStats } from "../components/InfoPanel";
 import type { Attachment } from "../lib/types";
 
 export default function Home() {
@@ -21,6 +21,22 @@ export default function Home() {
   const [externalAttachments, setExternalAttachments] = useState<Attachment[]>([]);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [pinned, setPinned] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const saved = localStorage.getItem("kern-pinned-stats");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const togglePin = useCallback((key: string) => {
+    setPinned((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      localStorage.setItem("kern-pinned-stats", JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
 
   const handleDrop = useCallback(async (e: DragEvent) => {
     e.preventDefault();
@@ -102,11 +118,7 @@ export default function Home() {
               {activeAgent?.name || "no agent"}
             </span>
           </button>
-          {status?.model && (
-            <span className="text-xs text-[var(--text-muted)]">
-              {status.model}
-            </span>
-          )}
+          <PinnedStats status={status} pinned={pinned} />
           <div className="ml-auto">
             <button
               onClick={() => setInspectorOpen(true)}
@@ -119,7 +131,7 @@ export default function Home() {
 
         {/* Info panel */}
         {infoOpen && (
-          <InfoPanel status={status} connected={connected} onClose={() => setInfoOpen(false)} />
+          <InfoPanel status={status} connected={connected} pinned={pinned} onTogglePin={togglePin} onClose={() => setInfoOpen(false)} />
         )}
 
         <Chat
