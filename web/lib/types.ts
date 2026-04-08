@@ -18,7 +18,7 @@ export type StreamEvent =
   | { type: "thinking" }
   | { type: "text-delta"; text: string }
   | { type: "tool-call"; toolName: string; toolInput?: Record<string, unknown> }
-  | { type: "tool-result"; output?: string; result?: string }
+  | { type: "tool-result"; output?: string; result?: string; toolResult?: string }
   | { type: "recall"; text: string }
   | { type: "finish"; text?: string }
   | { type: "error"; error: string }

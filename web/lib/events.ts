@@ -60,7 +60,7 @@ export function processStreamEvent(
         if (result.parts[i].role === "tool" && result.parts[i].streaming) {
           result.parts[i] = {
             ...result.parts[i],
-            toolOutput: ev.output || ev.result,
+            toolOutput: ev.toolResult || ev.output || ev.result,
             streaming: false,
           };
           break;
