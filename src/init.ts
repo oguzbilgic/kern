@@ -296,7 +296,7 @@ async function runConfig(name: string, dir: string): Promise<void> {
 export async function runInit(targetArg?: string, flags?: Record<string, string>): Promise<void> {
   // Check if target is an existing agent — go straight to config
   if (targetArg && !flags) {
-    const registered = await findAgent(targetArg);
+    const registered = findAgent(targetArg);
     const dir = registered ? registered.path : resolve(targetArg);
     if (existsSync(dir) && (existsSync(join(dir, "AGENTS.md")) || existsSync(join(dir, ".kern")))) {
       await runConfig(registered?.name || targetArg, dir);
