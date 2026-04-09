@@ -66,25 +66,21 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   const config = await loadConfig(agentDir);
 
   // Auto-generate auth token if missing
-  // Support both KERN_TOKEN (new) and KERN_AUTH_TOKEN (legacy)
-  if (!process.env.KERN_TOKEN && process.env.KERN_AUTH_TOKEN) {
-    process.env.KERN_TOKEN = process.env.KERN_AUTH_TOKEN;
-  }
-  if (!process.env.KERN_TOKEN) {
+  if (!process.env.KERN_AUTH_TOKEN) {
     const envPath = join(agentDir, ".kern", ".env");
     let existingToken: string | null = null;
     try {
       const envContent = await readFile(envPath, "utf-8");
-      const match = envContent.match(/^KERN_TOKEN=(.+)$/m) || envContent.match(/^KERN_AUTH_TOKEN=(.+)$/m);
+      const match = envContent.match(/^KERN_AUTH_TOKEN=(.+)$/m);
       if (match) existingToken = match[1].trim();
     } catch {}
 
     if (existingToken) {
-      process.env.KERN_TOKEN = existingToken;
+      process.env.KERN_AUTH_TOKEN = existingToken;
     } else {
       const token = randomBytes(16).toString("hex");
-      await appendFile(envPath, `\nKERN_TOKEN=${token}\n`);
-      process.env.KERN_TOKEN = token;
+      await appendFile(envPath, `\nKERN_AUTH_TOKEN=${token}\n`);
+      process.env.KERN_AUTH_TOKEN = token;
       log("kern", `generated auth token: ${token.slice(0, 8)}...`);
     }
   }

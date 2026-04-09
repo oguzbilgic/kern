@@ -151,7 +151,7 @@ export class AgentServer {
   }
 
   private checkAuth(req: IncomingMessage): boolean {
-    const token = process.env.KERN_TOKEN || process.env.KERN_AUTH_TOKEN;
+    const token = process.env.KERN_AUTH_TOKEN;
     if (!token) return true; // shouldn't happen — token is always generated
 
     // Check Authorization: Bearer header

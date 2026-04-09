@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, unlink, appendFile } from "fs/promises";
+import { readFile, writeFile, mkdir, unlink } from "fs/promises";
 import { join, basename } from "path";
 import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
@@ -17,16 +17,6 @@ export interface AgentInfo {
   pid: number | null;
 }
 
-// Legacy format for migration
-interface LegacyAgentEntry {
-  name: string;
-  path: string;
-  pid?: number | null;
-  port?: number | null;
-  token?: string | null;
-  addedAt: string;
-}
-
 const KERN_DIR = join(homedir(), ".kern");
 const AGENTS_FILE = join(KERN_DIR, "agents.json");
 
@@ -40,23 +30,7 @@ export async function loadRegistry(): Promise<string[]> {
   if (!existsSync(AGENTS_FILE)) return [];
   try {
     const raw = await readFile(AGENTS_FILE, "utf-8");
-    const parsed = JSON.parse(raw);
-
-    // Migrate legacy format: array of objects → array of strings
-    if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "object") {
-      const legacy = parsed as LegacyAgentEntry[];
-      const paths = legacy.map((a) => a.path);
-      await saveRegistry(paths);
-      // Migrate tokens to agent .env files
-      for (const entry of legacy) {
-        if (entry.token) {
-          await migrateTokenToAgent(entry.path, entry.token);
-        }
-      }
-      return paths;
-    }
-
-    return parsed as string[];
+    return JSON.parse(raw) as string[];
   } catch {
     return [];
   }
@@ -65,20 +39,6 @@ export async function loadRegistry(): Promise<string[]> {
 async function saveRegistry(paths: string[]): Promise<void> {
   await ensureDir();
   await writeFile(AGENTS_FILE, JSON.stringify(paths, null, 2) + "\n", "utf-8");
-}
-
-async function migrateTokenToAgent(agentPath: string, token: string): Promise<void> {
-  const envPath = join(agentPath, ".kern", ".env");
-  try {
-    if (existsSync(envPath)) {
-      const content = await readFile(envPath, "utf-8");
-      if (content.includes("KERN_TOKEN=")) return; // already has token
-      // Migrate old KERN_AUTH_TOKEN to KERN_TOKEN
-      if (content.includes("KERN_AUTH_TOKEN=")) return; // will be renamed on load
-    }
-    await mkdir(join(agentPath, ".kern"), { recursive: true });
-    await appendFile(envPath, `KERN_TOKEN=${token}\n`);
-  } catch {}
 }
 
 export async function registerAgent(path: string): Promise<void> {
@@ -132,8 +92,7 @@ export function readAgentInfo(agentPath: string): AgentInfo | null {
   let token: string | null = null;
   try {
     const env = loadDotenv({ path: envPath, override: false });
-    // Check KERN_TOKEN first, fall back to legacy KERN_AUTH_TOKEN
-    token = env.parsed?.KERN_TOKEN || env.parsed?.KERN_AUTH_TOKEN || null;
+    token = env.parsed?.KERN_AUTH_TOKEN || null;
   } catch {}
 
   // Read PID
@@ -152,13 +111,7 @@ export function findAgent(nameOrPath: string): AgentInfo | null {
   try {
     if (!existsSync(AGENTS_FILE)) return null;
     const raw = readFileSync(AGENTS_FILE, "utf-8");
-    const parsed = JSON.parse(raw);
-    // Handle legacy format synchronously
-    if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "object") {
-      paths = (parsed as LegacyAgentEntry[]).map((a) => a.path);
-    } else {
-      paths = parsed as string[];
-    }
+    paths = JSON.parse(raw) as string[];
   } catch {
     return null;
   }
