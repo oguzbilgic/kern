@@ -167,10 +167,10 @@ export function useAgent(
     return () => { cancelled = true; };
   }, [name, token, serverUrl, withHistory]);
 
-  // Reset unread when becoming active (withHistory)
+  // Reset unread on agent change or when becoming active
   useEffect(() => {
-    if (withHistory) setUnread(0);
-  }, [name, withHistory]);
+    setUnread(0);
+  }, [name]);
 
   // SSE connection — always active for running agents
   useEffect(() => {
