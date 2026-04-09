@@ -149,6 +149,15 @@ export function processStreamEvent(
       });
       break;
 
+    case "error":
+      result.append.push({
+        id: `err-${Date.now()}`,
+        role: "error",
+        text: ev.error,
+      });
+      result.parts = [];
+      break;
+
     default: {
       // Delegate to plugins for unknown event types
       const pluginResult = delegateToPlugins(ev, inTurn);
@@ -158,15 +167,6 @@ export function processStreamEvent(
       }
       break;
     }
-
-    case "error":
-      result.append.push({
-        id: `err-${Date.now()}`,
-        role: "error",
-        text: ev.error,
-      });
-      result.parts = [];
-      break;
   }
 
   return result;
@@ -179,9 +179,10 @@ function isPluginHiddenTool(toolName: string): boolean {
   return getPlugins().some(p => p.isHiddenTool?.(toolName));
 }
 
-/** Check if a role belongs to any plugin (for finish filtering) */
+/** Check if a role is a plugin-created role (not a core role) — keep these on flush */
+const CORE_ROLES = new Set(["user", "assistant", "tool", "heartbeat", "incoming", "error", "command"]);
 function isPluginRole(role: string): boolean {
-  return getPlugins().some(p => p.renderMessage !== undefined && role !== "user" && role !== "assistant" && role !== "tool" && role !== "heartbeat" && role !== "incoming" && role !== "error" && role !== "command");
+  return !CORE_ROLES.has(role);
 }
 
 /** Try all plugins to handle an unknown event */
