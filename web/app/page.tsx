@@ -28,6 +28,7 @@ export default function Home() {
   const [dashboardList, setDashboardList] = useState<string[]>([]);
   const handleOpenPanel = useCallback((html: string, title: string, dashboard?: string) => {
     setPanelHtml({ html, title, dashboard });
+    if (dashboard) localStorage.setItem("kern-active-dashboard", dashboard);
   }, []);
   const openDashboard = useCallback((name: string) => {
     if (!activeAgent) return;
@@ -36,9 +37,18 @@ export default function Home() {
     if (activeAgent.token) headers["Authorization"] = `Bearer ${activeAgent.token}`;
     fetch(`${base}/api/agents/${activeAgent.name}/d/${name}/`, { headers })
       .then(r => r.ok ? r.text() : Promise.reject())
-      .then(html => setPanelHtml({ html, title: name, dashboard: name }))
+      .then(html => {
+        setPanelHtml({ html, title: name, dashboard: name });
+        localStorage.setItem("kern-active-dashboard", name);
+      })
       .catch(() => {});
   }, [activeAgent]);
+  // Restore active dashboard on load
+  useEffect(() => {
+    if (!activeAgent) return;
+    const saved = localStorage.getItem("kern-active-dashboard");
+    if (saved) openDashboard(saved);
+  }, [activeAgent]); // eslint-disable-line react-hooks/exhaustive-deps
   // Fetch dashboard list when agent changes
   useEffect(() => {
     if (!activeAgent) { setDashboardList([]); return; }
@@ -251,7 +261,7 @@ export default function Home() {
           dashboards={dashboardList}
           activeDashboard={panelHtml.dashboard}
           onSwitchDashboard={openDashboard}
-          onClose={() => setPanelHtml(null)}
+          onClose={() => { setPanelHtml(null); localStorage.removeItem("kern-active-dashboard"); }}
         />
       )}
     </div>
