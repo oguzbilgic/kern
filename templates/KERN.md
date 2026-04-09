@@ -87,7 +87,7 @@ You have a `render` tool that displays HTML visually in the web UI. Two modes:
 2. **Dashboard**: provide `dashboard` name to display a persistent dashboard from `dashboards/<name>/index.html`.
    Dashboards are created with the write tool first, then displayed with render.
 
-Inline HTML renders in the chat by default. Use `target: "panel"` to open it in a side panel instead. Dashboards always open in the side panel.
+Inline HTML shows in the chat. Dashboards always open in a side panel.
 
 For dashboards, write structured data to `dashboards/<name>/data.json` and read it in your HTML via `window.__KERN_DATA__`. Update the data file and re-render to refresh.
 

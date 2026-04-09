@@ -8,8 +8,7 @@ export const renderTool = tool({
     "Render rich visual content (HTML) in the web UI. Two modes:\n" +
     "1. Inline: provide `html` for one-off visuals in the chat (status cards, tables, charts).\n" +
     "2. Dashboard: provide `dashboard` name to display a persistent dashboard from dashboards/<name>/index.html.\n" +
-    "   Dashboards are created with the write tool first, then displayed with render.\n" +
-    "Use `target` to control where it appears: 'inline' shows in chat, 'panel' opens/refreshes a side panel.",
+    "   Dashboards are created with the write tool first, then displayed with render.",
   inputSchema: z.object({
     html: z
       .string()
@@ -19,20 +18,17 @@ export const renderTool = tool({
       .string()
       .optional()
       .describe("Dashboard name — loads dashboards/<name>/index.html"),
-    target: z
-      .enum(["inline", "panel"])
-      .optional()
-      .default("panel")
-      .describe('Where to render: "inline" shows in chat, "panel" opens/refreshes a side panel'),
     title: z
       .string()
       .optional()
       .describe("Optional title for the render block"),
   }),
-  execute: async ({ html, dashboard, target, title }) => {
+  execute: async ({ html, dashboard, title }) => {
     if (!html && !dashboard) {
       return "Error: provide either `html` or `dashboard` parameter";
     }
+
+    let target: "inline" | "panel" = "inline";
 
     if (dashboard) {
       const dashDir = join(process.cwd(), "dashboards", dashboard);
@@ -47,14 +43,13 @@ export const renderTool = tool({
       if (existsSync(dataPath)) {
         const data = readFileSync(dataPath, "utf-8");
         const dataScript = `<script>window.__KERN_DATA__ = ${data};</script>`;
-        if (html.includes("</head>")) {
-          html = html.replace("</head>", `${dataScript}</head>`);
+        if (html!.includes("</head>")) {
+          html = html!.replace("</head>", `${dataScript}</head>`);
         } else {
           html = dataScript + html;
         }
       }
 
-      // Dashboard always opens in panel
       target = "panel";
     }
 
@@ -62,7 +57,7 @@ export const renderTool = tool({
       __kern_render: true,
       html,
       dashboard: dashboard || null,
-      target: target || "inline",
+      target,
       title: title || dashboard || "Render",
     });
   },
