@@ -41,8 +41,18 @@ export class Runtime {
   private memoryDB: MemoryDB | null = null;
   private mediaSidecar: MediaSidecar | null = null;
 
+  /** Plugin hook — called on each tool result for custom event emission */
+  onToolResult: ((toolName: string, result: string, emit: (event: StreamEvent) => void) => void) | null = null;
+
+  /** Additional tools registered by plugins */
+  private pluginTools: Record<string, any> = {};
+
   constructor(agentDir: string) {
     this.agentDir = agentDir;
+  }
+
+  addTools(tools: Record<string, any>) {
+    Object.assign(this.pluginTools, tools);
   }
 
   setRecallIndex(index: RecallIndex) {
@@ -184,13 +194,15 @@ export class Runtime {
     await this.session.append([userMsg]);
     incrementMessageCount();
 
-    // Build tools from scope
+    // Build tools from scope + plugins
     const tools: Record<string, any> = {};
     for (const name of getToolsForScope(this.config.toolScope)) {
       if (name in allTools) {
         tools[name] = allTools[name as ToolName];
       }
     }
+    // Plugin tools are always included (not gated by scope)
+    Object.assign(tools, this.pluginTools);
 
     const model = createModel(this.config);
     let streamError: any = null;
@@ -309,24 +321,9 @@ export class Runtime {
           const resultText = typeof output === "string" ? output : JSON.stringify(output);
           onEvent({ type: "tool-result", toolName: part.toolName, toolResult: resultText });
 
-          // Detect render tool output and emit render event for UI
-          if (part.toolName === "render" && typeof resultText === "string") {
-            try {
-              const parsed = JSON.parse(resultText);
-              if (parsed.__kern_render) {
-                onEvent({
-                  type: "render",
-                  render: {
-                    html: parsed.html,
-                    dashboard: parsed.dashboard,
-                    target: parsed.target || "inline",
-                    title: parsed.title || "Render",
-                  },
-                });
-              }
-            } catch {
-              // Not JSON or not a render result — ignore
-            }
+          // Dispatch to plugins for custom event emission
+          if (this.onToolResult) {
+            this.onToolResult(part.toolName, resultText, onEvent);
           }
         }
       }

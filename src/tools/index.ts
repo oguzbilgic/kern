@@ -12,7 +12,6 @@ import { messageTool } from "./message.js";
 import { recallTool } from "./recall.js";
 import { pdfTool } from "./pdf.js";
 import { imageTool } from "./image.js";
-import { renderTool } from "./render.js";
 
 const isWindows = process.platform === "win32";
 
@@ -31,7 +30,6 @@ export const allTools = {
   recall: recallTool,
   pdf: pdfTool,
   image: imageTool,
-  render: renderTool,
 };
 
 export type ToolName = keyof typeof allTools;

@@ -19,6 +19,7 @@ import { MemoryDB } from "./memory.js";
 import { regenerateNotesSummary } from "./notes.js";
 import { MessageQueue } from "./queue.js";
 import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, setSegmentStatsFn, type InterfaceStatus } from "./tools/kern.js";
+import { loadPlugins, getPluginTools, dispatchToolResult, shutdownPlugins, getActivePlugins, type PluginContext } from "./plugins/index.js";
 import { log } from "./log.js";
 
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
@@ -167,6 +168,32 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   // Start HTTP server
   const server = new AgentServer();
   server.setAgentDir(agentDir);
+
+  // Load plugins
+  const pluginCtx: PluginContext = {
+    agentDir,
+    config,
+    db: memoryDB,
+    sessionId: () => runtime.getSessionId(),
+  };
+  const plugins = await loadPlugins(pluginCtx);
+
+  // Register plugin tools with runtime
+  const pluginTools = getPluginTools();
+  if (Object.keys(pluginTools).length > 0) {
+    runtime.addTools(pluginTools);
+  }
+
+  // Register plugin routes with server
+  const pluginRoutes = plugins.flatMap((p) => p.routes || []);
+  if (pluginRoutes.length > 0) {
+    server.setPluginRoutes(pluginRoutes);
+  }
+
+  // Wire plugin onToolResult dispatch into runtime
+  runtime.onToolResult = (toolName, result, emit) => {
+    dispatchToolResult(toolName, result, emit, pluginCtx);
+  };
 
   // Message queue — serializes messages, same-channel injection
   const queue = new MessageQueue();
@@ -495,6 +522,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     log("kern", `stopping ${agentName}`);
     if (telegramBot) await telegramBot.stop().catch(() => {});
     if (slackBot) await slackBot.stop().catch(() => {});
+    await shutdownPlugins(pluginCtx);
     server.stop();
     memoryDB.close();
     log("kern", `stopped ${agentName}`);

@@ -8,7 +8,8 @@ export const renderTool = tool({
     "Render rich visual content (HTML) in the web UI. Two modes:\n" +
     "1. Inline: provide `html` for one-off visuals in the chat (status cards, tables, charts).\n" +
     "2. Dashboard: provide `dashboard` name to display a persistent dashboard from dashboards/<name>/index.html.\n" +
-    "   Dashboards are created with the write tool first, then displayed with render.",
+    "   Dashboards are created with the write tool first, then displayed with render.\n" +
+    "Use `target` to control where it appears: 'inline' shows in chat, 'panel' opens/refreshes a side panel.",
   inputSchema: z.object({
     html: z
       .string()
