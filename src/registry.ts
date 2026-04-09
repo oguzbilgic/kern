@@ -1,12 +1,12 @@
-import { readFile, writeFile, mkdir, unlink } from "fs/promises";
+import { writeFile, mkdir, unlink } from "fs/promises";
 import { join, basename } from "path";
 import { existsSync, readFileSync } from "fs";
-import { homedir } from "os";
 import { config as loadDotenv } from "dotenv";
+import { loadGlobalConfig, loadGlobalConfigSync, saveGlobalConfig } from "./global-config.js";
 
 /**
- * Registry is a simple list of agent directory paths.
- * All agent state (port, token, PID) lives in the agent's own .kern/ directory.
+ * Agent registry backed by ~/.kern/config.json `agents` field.
+ * All agent runtime state (port, token, PID) lives in the agent's own .kern/ directory.
  */
 
 export interface AgentInfo {
@@ -17,46 +17,29 @@ export interface AgentInfo {
   pid: number | null;
 }
 
-const KERN_DIR = join(homedir(), ".kern");
-const AGENTS_FILE = join(KERN_DIR, "agents.json");
-
-async function ensureDir(): Promise<void> {
-  await mkdir(KERN_DIR, { recursive: true });
-}
-
-// --- Registry: list of paths ---
+// --- Registry: reads/writes config.agents ---
 
 export async function loadRegistry(): Promise<string[]> {
-  if (!existsSync(AGENTS_FILE)) return [];
-  try {
-    const raw = await readFile(AGENTS_FILE, "utf-8");
-    return JSON.parse(raw) as string[];
-  } catch {
-    return [];
-  }
-}
-
-async function saveRegistry(paths: string[]): Promise<void> {
-  await ensureDir();
-  await writeFile(AGENTS_FILE, JSON.stringify(paths, null, 2) + "\n", "utf-8");
+  const config = await loadGlobalConfig();
+  return config.agents;
 }
 
 export async function registerAgent(path: string): Promise<void> {
-  const paths = await loadRegistry();
-  if (!paths.includes(path)) {
-    paths.push(path);
-    await saveRegistry(paths);
+  const config = await loadGlobalConfig();
+  if (!config.agents.includes(path)) {
+    config.agents.push(path);
+    await saveGlobalConfig(config);
   }
 }
 
 export async function removeAgent(nameOrPath: string): Promise<boolean> {
-  const paths = await loadRegistry();
+  const config = await loadGlobalConfig();
   // Try direct path match
-  let idx = paths.indexOf(nameOrPath);
+  let idx = config.agents.indexOf(nameOrPath);
   // Try name match
   if (idx < 0) {
-    for (let i = 0; i < paths.length; i++) {
-      const info = readAgentInfo(paths[i]);
+    for (let i = 0; i < config.agents.length; i++) {
+      const info = readAgentInfo(config.agents[i]);
       if (info && info.name === nameOrPath) {
         idx = i;
         break;
@@ -64,8 +47,8 @@ export async function removeAgent(nameOrPath: string): Promise<boolean> {
     }
   }
   if (idx < 0) return false;
-  paths.splice(idx, 1);
-  await saveRegistry(paths);
+  config.agents.splice(idx, 1);
+  await saveGlobalConfig(config);
   return true;
 }
 
@@ -107,16 +90,9 @@ export function readAgentInfo(agentPath: string): AgentInfo | null {
 }
 
 export function findAgent(nameOrPath: string): AgentInfo | null {
-  let paths: string[];
-  try {
-    if (!existsSync(AGENTS_FILE)) return null;
-    const raw = readFileSync(AGENTS_FILE, "utf-8");
-    paths = JSON.parse(raw) as string[];
-  } catch {
-    return null;
-  }
+  const config = loadGlobalConfigSync();
 
-  for (const p of paths) {
+  for (const p of config.agents) {
     const info = readAgentInfo(p);
     if (!info) continue;
     if (info.name === nameOrPath || info.path === nameOrPath || p === nameOrPath) {
