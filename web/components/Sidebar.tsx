@@ -233,10 +233,9 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
                 <button
                   key={`${d.agentName}-${d.name}`}
                   onClick={() => isActive ? onCloseDashboard?.() : onOpenDashboard?.(d)}
-                  className={`flex items-center gap-2 w-full text-left transition-colors cursor-pointer rounded-md mx-1.5 overflow-hidden ${
-                    mini ? "px-0 py-1.5 justify-center" : "px-3 py-1.5"
+                  className={`flex items-center w-full text-left transition-colors cursor-pointer rounded-lg overflow-hidden p-2.5 ${
+                    mini ? "justify-center" : "gap-2"
                   } ${isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"}`}
-                  style={{ width: mini ? undefined : "calc(100% - 12px)" }}
                   title={mini ? `${d.name} (${d.agentName})` : d.name}
                 >
                   <span
