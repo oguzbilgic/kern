@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir } from "fs/promises";
+import { readFile, writeFile, mkdir, unlink } from "fs/promises";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
@@ -74,7 +74,6 @@ async function migrateLegacyAgents(): Promise<void> {
     config.agents = paths;
 
     await saveGlobalConfig(config);
-    const { unlink } = await import("fs/promises");
     await unlink(LEGACY_AGENTS_FILE);
   } catch {}
 }

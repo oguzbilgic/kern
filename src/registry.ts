@@ -1,7 +1,7 @@
 import { writeFile, mkdir, unlink } from "fs/promises";
 import { join, basename } from "path";
 import { existsSync, readFileSync } from "fs";
-import { config as loadDotenv } from "dotenv";
+import { parse as parseDotenv } from "dotenv";
 import { loadGlobalConfig, loadGlobalConfigSync, saveGlobalConfig } from "./global-config.js";
 
 /**
@@ -74,8 +74,9 @@ export function readAgentInfo(agentPath: string): AgentInfo | null {
   // Read token from .env
   let token: string | null = null;
   try {
-    const env = loadDotenv({ path: envPath, override: false });
-    token = env.parsed?.KERN_AUTH_TOKEN || null;
+    const envRaw = readFileSync(envPath, "utf-8");
+    const env = parseDotenv(envRaw);
+    token = env.KERN_AUTH_TOKEN || null;
   } catch {}
 
   // Read PID
