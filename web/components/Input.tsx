@@ -15,6 +15,7 @@ interface InputProps {
   externalAttachments?: Attachment[];
   onExternalConsumed?: () => void;
   fullWidth?: boolean;
+  agentName?: string;
 }
 
 export function fileToAttachment(file: File): Promise<Attachment> {
@@ -43,7 +44,7 @@ export function fileToAttachment(file: File): Promise<Attachment> {
   });
 }
 
-export function Input({ onSend, disabled, externalAttachments, onExternalConsumed, fullWidth }: InputProps) {
+export function Input({ onSend, disabled, externalAttachments, onExternalConsumed, fullWidth, agentName }: InputProps) {
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [cmdFiltered, setCmdFiltered] = useState<typeof SLASH_COMMANDS>([]);
@@ -53,6 +54,11 @@ export function Input({ onSend, disabled, externalAttachments, onExternalConsume
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const canSend = text.trim() || attachments.length > 0;
+
+  // Focus input on agent switch or initial load
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, [agentName]);
 
   // Consume externally added attachments (drag-and-drop)
   useEffect(() => {
