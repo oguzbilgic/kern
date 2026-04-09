@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.24.1
 
 ### Fixes
 - Unread counter now counts per text message instead of per turn — text after tool calls counts separately ([#118](https://github.com/oguzbilgic/kern-ai/pull/118))
