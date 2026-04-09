@@ -50,6 +50,11 @@ export default function Home() {
     setPanelHtml({ html, title, dashboard });
     if (dashboard) { setActiveDashboard(dashboard); localStorage.setItem("kern-active-dashboard", dashboard); }
   }, []);
+  const closePanel = useCallback(() => {
+    setPanelHtml(null);
+    setActiveDashboard(null);
+    localStorage.removeItem("kern-active-dashboard");
+  }, []);
   const openDashboard = useCallback((name: string, fromAgent?: DashboardInfo) => {
     const agent = fromAgent
       ? agents.find(a => a.name === fromAgent.agentName && a.serverUrl === fromAgent.serverUrl) || activeAgent
@@ -65,14 +70,20 @@ export default function Home() {
         setActiveDashboard(name);
         localStorage.setItem("kern-active-dashboard", name);
       })
-      .catch(() => {});
-  }, [activeAgent, agents]);
+      .catch(() => closePanel());
+  }, [activeAgent, agents, closePanel]);
   // Restore active dashboard on load
   useEffect(() => {
     if (!activeAgent) return;
     const saved = localStorage.getItem("kern-active-dashboard");
     if (saved) openDashboard(saved);
   }, [activeAgent]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Close panel if active dashboard no longer exists in fetched list
+  useEffect(() => {
+    if (activeDashboard && allDashboards.length > 0 && !allDashboards.some(d => d.name === activeDashboard)) {
+      closePanel();
+    }
+  }, [allDashboards, activeDashboard, closePanel]);
   const { messages, streamParts, thinking, activity, activityDetail, connected, status, send, loadMore, hasMore, loadingMore } = useAgent(activeAgent, { withHistory: true, onOpenPanel: handleOpenPanel });
   const [pinned, setPinned] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
@@ -161,7 +172,7 @@ export default function Home() {
         dashboards={allDashboards}
         activeDashboard={activeDashboard}
         onOpenDashboard={(d) => openDashboard(d.name, d)}
-        onCloseDashboard={() => { setPanelHtml(null); setActiveDashboard(null); localStorage.removeItem("kern-active-dashboard"); }}
+        onCloseDashboard={closePanel}
       />
 
       <div
@@ -279,7 +290,7 @@ export default function Home() {
           dashboards={dashboardList}
           activeDashboard={panelHtml.dashboard}
           onSwitchDashboard={openDashboard}
-          onClose={() => { setPanelHtml(null); setActiveDashboard(null); localStorage.removeItem("kern-active-dashboard"); }}
+          onClose={closePanel}
         />
       )}
     </div>

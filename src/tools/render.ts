@@ -30,7 +30,6 @@ export const renderTool = tool({
       .describe("Optional title for the render block"),
   }),
   execute: async ({ html, dashboard, target, title }) => {
-    // Validate: must provide html or dashboard
     if (!html && !dashboard) {
       return "Error: provide either `html` or `dashboard` parameter";
     }
@@ -41,14 +40,12 @@ export const renderTool = tool({
       if (!existsSync(indexPath)) {
         return `Error: dashboard not found at dashboards/${dashboard}/index.html — create it with the write tool first`;
       }
-      // Read the dashboard HTML
       html = readFileSync(indexPath, "utf-8");
 
       // Inject data.json if it exists
       const dataPath = join(dashDir, "data.json");
       if (existsSync(dataPath)) {
         const data = readFileSync(dataPath, "utf-8");
-        // Inject as a script tag before closing </head> or at start
         const dataScript = `<script>window.__KERN_DATA__ = ${data};</script>`;
         if (html.includes("</head>")) {
           html = html.replace("</head>", `${dataScript}</head>`);
@@ -56,10 +53,11 @@ export const renderTool = tool({
           html = dataScript + html;
         }
       }
+
+      // Dashboard always opens in panel
+      target = "panel";
     }
 
-    // The actual rendering is handled by the UI via SSE event
-    // Tool result contains metadata for the UI to process
     return JSON.stringify({
       __kern_render: true,
       html,
