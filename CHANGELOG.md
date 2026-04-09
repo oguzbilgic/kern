@@ -3,6 +3,11 @@
 ## next
 
 ### Features
+- **Plugin architecture** ([#108](https://github.com/oguzbilgic/kern-ai/pull/108)) — optional features (dashboard, media, notes, recall) extracted into self-contained plugins with a shared lifecycle interface
+  - Each plugin bundles its own tools, routes, context injections, and event handling — no more scattered wiring in `app.ts` and `runtime.ts`
+  - Single `plugins` object API with consistent naming: `collect*` (merge data), `dispatch*` (fire hooks)
+  - Plugins declare where context gets injected (`system` vs `user-prepend`) and attach SSE events to injections
+  - Shared `extractText` utility for AI SDK message content parsing
 - **Dashboards and rendered HTML** ([#101](https://github.com/oguzbilgic/kern-ai/issues/101), [#103](https://github.com/oguzbilgic/kern-ai/issues/103), [#105](https://github.com/oguzbilgic/kern-ai/pull/105)) — agents can create rich visual content and persistent dashboards
   - New `render` tool lets agents produce charts, tables, and status cards as sandboxed HTML — displayed inline in chat or in a resizable side panel
   - Agents write `dashboards/<name>/` folders with HTML + JSON data, served with live data injection via `window.__KERN_DATA__`
