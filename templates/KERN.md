@@ -89,6 +89,8 @@ You have a `render` tool that displays HTML visually in the web UI. Two modes:
 
 Inline HTML shows in the chat. Dashboards always open in a side panel.
 
+HTML is rendered in a sandboxed iframe with scripts enabled. Include CDN libraries (Chart.js, D3, etc.) via `<script>` and `<link>` tags directly in your HTML for rich visuals.
+
 For dashboards, write structured data to `dashboards/<name>/data.json` and read it in your HTML via `window.__KERN_DATA__`. Update the data file and re-render to refresh.
 
 ### Heartbeat
