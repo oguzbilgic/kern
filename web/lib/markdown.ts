@@ -110,8 +110,11 @@ const marked = new Marked(
 export function renderMarkdown(text: string, opts?: { skipRenderBlocks?: boolean }): string {
   if (!text) return "";
   if (opts?.skipRenderBlocks) {
-    // Replace ```render blocks with a loading placeholder before parsing
+    // Replace complete ```render...``` blocks with placeholder
     text = text.replace(/```render\n[\s\S]*?```/g,
+      '```\n⏳ Render block loading…\n```');
+    // Also catch unclosed render blocks still streaming (no closing ```)
+    text = text.replace(/```render\n[\s\S]*$/,
       '```\n⏳ Render block loading…\n```');
   }
   return marked.parse(text) as string;
