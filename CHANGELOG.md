@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.24.0
 
 ### Features
 - **Plugin architecture** ([#108](https://github.com/oguzbilgic/kern-ai/pull/108)) — optional features (dashboard, media, notes, recall) extracted into self-contained plugins with a shared lifecycle interface

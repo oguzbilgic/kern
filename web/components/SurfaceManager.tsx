@@ -227,9 +227,9 @@ export function SurfacePanel() {
         </div>
         <button
           onClick={() => active?.onClose?.()}
-          className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors cursor-pointer text-base leading-none ml-2"
+          className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors cursor-pointer text-lg leading-none ml-2 p-1"
         >
-          ✕
+          ×
         </button>
       </div>
 
