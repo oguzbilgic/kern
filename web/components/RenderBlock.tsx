@@ -167,7 +167,14 @@ export function RenderPanel({ html, title, dashboards, activeDashboard, onSwitch
   onSwitchDashboard?: (name: string) => void;
   onClose: () => void;
 }) {
-  const [width, setWidth] = useState(480);
+  const [width, setWidth] = useState(() => {
+    // Try to give panel ~50% of available space, min 480, max 800
+    if (typeof window !== "undefined") {
+      const available = window.innerWidth - 400; // reserve ~400px for sidebar + chat
+      return Math.max(480, Math.min(Math.floor(available * 0.55), 800));
+    }
+    return 480;
+  });
   const dragging = useRef(false);
   const startX = useRef(0);
   const startW = useRef(0);

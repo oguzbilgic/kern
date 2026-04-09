@@ -148,7 +148,8 @@ export default function Home() {
       />
 
       <div
-        className="flex-1 flex flex-col min-w-0 relative"
+        className="flex-1 flex flex-col relative"
+        style={{ minWidth: panelHtml ? 360 : 0 }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={(e) => {
           // Only leave if exiting the container
