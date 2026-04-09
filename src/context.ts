@@ -4,18 +4,11 @@ import { join } from "path";
 import { existsSync } from "fs";
 import { log } from "./log.js";
 import { getToolsForScope, type KernConfig } from "./config.js";
-import type { RecallIndex } from "./recall.js";
-import type { MemoryDB } from "./memory.js";
 import type { SegmentIndex } from "./segments.js";
-import { loadNotesContext } from "./notes.js";
 
 function wrapDocument(pathLabel: string, content: string): string {
   const safePath = pathLabel.replace(/"/g, '&quot;');
   return `<document path="${safePath}">\n${content.trim()}\n</document>`;
-}
-
-function wrapNotesSummary(content: string): string {
-  return `<notes_summary>\n${content.trim()}\n</notes_summary>`;
 }
 
 function wrapTools(content: string): string {
@@ -23,7 +16,7 @@ function wrapTools(content: string): string {
 }
 
 // Build the system prompt from agent markdown files + runtime info.
-export async function loadSystemPrompt(agentDir: string, config: KernConfig, memoryDB?: MemoryDB | null): Promise<string> {
+export async function loadSystemPrompt(agentDir: string, config: KernConfig): Promise<string> {
   const parts: string[] = [];
 
   // Load AGENTS.md (kernel)
@@ -57,19 +50,6 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig, mem
   const usersPath = join(agentDir, "USERS.md");
   if (existsSync(usersPath)) {
     parts.push(wrapDocument("USERS.md", await readFile(usersPath, "utf-8")));
-  }
-
-  // Inject notes context: summary of recent days + latest daily note
-  try {
-    const { latest, summary, latestFile } = await loadNotesContext(agentDir, config, memoryDB ?? null);
-    if (summary) {
-      parts.push(wrapNotesSummary(summary));
-    }
-    if (latest && latestFile) {
-      parts.push(wrapDocument(`notes/${latestFile}`, latest));
-    }
-  } catch (err: any) {
-    log.error("context", `failed to load notes context: ${err.message}`);
   }
 
   // Inject live runtime info
@@ -448,59 +428,4 @@ export function addCacheBreakpoints(messages: ModelMessage[], config: KernConfig
 // Auto-recall injection
 // ---------------------------------------------------------------------------
 
-export interface RecallResult {
-  query: string;
-  chunks: number;
-  tokens: number;
-  results: { timestamp: string; text: string; distance: number }[];
-}
 
-// Inject relevant old context when messages have been trimmed from the window.
-export async function injectRecall(
-  messages: ModelMessage[],
-  query: string,
-  recallIndex: RecallIndex | null,
-  trimmedCount: number,
-  autoRecall: boolean,
-): Promise<{ messages: ModelMessage[]; recall: RecallResult | null }> {
-  if (trimmedCount <= 0 || !recallIndex || !autoRecall) {
-    return { messages, recall: null };
-  }
-
-  try {
-    const results = await recallIndex.search(query, 3);
-    // Filter: distance threshold + skip chunks already in context window
-    const contextStart = trimmedCount; // messages before this index were trimmed
-    const relevant = results.filter(r => r.distance < 0.95 && r.msg_end < contextStart);
-    if (relevant.length === 0) {
-      return { messages, recall: null };
-    }
-
-    const recallText = relevant
-      .map(r => `[${r.timestamp}]\n${r.text}`)
-      .join("\n---\n");
-    const recallMsg: ModelMessage = {
-      role: "user",
-      content: `<recall>\nRelevant context from past conversations:\n${recallText}\n</recall>`,
-    };
-    // Budget: only inject if it fits within ~2000 tokens
-    const recallTokens = getMsgSize(recallMsg);
-    if (recallTokens > 2000) {
-      return { messages, recall: null };
-    }
-
-    log.debug("recall", `auto-recall: injected ${relevant.length} chunks (~${recallTokens} tokens)`);
-    return {
-      messages: [recallMsg, ...messages],
-      recall: {
-        query,
-        chunks: relevant.length,
-        tokens: recallTokens,
-        results: relevant.map(r => ({ timestamp: r.timestamp, text: r.text, distance: r.distance })),
-      },
-    };
-  } catch (err: any) {
-    log.error("recall", `auto-recall failed: ${err.message}`);
-    return { messages, recall: null };
-  }
-}

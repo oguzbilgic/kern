@@ -12,14 +12,11 @@ import { registerAgent, setPortAndToken, setPid } from "./registry.js";
 import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
-import { setRecallIndex } from "./tools/recall.js";
-import { RecallIndex } from "./recall.js";
 import { SegmentIndex } from "./segments.js";
 import { MemoryDB } from "./memory.js";
-import { regenerateNotesSummary } from "./notes.js";
 import { MessageQueue } from "./queue.js";
-import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setRecallStatsFn, setSegmentStatsFn, type InterfaceStatus } from "./tools/kern.js";
-import { loadPlugins, getPluginTools, dispatchToolResult, shutdownPlugins, getActivePlugins, type PluginContext } from "./plugins/index.js";
+import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setSegmentStatsFn, type InterfaceStatus } from "./tools/kern.js";
+import { loadPlugins, getPluginTools, dispatchToolResult, dispatchTurnFinish, shutdownPlugins, getActivePlugins, collectPluginStatus, collectContextInjections, type PluginContext } from "./plugins/index.js";
 import { log } from "./log.js";
 
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
@@ -100,38 +97,6 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   await runtime.init();
 
-  let recallIndex: RecallIndex | null = null;
-  let recallBuilding = false;
-  if (config.recall !== false) {
-    try {
-      recallIndex = new RecallIndex(memoryDB, agentDir, config.provider);
-      setRecallIndex(recallIndex);
-      runtime.setRecallIndex(recallIndex);
-      setRecallStatsFn(() => {
-        if (!recallIndex) return null;
-        const stats = recallIndex.getStats();
-        return { ...stats, building: recallBuilding };
-      });
-
-      // Backfill in background — don't block startup
-      const sessionId = runtime.getSessionId();
-      if (sessionId) {
-        recallBuilding = true;
-        recallIndex.indexSession(sessionId).then((indexed) => {
-          recallBuilding = false;
-          if (indexed > 0) {
-            log("recall", `backfilled ${indexed} chunks`);
-          }
-        }).catch((err) => {
-          recallBuilding = false;
-          log.error("recall", `backfill failed: ${err.message}`);
-        });
-      }
-    } catch (err: any) {
-      log.error("recall", `init failed: ${err.message} — recall disabled`);
-    }
-  }
-
   // Initialize semantic segments (uses same embedding infra as recall)
   let segmentIndex: SegmentIndex | null = null;
   let segmentRunning = false;
@@ -190,6 +155,9 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     server.setPluginRoutes(pluginRoutes);
   }
 
+  // Wire plugin context injections (notes, recall) into runtime
+  runtime.setContextInjectionFn((info) => collectContextInjections(info, pluginCtx));
+
   // Wire plugin onToolResult dispatch into runtime
   runtime.onToolResult = (toolName, result, emit) => {
     dispatchToolResult(toolName, result, emit, pluginCtx);
@@ -233,14 +201,13 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       msg.onEvent?.(event);
     }, msg.attachments);
 
-    // Index new messages for recall + segments (async, non-blocking)
+    // Post-turn: let plugins index new messages (async, non-blocking)
     const sessionId = runtime.getSessionId();
     if (sessionId) {
-      if (recallIndex) {
-        recallIndex.indexSession(sessionId).catch((err) => {
-          log.error("recall", `indexing failed: ${err.message}`);
-        });
-      }
+      dispatchTurnFinish(sessionId, pluginCtx).catch((err) => {
+        log.error("plugin", `turn finish error: ${err.message}`);
+      });
+      // Segments not yet a plugin — index directly
       if (segmentIndex) {
         segmentIndex.indexSession(sessionId).catch((err) => {
           log.error("segments", `indexing failed: ${err.message}`);
@@ -361,15 +328,6 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     return segmentIndex.resummarizeSegment(id);
   });
 
-  // Notes summaries API
-  server.setSummariesFn(() => {
-    return memoryDB.getAllSummaries("daily_notes");
-  });
-
-  server.setSummaryRegenerateFn(async () => {
-    return regenerateNotesSummary(agentDir, config, memoryDB);
-  });
-
   // Sessions API
   server.setSessionListFn(() => {
     return memoryDB.getSessionList();
@@ -385,26 +343,6 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       hourly: memoryDB.getSessionHourlyActivity(sessionId),
     };
   });
-
-  // Media API
-  server.setMediaListFn(() => {
-    const files = memoryDB.getMediaList();
-    const stats = memoryDB.getMediaStats();
-    return { files, stats };
-  });
-
-  // Recall API
-  if (recallIndex) {
-    server.setRecallStatsFn(() => {
-      const stats = recallIndex!.getStats();
-      return { ...stats, building: recallBuilding };
-    });
-
-    server.setRecallSearchFn(async (query: string, limit: number) => {
-      const results = await recallIndex!.search(query, limit);
-      return { query, results };
-    });
-  }
 
   const port = await server.start("127.0.0.1");
   await setPortAndToken(agentName, port, process.env.KERN_AUTH_TOKEN || null);

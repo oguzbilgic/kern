@@ -23,6 +23,30 @@ export interface RouteHandler {
 }
 
 /**
+ * Content to inject into system prompt before context assembly.
+ */
+export interface ContextInjection {
+  /** XML tag name wrapping the content */
+  label: string;
+  /** The content to inject */
+  content: string;
+}
+
+/**
+ * Context passed to onBeforeContext hook.
+ */
+export interface BeforeContextInfo {
+  /** Number of messages trimmed from start */
+  trimmedCount: number;
+  /** Token budget available for this injection */
+  tokenBudget: number;
+  /** Last user message text (for query-based injection like recall) */
+  userQuery: string;
+  /** Session ID */
+  sessionId: string;
+}
+
+/**
  * KernPlugin — a self-contained feature module.
  *
  * Bundles tools, HTTP routes, SSE event types, and runtime lifecycle hooks.
@@ -58,4 +82,20 @@ export interface KernPlugin {
     emit: (event: StreamEvent) => void,
     ctx: PluginContext,
   ) => void;
+
+  /**
+   * Called after each completed turn. Use for async indexing work.
+   */
+  onTurnFinish?: (sessionId: string, ctx: PluginContext) => Promise<void>;
+
+  /**
+   * Called during context assembly to inject content into the system prompt.
+   * Returns content to inject, or null to skip.
+   */
+  onBeforeContext?: (info: BeforeContextInfo, ctx: PluginContext) => Promise<ContextInjection | null>;
+
+  /**
+   * Called when building /status response. Return key-value pairs to merge.
+   */
+  onStatus?: (ctx: PluginContext) => Record<string, any>;
 }

@@ -7,10 +7,10 @@ import { SessionManager } from "./session.js";
 import { estimateTextTokens } from "./context.js";
 import { loadConfig, getToolsForScope, type KernConfig } from "./config.js";
 import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern.js";
-import type { RecallIndex } from "./recall.js";
 import type { SegmentIndex } from "./segments.js";
 import type { MemoryDB } from "./memory.js";
-import { prepareContext, injectRecall, loadSystemPrompt, buildSystemMessage, addCacheBreakpoints, type PrepareContextOptions } from "./context.js";
+import { prepareContext, loadSystemPrompt, buildSystemMessage, addCacheBreakpoints, type PrepareContextOptions } from "./context.js";
+import type { ContextInjection, BeforeContextInfo } from "./plugins/types.js";
 import type { Attachment } from "./interfaces/types.js";
 import { saveMedia, buildUserContent, extractText, MediaSidecar, resolveMediaInMessages, digestMediaAtIngest } from "./media.js";
 export type { SessionStats } from "./context.js";
@@ -36,13 +36,15 @@ export class Runtime {
   private systemPrompt!: string;
   private session!: SessionManager;
   private agentDir: string;
-  private recallIndex: RecallIndex | null = null;
   private segmentIndex: SegmentIndex | null = null;
   private memoryDB: MemoryDB | null = null;
   private mediaSidecar: MediaSidecar | null = null;
 
   /** Plugin hook — called on each tool result for custom event emission */
   onToolResult: ((toolName: string, result: string, emit: (event: StreamEvent) => void) => void) | null = null;
+
+  /** Plugin hook — collect context injections before each turn */
+  private contextInjectionFn: ((info: BeforeContextInfo) => Promise<ContextInjection[]>) | null = null;
 
   /** Additional tools registered by plugins */
   private pluginTools: Record<string, any> = {};
@@ -55,8 +57,8 @@ export class Runtime {
     Object.assign(this.pluginTools, tools);
   }
 
-  setRecallIndex(index: RecallIndex) {
-    this.recallIndex = index;
+  setContextInjectionFn(fn: (info: BeforeContextInfo) => Promise<ContextInjection[]>) {
+    this.contextInjectionFn = fn;
   }
 
   setSegmentIndex(index: SegmentIndex) {
@@ -93,7 +95,7 @@ export class Runtime {
 
   async init(): Promise<void> {
     this.config = await loadConfig(this.agentDir);
-    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.memoryDB);
+    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config);
     this.session = new SessionManager(this.agentDir);
     await this.session.init();
     await this.session.load();
@@ -158,7 +160,7 @@ export class Runtime {
     onEvent({ type: "thinking" });
 
     // Reload system prompt (picks up new daily notes, summaries, knowledge changes)
-    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.memoryDB);
+    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config);
 
     // Add user message to session
     const preview = userMessage.slice(0, 80).replace(/\n/g, " ");
@@ -221,11 +223,39 @@ export class Runtime {
         log("context", `trimmed: ${trimmedCount} old messages excluded${stats.summaryTokens > 0 ? `, summary injected (~${stats.summaryTokens} tokens)` : ''}`);
       }
 
-      const { messages: contextMessages, recall } = await injectRecall(
-        contextWindow, userMessage, this.recallIndex, trimmedCount, this.config.autoRecall,
-      );
-      if (recall) {
-        onEvent({ type: "recall", recall });
+      // Plugin context injections (notes → system prompt, recall → user message)
+      let contextMessages = contextWindow;
+      let systemWithInjections = systemMessage;
+      if (this.contextInjectionFn) {
+        try {
+          const injections = await this.contextInjectionFn({
+            trimmedCount,
+            tokenBudget: 2000,
+            userQuery: userMessage,
+            sessionId: sessionId || "",
+          });
+          for (const inj of injections) {
+            if (inj.label === "recall") {
+              // Recall: prepend as user-role message
+              const recallMsg: ModelMessage = {
+                role: "user",
+                content: `<recall>\n${inj.content}\n</recall>`,
+              };
+              contextMessages = [recallMsg, ...contextMessages];
+              onEvent({ type: "recall", recall: { query: userMessage, chunks: 0, tokens: Math.ceil(inj.content.length / 3.3), results: [] } });
+            } else {
+              // Notes, etc: append to system prompt
+              const injection = `${inj.content}`;
+              if (typeof systemWithInjections === "string") {
+                systemWithInjections = `${systemWithInjections}\n\n${injection}`;
+              } else {
+                systemWithInjections = { ...systemWithInjections, content: `${systemWithInjections.content}\n\n${injection}` };
+              }
+            }
+          }
+        } catch (err: any) {
+          log.error("context", `plugin context injection failed: ${err.message}`);
+        }
       }
 
       // Resolve kern-media:// refs before model call (SDK validates URLs before middleware runs)
@@ -247,7 +277,7 @@ export class Runtime {
 
       const result = streamText({
         model,
-        system: systemMessage,
+        system: systemWithInjections,
         messages: resolvedMessages,
         tools,
         stopWhen: stepCountIs(this.config.maxSteps),
@@ -366,7 +396,7 @@ export class Runtime {
   }
 
   async getSystemPrompt(): Promise<string> {
-    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.memoryDB);
+    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config);
     return this.systemPrompt;
   }
 
