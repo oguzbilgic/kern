@@ -1,5 +1,10 @@
 # Changelog
 
+## next
+
+### Fixes
+- Desktop app: logout from web UI now returns to desktop connect screen instead of web login page ([#110](https://github.com/oguzbilgic/kern-ai/pull/110))
+
 ## v0.24.0
 
 ### Features

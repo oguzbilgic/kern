@@ -111,7 +111,12 @@ export default function Home() {
 
   function handleLogout() {
     localStorage.removeItem("kern-token");
-    window.location.reload();
+    const tauri = (window as any).__TAURI__;
+    if (tauri?.core?.invoke) {
+      window.location.replace("tauri://localhost/index.html?logout=1");
+    } else {
+      window.location.reload();
+    }
   }
 
   return (
