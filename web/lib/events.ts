@@ -32,13 +32,14 @@ export function processStreamEvent(
 
     case "text-delta": {
       const last = result.parts[result.parts.length - 1];
-      if (last?.role === "assistant") {
+      if (last?.role === "assistant" && last.streaming) {
         last.text += ev.text;
       } else {
         result.parts.push({
           id: `stream-text-${Date.now()}-${Math.random()}`,
           role: "assistant",
           text: ev.text,
+          streaming: true,
         });
       }
       break;
@@ -80,9 +81,9 @@ export function processStreamEvent(
       break;
 
     case "finish": {
-      result.append = result.parts.filter(
-        (p) => p.role === "tool" || (p.role === "assistant" && p.text.trim())
-      );
+      result.append = result.parts
+        .filter((p) => p.role === "tool" || (p.role === "assistant" && p.text.trim()))
+        .map((p) => ({ ...p, streaming: false }));
       result.parts = [];
       result.flush = true;
       break;

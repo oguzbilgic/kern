@@ -1,5 +1,6 @@
 "use client";
 
+import { memo, useMemo } from "react";
 import type { ChatMessage, MediaItem } from "../lib/types";
 import type { MessageProps } from "../lib/messages";
 import { renderMarkdown } from "../lib/markdown";
@@ -29,15 +30,25 @@ export function MediaAttachments({ media, agentName, token, serverUrl }: { media
 }
 
 // Renders the text body of a message — markdown for assistant, plain for others
-export function MessageBody({ msg }: { msg: ChatMessage }) {
+// Memoized: only re-renders when msg.text or msg.isStreaming changes
+export const MessageBody = memo(function MessageBody({ msg }: { msg: ChatMessage }) {
+  const html = useMemo(() => {
+    if (msg.role !== "assistant") return "";
+    if (msg.streaming) {
+      // During streaming, render markdown but skip render blocks (show placeholder)
+      return renderMarkdown(msg.text, { skipRenderBlocks: true });
+    }
+    return renderMarkdown(msg.text);
+  }, [msg.text, msg.role, msg.streaming]);
+
   if (msg.role === "assistant") {
     return (
       <div className="markdown-body"
-        dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.text) }} />
+        dangerouslySetInnerHTML={{ __html: html }} />
     );
   }
   return <span className="whitespace-pre-wrap">{msg.text}</span>;
-}
+});
 
 // Renders special message types: heartbeat, error, command, NO_REPLY, emoji
 // Returns null if message is a normal text message
