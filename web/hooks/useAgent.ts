@@ -23,6 +23,7 @@ function toolActivity(toolName?: string): string {
     case "image": return "analyzing image";
     case "kern": return "checking status";
     case "message": return "sending message";
+    case "render": return "rendering";
     default: return `using ${toolName}`;
   }
 }
@@ -44,6 +45,7 @@ function toolDetail(toolName?: string, input?: Record<string, unknown>): string 
     case "recall": return truncDetail(String(input.query || ""));
     case "kern": return String(input.action || "");
     case "message": return String(input.userId || "");
+    case "render": return String(input.dashboard || input.title || "");
     default: return "";
   }
 }

@@ -5,6 +5,7 @@ import { analyzeMessage, formatTime, getChannelInfo } from "../../lib/messages";
 import { avatarColor } from "../../lib/colors";
 import { SpecialMessage, MediaAttachments, MessageBody } from "../MessageContent";
 import { ToolCall } from "../ToolCall";
+import { RenderBlock } from "../RenderBlock";
 import { ScrollToBottom } from "../ScrollToBottom";
 import { useChat } from "../../hooks/useChat";
 
@@ -55,6 +56,14 @@ export function FlatLayout({ messages, streamParts, thinking, agentName, token, 
           <div style={{ marginLeft: 42 }}>
             <ToolCall msg={msg} colored={coloredTools} peek={msg.id === lastToolId} />
           </div>
+        </div>
+      );
+    }
+
+    if (msg.role === "render") {
+      return (
+        <div key={msg.id} style={{ marginLeft: 42 }}>
+          <RenderBlock msg={msg} />
         </div>
       );
     }

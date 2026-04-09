@@ -18,7 +18,7 @@ export type { SessionStats } from "./context.js";
 
 
 export interface StreamEvent {
-  type: "text-delta" | "tool-call" | "tool-result" | "finish" | "error" | "recall" | "thinking";
+  type: "text-delta" | "tool-call" | "tool-result" | "finish" | "error" | "recall" | "thinking" | "render";
   text?: string;
   toolName?: string;
   toolDetail?: string;
@@ -26,6 +26,7 @@ export interface StreamEvent {
   toolResult?: string;
   error?: string;
   recall?: { query: string; chunks: number; tokens: number; results: Array<{ timestamp: string; text: string; distance: number }> };
+  render?: { html: string; dashboard?: string | null; target: string; title: string };
 }
 
 export type StreamHandler = (event: StreamEvent) => void;
@@ -307,6 +308,26 @@ export class Runtime {
           const output = (part as any).output;
           const resultText = typeof output === "string" ? output : JSON.stringify(output);
           onEvent({ type: "tool-result", toolName: part.toolName, toolResult: resultText });
+
+          // Detect render tool output and emit render event for UI
+          if (part.toolName === "render" && typeof resultText === "string") {
+            try {
+              const parsed = JSON.parse(resultText);
+              if (parsed.__kern_render) {
+                onEvent({
+                  type: "render",
+                  render: {
+                    html: parsed.html,
+                    dashboard: parsed.dashboard,
+                    target: parsed.target || "inline",
+                    title: parsed.title || "Render",
+                  },
+                });
+              }
+            } catch {
+              // Not JSON or not a render result — ignore
+            }
+          }
         }
       }
 

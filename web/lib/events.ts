@@ -143,6 +143,20 @@ export function processStreamEvent(
       });
       break;
 
+    case "render": {
+      const target = inTurn ? result.parts : result.append;
+      target.push({
+        id: `render-${Date.now()}`,
+        role: "render",
+        text: ev.render.title || "Render",
+        renderHtml: ev.render.html,
+        renderTarget: ev.render.target,
+        renderTitle: ev.render.title,
+        renderDashboard: ev.render.dashboard,
+      });
+      break;
+    }
+
     case "error":
       result.append.push({
         id: `err-${Date.now()}`,

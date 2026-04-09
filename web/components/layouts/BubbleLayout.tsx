@@ -5,6 +5,7 @@ import type { MessageGroupInfo } from "../../lib/messages";
 import { analyzeMessage, formatTime } from "../../lib/messages";
 import { SpecialMessage, MediaAttachments, MessageBody } from "../MessageContent";
 import { ToolCall } from "../ToolCall";
+import { RenderBlock } from "../RenderBlock";
 import { ScrollToBottom } from "../ScrollToBottom";
 import { useChat } from "../../hooks/useChat";
 
@@ -35,6 +36,14 @@ export function BubbleLayout({ messages, streamParts, thinking, agentName, token
       return (
         <div key={msg.id}>
           <ToolCall msg={msg} colored={coloredTools} peek={msg.id === lastToolId} />
+        </div>
+      );
+    }
+
+    if (msg.role === "render") {
+      return (
+        <div key={msg.id} className="flex justify-start">
+          <RenderBlock msg={msg} />
         </div>
       );
     }

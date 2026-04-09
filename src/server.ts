@@ -551,6 +551,71 @@ export class AgentServer {
       return;
     }
 
+    // Serve dashboard files: GET /d/<name>/ or /d/<name>/data.json
+    const dashMatch = url.match(/^\/d\/([a-zA-Z0-9_-]+)(\/.*)?$/);
+    if (dashMatch && req.method === "GET") {
+      const dashName = dashMatch[1];
+      const subPath = dashMatch[2] || "/";
+      const dashDir = join(this.agentDir, "dashboards", dashName);
+
+      if (!existsSync(dashDir)) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: `dashboard '${dashName}' not found` }));
+        return;
+      }
+
+      let filePath: string;
+      let contentType: string;
+      if (subPath === "/" || subPath === "/index.html") {
+        filePath = join(dashDir, "index.html");
+        contentType = "text/html; charset=utf-8";
+      } else if (subPath === "/data.json") {
+        filePath = join(dashDir, "data.json");
+        contentType = "application/json; charset=utf-8";
+      } else {
+        // Serve any file in the dashboard directory
+        filePath = join(dashDir, subPath.slice(1));
+        const ext = filePath.split(".").pop() || "";
+        const mimeMap: Record<string, string> = {
+          html: "text/html", css: "text/css", js: "application/javascript",
+          json: "application/json", svg: "image/svg+xml", png: "image/png",
+        };
+        contentType = mimeMap[ext] || "application/octet-stream";
+      }
+
+      // Prevent path traversal
+      if (!filePath.startsWith(dashDir)) {
+        res.writeHead(403);
+        res.end(JSON.stringify({ error: "forbidden" }));
+        return;
+      }
+
+      if (existsSync(filePath)) {
+        const data = readFileSync(filePath);
+        res.writeHead(200, { "Content-Type": contentType });
+        res.end(data);
+      } else {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "file not found" }));
+      }
+      return;
+    }
+
+    // List available dashboards: GET /dashboards
+    if (url === "/dashboards" && req.method === "GET") {
+      const dashDir = join(this.agentDir, "dashboards");
+      let dashboards: string[] = [];
+      if (existsSync(dashDir)) {
+        const { readdirSync } = require("fs");
+        dashboards = readdirSync(dashDir, { withFileTypes: true })
+          .filter((d: any) => d.isDirectory() && existsSync(join(dashDir, d.name, "index.html")))
+          .map((d: any) => d.name);
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ dashboards }));
+      return;
+    }
+
     res.writeHead(404);
     res.end(JSON.stringify({ error: "not found" }));
   }
