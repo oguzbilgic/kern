@@ -2,6 +2,21 @@
 
 import { useState, useRef, useEffect } from "react";
 import type { ChatMessage } from "../../lib/types";
+import { getDashboardStore as getDashboardStoreFromImport } from "./useDashboards";
+
+// --- Helpers to read plugin data from ChatMessage ---
+
+export function getDashboardData(msg: ChatMessage) {
+  const d = msg.pluginData || {};
+  return {
+    html: String(d.html || ""),
+    target: String(d.target || "inline"),
+    title: String(d.title || "Render"),
+    dashboard: d.dashboard as string | null | undefined,
+  };
+}
+
+// --- Icons ---
 
 const DashIcon = ({ size = 14, className = "" }: { size?: number; className?: string }) => (
   <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
@@ -25,8 +40,7 @@ export function RenderBlock({ msg, onOpenPanel }: { msg: ChatMessage; onOpenPane
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(200);
 
-  const html = msg.renderHtml || "";
-  const title = msg.renderTitle || "Render";
+  const { html, title } = getDashboardData(msg);
 
   useEffect(() => {
     const handler = (e: MessageEvent) => {
@@ -77,11 +91,11 @@ export function RenderBlock({ msg, onOpenPanel }: { msg: ChatMessage; onOpenPane
 
 /** Panel-target card — small clickable button in chat that opens panel */
 export function RenderCard({ msg, onOpenPanel }: { msg: ChatMessage; onOpenPanel?: (html: string, title: string) => void }) {
-  const title = msg.renderTitle || "Render";
+  const { html, title } = getDashboardData(msg);
 
   return (
     <button
-      onClick={() => onOpenPanel?.(msg.renderHtml || "", title)}
+      onClick={() => onOpenPanel?.(html, title)}
       className="my-2 flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-xs cursor-pointer transition-all hover:brightness-110 active:scale-[0.98]"
       style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
       title="Open in panel"
@@ -168,9 +182,8 @@ export function RenderPanel({ html, title, dashboards, activeDashboard, onSwitch
   onClose: () => void;
 }) {
   const [width, setWidth] = useState(() => {
-    // Try to give panel ~50% of available space, min 480, max 800
     if (typeof window !== "undefined") {
-      const available = window.innerWidth - 400; // reserve ~400px for sidebar + chat
+      const available = window.innerWidth - 400;
       return Math.max(480, Math.min(Math.floor(available * 0.55), 800));
     }
     return 480;
@@ -203,13 +216,11 @@ export function RenderPanel({ html, title, dashboards, activeDashboard, onSwitch
 
   return (
     <div className="flex flex-col flex-shrink-0 relative" style={{ width }}>
-      {/* Resize handle */}
       <div
         onMouseDown={onDragStart}
         className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-[var(--accent)] transition-colors z-10"
         style={{ background: "var(--border)" }}
       />
-      {/* Header */}
       <div className="h-12 border-b border-[var(--border)] flex items-center justify-between px-4 flex-shrink-0 ml-1">
         <div className="flex items-center gap-2 min-w-0">
           <DashIcon size={13} className="text-[var(--text-muted)] flex-shrink-0" />
@@ -231,7 +242,6 @@ export function RenderPanel({ html, title, dashboards, activeDashboard, onSwitch
         <button onClick={onClose}
           className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors cursor-pointer text-base leading-none ml-2">✕</button>
       </div>
-      {/* Content */}
       <iframe
         srcDoc={wrappedHtml}
         sandbox="allow-scripts"
@@ -239,6 +249,65 @@ export function RenderPanel({ html, title, dashboards, activeDashboard, onSwitch
         style={{ background: "transparent" }}
       />
     </div>
+  );
+}
+
+/** Sidebar section showing dashboards from all agents */
+export function DashboardSidebar({ agents, mini }: { agents: { name: string; running: boolean; serverUrl?: string; token: string }[]; activeAgent: string | null; mini: boolean }) {
+  const store = getDashboardStoreFromImport();
+  const dashboards = store?.allDashboards || [];
+  const activeDashboard = store?.activeDashboard || null;
+
+  if (!dashboards.length) return null;
+
+  return (
+    <>
+      <div className="mt-2" />
+      {!mini && (
+        <div className="px-4 mb-1">
+          <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Dashboards</span>
+        </div>
+      )}
+      {dashboards.map((d: { name: string; agentName: string; serverUrl: string }) => {
+        const isActive = activeDashboard === d.name;
+        const agent = agents.find(a => a.name === d.agentName && (a.serverUrl || "") === d.serverUrl);
+        return (
+          <button
+            key={`${d.agentName}-${d.name}`}
+            onClick={() => {
+              if (isActive) {
+                store?.closePanel();
+              } else if (agent) {
+                store?.loadAndOpen(d.name, agent.name, agent.serverUrl || "", agent.token || "");
+              }
+            }}
+            className={`flex items-center w-full text-left transition-colors cursor-pointer rounded-lg overflow-hidden p-2.5 ${
+              mini ? "justify-center" : "gap-2"
+            } ${isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"}`}
+            title={mini ? `${d.name} (${d.agentName})` : d.name}
+          >
+            <span
+              className="flex-shrink-0 w-2 h-2"
+              style={{
+                transform: "rotate(45deg)",
+                background: isActive ? "var(--accent)" : "var(--text-muted)",
+                opacity: isActive ? 1 : 0.5,
+              }}
+            />
+            {!mini && (
+              <>
+                <span className={`text-xs truncate ${isActive ? "text-[var(--text)]" : "text-[var(--text-muted)]"}`}>
+                  {d.name}
+                </span>
+                <span className="text-[10px] text-[var(--text-muted)] ml-auto opacity-50 flex-shrink-0">
+                  {d.agentName}
+                </span>
+              </>
+            )}
+          </button>
+        );
+      })}
+    </>
   );
 }
 

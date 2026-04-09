@@ -5,9 +5,9 @@ import { analyzeMessage, formatTime, getChannelInfo } from "../../lib/messages";
 import { avatarColor } from "../../lib/colors";
 import { SpecialMessage, MediaAttachments, MessageBody } from "../MessageContent";
 import { ToolCall } from "../ToolCall";
-import { RenderBlock, RenderCard } from "../../plugins/dashboard";
 import { ScrollToBottom } from "../ScrollToBottom";
 import { useChat } from "../../hooks/useChat";
+import { renderPluginMessage } from "../../plugins/registry";
 
 interface FlatLayoutProps {
   messages: ChatMessage[];
@@ -61,13 +61,10 @@ export function FlatLayout({ messages, streamParts, thinking, agentName, token, 
       );
     }
 
-    if (msg.role === "render") {
-      const isPanel = msg.renderTarget === "panel";
-      return (
-        <div key={msg.id} style={{ marginLeft: 42 }}>
-          {isPanel ? <RenderCard msg={msg} onOpenPanel={onOpenPanel} /> : <RenderBlock msg={msg} onOpenPanel={onOpenPanel} />}
-        </div>
-      );
+    // Delegate plugin-owned roles to plugin renderers
+    const pluginNode = renderPluginMessage(msg, { agentName: agentName || "", token: token || "", serverUrl, onOpenPanel });
+    if (pluginNode) {
+      return <div key={msg.id} style={{ marginLeft: 42 }}>{pluginNode}</div>;
     }
 
     const props = analyzeMessage(msg, agentName);

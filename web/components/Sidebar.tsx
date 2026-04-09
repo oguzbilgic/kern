@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { AgentInfo, DashboardInfo } from "../lib/types";
+import type { AgentInfo } from "../lib/types";
 import { useAgent } from "../hooks/useAgent";
 import { agentKey } from "../hooks/useServers";
-
+import { renderPluginSidebars } from "../plugins/registry";
 import { avatarColor } from "../lib/colors";
 
 function AgentRow({
@@ -75,13 +75,9 @@ interface SidebarProps {
   onLogout?: () => void;
   onAddServer?: (url: string, token: string) => void;
   onRemoveServer?: (url: string) => void;
-  dashboards?: DashboardInfo[];
-  activeDashboard?: string | null;
-  onOpenDashboard?: (d: DashboardInfo) => void;
-  onCloseDashboard?: () => void;
 }
 
-export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, onAddServer, onRemoveServer, dashboards, activeDashboard, onOpenDashboard, onCloseDashboard }: SidebarProps) {
+export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, onAddServer, onRemoveServer }: SidebarProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newUrl, setNewUrl] = useState("");
   const [newToken, setNewToken] = useState("");
@@ -132,6 +128,9 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
     setNewToken("");
     setShowAddModal(false);
   }
+
+  // Get the active agent name for plugin sidebar context
+  const activeAgentObj = agents.find(a => agentKey(a) === active);
 
   return (
     <div
@@ -218,49 +217,8 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
           <span className="text-[var(--text-muted)] text-xs whitespace-nowrap">Add server</span>
         </button>
 
-        {/* Dashboards section */}
-        {dashboards && dashboards.length > 0 && (
-          <>
-            <div className="mt-2" />
-            {!mini && (
-              <div className="px-4 mb-1">
-                <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Dashboards</span>
-              </div>
-            )}
-            {dashboards.map((d) => {
-              const isActive = activeDashboard === d.name;
-              return (
-                <button
-                  key={`${d.agentName}-${d.name}`}
-                  onClick={() => isActive ? onCloseDashboard?.() : onOpenDashboard?.(d)}
-                  className={`flex items-center w-full text-left transition-colors cursor-pointer rounded-lg overflow-hidden p-2.5 ${
-                    mini ? "justify-center" : "gap-2"
-                  } ${isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"}`}
-                  title={mini ? `${d.name} (${d.agentName})` : d.name}
-                >
-                  <span
-                    className="flex-shrink-0 w-2 h-2"
-                    style={{
-                      transform: "rotate(45deg)",
-                      background: isActive ? "var(--accent)" : "var(--text-muted)",
-                      opacity: isActive ? 1 : 0.5,
-                    }}
-                  />
-                  {!mini && (
-                    <>
-                      <span className={`text-xs truncate ${isActive ? "text-[var(--text)]" : "text-[var(--text-muted)]"}`}>
-                        {d.name}
-                      </span>
-                      <span className="text-[10px] text-[var(--text-muted)] ml-auto opacity-50 flex-shrink-0">
-                        {d.agentName}
-                      </span>
-                    </>
-                  )}
-                </button>
-              );
-            })}
-          </>
-        )}
+        {/* Plugin sidebar sections */}
+        {renderPluginSidebars({ agents, activeAgent: activeAgentObj?.name ?? null, mini })}
       </div>
 
       {/* Footer: logout */}

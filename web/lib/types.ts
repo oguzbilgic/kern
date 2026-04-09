@@ -26,7 +26,8 @@ export type StreamEvent =
   | { type: "incoming"; text: string; fromInterface?: string; fromUserId?: string; fromChannel?: string; media?: MediaItem[] }
   | { type: "outgoing"; text: string; fromInterface?: string }
   | { type: "heartbeat" }
-  | { type: "render"; render: { html: string; dashboard?: string | null; target: string; title: string } };
+  | { type: "render"; render: { html: string; dashboard?: string | null; target: string; title: string } }
+  | { type: "plugin"; plugin: string; data: Record<string, unknown> };
 
 export interface StatusData {
   version?: string;
@@ -95,13 +96,6 @@ export interface ParsedUserMessage {
   iface?: string;
 }
 
-export interface DashboardInfo {
-  name: string;
-  agentName: string;
-  serverUrl?: string;
-  token: string;
-}
-
 export interface MediaItem {
   type: "image" | "file";
   url: string;
@@ -111,7 +105,7 @@ export interface MediaItem {
 // A rendered message block in the chat UI
 export interface ChatMessage {
   id: string;
-  role: "user" | "assistant" | "tool" | "heartbeat" | "incoming" | "error" | "command" | "render";
+  role: "user" | "assistant" | "tool" | "heartbeat" | "incoming" | "error" | "command" | string;
   text: string;
   timestamp?: string | null;
   iface?: string;
@@ -123,11 +117,8 @@ export interface ChatMessage {
   toolInput?: Record<string, unknown>;
   toolOutput?: string;
   toolCallId?: string;
-  // Render fields
-  renderHtml?: string;
-  renderTarget?: string;
-  renderTitle?: string;
-  renderDashboard?: string | null;
+  // Plugin-specific data (keyed by plugin name)
+  pluginData?: Record<string, unknown>;
   // UI flags
   hidden?: boolean;
   streaming?: boolean;

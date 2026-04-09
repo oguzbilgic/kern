@@ -5,10 +5,16 @@ import type { AgentInfo, ChatMessage, StreamEvent, Attachment, StatusData } from
 import * as api from "../lib/api";
 import { historyToMessages } from "../lib/messages";
 import { processStreamEvent } from "../lib/events";
+import { getPlugins } from "../plugins/registry";
 
 // Map tool names to human-readable activity labels
 function toolActivity(toolName?: string): string {
   if (!toolName) return "thinking";
+  // Check plugins first
+  for (const plugin of getPlugins()) {
+    const label = plugin.activityLabel?.(toolName);
+    if (label) return label;
+  }
   switch (toolName) {
     case "bash": return "running command";
     case "read": return "reading";
@@ -23,7 +29,6 @@ function toolActivity(toolName?: string): string {
     case "image": return "analyzing image";
     case "kern": return "checking status";
     case "message": return "sending message";
-    case "render": return "rendering";
     default: return `using ${toolName}`;
   }
 }
@@ -31,6 +36,11 @@ function toolActivity(toolName?: string): string {
 // Extract key argument from tool input for tooltip
 function toolDetail(toolName?: string, input?: Record<string, unknown>): string {
   if (!toolName || !input) return "";
+  // Check plugins first
+  for (const plugin of getPlugins()) {
+    const detail = plugin.activityDetail?.(toolName, input);
+    if (detail) return detail;
+  }
   switch (toolName) {
     case "bash": return truncDetail(String(input.command || ""));
     case "read": return String(input.path || "");
@@ -45,7 +55,6 @@ function toolDetail(toolName?: string, input?: Record<string, unknown>): string 
     case "recall": return truncDetail(String(input.query || ""));
     case "kern": return String(input.action || "");
     case "message": return String(input.userId || "");
-    case "render": return String(input.dashboard || input.title || "");
     default: return "";
   }
 }

@@ -1,8 +1,23 @@
 // Message parsing and transformation utilities
 
 import type { HistoryMessage, ChatMessage, ParsedUserMessage, ContentPart, MediaItem } from "./types";
+import { getPlugins } from "../plugins/registry";
 
 let msgCounter = 0;
+
+/** Ask plugins to convert a tool result to a custom message. Returns null if no plugin handles it. */
+function pluginToolResult(toolName: string, output: string): ChatMessage | null {
+  for (const plugin of getPlugins()) {
+    const msg = plugin.handleHistoryToolResult?.(toolName, output);
+    if (msg) return msg;
+  }
+  return null;
+}
+
+/** Check if any plugin wants to hide this tool */
+function pluginHidesTool(toolName: string): boolean {
+  return getPlugins().some(p => p.isHiddenTool?.(toolName));
+}
 
 export function parseUserContent(content: string): ParsedUserMessage {
   const match = content.match(
@@ -165,23 +180,13 @@ export function historyToMessages(history: HistoryMessage[]): ChatMessage[] {
         const lastTool = findLastUnresolvedTool(messages);
         if (lastTool) {
           lastTool.toolOutput = content;
-          // Convert render tool results to render messages
-          if (lastTool.toolName === "render") {
-            try {
-              const parsed = JSON.parse(content);
-              if (parsed.__kern_render) {
-                lastTool.hidden = true;
-                messages.push({
-                  id: `msg-${msgCounter++}`,
-                  role: "render",
-                  text: parsed.title || "Render",
-                  renderHtml: parsed.html,
-                  renderTarget: parsed.target || "inline",
-                  renderTitle: parsed.title || "Render",
-                  renderDashboard: parsed.dashboard,
-                });
-              }
-            } catch { /* not JSON */ }
+          // Delegate to plugins for tool result conversion
+          if (lastTool.toolName && pluginHidesTool(lastTool.toolName)) {
+            const pluginMsg = pluginToolResult(lastTool.toolName, content);
+            if (pluginMsg) {
+              lastTool.hidden = true;
+              messages.push({ ...pluginMsg, id: `msg-${msgCounter++}` });
+            }
           }
         }
         continue;
@@ -198,23 +203,13 @@ export function historyToMessages(history: HistoryMessage[]): ChatMessage[] {
               : findLastUnresolvedTool(messages);
             if (match) {
               match.toolOutput = output;
-              // Convert render tool results to render messages
-              if (match.toolName === "render" && output) {
-                try {
-                  const parsed = JSON.parse(output);
-                  if (parsed.__kern_render) {
-                    match.hidden = true;
-                    messages.push({
-                      id: `msg-${msgCounter++}`,
-                      role: "render",
-                      text: parsed.title || "Render",
-                      renderHtml: parsed.html,
-                      renderTarget: parsed.target || "inline",
-                      renderTitle: parsed.title || "Render",
-                      renderDashboard: parsed.dashboard,
-                    });
-                  }
-                } catch { /* not JSON */ }
+              // Delegate to plugins for tool result conversion
+              if (match.toolName && pluginHidesTool(match.toolName) && output) {
+                const pluginMsg = pluginToolResult(match.toolName, output);
+                if (pluginMsg) {
+                  match.hidden = true;
+                  messages.push({ ...pluginMsg, id: `msg-${msgCounter++}` });
+                }
               }
             }
           }

@@ -12,8 +12,8 @@ import { Inspector } from "../components/Inspector";
 import { InfoPanel, PinnedStats } from "../components/InfoPanel";
 import { ThemePicker, usePreferences } from "../components/ThemePicker";
 import { ThinkingDots } from "../components/ThinkingDots";
-import { RenderPanel, DashboardButton } from "../plugins/dashboard";
-import { useDashboards } from "../plugins/dashboard/useDashboards";
+import { renderPluginHeaders, renderPluginPanel, hasPluginPanel, pluginPanelMinChatWidth } from "../plugins/registry";
+import { usePluginInit } from "../plugins";
 import type { Attachment } from "../lib/types";
 
 export default function Home() {
@@ -25,7 +25,15 @@ export default function Home() {
   const { prefs, setPrefs } = usePreferences();
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
-  const { allDashboards, activeDashboard, dashboardList, panelHtml, handleOpenPanel, closePanel, openDashboard } = useDashboards(agents, activeAgent);
+  const [, setPanelTick] = useState(0); // force re-render when plugin panel state changes
+
+  // Initialize plugin hooks (dashboard discovery, etc.)
+  usePluginInit(agents, activeAgent);
+
+  const handleOpenPanel = useCallback(() => {
+    setPanelTick(t => t + 1);
+  }, []);
+
   const { messages, streamParts, thinking, activity, activityDetail, connected, status, send, loadMore, hasMore, loadingMore } = useAgent(activeAgent, { withHistory: true, onOpenPanel: handleOpenPanel });
   const [pinned, setPinned] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
@@ -101,6 +109,8 @@ export default function Home() {
     window.location.reload();
   }
 
+  const showPanel = hasPluginPanel();
+
   return (
     <div className="flex h-full w-full">
       <Sidebar
@@ -111,18 +121,13 @@ export default function Home() {
         onLogout={handleLogout}
         onAddServer={addServer}
         onRemoveServer={removeServer}
-        dashboards={allDashboards}
-        activeDashboard={activeDashboard}
-        onOpenDashboard={(d) => openDashboard(d.name, d)}
-        onCloseDashboard={closePanel}
       />
 
       <div
         className="flex-1 flex flex-col relative"
-        style={{ minWidth: panelHtml ? 360 : 0 }}
+        style={{ minWidth: showPanel ? pluginPanelMinChatWidth() : 0 }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={(e) => {
-          // Only leave if exiting the container
           if (e.currentTarget.contains(e.relatedTarget as Node)) return;
           setDragOver(false);
         }}
@@ -161,12 +166,12 @@ export default function Home() {
           </div>
           <div className="ml-auto flex items-center gap-1">
             <ThemePicker prefs={prefs} onPrefsChange={setPrefs} />
-            <DashboardButton
-              agentName={activeAgent?.name}
-              token={activeAgent?.token ?? undefined}
-              serverUrl={activeAgent?.serverUrl}
-              onOpenDashboard={openDashboard}
-            />
+            {/* Plugin header buttons */}
+            {activeAgent && renderPluginHeaders({
+              agentName: activeAgent.name,
+              token: activeAgent.token,
+              serverUrl: activeAgent.serverUrl,
+            })}
             <button
               onClick={() => setInspectorOpen(true)}
               className="px-1.5 py-1 text-sm rounded text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-surface)] transition-colors leading-none cursor-pointer"
@@ -224,17 +229,8 @@ export default function Home() {
         />
       )}
 
-      {/* Render panel */}
-      {panelHtml && (
-        <RenderPanel
-          html={panelHtml.html}
-          title={panelHtml.title}
-          dashboards={dashboardList}
-          activeDashboard={panelHtml.dashboard}
-          onSwitchDashboard={openDashboard}
-          onClose={closePanel}
-        />
-      )}
+      {/* Plugin panels */}
+      {showPanel && renderPluginPanel({ onClose: () => setPanelTick(t => t + 1) })}
     </div>
   );
 }

@@ -1,20 +1,33 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import type { AgentInfo, DashboardInfo } from "../../lib/types";
+import type { AgentInfo } from "../../lib/types";
+import type { DashboardInfo } from "./index";
 import { fetchDashboards, loadDashboardHtml } from "./index";
 
-interface DashboardState {
+interface DashboardStore {
   allDashboards: DashboardInfo[];
   activeDashboard: string | null;
   dashboardList: string[];
   panelHtml: { html: string; title: string; dashboard?: string } | null;
-  handleOpenPanel: (html: string, title: string, dashboard?: string) => void;
+  activeAgent: AgentInfo | null;
+  openPanel: (html: string, title: string, dashboard?: string) => void;
   closePanel: () => void;
-  openDashboard: (name: string, fromAgent?: DashboardInfo) => void;
+  loadAndOpen: (name: string, agentName: string, serverUrl: string, token: string) => void;
 }
 
-export function useDashboards(agents: AgentInfo[], activeAgent: AgentInfo | null): DashboardState {
+// Singleton store reference so plugin definition can access state without React context
+let _store: DashboardStore | null = null;
+
+export function getDashboardStore(): DashboardStore | null {
+  return _store;
+}
+
+/**
+ * React hook that owns all dashboard state.
+ * Call once at the app root. Exposes state to plugin via singleton.
+ */
+export function useDashboards(agents: AgentInfo[], activeAgent: AgentInfo | null): DashboardStore {
   const [panelHtml, setPanelHtml] = useState<{ html: string; title: string; dashboard?: string } | null>(null);
   const [allDashboards, setAllDashboards] = useState<DashboardInfo[]>([]);
   const [activeDashboard, setActiveDashboard] = useState<string | null>(null);
@@ -30,7 +43,7 @@ export function useDashboards(agents: AgentInfo[], activeAgent: AgentInfo | null
 
   const dashboardList = allDashboards.filter(d => d.agentName === activeAgent?.name).map(d => d.name);
 
-  const handleOpenPanel = useCallback((html: string, title: string, dashboard?: string) => {
+  const openPanel = useCallback((html: string, title: string, dashboard?: string) => {
     setPanelHtml({ html, title, dashboard });
     if (dashboard) { setActiveDashboard(dashboard); localStorage.setItem("kern-active-dashboard", dashboard); }
   }, []);
@@ -41,12 +54,8 @@ export function useDashboards(agents: AgentInfo[], activeAgent: AgentInfo | null
     localStorage.removeItem("kern-active-dashboard");
   }, []);
 
-  const openDashboard = useCallback((name: string, fromAgent?: DashboardInfo) => {
-    const agent = fromAgent
-      ? agents.find(a => a.name === fromAgent.agentName && a.serverUrl === fromAgent.serverUrl) || activeAgent
-      : activeAgent;
-    if (!agent) return;
-    loadDashboardHtml(name, agent.name, agent.serverUrl || "", agent.token || "")
+  const loadAndOpen = useCallback((name: string, agentName: string, serverUrl: string, token: string) => {
+    loadDashboardHtml(name, agentName, serverUrl, token)
       .then(html => {
         if (html) {
           setPanelHtml({ html, title: name, dashboard: name });
@@ -56,13 +65,13 @@ export function useDashboards(agents: AgentInfo[], activeAgent: AgentInfo | null
           closePanel();
         }
       });
-  }, [activeAgent, agents, closePanel]);
+  }, [closePanel]);
 
   // Restore active dashboard on load
   useEffect(() => {
     if (!activeAgent) return;
     const saved = localStorage.getItem("kern-active-dashboard");
-    if (saved) openDashboard(saved);
+    if (saved) loadAndOpen(saved, activeAgent.name, activeAgent.serverUrl || "", activeAgent.token || "");
   }, [activeAgent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close panel if active dashboard no longer exists
@@ -72,5 +81,19 @@ export function useDashboards(agents: AgentInfo[], activeAgent: AgentInfo | null
     }
   }, [allDashboards, activeDashboard, closePanel]);
 
-  return { allDashboards, activeDashboard, dashboardList, panelHtml, handleOpenPanel, closePanel, openDashboard };
+  const store: DashboardStore = {
+    allDashboards,
+    activeDashboard,
+    dashboardList,
+    panelHtml,
+    activeAgent,
+    openPanel,
+    closePanel,
+    loadAndOpen,
+  };
+
+  // Update singleton reference
+  _store = store;
+
+  return store;
 }

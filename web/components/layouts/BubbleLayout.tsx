@@ -5,9 +5,9 @@ import type { MessageGroupInfo } from "../../lib/messages";
 import { analyzeMessage, formatTime } from "../../lib/messages";
 import { SpecialMessage, MediaAttachments, MessageBody } from "../MessageContent";
 import { ToolCall } from "../ToolCall";
-import { RenderBlock, RenderCard } from "../../plugins/dashboard";
 import { ScrollToBottom } from "../ScrollToBottom";
 import { useChat } from "../../hooks/useChat";
+import { renderPluginMessage } from "../../plugins/registry";
 
 interface BubbleLayoutProps {
   messages: ChatMessage[];
@@ -41,13 +41,10 @@ export function BubbleLayout({ messages, streamParts, thinking, agentName, token
       );
     }
 
-    if (msg.role === "render") {
-      const isPanel = msg.renderTarget === "panel";
-      return (
-        <div key={msg.id} className="flex justify-start">
-          {isPanel ? <RenderCard msg={msg} onOpenPanel={onOpenPanel} /> : <RenderBlock msg={msg} onOpenPanel={onOpenPanel} />}
-        </div>
-      );
+    // Delegate plugin-owned roles to plugin renderers
+    const pluginNode = renderPluginMessage(msg, { agentName: agentName || "", token: token || "", serverUrl, onOpenPanel });
+    if (pluginNode) {
+      return <div key={msg.id} className="flex justify-start">{pluginNode}</div>;
     }
 
     const props = analyzeMessage(msg, agentName);
