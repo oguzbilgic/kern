@@ -445,7 +445,7 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
     model,
     provider,
     toolScope: "full",
-    port: assignPort(),
+    port: await assignPort(),
   };
   // .kern/.env
   const envLines: string[] = [];

@@ -1,8 +1,10 @@
 import { writeFile, mkdir, unlink } from "fs/promises";
 import { join, basename } from "path";
 import { existsSync, readFileSync } from "fs";
+import { createServer } from "net";
 import { parse as parseDotenv } from "dotenv";
 import { loadGlobalConfig, loadGlobalConfigSync, saveGlobalConfig } from "./global-config.js";
+import { log } from "./log.js";
 
 /**
  * Agent registry backed by ~/.kern/config.json `agents` field.
@@ -104,21 +106,42 @@ export function findAgent(nameOrPath: string): AgentInfo | null {
 }
 
 /**
- * Assign a sticky port to an agent. Picks from 4100-4999, avoiding ports already used by other agents.
+ * Check if a port is available by attempting to bind it.
  */
-export function assignPort(): number {
+function checkPort(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const srv = createServer();
+    srv.once("error", () => resolve(false));
+    srv.listen(port, "0.0.0.0", () => {
+      srv.close(() => resolve(true));
+    });
+  });
+}
+
+/**
+ * Assign a sticky port to an agent. Picks from 4100-4999, skipping registry-known ports
+ * and bind-checking to avoid cross-user collisions.
+ */
+export async function assignPort(): Promise<number> {
   const config = loadGlobalConfigSync();
-  const usedPorts = new Set<number>();
+  const knownPorts = new Set<number>();
   for (const p of config.agents) {
     const info = readAgentInfo(p);
-    if (info && info.port > 0) usedPorts.add(info.port);
+    if (info && info.port > 0) knownPorts.add(info.port);
   }
 
   for (let port = 4100; port <= 4999; port++) {
-    if (!usedPorts.has(port)) return port;
+    if (knownPorts.has(port)) continue;
+    if (await checkPort(port)) {
+      if (port > 4100) {
+        log("kern", `assigned port ${port} (${port - 4100} skipped)`);
+      }
+      return port;
+    }
+    log.debug("kern", `port ${port} in use, trying ${port + 1}`);
   }
 
-  // Fallback: let OS assign
+  log.warn("kern", "port range 4100-4999 exhausted, falling back to OS-assigned port");
   return 0;
 }
 

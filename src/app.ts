@@ -353,10 +353,10 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   // Assign a sticky port if none configured
   if (!config.port) {
-    config.port = assignPort();
+    config.port = await assignPort();
     if (config.port > 0) {
       await saveConfigField(agentDir, "port", config.port);
-      log("kern", `assigned sticky port ${config.port}`);
+      log("kern", `assigned sticky port :${config.port}`);
     }
   }
 
