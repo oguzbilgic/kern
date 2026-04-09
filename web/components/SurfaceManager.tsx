@@ -134,10 +134,11 @@ export function SurfacePanel() {
   const [width, setWidth] = useState(() => {
     if (typeof window !== "undefined") {
       const available = window.innerWidth - 400;
-      return Math.max(480, Math.min(Math.floor(available * 0.55), 800));
+      return Math.max(480, Math.min(Math.floor(available * 0.55), window.innerWidth - 360));
     }
     return 480;
   });
+  const [isDragging, setIsDragging] = useState(false);
   const dragging = useRef(false);
   const startX = useRef(0);
   const startW = useRef(0);
@@ -160,10 +161,12 @@ export function SurfacePanel() {
     const onMove = (e: MouseEvent) => {
       if (!dragging.current) return;
       const delta = startX.current - e.clientX;
-      setWidth(Math.max(280, Math.min(startW.current + delta, 800)));
+      const maxW = window.innerWidth - 360;
+      setWidth(Math.max(280, Math.min(startW.current + delta, maxW)));
     };
     const onUp = () => {
       dragging.current = false;
+      setIsDragging(false);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     };
@@ -177,6 +180,7 @@ export function SurfacePanel() {
 
   const onDragStart = useCallback((e: React.MouseEvent) => {
     dragging.current = true;
+    setIsDragging(true);
     startX.current = e.clientX;
     startW.current = width;
     document.body.style.cursor = "col-resize";
@@ -189,12 +193,16 @@ export function SurfacePanel() {
 
   return (
     <div className="flex flex-col flex-shrink-0 relative" style={{ width }}>
-      {/* Resize handle */}
+      {/* Drag overlay — blocks iframe from stealing mouse events */}
+      {isDragging && <div className="absolute inset-0 z-20" />}
+      {/* Resize handle — wide invisible hit area with thin visible line */}
       <div
         onMouseDown={onDragStart}
-        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-[var(--accent)] transition-colors z-10"
-        style={{ background: "var(--border)" }}
-      />
+        className="absolute left-0 top-0 bottom-0 cursor-col-resize z-10 flex items-stretch"
+        style={{ width: 12, marginLeft: -6 }}
+      >
+        <div className="w-px mx-auto hover:w-0.5 transition-all" style={{ background: "var(--border)" }} />
+      </div>
 
       {/* Header with tabs */}
       <div className="h-12 border-b border-[var(--border)] flex items-center justify-between px-4 flex-shrink-0 ml-1">
