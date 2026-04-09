@@ -64,7 +64,7 @@ It serves two things:
 Browser → GET /api/agents/vega/status
        → kern web reads ~/.kern/config.json agents list
        → finds vega: { port: 4100, token: "abc..." }
-       → forwards to 127.0.0.1:34521/status with Authorization header
+       → forwards to 127.0.0.1:4100/status with Authorization header
        → streams response back to browser
 ```
 
