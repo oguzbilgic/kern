@@ -200,6 +200,24 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
           </div>
         )}
 
+        {/* Add server row — after agents */}
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-2.5 w-full rounded-lg text-sm text-left transition-colors cursor-pointer p-2.5 mb-0.5 overflow-hidden hover:bg-white/[0.05]"
+          title="Add server"
+        >
+          <div className="relative flex-shrink-0">
+            <div className="w-10 h-10 flex items-center justify-center border border-dashed border-[var(--text-muted)]"
+              style={{ borderRadius: "22%" }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round">
+                <line x1="8" y1="4" x2="8" y2="12" />
+                <line x1="4" y1="8" x2="12" y2="8" />
+              </svg>
+            </div>
+          </div>
+          <span className="text-[var(--text-muted)] text-xs whitespace-nowrap">Add server</span>
+        </button>
+
         {/* Dashboards section */}
         {dashboards && dashboards.length > 0 && (
           <>
@@ -244,24 +262,6 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
             })}
           </>
         )}
-
-        {/* Add server row — matches agent row style */}
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2.5 w-full rounded-lg text-sm text-left transition-colors cursor-pointer p-2.5 mb-0.5 overflow-hidden hover:bg-white/[0.05]"
-          title="Add server"
-        >
-          <div className="relative flex-shrink-0">
-            <div className="w-10 h-10 flex items-center justify-center border border-dashed border-[var(--text-muted)]"
-              style={{ borderRadius: "22%" }}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round">
-                <line x1="8" y1="4" x2="8" y2="12" />
-                <line x1="4" y1="8" x2="12" y2="8" />
-              </svg>
-            </div>
-          </div>
-          <span className="text-[var(--text-muted)] text-xs whitespace-nowrap">Add server</span>
-        </button>
       </div>
 
       {/* Footer: logout */}
