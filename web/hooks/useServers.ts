@@ -1,8 +1,23 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { AgentInfo, ServerConfig } from "../lib/types";
+import type { AgentInfo, ServerConfig, DirectAgent } from "../lib/types";
 import * as api from "../lib/api";
+
+const DIRECT_AGENTS_KEY = "kern-direct-agents";
+
+function loadDirectAgents(): DirectAgent[] {
+  try {
+    const stored = localStorage.getItem(DIRECT_AGENTS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveDirectAgents(agents: DirectAgent[]) {
+  localStorage.setItem(DIRECT_AGENTS_KEY, JSON.stringify(agents));
+}
 
 export function useServers(token: string | null) {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
@@ -27,9 +42,10 @@ export function useServers(token: string | null) {
 
   const discover = useCallback(async () => {
     if (!token) return;
-    const servers = getServers();
     const all: AgentInfo[] = [];
 
+    // Discover from proxy servers
+    const servers = getServers();
     for (const server of servers) {
       try {
         const raw = await api.fetchAgents(server.token, server.url);
@@ -43,6 +59,22 @@ export function useServers(token: string | null) {
           });
         }
       } catch { /* ignore unreachable servers */ }
+    }
+
+    // Discover direct agents
+    const directAgents = loadDirectAgents();
+    for (const da of directAgents) {
+      let running = false;
+      try {
+        const status = await api.getStatus(da.url, da.token);
+        running = !!status;
+      } catch { /* agent unreachable */ }
+      all.push({
+        name: da.name,
+        running,
+        baseUrl: da.url,
+        token: da.token,
+      });
     }
 
     setAgents(all);
@@ -86,9 +118,24 @@ export function useServers(token: string | null) {
     setAgents((prev) => prev.filter((a) => !a.baseUrl.startsWith(url)));
   }, [getServers]);
 
+  // Direct agent management
+  const addDirectAgent = useCallback((name: string, url: string, agentToken: string) => {
+    const directAgents = loadDirectAgents();
+    if (directAgents.some((d) => d.url === url)) return;
+    directAgents.push({ name, url, token: agentToken });
+    saveDirectAgents(directAgents);
+    discover();
+  }, [discover]);
+
+  const removeDirectAgent = useCallback((url: string) => {
+    const directAgents = loadDirectAgents().filter((d) => d.url !== url);
+    saveDirectAgents(directAgents);
+    setAgents((prev) => prev.filter((a) => a.baseUrl !== url));
+  }, []);
+
   const activeAgent = agents.find((a) => agentKey(a) === active) ?? null;
 
-  return { agents, activeAgent, active, setActive, addServer, removeServer, refresh: discover };
+  return { agents, activeAgent, active, setActive, addServer, removeServer, addDirectAgent, removeDirectAgent, refresh: discover };
 }
 
 export function agentKey(agent: AgentInfo): string {

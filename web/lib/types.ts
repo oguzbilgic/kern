@@ -12,6 +12,12 @@ export interface ServerConfig {
   token: string;
 }
 
+export interface DirectAgent {
+  name: string;
+  url: string;
+  token: string;
+}
+
 // Discriminated union for SSE events
 export type StreamEvent =
   | { type: "connection"; connectionId: string }

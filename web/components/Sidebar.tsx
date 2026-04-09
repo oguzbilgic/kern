@@ -75,12 +75,18 @@ interface SidebarProps {
   onLogout?: () => void;
   onAddServer?: (url: string, token: string) => void;
   onRemoveServer?: (url: string) => void;
+  onAddDirectAgent?: (name: string, url: string, token: string) => void;
+  onRemoveDirectAgent?: (url: string) => void;
 }
 
-export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, onAddServer, onRemoveServer }: SidebarProps) {
+export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, onAddServer, onRemoveServer, onAddDirectAgent, onRemoveDirectAgent }: SidebarProps) {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddAgentModal, setShowAddAgentModal] = useState(false);
   const [newUrl, setNewUrl] = useState("");
   const [newToken, setNewToken] = useState("");
+  const [newAgentName, setNewAgentName] = useState("");
+  const [newAgentUrl, setNewAgentUrl] = useState("");
+  const [newAgentToken, setNewAgentToken] = useState("");
 
   // Mini/full state persisted in localStorage
   const [mini, setMini] = useState(() => {
@@ -113,11 +119,23 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
     return () => window.removeEventListener("resize", check);
   }, [userSet]);
 
-  // Group agents by server origin
-  const grouped = new Map<string, AgentInfo[]>();
+  // Check if an agent is a direct connection (not from a proxy)
+  const isDirectAgent = (agent: AgentInfo) => !agent.baseUrl.includes("/api/agents/");
+
+  // Separate proxy agents and direct agents
+  const proxyAgents: AgentInfo[] = [];
+  const directAgentList: AgentInfo[] = [];
   for (const agent of agents) {
-    // Extract server origin from baseUrl: "http://host:port/api/agents/name" → "http://host:port"
-    // Local proxy agents have baseUrl like "/api/agents/name" → "local"
+    if (isDirectAgent(agent)) {
+      directAgentList.push(agent);
+    } else {
+      proxyAgents.push(agent);
+    }
+  }
+
+  // Group proxy agents by server origin
+  const grouped = new Map<string, AgentInfo[]>();
+  for (const agent of proxyAgents) {
     const match = agent.baseUrl.match(/^(https?:\/\/[^/]+)/);
     const server = match ? match[1] : "local";
     if (!grouped.has(server)) grouped.set(server, []);
@@ -130,6 +148,15 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
     setNewUrl("");
     setNewToken("");
     setShowAddModal(false);
+  }
+
+  function handleAddAgent() {
+    if (!newAgentName.trim() || !newAgentUrl.trim()) return;
+    onAddDirectAgent?.(newAgentName.trim(), newAgentUrl.trim().replace(/\/$/, ""), newAgentToken.trim());
+    setNewAgentName("");
+    setNewAgentUrl("");
+    setNewAgentToken("");
+    setShowAddAgentModal(false);
   }
 
   // Get the active agent name for plugin sidebar context
@@ -197,13 +224,58 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
           </div>
         ))}
 
+        {/* Direct agents */}
+        {directAgentList.length > 0 && (
+          <div className="mb-1.5">
+            {directAgentList.map((agent) => {
+              const key = agentKey(agent);
+              return (
+                <div key={key} className="relative group">
+                  <AgentRow
+                    agent={agent}
+                    isActive={key === active}
+                    activeThinking={key === active ? activeThinking : undefined}
+                    mini={mini}
+                    onSelect={() => onSelect(key)}
+                  />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onRemoveDirectAgent?.(agent.baseUrl); }}
+                    className="absolute top-2 right-2 text-[10px] text-[var(--text-muted)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Remove agent"
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {agents.length === 0 && (
           <div className="text-xs text-[var(--text-muted)] px-2 py-4">
             No agents found.
           </div>
         )}
 
-        {/* Add server row — after agents */}
+        {/* Add agent row */}
+        <button
+          onClick={() => setShowAddAgentModal(true)}
+          className="flex items-center gap-2.5 w-full rounded-lg text-sm text-left transition-colors cursor-pointer p-2.5 mb-0.5 overflow-hidden hover:bg-white/[0.05]"
+          title="Add agent"
+        >
+          <div className="relative flex-shrink-0">
+            <div className="w-10 h-10 flex items-center justify-center border border-dashed border-[var(--text-muted)]"
+              style={{ borderRadius: "22%" }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round">
+                <line x1="8" y1="4" x2="8" y2="12" />
+                <line x1="4" y1="8" x2="12" y2="8" />
+              </svg>
+            </div>
+          </div>
+          <span className="text-[var(--text-muted)] text-xs whitespace-nowrap">Add agent</span>
+        </button>
+
+        {/* Add server row */}
         <button
           onClick={() => setShowAddModal(true)}
           className="flex items-center gap-2.5 w-full rounded-lg text-sm text-left transition-colors cursor-pointer p-2.5 mb-0.5 overflow-hidden hover:bg-white/[0.05]"
@@ -212,9 +284,11 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
           <div className="relative flex-shrink-0">
             <div className="w-10 h-10 flex items-center justify-center border border-dashed border-[var(--text-muted)]"
               style={{ borderRadius: "22%" }}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round">
-                <line x1="8" y1="4" x2="8" y2="12" />
-                <line x1="4" y1="8" x2="12" y2="8" />
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round">
+                <rect x="2" y="3" width="12" height="4" rx="1" />
+                <rect x="2" y="9" width="12" height="4" rx="1" />
+                <circle cx="5" cy="5" r="0.5" fill="var(--text-muted)" />
+                <circle cx="5" cy="11" r="0.5" fill="var(--text-muted)" />
               </svg>
             </div>
           </div>
@@ -271,6 +345,51 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
               <button
                 onClick={handleAddServer}
                 disabled={!newUrl.trim()}
+                className="text-xs bg-[var(--accent)] text-white px-3 py-1.5 rounded disabled:opacity-30 hover:opacity-90"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add agent modal */}
+      {showAddAgentModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAddAgentModal(false)}>
+          <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-4 w-80" onClick={(e) => e.stopPropagation()}>
+            <div className="text-sm font-semibold mb-3">Add Agent</div>
+            <input
+              type="text"
+              placeholder="Agent name"
+              value={newAgentName}
+              onChange={(e) => setNewAgentName(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-2 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
+            />
+            <input
+              type="text"
+              placeholder="Agent URL (e.g. http://host:4000)"
+              value={newAgentUrl}
+              onChange={(e) => setNewAgentUrl(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-2 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
+            />
+            <input
+              type="password"
+              placeholder="Access token"
+              value={newAgentToken}
+              onChange={(e) => setNewAgentToken(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-3 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowAddAgentModal(false)}
+                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-dim)] px-3 py-1.5"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddAgent}
+                disabled={!newAgentName.trim() || !newAgentUrl.trim()}
                 className="text-xs bg-[var(--accent)] text-white px-3 py-1.5 rounded disabled:opacity-30 hover:opacity-90"
               >
                 Add

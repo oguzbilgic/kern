@@ -21,7 +21,7 @@ import type { Attachment } from "../lib/types";
 export default function Home() {
   const { token, setToken } = useAuth();
   const validToken = token ?? null;
-  const { agents, activeAgent, active, setActive, addServer, removeServer } = useServers(validToken);
+  const { agents, activeAgent, active, setActive, addServer, removeServer, addDirectAgent, removeDirectAgent } = useServers(validToken);
   const [dragOver, setDragOver] = useState(false);
   const [externalAttachments, setExternalAttachments] = useState<Attachment[]>([]);
   const { prefs, setPrefs } = usePreferences();
@@ -128,6 +128,8 @@ export default function Home() {
         onLogout={handleLogout}
         onAddServer={addServer}
         onRemoveServer={removeServer}
+        onAddDirectAgent={addDirectAgent}
+        onRemoveDirectAgent={removeDirectAgent}
       />
 
       <div
