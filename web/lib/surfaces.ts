@@ -43,7 +43,13 @@ function notify() {
 export function registerSurface(surface: Surface) {
   const idx = _surfaces.findIndex(s => s.id === surface.id);
   if (idx >= 0) {
-    _surfaces[idx] = surface; // update in place
+    const existing = _surfaces[idx];
+    // Skip notification if nothing meaningful changed
+    if (existing.label === surface.label && existing.render === surface.render && existing.mode === surface.mode) {
+      _surfaces[idx] = surface;
+      return;
+    }
+    _surfaces[idx] = surface;
   } else {
     _surfaces.push(surface);
   }

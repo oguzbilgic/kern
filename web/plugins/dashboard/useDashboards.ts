@@ -75,24 +75,26 @@ export function useDashboards(agents: AgentInfo[], activeAgent: AgentInfo | null
       });
   }, [closePanel]);
 
+  // Stable render function that reads from ref to avoid re-registration loops
+  const renderPanel = useCallback(() => createElement(DashboardIframe, { html: panelRef.current?.html || "" }), []);
+  const onClosePanel = useCallback(() => closePanel(), [closePanel]);
+
   // Register/unregister panel surface when content changes
   useEffect(() => {
     if (panelHtml) {
-      // Unregister first to update with fresh content
-      unregisterSurface(SURFACE_ID);
       registerSurface({
         id: SURFACE_ID,
         group: "dashboard",
         label: panelHtml.title || "Dashboard",
         mode: "panel",
         panelWidth: { min: 280, max: 800, default: 480 },
-        render: () => createElement(DashboardIframe, { html: panelRef.current?.html || "" }),
-        onClose: () => closePanel(),
+        render: renderPanel,
+        onClose: onClosePanel,
       });
     } else {
       unregisterSurface(SURFACE_ID);
     }
-  }, [panelHtml]);
+  }, [panelHtml, renderPanel, onClosePanel]);
 
   // Restore active dashboard on load
   useEffect(() => {

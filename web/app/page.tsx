@@ -27,6 +27,7 @@ export default function Home() {
   const { prefs, setPrefs } = usePreferences();
   const [modalSurface, setModalSurface] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
+  const { hasPanels: showPanel } = useSurfaces();
 
   // Initialize plugin hooks (dashboard discovery, etc.)
   usePluginInit(agents, activeAgent);
@@ -112,8 +113,6 @@ export default function Home() {
     localStorage.removeItem("kern-token");
     window.location.reload();
   }
-
-  const { hasPanels: showPanel } = useSurfaces();
 
   return (
     <div className="flex h-full w-full">
