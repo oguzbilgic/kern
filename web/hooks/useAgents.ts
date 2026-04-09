@@ -61,7 +61,7 @@ export function useAgents(token: string | null) {
     for (const d of directs) {
       const status = await api.pingAgent(d.url, d.token);
       all.push({
-        name: status?.agent || new URL(d.url).hostname,
+        name: status?.agent?.split("/").pop() || new URL(d.url).hostname,
         running: status !== null,
         token: d.token,
         baseUrl: d.url,

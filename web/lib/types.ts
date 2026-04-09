@@ -35,6 +35,7 @@ export type StreamEvent =
   | { type: "plugin"; plugin: string; data: Record<string, unknown> };
 
 export interface StatusData {
+  agent?: string;
   version?: string;
   model?: string;
   uptime?: string;
