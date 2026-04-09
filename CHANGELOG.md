@@ -7,8 +7,7 @@
   - New `render` tool lets agents produce charts, tables, and status cards as sandboxed HTML — displayed inline in chat or in a resizable side panel
   - Agents write `dashboards/<name>/` folders with HTML + JSON data, served with live data injection via `window.__KERN_DATA__`
   - Dashboards auto-discovered across all running agents and listed in the sidebar with ownership labels
-  - Side panel resizes from 280–800px with drag handle; persists active dashboard across page reloads
-  - Header dropdown and sidebar entries for quick dashboard switching
+  - Resizable side panel with dashboard switching from header and sidebar
 - **Hide tool calls in Telegram** ([#76](https://github.com/oguzbilgic/kern-ai/issues/76)) — new `telegramTools` config (default `false`) hides tool call progress from Telegram messages
 - **Infinite scroll** ([#53](https://github.com/oguzbilgic/kern-ai/issues/53)) — scroll up in chat to load older messages with scroll-position preservation
 
