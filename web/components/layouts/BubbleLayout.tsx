@@ -5,7 +5,7 @@ import type { MessageGroupInfo } from "../../lib/messages";
 import { analyzeMessage, formatTime } from "../../lib/messages";
 import { SpecialMessage, MediaAttachments, MessageBody } from "../MessageContent";
 import { ToolCall } from "../ToolCall";
-import { RenderBlock, RenderCard } from "../RenderBlock";
+import { RenderBlock, RenderCard } from "../../plugins/dashboard";
 import { ScrollToBottom } from "../ScrollToBottom";
 import { useChat } from "../../hooks/useChat";
 

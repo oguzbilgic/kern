@@ -5,7 +5,7 @@ import { analyzeMessage, formatTime, getChannelInfo } from "../../lib/messages";
 import { avatarColor } from "../../lib/colors";
 import { SpecialMessage, MediaAttachments, MessageBody } from "../MessageContent";
 import { ToolCall } from "../ToolCall";
-import { RenderBlock, RenderCard } from "../RenderBlock";
+import { RenderBlock, RenderCard } from "../../plugins/dashboard";
 import { ScrollToBottom } from "../ScrollToBottom";
 import { useChat } from "../../hooks/useChat";
 

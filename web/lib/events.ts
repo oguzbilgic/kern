@@ -2,6 +2,7 @@
 
 import type { ChatMessage, StreamEvent } from "./types";
 import { parseUserContent } from "./messages";
+import { isRenderToolCall as isRenderTool } from "../plugins/dashboard";
 
 /**
  * Process an SSE event against the current streaming parts buffer.
@@ -65,8 +66,9 @@ export function processStreamEvent(
             toolOutput: ev.toolResult || ev.output || ev.result,
             streaming: false,
           };
-          // Hide render tool calls — the render event creates the visible block
-          if (result.parts[i].toolName === "render") {
+          // Hide render tool calls — the render event creates the visible block (dashboard plugin)
+          const tn = result.parts[i].toolName;
+          if (tn && isRenderTool(tn)) {
             result.parts[i].hidden = true;
           }
           break;

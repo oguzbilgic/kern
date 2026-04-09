@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import type { ChatMessage } from "../lib/types";
+import type { ChatMessage } from "../../lib/types";
 
 const DashIcon = ({ size = 14, className = "" }: { size?: number; className?: string }) => (
   <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
