@@ -5,7 +5,7 @@ import { analyzeMessage, formatTime, getChannelInfo } from "../../lib/messages";
 import { avatarColor } from "../../lib/colors";
 import { SpecialMessage, MediaAttachments, MessageBody } from "../MessageContent";
 import { ToolCall } from "../ToolCall";
-import { RenderBlock } from "../RenderBlock";
+import { RenderBlock, RenderCard } from "../RenderBlock";
 import { ScrollToBottom } from "../ScrollToBottom";
 import { useChat } from "../../hooks/useChat";
 
@@ -62,9 +62,10 @@ export function FlatLayout({ messages, streamParts, thinking, agentName, token, 
     }
 
     if (msg.role === "render") {
+      const isPanel = msg.renderTarget === "panel";
       return (
         <div key={msg.id} style={{ marginLeft: 42 }}>
-          <RenderBlock msg={msg} onOpenPanel={onOpenPanel} />
+          {isPanel ? <RenderCard msg={msg} onOpenPanel={onOpenPanel} /> : <RenderBlock msg={msg} onOpenPanel={onOpenPanel} />}
         </div>
       );
     }

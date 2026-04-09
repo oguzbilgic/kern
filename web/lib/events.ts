@@ -19,11 +19,13 @@ export function processStreamEvent(
   parts: ChatMessage[];
   append: ChatMessage[];
   flush: boolean;
+  panelRender?: { html: string; title: string };
 } {
   const result = {
     parts: [...parts],
     append: [] as ChatMessage[],
     flush: false,
+    panelRender: undefined as { html: string; title: string } | undefined,
   };
 
   switch (ev.type) {
@@ -148,16 +150,22 @@ export function processStreamEvent(
       break;
 
     case "render": {
+      const rTitle = ev.render.title || "Render";
+      const rTarget = ev.render.target || "inline";
       const target = inTurn ? result.parts : result.append;
       target.push({
         id: `render-${Date.now()}`,
         role: "render",
-        text: ev.render.title || "Render",
+        text: rTitle,
         renderHtml: ev.render.html,
-        renderTarget: ev.render.target,
-        renderTitle: ev.render.title,
+        renderTarget: rTarget,
+        renderTitle: rTitle,
         renderDashboard: ev.render.dashboard,
       });
+      // Auto-open panel for panel-target renders
+      if (rTarget === "panel") {
+        result.panelRender = { html: ev.render.html, title: rTitle };
+      }
       break;
     }
 

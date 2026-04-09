@@ -22,8 +22,8 @@ export const renderTool = tool({
     target: z
       .enum(["inline", "panel"])
       .optional()
-      .default("inline")
-      .describe('Where to render: "inline" in chat or "panel" as persistent side panel'),
+      .default("panel")
+      .describe('Where to render: "inline" shows in chat, "panel" opens/refreshes a side panel'),
     title: z
       .string()
       .optional()

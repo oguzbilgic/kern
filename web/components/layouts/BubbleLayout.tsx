@@ -5,7 +5,7 @@ import type { MessageGroupInfo } from "../../lib/messages";
 import { analyzeMessage, formatTime } from "../../lib/messages";
 import { SpecialMessage, MediaAttachments, MessageBody } from "../MessageContent";
 import { ToolCall } from "../ToolCall";
-import { RenderBlock } from "../RenderBlock";
+import { RenderBlock, RenderCard } from "../RenderBlock";
 import { ScrollToBottom } from "../ScrollToBottom";
 import { useChat } from "../../hooks/useChat";
 
@@ -42,9 +42,10 @@ export function BubbleLayout({ messages, streamParts, thinking, agentName, token
     }
 
     if (msg.role === "render") {
+      const isPanel = msg.renderTarget === "panel";
       return (
         <div key={msg.id} className="flex justify-start">
-          <RenderBlock msg={msg} onOpenPanel={onOpenPanel} />
+          {isPanel ? <RenderCard msg={msg} onOpenPanel={onOpenPanel} /> : <RenderBlock msg={msg} onOpenPanel={onOpenPanel} />}
         </div>
       );
     }

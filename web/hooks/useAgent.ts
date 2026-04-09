@@ -90,7 +90,7 @@ const EMPTY_STATE: AgentState = {
 
 export function useAgent(
   agent: AgentInfo | null,
-  opts: { withHistory: boolean } = { withHistory: false }
+  opts: { withHistory: boolean; onOpenPanel?: (html: string, title: string) => void } = { withHistory: false }
 ): AgentState {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streamParts, setStreamParts] = useState<ChatMessage[]>([]);
@@ -113,6 +113,7 @@ export function useAgent(
   const token = agent?.token ?? null;
   const serverUrl = agent?.serverUrl;
   const withHistory = opts.withHistory;
+  const onOpenPanel = opts.onOpenPanel;
 
   // Load history + status on agent change (only when withHistory)
   useEffect(() => {
@@ -175,6 +176,11 @@ export function useAgent(
 
           partsRef.current = result.parts;
           setStreamParts([...result.parts]);
+
+          // Auto-open/refresh panel for panel-target renders
+          if (result.panelRender && onOpenPanel) {
+            onOpenPanel(result.panelRender.html, result.panelRender.title);
+          }
 
           // Thinking + activity tracking
           if (ev.type === "thinking") {
