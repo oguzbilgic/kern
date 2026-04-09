@@ -1,6 +1,6 @@
-import { readFile } from "fs/promises";
+import { readFile, writeFile } from "fs/promises";
 import { join } from "path";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { config as loadDotenv } from "dotenv";
 import { log } from "./log.js";
 
@@ -127,4 +127,18 @@ export async function loadConfig(agentDir: string): Promise<KernConfig> {
   } catch {
     return configDefaults;
   }
+}
+
+/**
+ * Write a single field into agent's .kern/config.json, preserving existing fields.
+ */
+export async function saveConfigField(agentDir: string, key: string, value: unknown): Promise<void> {
+  const configPath = join(agentDir, ".kern", "config.json");
+  let config: Record<string, unknown> = {};
+  try {
+    const raw = readFileSync(configPath, "utf-8");
+    config = JSON.parse(raw);
+  } catch {}
+  config[key] = value;
+  await writeFile(configPath, JSON.stringify(config, null, 2) + "\n", "utf-8");
 }

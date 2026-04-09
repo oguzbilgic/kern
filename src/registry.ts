@@ -102,6 +102,25 @@ export function findAgent(nameOrPath: string): AgentInfo | null {
   return null;
 }
 
+/**
+ * Assign a sticky port to an agent. Picks from 4100-4999, avoiding ports already used by other agents.
+ */
+export function assignPort(): number {
+  const config = loadGlobalConfigSync();
+  const usedPorts = new Set<number>();
+  for (const p of config.agents) {
+    const info = readAgentInfo(p);
+    if (info && info.port > 0) usedPorts.add(info.port);
+  }
+
+  for (let port = 4100; port <= 4999; port++) {
+    if (!usedPorts.has(port)) return port;
+  }
+
+  // Fallback: let OS assign
+  return 0;
+}
+
 export function isProcessRunning(pid: number): boolean {
   try {
     process.kill(pid, 0);

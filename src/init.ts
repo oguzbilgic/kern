@@ -2,7 +2,7 @@ import { mkdir, writeFile, readFile } from "fs/promises";
 import { join, resolve } from "path";
 import { existsSync } from "fs";
 import { input, select, password } from "@inquirer/prompts";
-import { registerAgent, findAgent, isProcessRunning, readPid, removePidFile } from "./registry.js";
+import { registerAgent, findAgent, isProcessRunning, readPid, removePidFile, assignPort } from "./registry.js";
 import { startAgent } from "./daemon.js";
 import type { KernConfig } from "./config.js";
 
@@ -445,6 +445,7 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
     model,
     provider,
     toolScope: "full",
+    port: assignPort(),
   };
   // .kern/.env
   const envLines: string[] = [];

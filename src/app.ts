@@ -3,12 +3,12 @@ import { updateKernel } from "./kernel.js";
 import { TelegramInterface } from "./interfaces/telegram.js";
 import { SlackInterface } from "./interfaces/slack.js";
 import { CliInterface } from "./interfaces/cli.js";
-import { loadConfig } from "./config.js";
+import { loadConfig, saveConfigField } from "./config.js";
 import { readFile, appendFile } from "fs/promises";
 import { join, basename } from "path";
 import { randomBytes } from "crypto";
 import type { Interface, MessageHandler } from "./interfaces/types.js";
-import { registerAgent, writePidFile, removePidFile } from "./registry.js";
+import { registerAgent, writePidFile, removePidFile, assignPort } from "./registry.js";
 import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
@@ -350,6 +350,15 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       hourly: memoryDB.getSessionHourlyActivity(sessionId),
     };
   });
+
+  // Assign a sticky port if none configured
+  if (!config.port) {
+    config.port = assignPort();
+    if (config.port > 0) {
+      await saveConfigField(agentDir, "port", config.port);
+      log("kern", `assigned sticky port ${config.port}`);
+    }
+  }
 
   const port = await server.start("0.0.0.0", config.port);
   await registerAgent(agentDir);
