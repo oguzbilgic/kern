@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "../lib/types";
-import { computeGroups, type MessageGroupInfo } from "../lib/messages";
+import { computeGroups } from "../lib/messages";
 
 interface UseChatOptions {
+  agentName?: string;
   messages: ChatMessage[];
   streamParts: ChatMessage[];
   thinking: boolean;
@@ -15,61 +16,37 @@ interface UseChatOptions {
   loadingMore?: boolean;
 }
 
-export function useChat({ messages, streamParts, thinking, showTools, peekLastTool, loadMore, hasMore, loadingMore }: UseChatOptions) {
-  const bottomRef = useRef<HTMLDivElement>(null);
+export function useChat({ agentName, messages, streamParts, thinking, showTools, peekLastTool, loadMore, hasMore, loadingMore }: UseChatOptions) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const userScrolledUp = useRef(false);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
 
-  // Track user scroll + infinite scroll up
+  // Track whether user has scrolled away from bottom (in column-reverse, "top" is away from latest)
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    let programmaticScroll = false;
 
     function onScroll() {
-      if (programmaticScroll) return;
-      const atBottom = el!.scrollHeight - el!.scrollTop - el!.clientHeight < 40;
-      userScrolledUp.current = !atBottom;
+      // In column-reverse, scrollTop 0 = bottom (latest messages). Negative or > 0 = scrolled up.
+      const atBottom = el!.scrollTop >= -40;
       setShowScrollBtn(!atBottom);
 
-      // Load more when scrolled near top
-      if (el!.scrollTop < 200 && hasMore && !loadingMore && loadMore) {
-        const prevHeight = el!.scrollHeight;
-        loadMore().then(() => {
-          // Preserve scroll position after prepending
-          requestAnimationFrame(() => {
-            const newHeight = el!.scrollHeight;
-            el!.scrollTop += newHeight - prevHeight;
-          });
-        });
+      // Infinite scroll: when user scrolls to visual top (which is scrollTop near negative max)
+      const maxScroll = el!.scrollHeight - el!.clientHeight;
+      const scrolledUp = -el!.scrollTop;
+      if (scrolledUp > maxScroll - 200 && hasMore && !loadingMore && loadMore) {
+        loadMore();
       }
     }
-    el.addEventListener("scroll", onScroll);
-    (el as any)._setProgrammatic = (v: boolean) => { programmaticScroll = v; };
+    el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
   }, [hasMore, loadingMore, loadMore]);
 
-  // Auto-scroll on new content
-  useEffect(() => {
-    if (userScrolledUp.current) return;
-    const el = containerRef.current;
-    if (!el) return;
-    const setter = (el as any)._setProgrammatic;
-    setter?.(true);
-    requestAnimationFrame(() => {
-      bottomRef.current?.scrollIntoView({ behavior: "instant" });
-      requestAnimationFrame(() => {
-        setter?.(false);
-        setShowScrollBtn(false);
-      });
-    });
-  }, [messages, streamParts, thinking]);
-
   const scrollToBottom = () => {
-    userScrolledUp.current = false;
-    setShowScrollBtn(false);
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = containerRef.current;
+    if (el) {
+      el.scrollTo({ top: 0, behavior: "smooth" });
+      setShowScrollBtn(false);
+    }
   };
 
   // All messages combined
@@ -84,7 +61,6 @@ export function useChat({ messages, streamParts, thinking, showTools, peekLastTo
 
   return {
     containerRef,
-    bottomRef,
     showScrollBtn,
     scrollToBottom,
     allMsgs,
