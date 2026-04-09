@@ -1,9 +1,9 @@
-import { loadRegistry, isProcessRunning } from "./registry.js";
+import { loadRegistry, readAgentInfo, isProcessRunning } from "./registry.js";
 import { getServiceStatus, getWebServiceStatus } from "./install.js";
 import { loadGlobalConfig } from "./global-config.js";
 import { existsSync } from "fs";
 import { readFile } from "fs/promises";
-import { join } from "path";
+import { join, basename } from "path";
 import { homedir } from "os";
 
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
@@ -12,46 +12,50 @@ const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
 
 export async function showStatus(): Promise<void> {
-  const agents = await loadRegistry();
+  const paths = await loadRegistry();
   const w = (s: string) => process.stdout.write(s + "\n");
 
   w("");
   w(`  ${bold("kern agents")}`);
   w("");
 
-  if (agents.length === 0) {
+  if (paths.length === 0) {
     w(`  ${dim("No agents registered. Run")} kern init <name> ${dim("to create one.")}`);
     w("");
     return;
   }
 
   let hasUninstalled = false;
-  for (const agent of agents) {
-    const exists = existsSync(agent.path);
-    const running = agent.pid ? isProcessRunning(agent.pid) : false;
-    const hasConfig = exists && existsSync(join(agent.path, ".kern", "config.json"));
+  for (const agentPath of paths) {
+    const exists = existsSync(agentPath);
+    const info = exists ? readAgentInfo(agentPath) : null;
+    const name = info?.name || basename(agentPath);
+    const running = info?.pid ? isProcessRunning(info.pid) : false;
 
     // Read config
     let model = "";
     let provider = "";
     let toolScope = "";
-    if (hasConfig) {
+    let configPort = 0;
+    const configPath = join(agentPath, ".kern", "config.json");
+    if (exists && existsSync(configPath)) {
       try {
-        const config = JSON.parse(await readFile(join(agent.path, ".kern", "config.json"), "utf-8"));
+        const config = JSON.parse(await readFile(configPath, "utf-8"));
         model = config.model || "";
         provider = config.provider || "";
         toolScope = config.toolScope || "";
+        configPort = config.port || 0;
       } catch {}
     }
 
-
-    const installStatus = getServiceStatus(agent.name);
+    const installStatus = getServiceStatus(name);
     const active = installStatus === "active" || running;
     const dot = !exists ? red("●") : active ? green("●") : dim("●");
-    const nameStr = bold(agent.name);
+    const nameStr = bold(name);
     const modelStr = provider && model ? dim(`${provider}/${model}`) : dim("no config");
-    const portStr = agent.port ? `:${agent.port}` : "";
-    const pidStr = agent.pid && (running || installStatus === "active") ? `pid ${agent.pid}` : "";
+    const port = info?.port || configPort;
+    const portStr = port ? `:${port}` : "";
+    const pidStr = info?.pid && (running || installStatus === "active") ? `pid ${info.pid}` : "";
     const details = [pidStr, portStr].filter(Boolean).join(", ");
     const statusStr = !exists
       ? red("not found")
@@ -62,12 +66,12 @@ export async function showStatus(): Promise<void> {
     if (!installStatus) hasUninstalled = true;
 
     w(`  ${dot} ${nameStr}  ${modelStr}  ${statusStr}`);
-    w(`    ${dim("path:")}  ${agent.path}`);
+    w(`    ${dim("path:")}  ${agentPath}`);
     w(`    ${dim("tools:")} ${toolScope || "—"}  ${dim("mode:")} ${mode}`);
     w("");
   }
 
-  // Web status — check PID first (reliable), systemd as supplementary
+  // Web status
   const config = await loadGlobalConfig();
   const webInstall = getWebServiceStatus();
   const pidFile = join(homedir(), ".kern", "web.pid");

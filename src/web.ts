@@ -24,11 +24,10 @@ import { join } from "path";
 import { existsSync } from "fs";
 import { homedir } from "os";
 import { randomBytes } from "crypto";
-import { isProcessRunning, type AgentEntry } from "./registry.js";
+import { loadRegistry, readAgentInfo, isProcessRunning, type AgentInfo } from "./registry.js";
 import { loadGlobalConfig } from "./global-config.js";
 
 const KERN_DIR = join(homedir(), ".kern");
-const AGENTS_FILE = join(KERN_DIR, "agents.json");
 const ENV_FILE = join(KERN_DIR, ".env");
 
 /** Load or auto-generate the web auth token from ~/.kern/.env */
@@ -48,13 +47,14 @@ async function getWebToken(): Promise<string> {
 
 let webToken: string;
 
-async function loadAgents(): Promise<AgentEntry[]> {
-  if (!existsSync(AGENTS_FILE)) return [];
-  try {
-    return JSON.parse(await readFile(AGENTS_FILE, "utf-8"));
-  } catch {
-    return [];
+async function loadAgents(): Promise<AgentInfo[]> {
+  const paths = await loadRegistry();
+  const agents: AgentInfo[] = [];
+  for (const p of paths) {
+    const info = readAgentInfo(p);
+    if (info) agents.push(info);
   }
+  return agents;
 }
 
 function log(msg: string) {
@@ -69,11 +69,11 @@ const staticFiles: Record<string, { file: string; contentType: string }> = {
 };
 
 /** Proxy a request to an agent's HTTP server, injecting its auth token */
-function proxyToAgent(req: IncomingMessage, res: ServerResponse, agent: AgentEntry, targetPath: string) {
+function proxyToAgent(req: IncomingMessage, res: ServerResponse, agent: AgentInfo, targetPath: string) {
   const proxyReq = httpRequest(
     {
       hostname: "127.0.0.1",
-      port: agent.port!,
+      port: agent.port,
       path: targetPath,
       method: req.method,
       headers: {

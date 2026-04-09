@@ -107,9 +107,9 @@ export class AgentServer {
     this.currentSessionIdFn = fn;
   }
 
-  async start(host: string = "127.0.0.1"): Promise<number> {
+  async start(host: string = "0.0.0.0", port: number = 0): Promise<number> {
     return new Promise((resolve) => {
-      this.server.listen(0, host, () => {
+      this.server.listen(port, host, () => {
         this.port = (this.server.address() as any).port;
         log("server", `listening on ${host}:${this.port}`);
         resolve(this.port);
