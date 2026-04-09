@@ -1,8 +1,23 @@
 // Message parsing and transformation utilities
 
 import type { HistoryMessage, ChatMessage, ParsedUserMessage, ContentPart, MediaItem } from "./types";
+import { getPlugins } from "../plugins/registry";
 
 let msgCounter = 0;
+
+/** Ask plugins to convert a tool result to a custom message. Returns null if no plugin handles it. */
+function pluginToolResult(toolName: string, output: string): ChatMessage | null {
+  for (const plugin of getPlugins()) {
+    const msg = plugin.handleHistoryToolResult?.(toolName, output);
+    if (msg) return msg;
+  }
+  return null;
+}
+
+/** Check if any plugin wants to hide this tool */
+function pluginHidesTool(toolName: string): boolean {
+  return getPlugins().some(p => p.isHiddenTool?.(toolName));
+}
 
 export function parseUserContent(content: string): ParsedUserMessage {
   const match = content.match(
@@ -165,6 +180,14 @@ export function historyToMessages(history: HistoryMessage[]): ChatMessage[] {
         const lastTool = findLastUnresolvedTool(messages);
         if (lastTool) {
           lastTool.toolOutput = content;
+          // Delegate to plugins for tool result conversion
+          if (lastTool.toolName && pluginHidesTool(lastTool.toolName)) {
+            const pluginMsg = pluginToolResult(lastTool.toolName, content);
+            if (pluginMsg) {
+              lastTool.hidden = true;
+              messages.push({ ...pluginMsg, id: `msg-${msgCounter++}` });
+            }
+          }
         }
         continue;
       }
@@ -180,6 +203,14 @@ export function historyToMessages(history: HistoryMessage[]): ChatMessage[] {
               : findLastUnresolvedTool(messages);
             if (match) {
               match.toolOutput = output;
+              // Delegate to plugins for tool result conversion
+              if (match.toolName && pluginHidesTool(match.toolName) && output) {
+                const pluginMsg = pluginToolResult(match.toolName, output);
+                if (pluginMsg) {
+                  match.hidden = true;
+                  messages.push({ ...pluginMsg, id: `msg-${msgCounter++}` });
+                }
+              }
             }
           }
         }

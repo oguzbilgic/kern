@@ -4,18 +4,11 @@ import { join } from "path";
 import { existsSync } from "fs";
 import { log } from "./log.js";
 import { getToolsForScope, type KernConfig } from "./config.js";
-import type { RecallIndex } from "./recall.js";
-import type { MemoryDB } from "./memory.js";
 import type { SegmentIndex } from "./segments.js";
-import { loadNotesContext } from "./notes.js";
 
 function wrapDocument(pathLabel: string, content: string): string {
   const safePath = pathLabel.replace(/"/g, '&quot;');
   return `<document path="${safePath}">\n${content.trim()}\n</document>`;
-}
-
-function wrapNotesSummary(content: string): string {
-  return `<notes_summary>\n${content.trim()}\n</notes_summary>`;
 }
 
 function wrapTools(content: string): string {
@@ -23,7 +16,7 @@ function wrapTools(content: string): string {
 }
 
 // Build the system prompt from agent markdown files + runtime info.
-export async function loadSystemPrompt(agentDir: string, config: KernConfig, memoryDB?: MemoryDB | null): Promise<string> {
+export async function loadSystemPrompt(agentDir: string, config: KernConfig, pluginToolDescriptions: Record<string, string> = {}): Promise<string> {
   const parts: string[] = [];
 
   // Load AGENTS.md (kernel)
@@ -59,19 +52,6 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig, mem
     parts.push(wrapDocument("USERS.md", await readFile(usersPath, "utf-8")));
   }
 
-  // Inject notes context: summary of recent days + latest daily note
-  try {
-    const { latest, summary, latestFile } = await loadNotesContext(agentDir, config, memoryDB ?? null);
-    if (summary) {
-      parts.push(wrapNotesSummary(summary));
-    }
-    if (latest && latestFile) {
-      parts.push(wrapDocument(`notes/${latestFile}`, latest));
-    }
-  } catch (err: any) {
-    log.error("context", `failed to load notes context: ${err.message}`);
-  }
-
   // Inject live runtime info
   const tools = getToolsForScope(config.toolScope);
   const toolDescriptions: Record<string, string> = {
@@ -85,9 +65,11 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig, mem
     webfetch: "fetch URLs",
     kern: "manage your own runtime (status, config, env)",
     message: "send messages proactively",
-    recall: "search long-term memory for old conversations outside current context",
+    ...pluginToolDescriptions,
   };
-  const toolList = tools.map(t => `- **${t}**: ${toolDescriptions[t] || t}`).join("\n");
+  // Plugin tools are always available — add them to the list
+  const allToolNames = [...tools, ...Object.keys(pluginToolDescriptions).filter(t => !tools.includes(t))];
+  const toolList = allToolNames.map(t => `- **${t}**: ${toolDescriptions[t] || t}`).join("\n");
 
   parts.push(wrapTools(toolList));
 
@@ -129,7 +111,7 @@ function getMsgSize(msg: ModelMessage): number {
 }
 
 // Truncate oversized tool results to keep context window usable.
-// Full results remain in session JSONL (and recall index) — only the context copy is truncated.
+// Full results remain in session JSONL — only the context copy is truncated.
 function truncateLargeToolResults(messages: ModelMessage[], maxChars: number, tokenBudget: number = 0): { messages: ModelMessage[]; truncatedCount: number } {
   if (maxChars <= 0) return { messages, truncatedCount: 0 };
 
@@ -172,7 +154,7 @@ function truncateLargeToolResults(messages: ModelMessage[], maxChars: number, to
         const valueStr = typeof value === "string" ? value : JSON.stringify(value);
         if (valueStr.length > maxChars) {
           const truncated = valueStr.slice(0, maxChars);
-          const note = `\n\n[truncated from ${valueStr.length} to ${maxChars} chars — use recall tool to search full content]`;
+          const note = `\n\n[truncated from ${valueStr.length} to ${maxChars} chars — use memory search to find full content]`;
           newParts.push({
             ...part,
             output: { type: "text", value: truncated + note },
@@ -337,13 +319,13 @@ export function prepareContext({ messages, config, sessionId, segmentIndex }: Pr
       summaryTokens = history.tokens;
       summaryLevelCounts = history.levelCounts;
       summarySegments = history.segments.map(s => ({ id: s.id, level: s.level, msg_start: s.msg_start, msg_end: s.msg_end }));
-      summarySystemAddition = `<conversation_summary>\nCompressed conversation summary of trimmed earlier messages (oldest → newest). Use recall tool to load full messages by range.\n\n${history.text}\n</conversation_summary>`;
+      summarySystemAddition = `<conversation_summary>\nCompressed conversation summary of trimmed earlier messages (oldest → newest). Use memory search to load full messages by range.\n\n${history.text}\n</conversation_summary>`;
     }
   }
 
   // Only count truncations that survived trimming
   // FRAGILE: matches suffix appended by truncateLargeToolResults — keep in sync
-  const truncationSuffix = "use recall tool to search full content]";
+  const truncationSuffix = "use memory search to find full content]";
   const trimmedTruncated = truncatedCount > 0
     ? finalMessages.reduce((n, msg) => {
         if (msg.role !== "tool" || !Array.isArray(msg.content)) return n;
@@ -444,63 +426,3 @@ export function addCacheBreakpoints(messages: ModelMessage[], config: KernConfig
   });
 }
 
-// ---------------------------------------------------------------------------
-// Auto-recall injection
-// ---------------------------------------------------------------------------
-
-export interface RecallResult {
-  query: string;
-  chunks: number;
-  tokens: number;
-  results: { timestamp: string; text: string; distance: number }[];
-}
-
-// Inject relevant old context when messages have been trimmed from the window.
-export async function injectRecall(
-  messages: ModelMessage[],
-  query: string,
-  recallIndex: RecallIndex | null,
-  trimmedCount: number,
-  autoRecall: boolean,
-): Promise<{ messages: ModelMessage[]; recall: RecallResult | null }> {
-  if (trimmedCount <= 0 || !recallIndex || !autoRecall) {
-    return { messages, recall: null };
-  }
-
-  try {
-    const results = await recallIndex.search(query, 3);
-    // Filter: distance threshold + skip chunks already in context window
-    const contextStart = trimmedCount; // messages before this index were trimmed
-    const relevant = results.filter(r => r.distance < 0.95 && r.msg_end < contextStart);
-    if (relevant.length === 0) {
-      return { messages, recall: null };
-    }
-
-    const recallText = relevant
-      .map(r => `[${r.timestamp}]\n${r.text}`)
-      .join("\n---\n");
-    const recallMsg: ModelMessage = {
-      role: "user",
-      content: `<recall>\nRelevant context from past conversations:\n${recallText}\n</recall>`,
-    };
-    // Budget: only inject if it fits within ~2000 tokens
-    const recallTokens = getMsgSize(recallMsg);
-    if (recallTokens > 2000) {
-      return { messages, recall: null };
-    }
-
-    log.debug("recall", `auto-recall: injected ${relevant.length} chunks (~${recallTokens} tokens)`);
-    return {
-      messages: [recallMsg, ...messages],
-      recall: {
-        query,
-        chunks: relevant.length,
-        tokens: recallTokens,
-        results: relevant.map(r => ({ timestamp: r.timestamp, text: r.text, distance: r.distance })),
-      },
-    };
-  } catch (err: any) {
-    log.error("recall", `auto-recall failed: ${err.message}`);
-    return { messages, recall: null };
-  }
-}

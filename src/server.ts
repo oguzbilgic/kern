@@ -1,6 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
-import { join } from "path";
-import { existsSync, readFileSync } from "fs";
+
 import type { StreamEvent } from "./runtime.js";
 import type { Attachment } from "./interfaces/types.js";
 import { log } from "./log.js";
@@ -33,14 +32,10 @@ export class AgentServer {
   private segmentsCleanFn: (() => void) | null = null;
   private segmentsStartFn: (() => Promise<any>) | null = null;
   private segmentResummarizeFn: ((id: number) => Promise<any>) | null = null;
-  private summariesFn: (() => any) | null = null;
-  private summaryRegenerateFn: (() => Promise<any>) | null = null;
-  private recallSearchFn: ((query: string, limit: number) => Promise<any>) | null = null;
-  private recallStatsFn: (() => any) | null = null;
   private sessionListFn: (() => any) | null = null;
   private sessionActivityFn: ((sessionId: string) => any) | null = null;
   private currentSessionIdFn: (() => string | null) | null = null;
-  private mediaListFn: (() => any) | null = null;
+  private pluginRoutes: import("./plugins/types.js").RouteHandler[] = [];
   private port = 0;
   private agentDir = "";
 
@@ -50,6 +45,10 @@ export class AgentServer {
 
   setAgentDir(dir: string) {
     this.agentDir = dir;
+  }
+
+  setPluginRoutes(routes: import("./plugins/types.js").RouteHandler[]) {
+    this.pluginRoutes = routes;
   }
 
   setMessageHandler(handler: (text: string, userId: string, iface: string, channel: string, attachments?: Attachment[]) => Promise<void>) {
@@ -96,22 +95,6 @@ export class AgentServer {
     this.segmentResummarizeFn = fn;
   }
 
-  setSummariesFn(fn: () => any) {
-    this.summariesFn = fn;
-  }
-
-  setSummaryRegenerateFn(fn: () => Promise<any>) {
-    this.summaryRegenerateFn = fn;
-  }
-
-  setRecallSearchFn(fn: (query: string, limit: number) => Promise<any>) {
-    this.recallSearchFn = fn;
-  }
-
-  setRecallStatsFn(fn: () => any) {
-    this.recallStatsFn = fn;
-  }
-
   setSessionListFn(fn: () => any) {
     this.sessionListFn = fn;
   }
@@ -122,10 +105,6 @@ export class AgentServer {
 
   setCurrentSessionIdFn(fn: () => string | null) {
     this.currentSessionIdFn = fn;
-  }
-
-  setMediaListFn(fn: () => any) {
-    this.mediaListFn = fn;
   }
 
   async start(host: string = "127.0.0.1"): Promise<number> {
@@ -430,70 +409,6 @@ export class AgentServer {
       return;
     }
 
-    // Notes summaries — list all cached summaries
-    if (url === "/summaries" && req.method === "GET") {
-      const data = this.summariesFn ? this.summariesFn() : [];
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(data));
-      return;
-    }
-
-    // Notes summary regenerate
-    if (url === "/summaries/regenerate" && req.method === "POST") {
-      if (!this.summaryRegenerateFn) {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "summaries not available" }));
-        return;
-      }
-      try {
-        const result = await this.summaryRegenerateFn();
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(result));
-      } catch (err: any) {
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: err.message || "regeneration failed" }));
-      }
-      return;
-    }
-
-    // Recall stats
-    if (url === "/recall/stats" && req.method === "GET") {
-      if (!this.recallStatsFn) {
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ enabled: false }));
-        return;
-      }
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ enabled: true, ...this.recallStatsFn() }));
-      return;
-    }
-
-    // Recall search preview
-    if (url === "/recall/search" && req.method === "GET") {
-      if (!this.recallSearchFn) {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "recall not enabled" }));
-        return;
-      }
-      const params = new URL(rawUrl, "http://localhost").searchParams;
-      const query = params.get("q") || "";
-      const limit = parseInt(params.get("limit") || "10", 10);
-      if (!query) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "q parameter required" }));
-        return;
-      }
-      try {
-        const results = await this.recallSearchFn(query, limit);
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(results));
-      } catch (err: any) {
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: err.message || "search failed" }));
-      }
-      return;
-    }
-
     // Sessions list with stats
     if (url === "/sessions" && req.method === "GET") {
       const sessions = this.sessionListFn ? this.sessionListFn() : [];
@@ -517,38 +432,21 @@ export class AgentServer {
       return;
     }
 
-    // Media list + stats: GET /media/list
-    if (url === "/media/list" && req.method === "GET") {
-      const data = this.mediaListFn ? this.mediaListFn() : { files: [], stats: { total: 0, images: 0, digested: 0, totalSize: 0 } };
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(data));
-      return;
-    }
-
-    // Serve media files: GET /media/:filename
-    const mediaMatch = url.match(/^\/media\/([a-f0-9]+\.[a-z0-9]+)$/);
-    if (mediaMatch && req.method === "GET") {
-      const filename = mediaMatch[1];
-      const mediaPath = join(this.agentDir, ".kern", "media", filename);
-      if (existsSync(mediaPath)) {
-        const data = readFileSync(mediaPath);
-        const ext = filename.split(".").pop() || "";
-        const mimeMap: Record<string, string> = {
-          jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif",
-          webp: "image/webp", svg: "image/svg+xml", pdf: "application/pdf",
-          mp3: "audio/mpeg", ogg: "audio/ogg", wav: "audio/wav", m4a: "audio/mp4",
-          mp4: "video/mp4", mov: "video/quicktime", webm: "video/webm",
-        };
-        res.writeHead(200, {
-          "Content-Type": mimeMap[ext] || "application/octet-stream",
-          "Cache-Control": "public, max-age=31536000, immutable",
-        });
-        res.end(data);
+    // Plugin routes
+    for (const route of this.pluginRoutes) {
+      if (req.method !== route.method) continue;
+      if (typeof route.path === "string") {
+        if (url === route.path) {
+          await route.handler(req, res);
+          return;
+        }
       } else {
-        res.writeHead(404);
-        res.end(JSON.stringify({ error: "media not found" }));
+        const match = url.match(route.path);
+        if (match) {
+          await route.handler(req, res, match);
+          return;
+        }
       }
-      return;
     }
 
     res.writeHead(404);

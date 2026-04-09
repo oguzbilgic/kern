@@ -7,6 +7,7 @@ import { SpecialMessage, MediaAttachments, MessageBody } from "../MessageContent
 import { ToolCall } from "../ToolCall";
 import { ScrollToBottom } from "../ScrollToBottom";
 import { useChat } from "../../hooks/useChat";
+import { renderPluginMessage } from "../../plugins/registry";
 
 interface BubbleLayoutProps {
   messages: ChatMessage[];
@@ -29,7 +30,7 @@ export function BubbleLayout({ messages, streamParts, thinking, agentName, token
   });
 
   const renderMsg = (msg: ChatMessage) => {
-    if (msg.role === "tool" && !showTools) return null;
+    if (msg.role === "tool" && (!showTools || msg.hidden)) return null;
 
     if (msg.role === "tool") {
       return (
@@ -37,6 +38,12 @@ export function BubbleLayout({ messages, streamParts, thinking, agentName, token
           <ToolCall msg={msg} colored={coloredTools} peek={msg.id === lastToolId} />
         </div>
       );
+    }
+
+    // Delegate plugin-owned roles to plugin renderers
+    const pluginNode = renderPluginMessage(msg, { agentName: agentName || "", token: token || "", serverUrl });
+    if (pluginNode) {
+      return <div key={msg.id} className="flex justify-start">{pluginNode}</div>;
     }
 
     const props = analyzeMessage(msg, agentName);

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import type { AgentInfo } from "../lib/types";
 import { useAgent } from "../hooks/useAgent";
 import { agentKey } from "../hooks/useServers";
-
+import { renderPluginSidebars } from "../plugins/registry";
 import { avatarColor } from "../lib/colors";
 
 function AgentRow({
@@ -129,6 +129,9 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
     setShowAddModal(false);
   }
 
+  // Get the active agent name for plugin sidebar context
+  const activeAgentObj = agents.find(a => agentKey(a) === active);
+
   return (
     <div
       className="bg-[var(--bg-sidebar)] flex flex-col flex-shrink-0 transition-[width] duration-200 relative overflow-hidden"
@@ -196,7 +199,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
           </div>
         )}
 
-        {/* Add server row — matches agent row style */}
+        {/* Add server row — after agents */}
         <button
           onClick={() => setShowAddModal(true)}
           className="flex items-center gap-2.5 w-full rounded-lg text-sm text-left transition-colors cursor-pointer p-2.5 mb-0.5 overflow-hidden hover:bg-white/[0.05]"
@@ -213,6 +216,9 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
           </div>
           <span className="text-[var(--text-muted)] text-xs whitespace-nowrap">Add server</span>
         </button>
+
+        {/* Plugin sidebar sections */}
+        {renderPluginSidebars({ agents, activeAgent: activeAgentObj?.name ?? null, mini })}
       </div>
 
       {/* Footer: logout */}

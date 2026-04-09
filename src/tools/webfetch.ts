@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { htmlToMarkdown } from "./markdown.js";
+import { htmlToMarkdown } from "../util.js";
 
 export const webfetchTool = tool({
   description:

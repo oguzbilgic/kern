@@ -2,11 +2,11 @@ import { join } from "path";
 import { embed, embedMany } from "ai";
 import { readFile } from "fs/promises";
 import { existsSync } from "fs";
-import { log } from "./log.js";
-import { extractText } from "./media.js";
-import { createEmbeddingModel } from "./model.js";
+import { log } from "../../log.js";
+import { extractText } from "../../util.js";
+import { createEmbeddingModel } from "../../model.js";
 import type { ModelMessage } from "ai";
-import type { MemoryDB } from "./memory.js";
+import type { MemoryDB } from "../../memory.js";
 
 const MAX_CHUNK_TOKENS = 1000; // rough token limit per chunk
 

@@ -4,7 +4,7 @@ import type { ChatMessage } from "../lib/types";
 import { BubbleLayout } from "./layouts/BubbleLayout";
 import { FlatLayout } from "./layouts/FlatLayout";
 
-interface ChatProps {
+export interface ChatProps {
   messages: ChatMessage[];
   streamParts: ChatMessage[];
   thinking: boolean;

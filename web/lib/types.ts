@@ -25,7 +25,9 @@ export type StreamEvent =
   | { type: "command-result"; text: string; command?: string }
   | { type: "incoming"; text: string; fromInterface?: string; fromUserId?: string; fromChannel?: string; media?: MediaItem[] }
   | { type: "outgoing"; text: string; fromInterface?: string }
-  | { type: "heartbeat" };
+  | { type: "heartbeat" }
+  | { type: "render"; render: { html: string; dashboard?: string | null; target: string; title: string } }
+  | { type: "plugin"; plugin: string; data: Record<string, unknown> };
 
 export interface StatusData {
   version?: string;
@@ -103,7 +105,7 @@ export interface MediaItem {
 // A rendered message block in the chat UI
 export interface ChatMessage {
   id: string;
-  role: "user" | "assistant" | "tool" | "heartbeat" | "incoming" | "error" | "command";
+  role: "user" | "assistant" | "tool" | "heartbeat" | "incoming" | "error" | "command" | string;
   text: string;
   timestamp?: string | null;
   iface?: string;
@@ -115,6 +117,9 @@ export interface ChatMessage {
   toolInput?: Record<string, unknown>;
   toolOutput?: string;
   toolCallId?: string;
-  // Streaming
+  // Plugin-specific data (keyed by plugin name)
+  pluginData?: Record<string, unknown>;
+  // UI flags
+  hidden?: boolean;
   streaming?: boolean;
 }

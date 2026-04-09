@@ -2,14 +2,15 @@
 
 import type { ChatMessage, StreamEvent } from "./types";
 import { parseUserContent } from "./messages";
+import { getPlugins } from "../plugins/registry";
 
 /**
  * Process an SSE event against the current streaming parts buffer.
  * Returns updated parts array and any messages to append to history.
  * Pure function — caller manages React state.
  *
- * Note: thinking state is NOT managed here. The caller (useAgent)
- * handles thinking based on event types directly.
+ * Delegates to registered UI plugins for unknown event types and
+ * tool call hiding.
  */
 export function processStreamEvent(
   ev: StreamEvent,
@@ -63,6 +64,11 @@ export function processStreamEvent(
             toolOutput: ev.toolResult || ev.output || ev.result,
             streaming: false,
           };
+          // Ask plugins if this tool call should be hidden
+          const tn = result.parts[i].toolName;
+          if (tn && isPluginHiddenTool(tn)) {
+            result.parts[i].hidden = true;
+          }
           break;
         }
       }
@@ -81,7 +87,7 @@ export function processStreamEvent(
 
     case "finish": {
       result.append = result.parts.filter(
-        (p) => p.role === "tool" || (p.role === "assistant" && p.text.trim())
+        (p) => isPluginRole(p.role) || (p.role === "tool" && !p.hidden) || (p.role === "assistant" && p.text.trim())
       );
       result.parts = [];
       result.flush = true;
@@ -151,7 +157,39 @@ export function processStreamEvent(
       });
       result.parts = [];
       break;
+
+    default: {
+      // Delegate to plugins for unknown event types
+      const pluginResult = delegateToPlugins(ev, inTurn);
+      if (pluginResult) {
+        const target = inTurn ? result.parts : result.append;
+        if (pluginResult.message) target.push(pluginResult.message);
+      }
+      break;
+    }
   }
 
   return result;
+}
+
+// --- Plugin delegation helpers ---
+
+/** Check if any plugin wants to hide this tool call */
+function isPluginHiddenTool(toolName: string): boolean {
+  return getPlugins().some(p => p.isHiddenTool?.(toolName));
+}
+
+/** Check if a role is a plugin-created role (not a core role) — keep these on flush */
+const CORE_ROLES = new Set(["user", "assistant", "tool", "heartbeat", "incoming", "error", "command"]);
+function isPluginRole(role: string): boolean {
+  return !CORE_ROLES.has(role);
+}
+
+/** Try all plugins to handle an unknown event */
+function delegateToPlugins(ev: StreamEvent, inTurn: boolean) {
+  for (const plugin of getPlugins()) {
+    const result = plugin.handleStreamEvent?.(ev, inTurn);
+    if (result) return result;
+  }
+  return null;
 }

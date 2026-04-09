@@ -1,6 +1,6 @@
 import { embed, embedMany, generateText } from "ai";
 import { log } from "./log.js";
-import { extractText } from "./media.js";
+import { extractText } from "./util.js";
 import { createEmbeddingModel, createSummaryModel } from "./model.js";
 import type { MemoryDB } from "./memory.js";
 import type Database from "better-sqlite3";

@@ -8,22 +8,38 @@ import { Login } from "../components/Login";
 import { Sidebar } from "../components/Sidebar";
 import { Chat } from "../components/Chat";
 import { Input, fileToAttachment } from "../components/Input";
-import { Inspector } from "../components/Inspector";
 import { InfoPanel, PinnedStats } from "../components/InfoPanel";
 import { ThemePicker, usePreferences } from "../components/ThemePicker";
 import { ThinkingDots } from "../components/ThinkingDots";
+import { SurfaceModal, SurfacePanel, panelMinChatWidth } from "../components/SurfaceManager";
+import { useSurfaces } from "../lib/surfaces";
+import { useMemorySurfaces, MEMORY_SURFACE_ID } from "../components/inspector";
+import { renderPluginHeaders } from "../plugins/registry";
+import { usePluginInit } from "../plugins";
 import type { Attachment } from "../lib/types";
 
 export default function Home() {
   const { token, setToken } = useAuth();
   const validToken = token ?? null;
   const { agents, activeAgent, active, setActive, addServer, removeServer } = useServers(validToken);
-  const { messages, streamParts, thinking, activity, activityDetail, connected, status, send, loadMore, hasMore, loadingMore } = useAgent(activeAgent, { withHistory: true });
   const [dragOver, setDragOver] = useState(false);
   const [externalAttachments, setExternalAttachments] = useState<Attachment[]>([]);
   const { prefs, setPrefs } = usePreferences();
-  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [modalSurface, setModalSurface] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
+  const { hasPanels: showPanel } = useSurfaces();
+
+  // Initialize plugin hooks (dashboard discovery, etc.)
+  usePluginInit(agents, activeAgent);
+
+  // Register memory inspector tabs as modal surfaces
+  useMemorySurfaces({
+    agentName: activeAgent?.name || "",
+    token: activeAgent?.token || null,
+    serverUrl: activeAgent?.serverUrl,
+  });
+
+  const { messages, streamParts, thinking, activity, activityDetail, connected, status, send, loadMore, hasMore, loadingMore } = useAgent(activeAgent, { withHistory: true });
   const [pinned, setPinned] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     try {
@@ -111,10 +127,10 @@ export default function Home() {
       />
 
       <div
-        className="flex-1 flex flex-col min-w-0 relative"
+        className="flex-1 flex flex-col relative"
+        style={{ minWidth: showPanel ? panelMinChatWidth() : 0 }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={(e) => {
-          // Only leave if exiting the container
           if (e.currentTarget.contains(e.relatedTarget as Node)) return;
           setDragOver(false);
         }}
@@ -153,8 +169,14 @@ export default function Home() {
           </div>
           <div className="ml-auto flex items-center gap-1">
             <ThemePicker prefs={prefs} onPrefsChange={setPrefs} />
+            {/* Plugin header buttons */}
+            {activeAgent && renderPluginHeaders({
+              agentName: activeAgent.name,
+              token: activeAgent.token,
+              serverUrl: activeAgent.serverUrl,
+            })}
             <button
-              onClick={() => setInspectorOpen(true)}
+              onClick={() => setModalSurface(MEMORY_SURFACE_ID)}
               className="px-1.5 py-1 text-sm rounded text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-surface)] transition-colors leading-none cursor-pointer"
               title="Memory"
             >
@@ -199,15 +221,14 @@ export default function Home() {
         />
       </div>
 
-      {activeAgent && (
-        <Inspector
-          open={inspectorOpen}
-          onClose={() => setInspectorOpen(false)}
-          agentName={activeAgent.name}
-          token={activeAgent.token}
-          serverUrl={activeAgent.serverUrl}
-        />
-      )}
+      {/* Surface: modal overlay (Memory inspector, etc.) */}
+      <SurfaceModal
+        openSurface={modalSurface}
+        onClose={() => setModalSurface(null)}
+      />
+
+      {/* Surface: side panel (dashboards, etc.) */}
+      {showPanel && <SurfacePanel />}
     </div>
   );
 }

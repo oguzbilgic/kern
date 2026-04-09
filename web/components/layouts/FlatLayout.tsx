@@ -7,6 +7,7 @@ import { SpecialMessage, MediaAttachments, MessageBody } from "../MessageContent
 import { ToolCall } from "../ToolCall";
 import { ScrollToBottom } from "../ScrollToBottom";
 import { useChat } from "../../hooks/useChat";
+import { renderPluginMessage } from "../../plugins/registry";
 
 interface FlatLayoutProps {
   messages: ChatMessage[];
@@ -39,7 +40,7 @@ export function FlatLayout({ messages, streamParts, thinking, agentName, token, 
   });
 
   const renderMsg = (msg: ChatMessage) => {
-    if (msg.role === "tool" && !showTools) return null;
+    if (msg.role === "tool" && (!showTools || msg.hidden)) return null;
 
     const group = groups.get(msg.id);
 
@@ -57,6 +58,12 @@ export function FlatLayout({ messages, streamParts, thinking, agentName, token, 
           </div>
         </div>
       );
+    }
+
+    // Delegate plugin-owned roles to plugin renderers
+    const pluginNode = renderPluginMessage(msg, { agentName: agentName || "", token: token || "", serverUrl });
+    if (pluginNode) {
+      return <div key={msg.id} style={{ marginLeft: 42 }}>{pluginNode}</div>;
     }
 
     const props = analyzeMessage(msg, agentName);
