@@ -1,5 +1,4 @@
 import { streamText, type ModelMessage, stepCountIs } from "ai";
-import { join } from "path";
 import { log } from "./log.js";
 import { createModel } from "./model.js";
 import { allTools, type ToolName } from "./tools/index.js";
@@ -7,25 +6,25 @@ import { SessionManager } from "./session.js";
 import { estimateTextTokens } from "./context.js";
 import { loadConfig, getToolsForScope, type KernConfig } from "./config.js";
 import { initKernTool, incrementMessageCount, addTokenUsage } from "./tools/kern.js";
-import type { RecallIndex } from "./recall.js";
 import type { SegmentIndex } from "./segments.js";
 import type { MemoryDB } from "./memory.js";
-import { prepareContext, injectRecall, loadSystemPrompt, buildSystemMessage, addCacheBreakpoints, type PrepareContextOptions } from "./context.js";
+import { prepareContext, loadSystemPrompt, buildSystemMessage, addCacheBreakpoints, type PrepareContextOptions } from "./context.js";
+import type { ContextInjection, BeforeContextInfo } from "./plugins/types.js";
 import type { Attachment } from "./interfaces/types.js";
-import { saveMedia, buildUserContent, extractText, MediaSidecar, resolveMediaInMessages, digestMediaAtIngest } from "./media.js";
+import { extractText } from "./util.js";
 export type { SessionStats } from "./context.js";
 
 
 
 export interface StreamEvent {
-  type: "text-delta" | "tool-call" | "tool-result" | "finish" | "error" | "recall" | "thinking";
+  type: string;
   text?: string;
   toolName?: string;
   toolDetail?: string;
   toolInput?: Record<string, unknown>;
   toolResult?: string;
   error?: string;
-  recall?: { query: string; chunks: number; tokens: number; results: Array<{ timestamp: string; text: string; distance: number }> };
+  [key: string]: unknown;
 }
 
 export type StreamHandler = (event: StreamEvent) => void;
@@ -35,17 +34,41 @@ export class Runtime {
   private systemPrompt!: string;
   private session!: SessionManager;
   private agentDir: string;
-  private recallIndex: RecallIndex | null = null;
   private segmentIndex: SegmentIndex | null = null;
   private memoryDB: MemoryDB | null = null;
-  private mediaSidecar: MediaSidecar | null = null;
+
+  /** Plugin hook — called on each tool result for custom event emission */
+  onToolResult: ((toolName: string, result: string, emit: (event: StreamEvent) => void) => void) | null = null;
+
+  /** Plugin hook — collect context injections before each turn */
+  private contextInjectionFn: ((info: BeforeContextInfo) => Promise<ContextInjection[]>) | null = null;
+
+  /** Plugin hook — process user attachments into a ModelMessage */
+  onProcessAttachments: ((attachments: Attachment[], userMessage: string) => Promise<ModelMessage | null>) | null = null;
+
+  /** Plugin hook — resolve custom URIs in messages before model call */
+  onResolveMessages: ((messages: ModelMessage[]) => Promise<ModelMessage[]>) | null = null;
+
+  /** Additional tools registered by plugins */
+  private pluginTools: Record<string, any> = {};
+
+  /** Tool descriptions from plugins for system prompt */
+  private pluginToolDescriptions: Record<string, string> = {};
 
   constructor(agentDir: string) {
     this.agentDir = agentDir;
   }
 
-  setRecallIndex(index: RecallIndex) {
-    this.recallIndex = index;
+  addTools(tools: Record<string, any>) {
+    Object.assign(this.pluginTools, tools);
+  }
+
+  setPluginToolDescriptions(descriptions: Record<string, string>) {
+    this.pluginToolDescriptions = descriptions;
+  }
+
+  setContextInjectionFn(fn: (info: BeforeContextInfo) => Promise<ContextInjection[]>) {
+    this.contextInjectionFn = fn;
   }
 
   setSegmentIndex(index: SegmentIndex) {
@@ -54,14 +77,6 @@ export class Runtime {
 
   setMemoryDB(db: MemoryDB) {
     this.memoryDB = db;
-  }
-
-  private initMediaSidecar(): void {
-    const sessionId = this.session.getSessionId();
-    if (!sessionId) return;
-    const sessionsDir = join(this.agentDir, ".kern", "sessions");
-    this.mediaSidecar = new MediaSidecar(sessionsDir, sessionId, this.memoryDB);
-    this.mediaSidecar.load();
   }
 
   async setPairingManager(pairing: any): Promise<void> {
@@ -82,13 +97,10 @@ export class Runtime {
 
   async init(): Promise<void> {
     this.config = await loadConfig(this.agentDir);
-    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.memoryDB);
+    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.pluginToolDescriptions);
     this.session = new SessionManager(this.agentDir);
     await this.session.init();
     await this.session.load();
-
-    // Initialize media sidecar for this session
-    this.initMediaSidecar();
 
     await initKernTool({
       agentDir: this.agentDir,
@@ -136,8 +148,6 @@ export class Runtime {
     };
   }
 
-  // Media resolution is handled by media middleware at model call time
-
   async handleMessage(
     userMessage: string,
     onEvent: StreamHandler,
@@ -147,49 +157,32 @@ export class Runtime {
     onEvent({ type: "thinking" });
 
     // Reload system prompt (picks up new daily notes, summaries, knowledge changes)
-    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.memoryDB);
+    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.pluginToolDescriptions);
 
     // Add user message to session
     const preview = userMessage.slice(0, 80).replace(/\n/g, " ");
     log("runtime", `handleMessage: ${preview}${userMessage.length > 80 ? "..." : ""}${attachments?.length ? ` +${attachments.length} attachment(s)` : ""}`);
 
-    // Save attachments to disk and build SDK-native content
+    // Process attachments via plugin, or build plain text message
     let userMsg: ModelMessage;
-    if (attachments && attachments.length > 0) {
-      const mediaRefs: Awaited<ReturnType<typeof saveMedia>>[] = [];
-      for (const att of attachments) {
-        const ref = saveMedia(this.agentDir, att.data, att.mimeType, att.filename);
-        log("runtime", `saved media: ${ref.uri} (${ref.size} bytes)`);
-        // Record in sidecar
-        if (this.mediaSidecar) {
-          this.mediaSidecar.append({
-            file: ref.file,
-            originalName: att.filename,
-            mimeType: ref.mimeType,
-            size: ref.size,
-            timestamp: new Date().toISOString(),
-          });
-          // Digest at ingest time (vision call for images, etc.)
-          if (this.config.mediaDigest) {
-            await digestMediaAtIngest(this.mediaSidecar, this.agentDir, ref.file, ref.mimeType, this.config);
-          }
-        }
-        mediaRefs.push(ref);
-      }
-      userMsg = { role: "user", content: buildUserContent(userMessage, mediaRefs) };
+    if (attachments && attachments.length > 0 && this.onProcessAttachments) {
+      const pluginMsg = await this.onProcessAttachments(attachments, userMessage);
+      userMsg = pluginMsg ?? { role: "user", content: userMessage };
     } else {
       userMsg = { role: "user", content: userMessage };
     }
     await this.session.append([userMsg]);
     incrementMessageCount();
 
-    // Build tools from scope
+    // Build tools from scope + plugins
     const tools: Record<string, any> = {};
     for (const name of getToolsForScope(this.config.toolScope)) {
       if (name in allTools) {
         tools[name] = allTools[name as ToolName];
       }
     }
+    // Plugin tools are always included (not gated by scope)
+    Object.assign(tools, this.pluginTools);
 
     const model = createModel(this.config);
     let streamError: any = null;
@@ -208,16 +201,48 @@ export class Runtime {
         log("context", `trimmed: ${trimmedCount} old messages excluded${stats.summaryTokens > 0 ? `, summary injected (~${stats.summaryTokens} tokens)` : ''}`);
       }
 
-      const { messages: contextMessages, recall } = await injectRecall(
-        contextWindow, userMessage, this.recallIndex, trimmedCount, this.config.autoRecall,
-      );
-      if (recall) {
-        onEvent({ type: "recall", recall });
+      // Plugin context injections — each declares its own placement strategy
+      let contextMessages = contextWindow;
+      let systemWithInjections = systemMessage;
+      if (this.contextInjectionFn) {
+        try {
+          const injections = await this.contextInjectionFn({
+            trimmedCount,
+            tokenBudget: 2000,
+            userQuery: userMessage,
+            sessionId: sessionId || "",
+          });
+          for (const inj of injections) {
+            if (inj.placement === "user-prepend") {
+              const msg: ModelMessage = {
+                role: "user",
+                content: `<${inj.label}>\n${inj.content}\n</${inj.label}>`,
+              };
+              contextMessages = [msg, ...contextMessages];
+            } else {
+              // "system" — append to system prompt
+              const injection = `${inj.content}`;
+              if (typeof systemWithInjections === "string") {
+                systemWithInjections = `${systemWithInjections}\n\n${injection}`;
+              } else {
+                systemWithInjections = { ...systemWithInjections, content: `${systemWithInjections.content}\n\n${injection}` };
+              }
+            }
+            // Emit any SSE events the plugin attached
+            if (inj.sseEvents) {
+              for (const ev of inj.sseEvents) {
+                onEvent(ev);
+              }
+            }
+          }
+        } catch (err: any) {
+          log.error("context", `plugin context injection failed: ${err.message}`);
+        }
       }
 
-      // Resolve kern-media:// refs before model call (SDK validates URLs before middleware runs)
-      const resolvedMessages = this.mediaSidecar
-        ? await resolveMediaInMessages(contextMessages, this.mediaSidecar, this.agentDir, this.config)
+      // Resolve custom URIs in messages via plugins (e.g. kern-media://)
+      const resolvedMessages = this.onResolveMessages
+        ? await this.onResolveMessages(contextMessages)
         : contextMessages;
 
       log.debug("context", `${resolvedMessages.length} messages, ~${stats.windowTokens} tokens`);
@@ -229,10 +254,12 @@ export class Runtime {
 
       const pendingInjections = this.pendingInjections;
       let persistedCount = 0;
+      // Accumulate mid-turn injections so they persist across all subsequent steps
+      const midTurnMessages: { role: "user"; content: string }[] = [];
 
       const result = streamText({
         model,
-        system: systemMessage,
+        system: systemWithInjections,
         messages: resolvedMessages,
         tools,
         stopWhen: stepCountIs(this.config.maxSteps),
@@ -262,27 +289,21 @@ export class Runtime {
         prepareStep: ({ messages, stepNumber }) => {
           if (stepNumber === 0 || !pendingInjections) return {};
 
+          // Collect new injections and add to persistent mid-turn list
           const injections = pendingInjections();
-          if (injections.length === 0) return {};
-
-          log("runtime", `prepareStep: injecting ${injections.length} same-channel message(s) at step ${stepNumber}`);
-
-          // Inject pending same-channel messages wrapped in <system-reminder>
-          const injectedMessages = injections.map((msg) => {
-            const text = typeof msg.content === "string" ? msg.content : extractText(msg.content);
-            return {
-              role: "user" as const,
-              content: `<system-reminder>\nThe user sent a new message while you were working:\n${text}\n\nPlease address this message and continue with your tasks.\n</system-reminder>`,
-            };
-          });
-
-          // Append to session so they persist
           for (const msg of injections) {
+            const text = typeof msg.content === "string" ? msg.content : extractText(msg.content);
+            midTurnMessages.push({ role: "user" as const, content: text });
+            // Persist to session JSONL
             this.session.append([{ role: "user", content: msg.content }]);
           }
 
+          if (midTurnMessages.length === 0) return {};
+
+          log("runtime", `prepareStep: injecting ${midTurnMessages.length} mid-turn message(s) at step ${stepNumber}`);
+
           return {
-            messages: [...messages, ...injectedMessages],
+            messages: [...messages, ...midTurnMessages],
           };
         },
       });
@@ -311,6 +332,11 @@ export class Runtime {
           const output = (part as any).output;
           const resultText = typeof output === "string" ? output : JSON.stringify(output);
           onEvent({ type: "tool-result", toolName: part.toolName, toolResult: resultText });
+
+          // Dispatch to plugins for custom event emission
+          if (this.onToolResult) {
+            this.onToolResult(part.toolName, resultText, onEvent);
+          }
         }
       }
 
@@ -352,7 +378,7 @@ export class Runtime {
   }
 
   async getSystemPrompt(): Promise<string> {
-    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.memoryDB);
+    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.pluginToolDescriptions);
     return this.systemPrompt;
   }
 

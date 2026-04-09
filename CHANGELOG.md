@@ -1,6 +1,61 @@
 # Changelog
 
-## next
+## v0.24.1
+
+### Fixes
+- Unread counter now counts per text message instead of per turn — text after tool calls counts separately ([#118](https://github.com/oguzbilgic/kern-ai/pull/118))
+- Input field auto-focuses on agent switch and initial page load ([#117](https://github.com/oguzbilgic/kern-ai/pull/117))
+- Chat now uses reverse-flow scrolling — browser-native bottom pinning eliminates scroll flicker, agent switch jump, and streaming jank ([#114](https://github.com/oguzbilgic/kern-ai/issues/114))
+- Unread counter no longer reappears after switching away from an agent ([#112](https://github.com/oguzbilgic/kern-ai/issues/112))
+- Desktop app: logout from web UI now returns to desktop connect screen instead of web login page ([#110](https://github.com/oguzbilgic/kern-ai/pull/110))
+- Side panel resize no longer grows beyond available space, preventing close button from being pushed off-screen ([#111](https://github.com/oguzbilgic/kern-ai/pull/111))
+
+## v0.24.0
+
+### Features
+- **Plugin architecture** ([#108](https://github.com/oguzbilgic/kern-ai/pull/108)) — optional features (dashboard, media, notes, recall) extracted into self-contained plugins with a shared lifecycle interface
+  - Each plugin bundles its own tools, routes, context injections, and event handling — no more scattered wiring in `app.ts` and `runtime.ts`
+  - Single `plugins` object API with consistent naming: `collect*` (merge data), `dispatch*` (fire hooks)
+  - Plugins declare where context gets injected (`system` vs `user-prepend`) and attach SSE events to injections
+  - Shared `extractText` utility for AI SDK message content parsing
+- **Dashboards and rendered HTML** ([#101](https://github.com/oguzbilgic/kern-ai/issues/101), [#103](https://github.com/oguzbilgic/kern-ai/issues/103), [#105](https://github.com/oguzbilgic/kern-ai/pull/105)) — agents can create rich visual content and persistent dashboards
+  - New `render` tool lets agents produce charts, tables, and status cards as sandboxed HTML — displayed inline in chat or in a resizable side panel
+  - Agents write `dashboards/<name>/` folders with HTML + JSON data, served with live data injection via `window.__KERN_DATA__`
+  - Dashboards auto-discovered across all running agents and listed in the sidebar with ownership labels
+  - Resizable side panel with dashboard switching from header and sidebar
+- **Hide tool calls in Telegram** ([#76](https://github.com/oguzbilgic/kern-ai/issues/76)) — new `telegramTools` config (default `false`) hides tool call progress from Telegram messages
+- **Infinite scroll** ([#53](https://github.com/oguzbilgic/kern-ai/issues/53)) — scroll up in chat to load older messages with scroll-position preservation
+
+### Improvements
+- **Markdown rendering** ([#95](https://github.com/oguzbilgic/kern-ai/issues/95)) — replaced hand-rolled regex parser with `marked`; fixes loose lists, nested bullets, multi-paragraph list items
+
+### Fixes
+- **Mid-turn steering** ([#94](https://github.com/oguzbilgic/kern-ai/pull/94)) — operator messages sent during an agent's turn now persist across all steps instead of being lost after one step
+- **web/out packaging** ([#97](https://github.com/oguzbilgic/kern-ai/issues/97)) — build artifacts no longer tracked in git; npm package still includes them
+
+## v0.23.2
+
+### Improvements
+- Login page polish — correct `kern.` logo, subtle button style, sticky footer with Website and GitHub links, no loading flash
+
+### Fixes
+- Login page centering on full viewport
+
+## v0.23.1
+
+### Fixes
+- Include `web/out/` static export in npm package — v0.23.0 shipped without the web UI build, causing 404 on fresh installs
+
+## v0.23.0
+
+### Features
+- **Web UI rewrite** ([#92](https://github.com/oguzbilgic/kern-ai/pull/92)) — rebuilt from scratch in React/Next.js + TypeScript + Tailwind, replacing the 5800-line vanilla JS single file
+  - **Two chat layouts**: Bubble (iMessage-style) and Flat (Slack-style with avatars, usernames, and continuation grouping)
+  - **Activity narration** — thinking indicator shows what the agent is doing in real time ("running command", "editing file") with animated transitions and hover tooltip
+  - **User preferences** — dropdown to toggle layout, show/hide tools, colored tool names, peek last tool output, and pick from 11 dark code themes
+  - Channel-specific avatars and colors for Telegram, Slack, and Hub messages in Flat layout
+
+## v0.22.0
 
 ### Features
 - **Live agent activity in sidebar** ([#75](https://github.com/oguzbilgic/kern-ai/pull/75)) — see which agents are thinking, get unread counts, and know what's happening across all your agents without switching
@@ -23,7 +78,7 @@
 - Chat loses scroll position on window resize ([#73](https://github.com/oguzbilgic/kern-ai/issues/73))
 - URL auto-linking capturing trailing punctuation
 
-## next-desktop
+## desktop-v0.1.1
 
 ### Features
 - **Cmd+1-9 agent switching** — switch between agents with keyboard shortcuts; uses `KernBridge.switchAgent()` bridge API

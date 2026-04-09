@@ -22,6 +22,7 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 | `maxSteps` | `30` | Max tool-use steps per message |
 | `maxContextTokens` | `100000` | Token budget for context window. Messages beyond this are trimmed oldest-first. Full history stays in session JSONL files. |
 | `maxToolResultChars` | `20000` | Max characters per tool result in context. Oversized results are truncated in context only. Full results stay in session storage. Set to `0` to disable. |
+| `telegramTools` | `false` | Show tool call progress lines (⚙ bash, etc.) in Telegram messages. |
 | `heartbeatInterval` | `60` | Minutes between heartbeat prompts. Agent reviews notes, updates knowledge. 0 to disable. |
 | `host` | `0.0.0.0` | Bind address for the agent's HTTP API. Default binds to all interfaces. Set to `127.0.0.1` for localhost only. |
 | `hub` | *(none)* | Hub connection. `"default"` (kern.ai public hub), `"local"` (localhost:4000), or a custom hostname:port. Omit to disable. |

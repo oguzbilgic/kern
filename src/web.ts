@@ -119,31 +119,41 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
-  // Web UI
-  if (url === "/" && req.method === "GET") {
-    const webUiPath = join(import.meta.dirname, "..", "templates", "web", "index.html");
-    if (existsSync(webUiPath)) {
-      const html = await readFile(webUiPath, "utf-8");
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      res.end(html);
-    } else {
-      res.writeHead(500, { "Content-Type": "text/plain" });
-      res.end("Web UI not found. Check kern installation.");
-    }
-    return;
-  }
+  // Static file serving — Next.js static export from web/out/
+  const STATIC_MIME: Record<string, string> = {
+    ".html": "text/html", ".css": "text/css", ".js": "application/javascript",
+    ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png",
+    ".ico": "image/x-icon", ".txt": "text/plain", ".woff2": "font/woff2",
+  };
 
-  // Static PWA files
-  if (req.method === "GET" && staticFiles[url]) {
-    const { file, contentType } = staticFiles[url];
-    const filePath = join(import.meta.dirname, "..", "templates", "web", file);
+  if (req.method === "GET" && !url.startsWith("/api/")) {
+    const serveDir = join(import.meta.dirname, "..", "web", "out");
+
+    let filePath: string;
+    if (url === "/") {
+      filePath = join(serveDir, "index.html");
+    } else if (url.includes("/../") || url.endsWith("/..")) {
+      res.writeHead(403); res.end(); return;
+    } else {
+      filePath = join(serveDir, url);
+    }
+
     if (existsSync(filePath)) {
-      const content = await readFile(filePath, "utf-8");
+      const ext = filePath.substring(filePath.lastIndexOf("."));
+      const contentType = STATIC_MIME[ext] ?? "application/octet-stream";
+      const content = await readFile(filePath);
       res.writeHead(200, { "Content-Type": contentType });
       res.end(content);
     } else {
-      res.writeHead(404);
-      res.end();
+      // SPA fallback — serve index.html for client-side routing
+      const indexPath = join(serveDir, "index.html");
+      if (existsSync(indexPath)) {
+        const html = await readFile(indexPath);
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end(html);
+      } else {
+        res.writeHead(404); res.end();
+      }
     }
     return;
   }

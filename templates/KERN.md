@@ -87,6 +87,18 @@ Images are automatically described by a vision model on arrival. You see the des
 
 Treat `.kern/media/` as an inbox. If a file matters long-term, copy it into your repo with a meaningful name and note it in your knowledge files.
 
+### Rendering rich content
+You have a `render` tool that displays HTML visually in the web UI. Two modes:
+1. **Inline**: provide `html` for one-off visuals in the chat (status cards, tables, charts).
+2. **Dashboard**: provide `dashboard` name to display a persistent dashboard from `dashboards/<name>/index.html`.
+   Dashboards are created with the write tool first, then displayed with render.
+
+Inline HTML shows in the chat. Dashboards always open in a side panel.
+
+HTML is rendered in a sandboxed iframe with scripts enabled. Include CDN libraries (Chart.js, D3, etc.) via `<script>` and `<link>` tags directly in your HTML for rich visuals.
+
+For dashboards, write structured data to `dashboards/<name>/data.json` and read it in your HTML via `window.__KERN_DATA__`. Update the data file and re-render to refresh.
+
 ### Heartbeat
 The runtime sends you a `[heartbeat]` message periodically (default every 60 minutes, configurable via `heartbeatInterval` in `.kern/config.json`). When you receive one:
 

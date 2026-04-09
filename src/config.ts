@@ -27,6 +27,9 @@ export interface KernConfig {
   mediaModel: string;
   mediaContext: number;
 
+  // Interface
+  telegramTools: boolean;
+
   // Runtime
   heartbeatInterval: number;
   hub?: string;
@@ -35,9 +38,9 @@ export interface KernConfig {
 const shell = process.platform === "win32" ? "pwsh" : "bash";
 
 const TOOL_SCOPES: Record<ToolScope, string[]> = {
-  full: [shell, "read", "write", "edit", "glob", "grep", "webfetch", "websearch", "kern", "message", "recall", "pdf", "image"],
-  write: ["read", "write", "edit", "glob", "grep", "webfetch", "websearch", "kern", "message", "recall", "pdf", "image"],
-  read: ["read", "glob", "grep", "webfetch", "websearch", "kern", "recall", "pdf", "image"],
+  full: [shell, "read", "write", "edit", "glob", "grep", "webfetch", "websearch", "kern", "message"],
+  write: ["read", "write", "edit", "glob", "grep", "webfetch", "websearch", "kern", "message"],
+  read: ["read", "glob", "grep", "webfetch", "websearch", "kern"],
 };
 
 export const configDefaults: KernConfig = {
@@ -53,6 +56,7 @@ export const configDefaults: KernConfig = {
   mediaDigest: true,
   mediaModel: "",
   mediaContext: 0,
+  telegramTools: false,
   heartbeatInterval: 60,
 };
 
@@ -69,6 +73,7 @@ const FIELD_TYPES: Record<string, string> = {
   mediaDigest: "boolean",
   mediaModel: "string",
   mediaContext: "number",
+  telegramTools: "boolean",
   heartbeatInterval: "number",
   hub: "string",
 };
