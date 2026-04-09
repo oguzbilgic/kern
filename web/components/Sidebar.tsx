@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { AgentInfo } from "../lib/types";
+import type { AgentInfo, DashboardInfo } from "../lib/types";
 import { useAgent } from "../hooks/useAgent";
 import { agentKey } from "../hooks/useServers";
 
@@ -75,9 +75,13 @@ interface SidebarProps {
   onLogout?: () => void;
   onAddServer?: (url: string, token: string) => void;
   onRemoveServer?: (url: string) => void;
+  dashboards?: DashboardInfo[];
+  activeDashboard?: string | null;
+  onOpenDashboard?: (d: DashboardInfo) => void;
+  onCloseDashboard?: () => void;
 }
 
-export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, onAddServer, onRemoveServer }: SidebarProps) {
+export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, onAddServer, onRemoveServer, dashboards, activeDashboard, onOpenDashboard, onCloseDashboard }: SidebarProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newUrl, setNewUrl] = useState("");
   const [newToken, setNewToken] = useState("");
@@ -194,6 +198,51 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
           <div className="text-xs text-[var(--text-muted)] px-2 py-4">
             No agents found.
           </div>
+        )}
+
+        {/* Dashboards section */}
+        {dashboards && dashboards.length > 0 && (
+          <>
+            <div className="mx-4 my-2 border-t border-[var(--border)]" />
+            {!mini && (
+              <div className="px-4 mb-1">
+                <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Dashboards</span>
+              </div>
+            )}
+            {dashboards.map((d) => {
+              const isActive = activeDashboard === d.name;
+              return (
+                <button
+                  key={`${d.agentName}-${d.name}`}
+                  onClick={() => isActive ? onCloseDashboard?.() : onOpenDashboard?.(d)}
+                  className={`flex items-center gap-2 w-full text-left transition-colors cursor-pointer rounded-md mx-1.5 overflow-hidden ${
+                    mini ? "px-0 py-1.5 justify-center" : "px-3 py-1.5"
+                  } ${isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"}`}
+                  style={{ width: mini ? undefined : "calc(100% - 12px)" }}
+                  title={mini ? `${d.name} (${d.agentName})` : d.name}
+                >
+                  <span
+                    className="flex-shrink-0 w-2 h-2"
+                    style={{
+                      transform: "rotate(45deg)",
+                      background: isActive ? "var(--accent)" : "var(--text-muted)",
+                      opacity: isActive ? 1 : 0.5,
+                    }}
+                  />
+                  {!mini && (
+                    <>
+                      <span className={`text-xs truncate ${isActive ? "text-[var(--text)]" : "text-[var(--text-muted)]"}`}>
+                        {d.name}
+                      </span>
+                      <span className="text-[10px] text-[var(--text-muted)] ml-auto opacity-50 flex-shrink-0">
+                        {d.agentName}
+                      </span>
+                    </>
+                  )}
+                </button>
+              );
+            })}
+          </>
         )}
 
         {/* Add server row — matches agent row style */}

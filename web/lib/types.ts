@@ -95,6 +95,13 @@ export interface ParsedUserMessage {
   iface?: string;
 }
 
+export interface DashboardInfo {
+  name: string;
+  agentName: string;
+  serverUrl?: string;
+  token: string;
+}
+
 export interface MediaItem {
   type: "image" | "file";
   url: string;

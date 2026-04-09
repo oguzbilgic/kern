@@ -13,7 +13,7 @@ import { InfoPanel, PinnedStats } from "../components/InfoPanel";
 import { ThemePicker, usePreferences } from "../components/ThemePicker";
 import { ThinkingDots } from "../components/ThinkingDots";
 import { RenderPanel, DashboardButton } from "../components/RenderBlock";
-import type { Attachment } from "../lib/types";
+import type { Attachment, DashboardInfo } from "../lib/types";
 
 export default function Home() {
   const { token, setToken } = useAuth();
@@ -25,41 +25,54 @@ export default function Home() {
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [panelHtml, setPanelHtml] = useState<{ html: string; title: string; dashboard?: string } | null>(null);
-  const [dashboardList, setDashboardList] = useState<string[]>([]);
+  const [allDashboards, setAllDashboards] = useState<DashboardInfo[]>([]);
+  const [activeDashboard, setActiveDashboard] = useState<string | null>(null);
+  // Fetch dashboards from all running agents
+  useEffect(() => {
+    if (!agents.length) { setAllDashboards([]); return; }
+    const running = agents.filter(a => a.running);
+    Promise.all(running.map(async (agent) => {
+      try {
+        const base = agent.serverUrl || "";
+        const headers: Record<string, string> = {};
+        if (agent.token) headers["Authorization"] = `Bearer ${agent.token}`;
+        const r = await fetch(`${base}/api/agents/${agent.name}/dashboards`, { headers });
+        const d = await r.json();
+        return (d.dashboards || []).map((name: string) => ({
+          name, agentName: agent.name, serverUrl: agent.serverUrl, token: agent.token,
+        }));
+      } catch { return []; }
+    })).then(results => setAllDashboards(results.flat()));
+  }, [agents]);
+  const dashboardList = allDashboards.filter(d => d.agentName === activeAgent?.name).map(d => d.name);
+
   const handleOpenPanel = useCallback((html: string, title: string, dashboard?: string) => {
     setPanelHtml({ html, title, dashboard });
-    if (dashboard) localStorage.setItem("kern-active-dashboard", dashboard);
+    if (dashboard) { setActiveDashboard(dashboard); localStorage.setItem("kern-active-dashboard", dashboard); }
   }, []);
-  const openDashboard = useCallback((name: string) => {
-    if (!activeAgent) return;
-    const base = activeAgent.serverUrl || "";
+  const openDashboard = useCallback((name: string, fromAgent?: DashboardInfo) => {
+    const agent = fromAgent
+      ? agents.find(a => a.name === fromAgent.agentName && a.serverUrl === fromAgent.serverUrl) || activeAgent
+      : activeAgent;
+    if (!agent) return;
+    const base = agent.serverUrl || "";
     const headers: Record<string, string> = {};
-    if (activeAgent.token) headers["Authorization"] = `Bearer ${activeAgent.token}`;
-    fetch(`${base}/api/agents/${activeAgent.name}/d/${name}/`, { headers })
+    if (agent.token) headers["Authorization"] = `Bearer ${agent.token}`;
+    fetch(`${base}/api/agents/${agent.name}/d/${name}/`, { headers })
       .then(r => r.ok ? r.text() : Promise.reject())
       .then(html => {
         setPanelHtml({ html, title: name, dashboard: name });
+        setActiveDashboard(name);
         localStorage.setItem("kern-active-dashboard", name);
       })
       .catch(() => {});
-  }, [activeAgent]);
+  }, [activeAgent, agents]);
   // Restore active dashboard on load
   useEffect(() => {
     if (!activeAgent) return;
     const saved = localStorage.getItem("kern-active-dashboard");
     if (saved) openDashboard(saved);
   }, [activeAgent]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Fetch dashboard list when agent changes
-  useEffect(() => {
-    if (!activeAgent) { setDashboardList([]); return; }
-    const base = activeAgent.serverUrl || "";
-    const headers: Record<string, string> = {};
-    if (activeAgent.token) headers["Authorization"] = `Bearer ${activeAgent.token}`;
-    fetch(`${base}/api/agents/${activeAgent.name}/dashboards`, { headers })
-      .then(r => r.json())
-      .then(d => setDashboardList(d.dashboards || []))
-      .catch(() => setDashboardList([]));
-  }, [activeAgent]);
   const { messages, streamParts, thinking, activity, activityDetail, connected, status, send, loadMore, hasMore, loadingMore } = useAgent(activeAgent, { withHistory: true, onOpenPanel: handleOpenPanel });
   const [pinned, setPinned] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
@@ -145,6 +158,10 @@ export default function Home() {
         onLogout={handleLogout}
         onAddServer={addServer}
         onRemoveServer={removeServer}
+        dashboards={allDashboards}
+        activeDashboard={activeDashboard}
+        onOpenDashboard={(d) => openDashboard(d.name, d)}
+        onCloseDashboard={() => { setPanelHtml(null); setActiveDashboard(null); localStorage.removeItem("kern-active-dashboard"); }}
       />
 
       <div
@@ -262,7 +279,7 @@ export default function Home() {
           dashboards={dashboardList}
           activeDashboard={panelHtml.dashboard}
           onSwitchDashboard={openDashboard}
-          onClose={() => { setPanelHtml(null); localStorage.removeItem("kern-active-dashboard"); }}
+          onClose={() => { setPanelHtml(null); setActiveDashboard(null); localStorage.removeItem("kern-active-dashboard"); }}
         />
       )}
     </div>
