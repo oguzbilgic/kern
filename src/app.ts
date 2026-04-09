@@ -8,7 +8,7 @@ import { readFile, appendFile } from "fs/promises";
 import { join, basename } from "path";
 import { randomBytes } from "crypto";
 import type { Interface, MessageHandler } from "./interfaces/types.js";
-import { registerAgent, setPortAndToken, setPid } from "./registry.js";
+import { registerAgent, writePidFile, removePidFile } from "./registry.js";
 import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
@@ -66,22 +66,25 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   const config = await loadConfig(agentDir);
 
   // Auto-generate auth token if missing
-  if (!process.env.KERN_AUTH_TOKEN) {
+  // Support both KERN_TOKEN (new) and KERN_AUTH_TOKEN (legacy)
+  if (!process.env.KERN_TOKEN && process.env.KERN_AUTH_TOKEN) {
+    process.env.KERN_TOKEN = process.env.KERN_AUTH_TOKEN;
+  }
+  if (!process.env.KERN_TOKEN) {
     const envPath = join(agentDir, ".kern", ".env");
-    // Check if token already exists in file (env might not have loaded it)
     let existingToken: string | null = null;
     try {
       const envContent = await readFile(envPath, "utf-8");
-      const match = envContent.match(/^KERN_AUTH_TOKEN=(.+)$/m);
+      const match = envContent.match(/^KERN_TOKEN=(.+)$/m) || envContent.match(/^KERN_AUTH_TOKEN=(.+)$/m);
       if (match) existingToken = match[1].trim();
     } catch {}
 
     if (existingToken) {
-      process.env.KERN_AUTH_TOKEN = existingToken;
+      process.env.KERN_TOKEN = existingToken;
     } else {
       const token = randomBytes(16).toString("hex");
-      await appendFile(envPath, `\nKERN_AUTH_TOKEN=${token}\n`);
-      process.env.KERN_AUTH_TOKEN = token;
+      await appendFile(envPath, `\nKERN_TOKEN=${token}\n`);
+      process.env.KERN_TOKEN = token;
       log("kern", `generated auth token: ${token.slice(0, 8)}...`);
     }
   }
@@ -111,7 +114,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   }
 
   const agentName = basename(agentDir);
-  await registerAgent(agentName, agentDir);
+  await registerAgent(agentDir);
   process.chdir(agentDir);
 
   // Initialize pairing
@@ -353,9 +356,9 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     };
   });
 
-  const port = await server.start("127.0.0.1");
-  await setPortAndToken(agentName, port, process.env.KERN_AUTH_TOKEN || null);
-  await setPid(agentName, process.pid);
+  const port = await server.start("0.0.0.0", config.port);
+  await registerAgent(agentDir);
+  await writePidFile(agentDir, process.pid);
 
   // Start Telegram if configured
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -472,6 +475,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     await plugins.shutdown(pluginCtx);
     server.stop();
     memoryDB.close();
+    await removePidFile(agentDir);
     log("kern", `stopped ${agentName}`);
     process.exit(0);
   };

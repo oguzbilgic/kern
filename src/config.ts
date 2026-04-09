@@ -12,6 +12,7 @@ export interface KernConfig {
   provider: string;
   toolScope: ToolScope;
   maxSteps: number;
+  port: number;
 
   // Context window
   maxContextTokens: number;
@@ -47,6 +48,7 @@ export const configDefaults: KernConfig = {
   provider: "openrouter",
   toolScope: "full",
   maxSteps: 30,
+  port: 0,
   maxContextTokens: 100000,
   maxToolResultChars: 20000,
   summaryBudget: 0.75,
@@ -64,6 +66,7 @@ const FIELD_TYPES: Record<string, string> = {
   provider: "string",
   toolScope: "string",
   maxSteps: "number",
+  port: "number",
   maxContextTokens: "number",
   maxToolResultChars: "number",
   summaryBudget: "number",

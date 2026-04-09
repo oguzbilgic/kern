@@ -107,9 +107,9 @@ export class AgentServer {
     this.currentSessionIdFn = fn;
   }
 
-  async start(host: string = "127.0.0.1"): Promise<number> {
+  async start(host: string = "0.0.0.0", port: number = 0): Promise<number> {
     return new Promise((resolve) => {
-      this.server.listen(0, host, () => {
+      this.server.listen(port, host, () => {
         this.port = (this.server.address() as any).port;
         log("server", `listening on ${host}:${this.port}`);
         resolve(this.port);
@@ -151,7 +151,7 @@ export class AgentServer {
   }
 
   private checkAuth(req: IncomingMessage): boolean {
-    const token = process.env.KERN_AUTH_TOKEN;
+    const token = process.env.KERN_TOKEN || process.env.KERN_AUTH_TOKEN;
     if (!token) return true; // shouldn't happen — token is always generated
 
     // Check Authorization: Bearer header

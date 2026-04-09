@@ -2,7 +2,7 @@ import { mkdir, writeFile, readFile } from "fs/promises";
 import { join, resolve } from "path";
 import { existsSync } from "fs";
 import { input, select, password } from "@inquirer/prompts";
-import { registerAgent, findAgent, isProcessRunning, setPid } from "./registry.js";
+import { registerAgent, findAgent, isProcessRunning, readPid, removePidFile } from "./registry.js";
 import { startAgent } from "./daemon.js";
 import type { KernConfig } from "./config.js";
 
@@ -277,12 +277,15 @@ async function runConfig(name: string, dir: string): Promise<void> {
   print("  ✓ Config updated");
 
   // Restart if running, otherwise start
-  const agent = await findAgent(name);
-  if (agent?.pid && isProcessRunning(agent.pid)) {
-    process.kill(agent.pid, "SIGTERM");
-    await setPid(name, null);
-    print("  ✓ Stopped");
-    await new Promise((r) => setTimeout(r, 500));
+  const agent = findAgent(name);
+  if (agent) {
+    const pid = readPid(agent.path);
+    if (pid && isProcessRunning(pid)) {
+      process.kill(pid, "SIGTERM");
+      await removePidFile(agent.path);
+      print("  ✓ Stopped");
+      await new Promise((r) => setTimeout(r, 500));
+    }
   }
 
   print("  ✓ Starting...");
@@ -534,7 +537,7 @@ node_modules/
   }
 
   // Register and start
-  await registerAgent(name, dir);
+  await registerAgent(dir);
   print("");
   print("  ✓ Starting...");
   print("");

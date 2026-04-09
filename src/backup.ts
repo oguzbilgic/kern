@@ -1,7 +1,7 @@
 import { execSync } from "child_process";
 import { basename, resolve, join } from "path";
 import { existsSync } from "fs";
-import { findAgent, loadRegistry, registerAgent, isProcessRunning, setPid } from "./registry.js";
+import { findAgent, registerAgent, isProcessRunning, readPid, removePidFile } from "./registry.js";
 
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -15,7 +15,7 @@ export async function backupAgent(nameOrPath?: string): Promise<void> {
     process.exit(1);
   }
 
-  const agent = await findAgent(nameOrPath);
+  const agent = findAgent(nameOrPath);
   if (!agent) {
     console.error(`Agent not found: ${nameOrPath}`);
     process.exit(1);
@@ -86,7 +86,7 @@ export async function restoreAgent(tarFile?: string): Promise<void> {
   console.log(`  ${dim(tarFile)} → ${targetDir}`);
 
   // Check if agent exists
-  const existing = await findAgent(folderName);
+  const existing = findAgent(folderName);
   if (existing || existsSync(targetDir)) {
     const { confirm } = await import("@inquirer/prompts");
     const existsWhere = existing ? `in registry (${existing.path})` : `at ${targetDir}`;
@@ -100,13 +100,16 @@ export async function restoreAgent(tarFile?: string): Promise<void> {
     }
 
     // Stop if running
-    if (existing?.pid && isProcessRunning(existing.pid)) {
-      try {
-        process.kill(existing.pid, "SIGTERM");
-        await setPid(folderName, null);
-        console.log(`  ${yellow("●")} stopped running agent`);
-      } catch {}
-      await new Promise((r) => setTimeout(r, 500));
+    if (existing) {
+      const pid = readPid(existing.path);
+      if (pid && isProcessRunning(pid)) {
+        try {
+          process.kill(pid, "SIGTERM");
+          await removePidFile(existing.path);
+          console.log(`  ${yellow("●")} stopped running agent`);
+        } catch {}
+        await new Promise((r) => setTimeout(r, 500));
+      }
     }
   }
 
@@ -120,7 +123,7 @@ export async function restoreAgent(tarFile?: string): Promise<void> {
   }
 
   // Register
-  await registerAgent(folderName, targetDir);
+  await registerAgent(targetDir);
   console.log(`  ${green("✓")} registered`);
 
   console.log("");

@@ -3,7 +3,8 @@ import { existsSync } from "fs";
 import { mkdir, writeFile, unlink, readFile } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
-import { loadRegistry, findAgent, isProcessRunning, setPid } from "./registry.js";
+import { loadRegistry, findAgent, readAgentInfo, isProcessRunning, readPid, removePidFile } from "./registry.js";
+import { basename } from "path";
 
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -134,12 +135,13 @@ async function installAgent(agentName: string, agentPath: string): Promise<void>
 
   // Stop PID-based daemon if running (but not if it's the systemd-managed process)
   if (!existsSync(unitPath)) {
-    const agent = await findAgent(agentName);
-    if (agent?.pid && isProcessRunning(agent.pid)) {
+    const agent = findAgent(agentName);
+    const pid = agent ? readPid(agent.path) : null;
+    if (pid && isProcessRunning(pid)) {
       try {
-        process.kill(agent.pid, "SIGTERM");
-        console.log(`  ${dim("stopped pid-based daemon")} ${dim(`(pid ${agent.pid})`)}`);
-        await setPid(agentName, null);
+        process.kill(pid, "SIGTERM");
+        console.log(`  ${dim("stopped pid-based daemon")} ${dim(`(pid ${pid})`)}`);
+        if (agent) await removePidFile(agent.path);
         await new Promise((r) => setTimeout(r, 1000));
       } catch {}
     }
@@ -229,26 +231,30 @@ export async function install(nameOrFlag?: string): Promise<void> {
     return;
   }
 
-  const agents = nameOrFlag
-    ? [await findAgent(nameOrFlag)].filter(Boolean)
-    : await loadRegistry();
-
-  if (agents.length === 0) {
-    if (nameOrFlag) {
+  let agentPaths: string[];
+  if (nameOrFlag) {
+    const agent = findAgent(nameOrFlag);
+    if (!agent) {
       console.error(`Agent not found: ${nameOrFlag}`);
-    } else {
-      console.error("No agents registered. Run 'kern init <name>' first.");
+      process.exit(1);
     }
-    process.exit(1);
+    agentPaths = [agent.path];
+  } else {
+    agentPaths = await loadRegistry();
+    if (agentPaths.length === 0) {
+      console.error("No agents registered. Run 'kern init <name>' first.");
+      process.exit(1);
+    }
   }
 
   w("");
   w(`  ${bold("installing kern services")}`);
   w("");
 
-  for (const agent of agents) {
-    if (!agent) continue;
-    await installAgent(agent.name, agent.path);
+  for (const agentPath of agentPaths) {
+    const info = readAgentInfo(agentPath);
+    const name = info?.name || basename(agentPath);
+    await installAgent(name, agentPath);
   }
 
   // Also install web if installing all
@@ -290,9 +296,11 @@ export async function uninstall(name?: string): Promise<void> {
     w(`  ${bold("uninstalling kern services")}`);
     w("");
 
-    const agents = await loadRegistry();
-    for (const agent of agents) {
-      await uninstallOne(serviceName(agent.name), agent.name);
+    const paths = await loadRegistry();
+    for (const agentPath of paths) {
+      const info = readAgentInfo(agentPath);
+      const name = info?.name || basename(agentPath);
+      await uninstallOne(serviceName(name), name);
     }
     await uninstallOne(WEB_SERVICE, "web");
   }
