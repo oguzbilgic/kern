@@ -1,6 +1,6 @@
 import type { KernPlugin, PluginContext, RouteHandler, BeforeContextInfo, ContextInjection } from "../types.js";
-import { RecallIndex } from "../../recall.js";
-import { recallTool, setRecallIndex } from "../../tools/recall.js";
+import { RecallIndex } from "./recall.js";
+import { recallTool, setRecallIndex } from "./tool.js";
 import { log } from "../../log.js";
 
 let recallIndex: RecallIndex | null = null;
@@ -11,6 +11,10 @@ export const recallPlugin: KernPlugin = {
 
   get tools() {
     return recallIndex ? { recall: recallTool } : {};
+  },
+
+  toolDescriptions: {
+    recall: "search long-term memory for old conversations outside current context",
   },
 
   routes: (() => {
@@ -115,6 +119,8 @@ export const recallPlugin: KernPlugin = {
       return {
         label: "recall",
         content: `Relevant context from past conversations:\n${recallText}`,
+        placement: "user-prepend",
+        sseEvents: [{ type: "recall", recall: { query: info.userQuery, chunks: relevant.length, tokens: estimatedTokens, results: relevant.map(r => ({ timestamp: r.timestamp, text: r.text, distance: r.distance })) } }],
       };
     } catch (err: any) {
       log.error("recall", `auto-recall failed: ${err.message}`);

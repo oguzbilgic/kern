@@ -3,8 +3,8 @@ import { z } from "zod";
 import { readFile } from "fs/promises";
 import { join, extname } from "path";
 import { existsSync } from "fs";
-import { createModel } from "../model.js";
-import { loadConfig } from "../config.js";
+import { createModel } from "../../model.js";
+import { loadConfig } from "../../config.js";
 
 const EXT_TO_MIME: Record<string, string> = {
   ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",

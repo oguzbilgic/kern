@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import type { RecallIndex } from "../recall.js";
+import type { RecallIndex } from "./recall.js";
 
 let _recallIndex: RecallIndex | null = null;
 

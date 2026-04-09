@@ -1,5 +1,4 @@
 import { streamText, type ModelMessage, stepCountIs } from "ai";
-import { join } from "path";
 import { log } from "./log.js";
 import { createModel } from "./model.js";
 import { allTools, type ToolName } from "./tools/index.js";
@@ -12,21 +11,20 @@ import type { MemoryDB } from "./memory.js";
 import { prepareContext, loadSystemPrompt, buildSystemMessage, addCacheBreakpoints, type PrepareContextOptions } from "./context.js";
 import type { ContextInjection, BeforeContextInfo } from "./plugins/types.js";
 import type { Attachment } from "./interfaces/types.js";
-import { saveMedia, buildUserContent, extractText, MediaSidecar, resolveMediaInMessages, digestMediaAtIngest } from "./media.js";
+import { extractText } from "./util.js";
 export type { SessionStats } from "./context.js";
 
 
 
 export interface StreamEvent {
-  type: "text-delta" | "tool-call" | "tool-result" | "finish" | "error" | "recall" | "thinking" | "render";
+  type: string;
   text?: string;
   toolName?: string;
   toolDetail?: string;
   toolInput?: Record<string, unknown>;
   toolResult?: string;
   error?: string;
-  recall?: { query: string; chunks: number; tokens: number; results: Array<{ timestamp: string; text: string; distance: number }> };
-  render?: { html: string; dashboard?: string | null; target: string; title: string };
+  [key: string]: unknown;
 }
 
 export type StreamHandler = (event: StreamEvent) => void;
@@ -38,7 +36,6 @@ export class Runtime {
   private agentDir: string;
   private segmentIndex: SegmentIndex | null = null;
   private memoryDB: MemoryDB | null = null;
-  private mediaSidecar: MediaSidecar | null = null;
 
   /** Plugin hook — called on each tool result for custom event emission */
   onToolResult: ((toolName: string, result: string, emit: (event: StreamEvent) => void) => void) | null = null;
@@ -46,8 +43,17 @@ export class Runtime {
   /** Plugin hook — collect context injections before each turn */
   private contextInjectionFn: ((info: BeforeContextInfo) => Promise<ContextInjection[]>) | null = null;
 
+  /** Plugin hook — process user attachments into a ModelMessage */
+  onProcessAttachments: ((attachments: Attachment[], userMessage: string) => Promise<ModelMessage | null>) | null = null;
+
+  /** Plugin hook — resolve custom URIs in messages before model call */
+  onResolveMessages: ((messages: ModelMessage[]) => Promise<ModelMessage[]>) | null = null;
+
   /** Additional tools registered by plugins */
   private pluginTools: Record<string, any> = {};
+
+  /** Tool descriptions from plugins for system prompt */
+  private pluginToolDescriptions: Record<string, string> = {};
 
   constructor(agentDir: string) {
     this.agentDir = agentDir;
@@ -55,6 +61,10 @@ export class Runtime {
 
   addTools(tools: Record<string, any>) {
     Object.assign(this.pluginTools, tools);
+  }
+
+  setPluginToolDescriptions(descriptions: Record<string, string>) {
+    this.pluginToolDescriptions = descriptions;
   }
 
   setContextInjectionFn(fn: (info: BeforeContextInfo) => Promise<ContextInjection[]>) {
@@ -67,14 +77,6 @@ export class Runtime {
 
   setMemoryDB(db: MemoryDB) {
     this.memoryDB = db;
-  }
-
-  private initMediaSidecar(): void {
-    const sessionId = this.session.getSessionId();
-    if (!sessionId) return;
-    const sessionsDir = join(this.agentDir, ".kern", "sessions");
-    this.mediaSidecar = new MediaSidecar(sessionsDir, sessionId, this.memoryDB);
-    this.mediaSidecar.load();
   }
 
   async setPairingManager(pairing: any): Promise<void> {
@@ -95,13 +97,10 @@ export class Runtime {
 
   async init(): Promise<void> {
     this.config = await loadConfig(this.agentDir);
-    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config);
+    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.pluginToolDescriptions);
     this.session = new SessionManager(this.agentDir);
     await this.session.init();
     await this.session.load();
-
-    // Initialize media sidecar for this session
-    this.initMediaSidecar();
 
     await initKernTool({
       agentDir: this.agentDir,
@@ -149,8 +148,6 @@ export class Runtime {
     };
   }
 
-  // Media resolution is handled by media middleware at model call time
-
   async handleMessage(
     userMessage: string,
     onEvent: StreamHandler,
@@ -160,36 +157,17 @@ export class Runtime {
     onEvent({ type: "thinking" });
 
     // Reload system prompt (picks up new daily notes, summaries, knowledge changes)
-    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config);
+    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.pluginToolDescriptions);
 
     // Add user message to session
     const preview = userMessage.slice(0, 80).replace(/\n/g, " ");
     log("runtime", `handleMessage: ${preview}${userMessage.length > 80 ? "..." : ""}${attachments?.length ? ` +${attachments.length} attachment(s)` : ""}`);
 
-    // Save attachments to disk and build SDK-native content
+    // Process attachments via plugin, or build plain text message
     let userMsg: ModelMessage;
-    if (attachments && attachments.length > 0) {
-      const mediaRefs: Awaited<ReturnType<typeof saveMedia>>[] = [];
-      for (const att of attachments) {
-        const ref = saveMedia(this.agentDir, att.data, att.mimeType, att.filename);
-        log("runtime", `saved media: ${ref.uri} (${ref.size} bytes)`);
-        // Record in sidecar
-        if (this.mediaSidecar) {
-          this.mediaSidecar.append({
-            file: ref.file,
-            originalName: att.filename,
-            mimeType: ref.mimeType,
-            size: ref.size,
-            timestamp: new Date().toISOString(),
-          });
-          // Digest at ingest time (vision call for images, etc.)
-          if (this.config.mediaDigest) {
-            await digestMediaAtIngest(this.mediaSidecar, this.agentDir, ref.file, ref.mimeType, this.config);
-          }
-        }
-        mediaRefs.push(ref);
-      }
-      userMsg = { role: "user", content: buildUserContent(userMessage, mediaRefs) };
+    if (attachments && attachments.length > 0 && this.onProcessAttachments) {
+      const pluginMsg = await this.onProcessAttachments(attachments, userMessage);
+      userMsg = pluginMsg ?? { role: "user", content: userMessage };
     } else {
       userMsg = { role: "user", content: userMessage };
     }
@@ -223,7 +201,7 @@ export class Runtime {
         log("context", `trimmed: ${trimmedCount} old messages excluded${stats.summaryTokens > 0 ? `, summary injected (~${stats.summaryTokens} tokens)` : ''}`);
       }
 
-      // Plugin context injections (notes → system prompt, recall → user message)
+      // Plugin context injections — each declares its own placement strategy
       let contextMessages = contextWindow;
       let systemWithInjections = systemMessage;
       if (this.contextInjectionFn) {
@@ -235,21 +213,25 @@ export class Runtime {
             sessionId: sessionId || "",
           });
           for (const inj of injections) {
-            if (inj.label === "recall") {
-              // Recall: prepend as user-role message
-              const recallMsg: ModelMessage = {
+            if (inj.placement === "user-prepend") {
+              const msg: ModelMessage = {
                 role: "user",
-                content: `<recall>\n${inj.content}\n</recall>`,
+                content: `<${inj.label}>\n${inj.content}\n</${inj.label}>`,
               };
-              contextMessages = [recallMsg, ...contextMessages];
-              onEvent({ type: "recall", recall: { query: userMessage, chunks: 0, tokens: Math.ceil(inj.content.length / 3.3), results: [] } });
+              contextMessages = [msg, ...contextMessages];
             } else {
-              // Notes, etc: append to system prompt
+              // "system" — append to system prompt
               const injection = `${inj.content}`;
               if (typeof systemWithInjections === "string") {
                 systemWithInjections = `${systemWithInjections}\n\n${injection}`;
               } else {
                 systemWithInjections = { ...systemWithInjections, content: `${systemWithInjections.content}\n\n${injection}` };
+              }
+            }
+            // Emit any SSE events the plugin attached
+            if (inj.sseEvents) {
+              for (const ev of inj.sseEvents) {
+                onEvent(ev);
               }
             }
           }
@@ -258,9 +240,9 @@ export class Runtime {
         }
       }
 
-      // Resolve kern-media:// refs before model call (SDK validates URLs before middleware runs)
-      const resolvedMessages = this.mediaSidecar
-        ? await resolveMediaInMessages(contextMessages, this.mediaSidecar, this.agentDir, this.config)
+      // Resolve custom URIs in messages via plugins (e.g. kern-media://)
+      const resolvedMessages = this.onResolveMessages
+        ? await this.onResolveMessages(contextMessages)
         : contextMessages;
 
       log.debug("context", `${resolvedMessages.length} messages, ~${stats.windowTokens} tokens`);
@@ -396,7 +378,7 @@ export class Runtime {
   }
 
   async getSystemPrompt(): Promise<string> {
-    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config);
+    this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.pluginToolDescriptions);
     return this.systemPrompt;
   }
 

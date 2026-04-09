@@ -1,5 +1,5 @@
 import type { KernPlugin, PluginContext, RouteHandler, BeforeContextInfo, ContextInjection } from "../types.js";
-import { loadNotesContext, regenerateNotesSummary } from "../../notes.js";
+import { loadNotesContext, regenerateNotesSummary } from "./notes.js";
 import { log } from "../../log.js";
 
 function wrapDocument(path: string, content: string): string {
@@ -94,6 +94,7 @@ export const notesPlugin: KernPlugin = {
     return {
       label: "notes",
       content: parts.join("\n\n"),
+      placement: "system",
     };
   },
 };

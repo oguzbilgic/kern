@@ -1,6 +1,8 @@
+import type { ModelMessage } from "ai";
 import type { MemoryDB } from "../memory.js";
 import type { KernConfig } from "../config.js";
 import type { StreamEvent } from "../runtime.js";
+import type { Attachment } from "../interfaces/types.js";
 
 /**
  * Plugin context — passed to all lifecycle hooks.
@@ -23,13 +25,17 @@ export interface RouteHandler {
 }
 
 /**
- * Content to inject into system prompt before context assembly.
+ * Content to inject into the prompt before context assembly.
  */
 export interface ContextInjection {
   /** XML tag name wrapping the content */
   label: string;
   /** The content to inject */
   content: string;
+  /** Where to inject: "system" appends to system prompt, "user-prepend" prepends as user message */
+  placement: "system" | "user-prepend";
+  /** Optional SSE events to emit when this injection is applied */
+  sseEvents?: StreamEvent[];
 }
 
 /**
@@ -98,4 +104,17 @@ export interface KernPlugin {
    * Called when building /status response. Return key-value pairs to merge.
    */
   onStatus?: (ctx: PluginContext) => Record<string, any>;
+
+  /**
+   * Message lifecycle hooks — participate in message handling pipeline.
+   */
+  onMessage?: {
+    /** Process user attachments. Return a ModelMessage if handled. */
+    processAttachments?: (attachments: Attachment[], userMessage: string, ctx: PluginContext) => Promise<ModelMessage | null>;
+    /** Resolve custom URIs in messages before model call. */
+    resolveMessages?: (messages: ModelMessage[], ctx: PluginContext) => Promise<ModelMessage[]>;
+  };
+
+  /** Tool descriptions for system prompt injection (e.g. { recall: "search long-term memory..." }) */
+  toolDescriptions?: Record<string, string>;
 }

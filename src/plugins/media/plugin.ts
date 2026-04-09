@@ -1,8 +1,11 @@
+import type { ModelMessage } from "ai";
 import type { KernPlugin, PluginContext, RouteHandler } from "../types.js";
+import type { Attachment } from "../../interfaces/types.js";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { imageTool } from "../../tools/image.js";
-import { pdfTool } from "../../tools/pdf.js";
+import { saveMedia, buildUserContent, MediaSidecar, resolveMediaInMessages, digestMediaAtIngest } from "./media.js";
+import { imageTool } from "./image.js";
+import { pdfTool } from "./pdf.js";
 import { log } from "../../log.js";
 
 const MIME_MAP: Record<string, string> = {
@@ -12,12 +15,19 @@ const MIME_MAP: Record<string, string> = {
   mp4: "video/mp4", mov: "video/quicktime", webm: "video/webm",
 };
 
+let mediaSidecar: MediaSidecar | null = null;
+
 export const mediaPlugin: KernPlugin = {
   name: "media",
 
   tools: {
     pdf: pdfTool,
     image: imageTool,
+  },
+
+  toolDescriptions: {
+    pdf: "read or analyze PDF files",
+    image: "analyze images using AI",
   },
 
   routes: (() => {
@@ -64,7 +74,47 @@ export const mediaPlugin: KernPlugin = {
 
   async onStartup(ctx) {
     (this.routes as any)?._setCtx(ctx);
+
+    // Init media sidecar if session already exists
+    const sessionId = ctx.sessionId();
+    if (sessionId) {
+      const sessionsDir = join(ctx.agentDir, ".kern", "sessions");
+      mediaSidecar = new MediaSidecar(sessionsDir, sessionId, ctx.db);
+      mediaSidecar.load();
+    }
+
     log("media", "plugin loaded");
+  },
+
+  onMessage: {
+    async processAttachments(attachments: Attachment[], userMessage: string, ctx: PluginContext): Promise<ModelMessage | null> {
+      if (attachments.length === 0) return null;
+
+      const mediaRefs: Awaited<ReturnType<typeof saveMedia>>[] = [];
+      for (const att of attachments) {
+        const ref = saveMedia(ctx.agentDir, att.data, att.mimeType, att.filename);
+        log("runtime", `saved media: ${ref.uri} (${ref.size} bytes)`);
+        if (mediaSidecar) {
+          mediaSidecar.append({
+            file: ref.file,
+            originalName: att.filename,
+            mimeType: ref.mimeType,
+            size: ref.size,
+            timestamp: new Date().toISOString(),
+          });
+          if (ctx.config.mediaDigest) {
+            await digestMediaAtIngest(mediaSidecar, ctx.agentDir, ref.file, ref.mimeType, ctx.config);
+          }
+        }
+        mediaRefs.push(ref);
+      }
+      return { role: "user", content: buildUserContent(userMessage, mediaRefs) };
+    },
+
+    async resolveMessages(messages: ModelMessage[], ctx: PluginContext): Promise<ModelMessage[]> {
+      if (!mediaSidecar) return messages;
+      return resolveMediaInMessages(messages, mediaSidecar, ctx.agentDir, ctx.config);
+    },
   },
 
   onStatus(ctx) {

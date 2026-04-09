@@ -2,10 +2,10 @@ import { readFile, readdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 import { generateText } from "ai";
-import { log } from "./log.js";
-import { createModel } from "./model.js";
-import type { KernConfig } from "./config.js";
-import type { MemoryDB } from "./memory.js";
+import { log } from "../../log.js";
+import { createModel } from "../../model.js";
+import type { KernConfig } from "../../config.js";
+import type { MemoryDB } from "../../memory.js";
 
 const SUMMARY_TYPE = "daily_notes";
 const SUMMARY_PROMPT = `Summarize the following daily notes into a brief context summary. Include: key events, decisions made, what changed, and anything unresolved. Be concise — this will be injected as context for an AI agent.`;

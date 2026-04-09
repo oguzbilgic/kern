@@ -2,10 +2,10 @@ import { createHash } from "crypto";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } from "fs";
 import { join, extname } from "path";
 import { generateText, type ModelMessage, type UserContent } from "ai";
-import { log } from "./log.js";
-import { createModel } from "./model.js";
-import type { KernConfig } from "./config.js";
-import type { MemoryDB } from "./memory.js";
+import { log } from "../../log.js";
+import { createModel } from "../../model.js";
+import type { KernConfig } from "../../config.js";
+import type { MemoryDB } from "../../memory.js";
 
 /** URI scheme for media references stored on disk */
 export const MEDIA_SCHEME = "kern-media://";
@@ -331,23 +331,6 @@ export function buildUserContent(
   }
 
   return parts;
-}
-
-// --- Extract text ---
-
-/**
- * Extract plain text from message content (string or array).
- * Used for embeddings, search, summaries — strips media parts.
- */
-export function extractText(content: string | any[] | any): string {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content
-      .filter((p) => p.type === "text" && p.text)
-      .map((p) => p.text)
-      .join("\n");
-  }
-  return String(content ?? "");
 }
 
 /**

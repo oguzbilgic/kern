@@ -16,7 +16,7 @@ import { SegmentIndex } from "./segments.js";
 import { MemoryDB } from "./memory.js";
 import { MessageQueue } from "./queue.js";
 import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setSegmentStatsFn, type InterfaceStatus } from "./tools/kern.js";
-import { loadPlugins, getPluginTools, dispatchToolResult, dispatchTurnFinish, shutdownPlugins, getActivePlugins, collectPluginStatus, collectContextInjections, type PluginContext } from "./plugins/index.js";
+import { plugins, type PluginContext } from "./plugins/index.js";
 import { log } from "./log.js";
 
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
@@ -97,10 +97,10 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   await runtime.init();
 
-  // Initialize semantic segments (uses same embedding infra as recall)
+  // Initialize semantic segments (uses embeddings for context summarization)
   let segmentIndex: SegmentIndex | null = null;
   let segmentRunning = false;
-  if (config.recall !== false) {
+  if (embeddingDims > 0) {
     try {
       segmentIndex = new SegmentIndex(memoryDB, config.provider);
       runtime.setSegmentIndex(segmentIndex);
@@ -141,26 +141,35 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     db: memoryDB,
     sessionId: () => runtime.getSessionId(),
   };
-  const plugins = await loadPlugins(pluginCtx);
+  const loadedPlugins = await plugins.load(pluginCtx);
 
-  // Register plugin tools with runtime
-  const pluginTools = getPluginTools();
+  // Register plugin tools and descriptions with runtime
+  const pluginTools = plugins.collectTools();
   if (Object.keys(pluginTools).length > 0) {
     runtime.addTools(pluginTools);
   }
+  runtime.setPluginToolDescriptions(plugins.collectToolDescriptions());
 
   // Register plugin routes with server
-  const pluginRoutes = plugins.flatMap((p) => p.routes || []);
+  const pluginRoutes = loadedPlugins.flatMap((p) => p.routes || []);
   if (pluginRoutes.length > 0) {
     server.setPluginRoutes(pluginRoutes);
   }
 
-  // Wire plugin context injections (notes, recall) into runtime
-  runtime.setContextInjectionFn((info) => collectContextInjections(info, pluginCtx));
+  // Wire plugin context injections into runtime
+  runtime.setContextInjectionFn((info) => plugins.collectContextInjections(info, pluginCtx));
 
   // Wire plugin onToolResult dispatch into runtime
   runtime.onToolResult = (toolName, result, emit) => {
-    dispatchToolResult(toolName, result, emit, pluginCtx);
+    plugins.dispatchToolResult(toolName, result, emit, pluginCtx);
+  };
+
+  // Wire plugin message lifecycle hooks
+  runtime.onProcessAttachments = (attachments, userMessage) => {
+    return plugins.dispatchProcessAttachments(attachments, userMessage, pluginCtx);
+  };
+  runtime.onResolveMessages = (messages) => {
+    return plugins.dispatchResolveMessages(messages, pluginCtx);
   };
 
   // Message queue — serializes messages, same-channel injection
@@ -204,7 +213,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     // Post-turn: let plugins index new messages (async, non-blocking)
     const sessionId = runtime.getSessionId();
     if (sessionId) {
-      dispatchTurnFinish(sessionId, pluginCtx).catch((err) => {
+      plugins.dispatchTurnFinish(sessionId, pluginCtx).catch((err) => {
         log.error("plugin", `turn finish error: ${err.message}`);
       });
       // Segments not yet a plugin — index directly
@@ -460,7 +469,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     log("kern", `stopping ${agentName}`);
     if (telegramBot) await telegramBot.stop().catch(() => {});
     if (slackBot) await slackBot.stop().catch(() => {});
-    await shutdownPlugins(pluginCtx);
+    await plugins.shutdown(pluginCtx);
     server.stop();
     memoryDB.close();
     log("kern", `stopped ${agentName}`);

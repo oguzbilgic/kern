@@ -16,7 +16,7 @@ function wrapTools(content: string): string {
 }
 
 // Build the system prompt from agent markdown files + runtime info.
-export async function loadSystemPrompt(agentDir: string, config: KernConfig): Promise<string> {
+export async function loadSystemPrompt(agentDir: string, config: KernConfig, pluginToolDescriptions: Record<string, string> = {}): Promise<string> {
   const parts: string[] = [];
 
   // Load AGENTS.md (kernel)
@@ -65,9 +65,11 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig): Pr
     webfetch: "fetch URLs",
     kern: "manage your own runtime (status, config, env)",
     message: "send messages proactively",
-    recall: "search long-term memory for old conversations outside current context",
+    ...pluginToolDescriptions,
   };
-  const toolList = tools.map(t => `- **${t}**: ${toolDescriptions[t] || t}`).join("\n");
+  // Plugin tools are always available — add them to the list
+  const allToolNames = [...tools, ...Object.keys(pluginToolDescriptions).filter(t => !tools.includes(t))];
+  const toolList = allToolNames.map(t => `- **${t}**: ${toolDescriptions[t] || t}`).join("\n");
 
   parts.push(wrapTools(toolList));
 
@@ -109,7 +111,7 @@ function getMsgSize(msg: ModelMessage): number {
 }
 
 // Truncate oversized tool results to keep context window usable.
-// Full results remain in session JSONL (and recall index) — only the context copy is truncated.
+// Full results remain in session JSONL — only the context copy is truncated.
 function truncateLargeToolResults(messages: ModelMessage[], maxChars: number, tokenBudget: number = 0): { messages: ModelMessage[]; truncatedCount: number } {
   if (maxChars <= 0) return { messages, truncatedCount: 0 };
 
@@ -152,7 +154,7 @@ function truncateLargeToolResults(messages: ModelMessage[], maxChars: number, to
         const valueStr = typeof value === "string" ? value : JSON.stringify(value);
         if (valueStr.length > maxChars) {
           const truncated = valueStr.slice(0, maxChars);
-          const note = `\n\n[truncated from ${valueStr.length} to ${maxChars} chars — use recall tool to search full content]`;
+          const note = `\n\n[truncated from ${valueStr.length} to ${maxChars} chars — use memory search to find full content]`;
           newParts.push({
             ...part,
             output: { type: "text", value: truncated + note },
@@ -317,13 +319,13 @@ export function prepareContext({ messages, config, sessionId, segmentIndex }: Pr
       summaryTokens = history.tokens;
       summaryLevelCounts = history.levelCounts;
       summarySegments = history.segments.map(s => ({ id: s.id, level: s.level, msg_start: s.msg_start, msg_end: s.msg_end }));
-      summarySystemAddition = `<conversation_summary>\nCompressed conversation summary of trimmed earlier messages (oldest → newest). Use recall tool to load full messages by range.\n\n${history.text}\n</conversation_summary>`;
+      summarySystemAddition = `<conversation_summary>\nCompressed conversation summary of trimmed earlier messages (oldest → newest). Use memory search to load full messages by range.\n\n${history.text}\n</conversation_summary>`;
     }
   }
 
   // Only count truncations that survived trimming
   // FRAGILE: matches suffix appended by truncateLargeToolResults — keep in sync
-  const truncationSuffix = "use recall tool to search full content]";
+  const truncationSuffix = "use memory search to find full content]";
   const trimmedTruncated = truncatedCount > 0
     ? finalMessages.reduce((n, msg) => {
         if (msg.role !== "tool" || !Array.isArray(msg.content)) return n;
@@ -423,9 +425,4 @@ export function addCacheBreakpoints(messages: ModelMessage[], config: KernConfig
     return msg;
   });
 }
-
-// ---------------------------------------------------------------------------
-// Auto-recall injection
-// ---------------------------------------------------------------------------
-
 

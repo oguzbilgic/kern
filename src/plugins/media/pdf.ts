@@ -1,8 +1,8 @@
 import { tool, generateText } from "ai";
 import { z } from "zod";
 import { readFile } from "fs/promises";
-import { createModel } from "../model.js";
-import { loadConfig } from "../config.js";
+import { createModel } from "../../model.js";
+import { loadConfig } from "../../config.js";
 
 /**
  * Parse a pages string like "1", "1-5", "1,3,7-9" into sorted unique 0-based indices.
