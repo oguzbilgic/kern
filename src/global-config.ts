@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir, unlink } from "fs/promises";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
+import { log } from "./log.js";
 
 export interface GlobalConfig {
   web_port: number;
@@ -75,5 +76,8 @@ async function migrateLegacyAgents(): Promise<void> {
 
     await saveGlobalConfig(config);
     await unlink(LEGACY_AGENTS_FILE);
-  } catch {}
+    log("config", `migrated ${paths.length} agent(s) from agents.json → config.json`);
+  } catch (err) {
+    log.warn("config", `agents.json migration failed: ${err}`);
+  }
 }
