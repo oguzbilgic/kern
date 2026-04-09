@@ -63,6 +63,10 @@ export function processStreamEvent(
             toolOutput: ev.toolResult || ev.output || ev.result,
             streaming: false,
           };
+          // Hide render tool calls — the render event creates the visible block
+          if (result.parts[i].toolName === "render") {
+            result.parts[i].hidden = true;
+          }
           break;
         }
       }
@@ -81,7 +85,7 @@ export function processStreamEvent(
 
     case "finish": {
       result.append = result.parts.filter(
-        (p) => p.role === "tool" || (p.role === "assistant" && p.text.trim())
+        (p) => p.role === "render" || (p.role === "tool" && !p.hidden) || (p.role === "assistant" && p.text.trim())
       );
       result.parts = [];
       result.flush = true;

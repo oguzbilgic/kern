@@ -30,7 +30,7 @@ export function BubbleLayout({ messages, streamParts, thinking, agentName, token
   });
 
   const renderMsg = (msg: ChatMessage) => {
-    if (msg.role === "tool" && !showTools) return null;
+    if (msg.role === "tool" && (!showTools || msg.hidden)) return null;
 
     if (msg.role === "tool") {
       return (

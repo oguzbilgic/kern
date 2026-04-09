@@ -165,6 +165,24 @@ export function historyToMessages(history: HistoryMessage[]): ChatMessage[] {
         const lastTool = findLastUnresolvedTool(messages);
         if (lastTool) {
           lastTool.toolOutput = content;
+          // Convert render tool results to render messages
+          if (lastTool.toolName === "render") {
+            try {
+              const parsed = JSON.parse(content);
+              if (parsed.__kern_render) {
+                lastTool.hidden = true;
+                messages.push({
+                  id: `msg-${msgCounter++}`,
+                  role: "render",
+                  text: parsed.title || "Render",
+                  renderHtml: parsed.html,
+                  renderTarget: parsed.target || "inline",
+                  renderTitle: parsed.title || "Render",
+                  renderDashboard: parsed.dashboard,
+                });
+              }
+            } catch { /* not JSON */ }
+          }
         }
         continue;
       }
@@ -180,6 +198,24 @@ export function historyToMessages(history: HistoryMessage[]): ChatMessage[] {
               : findLastUnresolvedTool(messages);
             if (match) {
               match.toolOutput = output;
+              // Convert render tool results to render messages
+              if (match.toolName === "render" && output) {
+                try {
+                  const parsed = JSON.parse(output);
+                  if (parsed.__kern_render) {
+                    match.hidden = true;
+                    messages.push({
+                      id: `msg-${msgCounter++}`,
+                      role: "render",
+                      text: parsed.title || "Render",
+                      renderHtml: parsed.html,
+                      renderTarget: parsed.target || "inline",
+                      renderTitle: parsed.title || "Render",
+                      renderDashboard: parsed.dashboard,
+                    });
+                  }
+                } catch { /* not JSON */ }
+              }
             }
           }
         }

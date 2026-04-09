@@ -121,6 +121,7 @@ export interface ChatMessage {
   renderTarget?: string;
   renderTitle?: string;
   renderDashboard?: string | null;
-  // Streaming
+  // UI flags
+  hidden?: boolean;
   streaming?: boolean;
 }

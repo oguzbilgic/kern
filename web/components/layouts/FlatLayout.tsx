@@ -40,7 +40,7 @@ export function FlatLayout({ messages, streamParts, thinking, agentName, token, 
   });
 
   const renderMsg = (msg: ChatMessage) => {
-    if (msg.role === "tool" && !showTools) return null;
+    if (msg.role === "tool" && (!showTools || msg.hidden)) return null;
 
     const group = groups.get(msg.id);
 
