@@ -91,7 +91,7 @@ interface SidebarProps {
   onLogout?: () => void;
   onAddServer?: (url: string, token: string) => void;
   onRemoveServer?: (url: string) => void;
-  onAddAgent?: (name: string, url: string, token: string) => void;
+  onAddAgent?: (url: string, token: string) => void;
   onRemoveAgent?: (url: string) => void;
 }
 
@@ -100,7 +100,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
   const [addMode, setAddMode] = useState<AddMode>("agent");
   const [newUrl, setNewUrl] = useState("");
   const [newToken, setNewToken] = useState("");
-  const [newName, setNewName] = useState("");
+
 
   // Mini/full state persisted in localStorage
   const [mini, setMini] = useState(() => {
@@ -152,12 +152,11 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
       if (!newUrl.trim()) return;
       onAddServer?.(newUrl.trim(), newToken.trim());
     } else {
-      if (!newUrl.trim() || !newName.trim()) return;
-      onAddAgent?.(newName.trim(), newUrl.trim(), newToken.trim());
+      if (!newUrl.trim()) return;
+      onAddAgent?.(newUrl.trim(), newToken.trim());
     }
     setNewUrl("");
     setNewToken("");
-    setNewName("");
     setShowAddModal(false);
   }
 
@@ -315,18 +314,11 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
               <>
                 <input
                   type="text"
-                  placeholder="Agent name"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-2 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
-                  autoFocus
-                />
-                <input
-                  type="text"
                   placeholder="URL (e.g. http://host:4100)"
                   value={newUrl}
                   onChange={(e) => setNewUrl(e.target.value)}
                   className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-2 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
+                  autoFocus
                 />
                 <input
                   type="password"
@@ -364,7 +356,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
               </button>
               <button
                 onClick={handleAdd}
-                disabled={!newUrl.trim() || (addMode === "agent" && !newName.trim())}
+                disabled={!newUrl.trim()}
                 className="text-xs bg-[var(--accent)] text-white px-3 py-1.5 rounded disabled:opacity-30 hover:opacity-90 cursor-pointer"
               >
                 Add

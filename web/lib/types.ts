@@ -13,7 +13,6 @@ export interface ServerConfig {
 }
 
 export interface DirectAgent {
-  name: string;
   url: string;
   token: string;
 }

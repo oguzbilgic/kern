@@ -61,7 +61,7 @@ export function useAgents(token: string | null) {
     for (const d of directs) {
       const status = await api.pingAgent(d.url, d.token);
       all.push({
-        name: d.name,
+        name: status?.agent || new URL(d.url).hostname,
         running: status !== null,
         token: d.token,
         baseUrl: d.url,
@@ -110,10 +110,10 @@ export function useAgents(token: string | null) {
   }, [getServers]);
 
   // Direct agent management
-  const addDirectAgent = useCallback((name: string, url: string, agentToken: string) => {
+  const addDirectAgent = useCallback((url: string, agentToken: string) => {
     const directs = getDirectAgents();
     if (directs.some((d) => d.url === url)) return;
-    directs.push({ name, url, token: agentToken });
+    directs.push({ url, token: agentToken });
     localStorage.setItem("kern-agents", JSON.stringify(directs));
     discover();
   }, [getDirectAgents, discover]);
