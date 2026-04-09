@@ -161,7 +161,9 @@ export function SurfacePanel() {
     const onMove = (e: MouseEvent) => {
       if (!dragging.current) return;
       const delta = startX.current - e.clientX;
-      const maxW = window.innerWidth - 360;
+      const sidebarEl = document.querySelector('[data-sidebar]') as HTMLElement | null;
+      const sidebarW = sidebarEl?.offsetWidth ?? 0;
+      const maxW = window.innerWidth - sidebarW - 360;
       setWidth(Math.max(280, Math.min(startW.current + delta, maxW)));
     };
     const onUp = () => {

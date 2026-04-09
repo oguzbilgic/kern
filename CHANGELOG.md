@@ -4,6 +4,7 @@
 
 ### Fixes
 - Desktop app: logout from web UI now returns to desktop connect screen instead of web login page ([#110](https://github.com/oguzbilgic/kern-ai/pull/110))
+- Side panel resize no longer grows beyond available space, preventing close button from being pushed off-screen ([#111](https://github.com/oguzbilgic/kern-ai/pull/111))
 
 ## v0.24.0
 

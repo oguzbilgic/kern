@@ -135,6 +135,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
   return (
     <div
       className="bg-[var(--bg-sidebar)] flex flex-col flex-shrink-0 transition-[width] duration-200 relative overflow-hidden"
+      data-sidebar
       style={{ width: mini ? 75 : 200 }}
     >
       {/* Right edge toggle strip */}
