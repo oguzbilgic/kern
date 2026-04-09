@@ -1,3 +1,5 @@
+import TurndownService from "turndown";
+
 /**
  * Extract plain text from message content (string or array).
  * Used for embeddings, search, summaries — strips media parts.
@@ -11,4 +13,15 @@ export function extractText(content: string | any[] | any): string {
       .join("\n");
   }
   return String(content ?? "");
+}
+
+const turndown = new TurndownService({
+  headingStyle: "atx",
+  codeBlockStyle: "fenced",
+});
+
+turndown.remove(["script", "style", "noscript", "iframe"]);
+
+export function htmlToMarkdown(html: string): string {
+  return turndown.turndown(html);
 }
