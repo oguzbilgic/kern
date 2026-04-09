@@ -203,7 +203,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
         {/* Dashboards section */}
         {dashboards && dashboards.length > 0 && (
           <>
-            <div className="mx-4 my-2 border-t border-[var(--border)]" />
+            <div className="mt-2" />
             {!mini && (
               <div className="px-4 mb-1">
                 <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Dashboards</span>
