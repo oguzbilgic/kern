@@ -51,7 +51,9 @@ async function startOne(name: string, path: string): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 2000));
 
   if (isProcessRunning(pid)) {
-    console.log(`  ${green("●")} ${bold(name)} started ${dim(`(pid ${pid})`)}`);
+    const info = readAgentInfo(path);
+    const portStr = info?.port ? `, :${info.port}` : "";
+    console.log(`  ${green("●")} ${bold(name)} started ${dim(`(pid ${pid}${portStr})`)}`);
     if (!isServiceInstalled(name)) {
       try {
         const { execSync } = await import("child_process");

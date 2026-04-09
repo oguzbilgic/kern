@@ -26,7 +26,7 @@ Each agent is a separate process. The web server is a separate process. They com
 - Runs the message queue, tool executor, and model calls
 - Serves SSE for real-time streaming to connected clients (TUI, web UI)
 
-The agent never binds to `0.0.0.0` — it's only reachable from localhost. All external access goes through the web proxy.
+Agents bind to `0.0.0.0` so they're reachable over the network (e.g. via Tailscale). The web proxy is optional — clients can connect directly if they have the agent's port and token.
 
 ### Agent HTTP endpoints
 
