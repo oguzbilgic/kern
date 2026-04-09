@@ -6,6 +6,7 @@ import { useAgent } from "../hooks/useAgent";
 import { agentKey } from "../hooks/useServers";
 import { renderPluginSidebars } from "../plugins/registry";
 import { avatarColor } from "../lib/colors";
+import { HubSection } from "./HubSection";
 
 function AgentRow({
   agent,
@@ -71,13 +72,14 @@ interface SidebarProps {
   agents: AgentInfo[];
   active: string | null;
   activeThinking?: boolean;
+  token: string | null;
   onSelect: (key: string) => void;
   onLogout?: () => void;
   onAddServer?: (url: string, token: string) => void;
   onRemoveServer?: (url: string) => void;
 }
 
-export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, onAddServer, onRemoveServer }: SidebarProps) {
+export function Sidebar({ agents, active, activeThinking, token, onSelect, onLogout, onAddServer, onRemoveServer }: SidebarProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newUrl, setNewUrl] = useState("");
   const [newToken, setNewToken] = useState("");
@@ -220,6 +222,17 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
 
         {/* Plugin sidebar sections */}
         {renderPluginSidebars({ agents, activeAgent: activeAgentObj?.name ?? null, mini })}
+
+        {/* Hub section — per server */}
+        {Array.from(grouped.entries()).map(([server]) => (
+          <HubSection
+            key={`hub-${server}`}
+            token={token}
+            serverUrl={server === "local" ? undefined : server}
+            mini={mini}
+            localAgentNames={agents.filter(a => (a.serverUrl || "local") === server).map(a => a.name)}
+          />
+        ))}
       </div>
 
       {/* Footer: logout */}

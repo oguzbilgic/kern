@@ -125,6 +125,7 @@ export default function Home() {
         agents={agents}
         active={active}
         activeThinking={thinking}
+        token={token}
         onSelect={setActive}
         onLogout={handleLogout}
         onAddServer={addServer}
