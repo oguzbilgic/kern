@@ -20,6 +20,7 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 | `provider` | `openrouter` | API provider: `openrouter`, `anthropic`, `openai`, `ollama` |
 | `toolScope` | `full` | Tool access level: `full`, `write`, `read` |
 | `maxSteps` | `30` | Max tool-use steps per message |
+| `port` | auto | Fixed port for the agent HTTP server. Assigned automatically from 4100-4999 on creation or first start. |
 | `maxContextTokens` | `100000` | Token budget for context window. Messages beyond this are trimmed oldest-first. Full history stays in session JSONL files. |
 | `maxToolResultChars` | `20000` | Max characters per tool result in context. Oversized results are truncated in context only. Full results stay in session storage. Set to `0` to disable. |
 | `telegramTools` | `false` | Show tool call progress lines (⚙ bash, etc.) in Telegram messages. |

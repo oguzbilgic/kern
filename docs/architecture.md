@@ -5,11 +5,11 @@ How kern's processes fit together.
 ## Overview
 
 ```
-Browser ──→ kern web (:9000) ──→ agent A (:random)
-                               ├─→ agent B (:random)
-                               └─→ agent C (:random)
+Browser ──→ kern web (:9000) ──→ agent A (:4100)
+                               ├─→ agent B (:4101)
+                               └─→ agent C (:4102)
 
-TUI ──────────────────────────→ agent A (:random)
+TUI ──────────────────────────→ agent A (:4100)
 Telegram ←────────────────────→ agent A (long poll)
 Slack ←───────────────────────→ agent A (socket mode)
 ```
@@ -20,7 +20,7 @@ Each agent is a separate process. The web server is a separate process. They com
 
 `kern start` launches an agent as a background daemon. Each agent process:
 
-- Binds an HTTP server to `127.0.0.1` on a **random port** (OS-assigned)
+- Binds an HTTP server to `0.0.0.0` on a **sticky port** (auto-assigned from 4100-4999 on first start, saved to config)
 - Registers its path in `~/.kern/config.json` and writes PID to its own `.kern/agent.pid`
 - Connects to Telegram (long polling) and/or Slack (socket mode) if tokens are configured
 - Runs the message queue, tool executor, and model calls
@@ -63,7 +63,7 @@ It serves two things:
 ```
 Browser → GET /api/agents/vega/status
        → kern web reads ~/.kern/config.json agents list
-       → finds vega: { port: 34521, token: "abc..." }
+       → finds vega: { port: 4100, token: "abc..." }
        → forwards to 127.0.0.1:34521/status with Authorization header
        → streams response back to browser
 ```
@@ -127,14 +127,14 @@ Without `kern install`, agents run as plain daemons managed by PID files.
 ```
 ~/.kern/
   config.json          # global config + agent registry
-  config.json          # global config (web port, host)
   .env                 # KERN_WEB_TOKEN
   web.pid              # web server PID
 
 ~/my-agent/
   .kern/
-    config.json        # agent config (model, provider, toolScope)
-    .env               # API keys, bot tokens, KERN_AGENT_TOKEN
+    config.json        # agent config (model, provider, port, toolScope)
+    .env               # API keys, bot tokens, KERN_AUTH_TOKEN
+    agent.pid          # PID file (written on start, removed on stop)
     sessions/          # conversation JSONL
     recall.db          # memory database (embeddings, segments, summaries)
     logs/              # structured logs
@@ -150,7 +150,7 @@ Without `kern install`, agents run as plain daemons managed by PID files.
 
 | Process | Binds to | Port | Accessible from |
 |---------|----------|------|-----------------|
-| Agent | 127.0.0.1 | random | localhost only |
+| Agent | 0.0.0.0 | 4100-4999 | sticky, auto-assigned |
 | Web server | 0.0.0.0 (configurable) | 9000 (configurable) | LAN / Tailscale |
 | Telegram | outbound only | — | — |
 | Slack | outbound only | — | — |
