@@ -3,15 +3,17 @@
 ## next
 
 ### Features
-- **Hide tool calls in Telegram** ([#76](https://github.com/oguzbilgic/kern-ai/issues/76)) — new `telegramTools` config (default `false`) controls whether tool call progress lines (`⚙ bash`, etc.) appear in Telegram messages
-- **Infinite scroll** ([#53](https://github.com/oguzbilgic/kern-ai/issues/53)) — scroll up in chat to load older messages; uses existing paginated `/history` API with scroll-position preservation
+- **Render tool** ([#103](https://github.com/oguzbilgic/kern-ai/issues/103), [#105](https://github.com/oguzbilgic/kern-ai/pull/105)) — agents can create rich visual content (charts, tables, status cards) rendered as sandboxed HTML in chat or a persistent side panel
+- **Dashboards** ([#101](https://github.com/oguzbilgic/kern-ai/issues/101), [#105](https://github.com/oguzbilgic/kern-ai/pull/105)) — agents write `dashboards/<name>/` folders with HTML + data; auto-discovered in sidebar across all running agents, open in resizable side panel with live data injection
+- **Hide tool calls in Telegram** ([#76](https://github.com/oguzbilgic/kern-ai/issues/76)) — new `telegramTools` config (default `false`) hides tool call progress from Telegram messages
+- **Infinite scroll** ([#53](https://github.com/oguzbilgic/kern-ai/issues/53)) — scroll up in chat to load older messages with scroll-position preservation
 
 ### Improvements
-- **Markdown rendering** ([#95](https://github.com/oguzbilgic/kern-ai/issues/95)) — replaced hand-rolled regex parser with `marked`; fixes loose lists, nested bullets, multi-paragraph list items, adds GFM strikethrough and task lists
+- **Markdown rendering** ([#95](https://github.com/oguzbilgic/kern-ai/issues/95)) — replaced hand-rolled regex parser with `marked`; fixes loose lists, nested bullets, multi-paragraph list items
 
 ### Fixes
 - **Mid-turn steering** ([#94](https://github.com/oguzbilgic/kern-ai/pull/94)) — operator messages sent during an agent's turn now persist across all steps instead of being lost after one step
-- **web/out packaging** ([#97](https://github.com/oguzbilgic/kern-ai/issues/97)) — `web/out/` build artifacts no longer tracked in git; npm package still includes them via `web/.npmignore`
+- **web/out packaging** ([#97](https://github.com/oguzbilgic/kern-ai/issues/97)) — build artifacts no longer tracked in git; npm package still includes them
 
 ## v0.23.2
 
