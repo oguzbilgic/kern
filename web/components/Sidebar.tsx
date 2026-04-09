@@ -113,10 +113,13 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
     return () => window.removeEventListener("resize", check);
   }, [userSet]);
 
-  // Group agents by server
+  // Group agents by server origin
   const grouped = new Map<string, AgentInfo[]>();
   for (const agent of agents) {
-    const server = agent.serverUrl || "local";
+    // Extract server origin from baseUrl: "http://host:port/api/agents/name" → "http://host:port"
+    // Local proxy agents have baseUrl like "/api/agents/name" → "local"
+    const match = agent.baseUrl.match(/^(https?:\/\/[^/]+)/);
+    const server = match ? match[1] : "local";
     if (!grouped.has(server)) grouped.set(server, []);
     grouped.get(server)!.push(agent);
   }

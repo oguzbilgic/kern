@@ -3,9 +3,8 @@
 import React from "react";
 
 export interface TabProps {
-  agentName: string;
+  baseUrl: string;
   token: string | null;
-  serverUrl?: string;
 }
 
 // Warm amber accent used throughout the overlay

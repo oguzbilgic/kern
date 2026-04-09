@@ -118,21 +118,20 @@ export function useAgent(
   // Track if we're in an active turn (between thinking/tool and finish)
   const inTurnRef = useRef(false);
 
-  const name = agent?.name ?? null;
+  const baseUrl = agent?.baseUrl ?? null;
   const token = agent?.token ?? null;
-  const serverUrl = agent?.serverUrl;
   const withHistory = opts.withHistory;
 
   // Load history + status on agent change (only when withHistory)
   useEffect(() => {
-    if (!name || !withHistory) return;
+    if (!baseUrl || !withHistory) return;
     let cancelled = false;
 
     async function load() {
       try {
         const [history, statusData] = await Promise.all([
-          api.getHistory(name!, token, 100, serverUrl),
-          api.getStatus(name!, token, serverUrl),
+          api.getHistory(baseUrl!, token, 100),
+          api.getStatus(baseUrl!, token),
         ]);
         if (cancelled) return;
         setMessages(historyToMessages(history));
@@ -165,18 +164,18 @@ export function useAgent(
     load();
 
     return () => { cancelled = true; };
-  }, [name, token, serverUrl, withHistory]);
+  }, [baseUrl, token, withHistory]);
 
   // Reset unread on agent change or when becoming active
   useEffect(() => {
     setUnread(0);
-  }, [name]);
+  }, [baseUrl]);
 
   // SSE connection — always active for running agents
   useEffect(() => {
-    if (!name) return;
+    if (!baseUrl) return;
 
-    const sse = api.connectSSE(name, token, {
+    const sse = api.connectSSE(baseUrl, token, {
       onEvent(ev: StreamEvent) {
         if (withHistory) {
           // Full mode: process streaming parts
@@ -222,7 +221,7 @@ export function useAgent(
             setActivity("");
             setActivityDetail("");
             inTurnRef.current = false;
-            api.getStatus(name!, token, serverUrl).then(setStatus).catch(() => {});
+            api.getStatus(baseUrl!, token).then(setStatus).catch(() => {});
           } else if (result.append.length > 0) {
             setMessages((prev) => [...prev, ...result.append]);
           }
@@ -269,21 +268,21 @@ export function useAgent(
       onDisconnect() {
         setConnected(false);
       },
-    }, serverUrl);
+    });
 
     sseRef.current = sse;
     return () => {
       sse.close();
       sseRef.current = null;
     };
-  }, [name, token, serverUrl, withHistory]);
+  }, [baseUrl, token, withHistory]);
 
   const loadMore = useCallback(
     async () => {
-      if (!name || !withHistory || oldestIndexRef.current === undefined || oldestIndexRef.current <= 0 || loadingMore) return;
+      if (!baseUrl || !withHistory || oldestIndexRef.current === undefined || oldestIndexRef.current <= 0 || loadingMore) return;
       setLoadingMore(true);
       try {
-        const history = await api.getHistory(name, token, 100, serverUrl, oldestIndexRef.current);
+        const history = await api.getHistory(baseUrl, token, 100, oldestIndexRef.current);
         if (history.length === 0) {
           setHasMore(false);
           return;
@@ -299,12 +298,12 @@ export function useAgent(
         setLoadingMore(false);
       }
     },
-    [name, token, serverUrl, withHistory, loadingMore]
+    [baseUrl, token, withHistory, loadingMore]
   );
 
   const send = useCallback(
     async (text: string, attachments?: Attachment[]) => {
-      if (!name) return;
+      if (!baseUrl) return;
 
       // Append user message to chat (with media preview from attachments)
       const media: import("../lib/types").MediaItem[] | undefined =
@@ -336,13 +335,12 @@ export function useAgent(
         inTurnRef.current = true;
       }
 
-      await api.sendMessage(name, token, text, {
+      await api.sendMessage(baseUrl, token, text, {
         connectionId: sseRef.current?.connectionId,
         attachments,
-        serverUrl,
       });
     },
-    [name, token, serverUrl]
+    [baseUrl, token]
   );
 
   if (!agent) return EMPTY_STATE;

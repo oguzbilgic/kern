@@ -3,7 +3,7 @@
 export interface AgentInfo {
   name: string;
   running: boolean;
-  serverUrl?: string; // undefined = local proxy
+  baseUrl: string; // fully resolved — all API calls use this directly
   token: string;
 }
 

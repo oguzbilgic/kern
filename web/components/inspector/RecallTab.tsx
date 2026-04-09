@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import * as api from "../../lib/api";
 import { TabProps, accent, StatCard, ActionBtn, EmptyState } from "./shared";
 
-export function RecallTab({ agentName, token, serverUrl }: TabProps) {
+export function RecallTab({ baseUrl, token }: TabProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<any[] | null>(null);
   const [stats, setStats] = useState<any>(null);
@@ -12,14 +12,14 @@ export function RecallTab({ agentName, token, serverUrl }: TabProps) {
   const [expandedResults, setExpandedResults] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    api.getRecallStats(agentName, token, serverUrl).then(setStats).catch(() => setStats(null));
-  }, [agentName, token, serverUrl]);
+    api.getRecallStats(baseUrl, token).then(setStats).catch(() => setStats(null));
+  }, [baseUrl, token]);
 
   const search = () => {
     if (!query.trim()) return;
     setSearching(true);
     setExpandedResults(new Set());
-    api.recallSearch(agentName, token, serverUrl, query)
+    api.recallSearch(baseUrl, token, query)
       .then((d) => setResults(d?.results || []))
       .catch(() => setResults([]))
       .finally(() => setSearching(false));

@@ -41,13 +41,13 @@ function ActivityChart({ data, color, label }: { data: { key: string; count: num
   );
 }
 
-export function SessionsTab({ agentName, token, serverUrl }: TabProps) {
+export function SessionsTab({ baseUrl, token }: TabProps) {
   const [data, setData] = useState<{ sessions: any[]; currentSessionId: string | null } | null>(null);
   const [activity, setActivity] = useState<any>(null);
   const [activeSession, setActiveSession] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getSessions(agentName, token, serverUrl).then((d) => {
+    api.getSessions(baseUrl, token).then((d) => {
       if (d?.sessions) {
         setData(d);
         setActiveSession(d.currentSessionId || d.sessions?.[0]?.session_id || null);
@@ -55,13 +55,13 @@ export function SessionsTab({ agentName, token, serverUrl }: TabProps) {
         setData({ sessions: [], currentSessionId: null });
       }
     }).catch(() => setData({ sessions: [], currentSessionId: null }));
-  }, [agentName, token, serverUrl]);
+  }, [baseUrl, token]);
 
   useEffect(() => {
     if (activeSession) {
-      api.getSessionActivity(agentName, token, serverUrl, activeSession).then(setActivity).catch(() => {});
+      api.getSessionActivity(baseUrl, token, activeSession).then(setActivity).catch(() => {});
     }
-  }, [agentName, token, serverUrl, activeSession]);
+  }, [baseUrl, token, activeSession]);
 
   if (!data) return <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading...</div>;
   if (!data.sessions.length) return <EmptyState text="No session data available" />;

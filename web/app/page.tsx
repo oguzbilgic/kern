@@ -34,9 +34,8 @@ export default function Home() {
 
   // Register memory inspector tabs as modal surfaces
   useMemorySurfaces({
-    agentName: activeAgent?.name || "",
+    baseUrl: activeAgent?.baseUrl || "",
     token: activeAgent?.token || null,
-    serverUrl: activeAgent?.serverUrl,
   });
 
   const { messages, streamParts, thinking, activity, activityDetail, connected, status, send, loadMore, hasMore, loadingMore } = useAgent(activeAgent, { withHistory: true });
@@ -178,7 +177,7 @@ export default function Home() {
             {activeAgent && renderPluginHeaders({
               agentName: activeAgent.name,
               token: activeAgent.token,
-              serverUrl: activeAgent.serverUrl,
+              baseUrl: activeAgent.baseUrl,
             })}
             <button
               onClick={() => setModalSurface(MEMORY_SURFACE_ID)}
@@ -201,7 +200,7 @@ export default function Home() {
           thinking={thinking}
           agentName={activeAgent?.name}
           token={activeAgent?.token ?? undefined}
-          serverUrl={activeAgent?.serverUrl}
+          baseUrl={activeAgent?.baseUrl}
           layout={prefs.chatLayout}
           showTools={prefs.showTools}
           coloredTools={prefs.coloredTools}

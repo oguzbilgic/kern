@@ -16,7 +16,7 @@ interface DashboardStore {
   activeAgent: AgentInfo | null;
   openPanel: (html: string, title: string, dashboard?: string) => void;
   closePanel: () => void;
-  loadAndOpen: (name: string, agentName: string, serverUrl: string, token: string) => void;
+  loadAndOpen: (name: string, baseUrl: string, token: string) => void;
 }
 
 // Singleton store reference so plugin definition can access state without React context
@@ -44,11 +44,11 @@ export function useDashboards(agents: AgentInfo[], activeAgent: AgentInfo | null
     if (!agents.length) { setAllDashboards([]); return; }
     const running = agents.filter(a => a.running);
     Promise.all(running.map(async (agent) => {
-      return fetchDashboards(agent.name, agent.serverUrl || "", agent.token || "");
+      return fetchDashboards(agent.baseUrl, agent.token || "");
     })).then(results => setAllDashboards(results.flat()));
   }, [agents]);
 
-  const dashboardList = allDashboards.filter(d => d.agentName === activeAgent?.name).map(d => d.name);
+  const dashboardList = allDashboards.filter(d => d.baseUrl === activeAgent?.baseUrl).map(d => d.name);
 
   const openPanel = useCallback((html: string, title: string, dashboard?: string) => {
     setPanelHtml({ html, title, dashboard });
@@ -62,8 +62,8 @@ export function useDashboards(agents: AgentInfo[], activeAgent: AgentInfo | null
     unregisterSurface(SURFACE_ID);
   }, []);
 
-  const loadAndOpen = useCallback((name: string, agentName: string, serverUrl: string, token: string) => {
-    loadDashboardHtml(name, agentName, serverUrl, token)
+  const loadAndOpen = useCallback((name: string, baseUrl: string, token: string) => {
+    loadDashboardHtml(name, baseUrl, token)
       .then(html => {
         if (html) {
           setPanelHtml({ html, title: name, dashboard: name });
@@ -100,7 +100,7 @@ export function useDashboards(agents: AgentInfo[], activeAgent: AgentInfo | null
   useEffect(() => {
     if (!activeAgent) return;
     const saved = localStorage.getItem("kern-active-dashboard");
-    if (saved) loadAndOpen(saved, activeAgent.name, activeAgent.serverUrl || "", activeAgent.token || "");
+    if (saved) loadAndOpen(saved, activeAgent.baseUrl, activeAgent.token || "");
   }, [activeAgent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close panel if active dashboard no longer exists

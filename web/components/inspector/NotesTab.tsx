@@ -5,16 +5,16 @@ import * as api from "../../lib/api";
 import { renderMarkdown } from "../../lib/markdown";
 import { TabProps, accent, ActionBtn, EmptyState } from "./shared";
 
-export function NotesTab({ agentName, token, serverUrl }: TabProps) {
+export function NotesTab({ baseUrl, token }: TabProps) {
   const [summaries, setSummaries] = useState<any[] | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
   const load = useCallback(() => {
-    api.getSummaries(agentName, token, serverUrl).then((d) => {
+    api.getSummaries(baseUrl, token).then((d) => {
       setSummaries(Array.isArray(d) ? d : (d?.summaries || []));
     }).catch(() => setSummaries([]));
-  }, [agentName, token, serverUrl]);
+  }, [baseUrl, token]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -35,7 +35,7 @@ export function NotesTab({ agentName, token, serverUrl }: TabProps) {
         <ActionBtn
           onClick={() => {
             setRegenerating(true);
-            api.regenerateSummary(agentName, token, serverUrl).then(load).finally(() => setRegenerating(false));
+            api.regenerateSummary(baseUrl, token).then(load).finally(() => setRegenerating(false));
           }}
           disabled={regenerating}
         >

@@ -33,11 +33,12 @@ export function useServers(token: string | null) {
     for (const server of servers) {
       try {
         const raw = await api.fetchAgents(server.token, server.url);
+        const base = server.url || "";
         for (const a of raw) {
           all.push({
             name: a.name,
             running: a.running,
-            serverUrl: server.url || undefined,
+            baseUrl: `${base}/api/agents/${encodeURIComponent(a.name)}`,
             token: server.token,
           });
         }
@@ -82,7 +83,7 @@ export function useServers(token: string | null) {
   const removeServer = useCallback((url: string) => {
     const servers = getServers().slice(1).filter((s) => s.url !== url);
     localStorage.setItem("kern-servers", JSON.stringify(servers));
-    setAgents((prev) => prev.filter((a) => (a.serverUrl || "") !== url));
+    setAgents((prev) => prev.filter((a) => !a.baseUrl.startsWith(url)));
   }, [getServers]);
 
   const activeAgent = agents.find((a) => agentKey(a) === active) ?? null;
@@ -91,5 +92,5 @@ export function useServers(token: string | null) {
 }
 
 export function agentKey(agent: AgentInfo): string {
-  return agent.serverUrl ? `${agent.serverUrl}::${agent.name}` : agent.name;
+  return `${agent.baseUrl}`;
 }

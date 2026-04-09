@@ -24,32 +24,29 @@ import { getDashboardStore } from "./useDashboards";
 
 export interface DashboardInfo {
   name: string;
-  agentName: string;
-  serverUrl: string;
+  baseUrl: string;
 }
 
 // --- API helpers ---
 
-export async function fetchDashboards(agentName: string, serverUrl: string, token: string): Promise<DashboardInfo[]> {
+export async function fetchDashboards(baseUrl: string, token: string): Promise<DashboardInfo[]> {
   try {
-    const base = serverUrl || "";
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    const res = await fetch(`${base}/api/agents/${agentName}/dashboards`, { headers });
+    const res = await fetch(`${baseUrl}/dashboards`, { headers });
     if (!res.ok) return [];
     const data = await res.json();
-    return (data.dashboards || []).map((name: string) => ({ name, agentName, serverUrl }));
+    return (data.dashboards || []).map((name: string) => ({ name, baseUrl }));
   } catch {
     return [];
   }
 }
 
-export async function loadDashboardHtml(name: string, agentName: string, serverUrl: string, token: string): Promise<string | null> {
+export async function loadDashboardHtml(name: string, baseUrl: string, token: string): Promise<string | null> {
   try {
-    const base = serverUrl || "";
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    const res = await fetch(`${base}/api/agents/${agentName}/d/${name}/`, { headers });
+    const res = await fetch(`${baseUrl}/d/${name}/`, { headers });
     if (!res.ok) return null;
     return await res.text();
   } catch {
@@ -157,8 +154,8 @@ export const dashboardPlugin: UIPlugin = {
     return createElement(DashboardButton, {
       agentName: ctx.agentName,
       token: ctx.token,
-      serverUrl: ctx.serverUrl,
-      onOpenDashboard: (name: string) => store?.loadAndOpen(name, ctx.agentName, ctx.serverUrl || "", ctx.token),
+      baseUrl: ctx.baseUrl,
+      onOpenDashboard: (name: string) => store?.loadAndOpen(name, ctx.baseUrl, ctx.token),
     });
   },
 };
