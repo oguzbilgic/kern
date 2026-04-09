@@ -591,9 +591,20 @@ export class AgentServer {
       }
 
       if (existsSync(filePath)) {
-        const data = readFileSync(filePath);
+        let content: string | Buffer = readFileSync(filePath);
+        // Inject data.json into index.html if available
+        if ((subPath === "/" || subPath === "/index.html") && contentType.startsWith("text/html")) {
+          const dataPath = join(dashDir, "data.json");
+          if (existsSync(dataPath)) {
+            const jsonData = readFileSync(dataPath, "utf-8");
+            const dataScript = `<script>window.__KERN_DATA__ = ${jsonData};</script>`;
+            let html = content.toString("utf-8");
+            html = html.includes("</head>") ? html.replace("</head>", `${dataScript}</head>`) : dataScript + html;
+            content = html;
+          }
+        }
         res.writeHead(200, { "Content-Type": contentType });
-        res.end(data);
+        res.end(content);
       } else {
         res.writeHead(404, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "file not found" }));
