@@ -13,7 +13,7 @@ interface InspectorProps {
   onClose: () => void;
   agentName: string;
   token: string | null;
-  serverUrl?: string;
+  baseUrl: string;
 }
 
 type Tab = "sessions" | "segments" | "notes" | "recall" | "media" | "context";
@@ -29,7 +29,7 @@ const TABS: { key: Tab; label: string }[] = [
 
 const accent = "#e5b567";
 
-export function Inspector({ open, onClose, agentName, token, serverUrl }: InspectorProps) {
+export function Inspector({ open, onClose, baseUrl, token }: InspectorProps) {
   const [tab, setTab] = useState<Tab>("sessions");
 
   if (!open) return null;
@@ -104,12 +104,12 @@ export function Inspector({ open, onClose, agentName, token, serverUrl }: Inspec
 
         {/* Content */}
         <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
-          {tab === "sessions" && <SessionsTab agentName={agentName} token={token} serverUrl={serverUrl} />}
-          {tab === "segments" && <SegmentsTab agentName={agentName} token={token} serverUrl={serverUrl} />}
-          {tab === "notes" && <NotesTab agentName={agentName} token={token} serverUrl={serverUrl} />}
-          {tab === "recall" && <RecallTab agentName={agentName} token={token} serverUrl={serverUrl} />}
-          {tab === "media" && <MediaTab agentName={agentName} token={token} serverUrl={serverUrl} />}
-          {tab === "context" && <ContextTab agentName={agentName} token={token} serverUrl={serverUrl} />}
+          {tab === "sessions" && <SessionsTab baseUrl={baseUrl} token={token} />}
+          {tab === "segments" && <SegmentsTab baseUrl={baseUrl} token={token} />}
+          {tab === "notes" && <NotesTab baseUrl={baseUrl} token={token} />}
+          {tab === "recall" && <RecallTab baseUrl={baseUrl} token={token} />}
+          {tab === "media" && <MediaTab baseUrl={baseUrl} token={token} />}
+          {tab === "context" && <ContextTab baseUrl={baseUrl} token={token} />}
         </div>
       </div>
     </div>

@@ -15,7 +15,7 @@ interface BubbleLayoutProps {
   thinking: boolean;
   agentName?: string;
   token?: string;
-  serverUrl?: string;
+  baseUrl?: string;
   showTools: boolean;
   coloredTools: boolean;
   peekLastTool: boolean;
@@ -24,7 +24,7 @@ interface BubbleLayoutProps {
   loadingMore?: boolean;
 }
 
-export function BubbleLayout({ messages, streamParts, thinking, agentName, token, serverUrl, showTools, coloredTools, peekLastTool, loadMore, hasMore, loadingMore }: BubbleLayoutProps) {
+export function BubbleLayout({ messages, streamParts, thinking, agentName, token, baseUrl, showTools, coloredTools, peekLastTool, loadMore, hasMore, loadingMore }: BubbleLayoutProps) {
   const { containerRef, showScrollBtn, scrollToBottom, allMsgs, lastToolId, groups, showDots, loadingMore: isLoadingMore } = useChat({
     agentName, messages, streamParts, thinking, showTools, peekLastTool, loadMore, hasMore, loadingMore,
   });
@@ -41,7 +41,7 @@ export function BubbleLayout({ messages, streamParts, thinking, agentName, token
     }
 
     // Delegate plugin-owned roles to plugin renderers
-    const pluginNode = renderPluginMessage(msg, { agentName: agentName || "", token: token || "", serverUrl });
+    const pluginNode = renderPluginMessage(msg, { agentName: agentName || "", token: token || "", baseUrl: baseUrl || "" });
     if (pluginNode) {
       return <div key={msg.id} className="flex justify-start">{pluginNode}</div>;
     }
@@ -61,7 +61,7 @@ export function BubbleLayout({ messages, streamParts, thinking, agentName, token
           )}
 
           {msg.media && msg.media.length > 0 && (
-            <MediaAttachments media={msg.media} agentName={agentName} token={token} serverUrl={serverUrl} />
+            <MediaAttachments media={msg.media} baseUrl={baseUrl} token={token} />
           )}
 
           {(msg.text || !msg.media?.length) && (

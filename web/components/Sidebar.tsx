@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import type { AgentInfo } from "../lib/types";
 import { useAgent } from "../hooks/useAgent";
-import { agentKey } from "../hooks/useServers";
+import { agentKey } from "../hooks/useAgents";
 import { renderPluginSidebars } from "../plugins/registry";
 import { avatarColor } from "../lib/colors";
 
@@ -113,10 +113,11 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
     return () => window.removeEventListener("resize", check);
   }, [userSet]);
 
-  // Group agents by server
+  // Group agents by server — proxy agents have "/api/agents/" in baseUrl
   const grouped = new Map<string, AgentInfo[]>();
   for (const agent of agents) {
-    const server = agent.serverUrl || "local";
+    const proxyIdx = agent.baseUrl.indexOf("/api/agents/");
+    const server = proxyIdx >= 0 ? (agent.baseUrl.slice(0, proxyIdx) || "local") : "direct";
     if (!grouped.has(server)) grouped.set(server, []);
     grouped.get(server)!.push(agent);
   }

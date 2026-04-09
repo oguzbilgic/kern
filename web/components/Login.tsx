@@ -21,7 +21,7 @@ export function Login({ onLogin }: LoginProps) {
     setError(null);
 
     try {
-      await api.fetchAgents(t);
+      await api.fetchAgents("", t);
       onLogin(t);
     } catch {
       setError("Invalid token or server unreachable");

@@ -20,16 +20,16 @@ function formatBytes(bytes: number) {
   return (bytes / 1048576).toFixed(1) + " MB";
 }
 
-export function MediaTab({ agentName, token, serverUrl }: TabProps) {
+export function MediaTab({ baseUrl, token }: TabProps) {
   const [data, setData] = useState<{ files: any[]; stats: any } | null>(null);
   const [filter, setFilter] = useState<"all" | "images" | "documents">("all");
   const [selected, setSelected] = useState<any>(null);
 
   useEffect(() => {
-    api.getMediaList(agentName, token, serverUrl)
+    api.getMediaList(baseUrl, token)
       .then((d) => setData(d || { files: [], stats: {} }))
       .catch(() => setData({ files: [], stats: {} }));
-  }, [agentName, token, serverUrl]);
+  }, [baseUrl, token]);
 
   if (!data) return <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading...</div>;
 
@@ -42,8 +42,7 @@ export function MediaTab({ agentName, token, serverUrl }: TabProps) {
     : files;
 
   const mediaUrl = (file: string) => {
-    const base = serverUrl ? `${serverUrl}/api/agents/${agentName}` : `/api/agents/${agentName}`;
-    return `${base}/media/${file}${token ? "?token=" + encodeURIComponent(token) : ""}`;
+    return `${baseUrl}/media/${file}${token ? "?token=" + encodeURIComponent(token) : ""}`;
   };
 
   return (

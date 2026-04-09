@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, type DragEvent } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { useServers, agentKey } from "../hooks/useServers";
+import { useAgents, agentKey } from "../hooks/useAgents";
 import { useAgent } from "../hooks/useAgent";
 import { Login } from "../components/Login";
 import { Sidebar } from "../components/Sidebar";
@@ -21,7 +21,7 @@ import type { Attachment } from "../lib/types";
 export default function Home() {
   const { token, setToken } = useAuth();
   const validToken = token ?? null;
-  const { agents, activeAgent, active, setActive, addServer, removeServer } = useServers(validToken);
+  const { agents, activeAgent, active, setActive, addServer, removeServer, addDirectAgent, removeDirectAgent } = useAgents(validToken);
   const [dragOver, setDragOver] = useState(false);
   const [externalAttachments, setExternalAttachments] = useState<Attachment[]>([]);
   const { prefs, setPrefs } = usePreferences();
@@ -34,9 +34,8 @@ export default function Home() {
 
   // Register memory inspector tabs as modal surfaces
   useMemorySurfaces({
-    agentName: activeAgent?.name || "",
+    baseUrl: activeAgent?.baseUrl || "",
     token: activeAgent?.token || null,
-    serverUrl: activeAgent?.serverUrl,
   });
 
   const { messages, streamParts, thinking, activity, activityDetail, connected, status, send, loadMore, hasMore, loadingMore } = useAgent(activeAgent, { withHistory: true });
@@ -178,7 +177,7 @@ export default function Home() {
             {activeAgent && renderPluginHeaders({
               agentName: activeAgent.name,
               token: activeAgent.token,
-              serverUrl: activeAgent.serverUrl,
+              baseUrl: activeAgent.baseUrl,
             })}
             <button
               onClick={() => setModalSurface(MEMORY_SURFACE_ID)}
@@ -201,7 +200,7 @@ export default function Home() {
           thinking={thinking}
           agentName={activeAgent?.name}
           token={activeAgent?.token ?? undefined}
-          serverUrl={activeAgent?.serverUrl}
+          baseUrl={activeAgent?.baseUrl}
           layout={prefs.chatLayout}
           showTools={prefs.showTools}
           coloredTools={prefs.coloredTools}
