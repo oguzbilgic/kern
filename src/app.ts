@@ -114,7 +114,6 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   }
 
   const agentName = basename(agentDir);
-  await registerAgent(agentDir);
   process.chdir(agentDir);
 
   // Initialize pairing

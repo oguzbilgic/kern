@@ -174,7 +174,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     const agents = await loadAgents();
     const result = agents.map((a) => ({
       name: a.name,
-      running: !!(a.pid && isProcessRunning(a.pid!)),
+      running: !!(a.pid && isProcessRunning(a.pid)),
     }));
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(result));
@@ -188,7 +188,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     const agents = await loadAgents();
     const agent = agents.find((a) => a.name === agentName);
 
-    if (!agent || !agent.port || !agent.pid || !isProcessRunning(agent.pid!)) {
+    if (!agent || !agent.port || !agent.pid || !isProcessRunning(agent.pid)) {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "agent not found or not running" }));
       return;

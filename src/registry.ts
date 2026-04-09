@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir } from "fs/promises";
+import { readFile, writeFile, mkdir, unlink, appendFile } from "fs/promises";
 import { join, basename } from "path";
 import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
@@ -77,7 +77,6 @@ async function migrateTokenToAgent(agentPath: string, token: string): Promise<vo
       if (content.includes("KERN_AUTH_TOKEN=")) return; // will be renamed on load
     }
     await mkdir(join(agentPath, ".kern"), { recursive: true });
-    const { appendFile } = await import("fs/promises");
     await appendFile(envPath, `KERN_TOKEN=${token}\n`);
   } catch {}
 }
@@ -194,7 +193,6 @@ export async function writePidFile(agentDir: string, pid: number): Promise<void>
 export async function removePidFile(agentDir: string): Promise<void> {
   const pidPath = join(agentDir, ".kern", "agent.pid");
   try {
-    const { unlink } = await import("fs/promises");
     await unlink(pidPath);
   } catch {}
 }
