@@ -21,4 +21,4 @@ export function usePluginInit(agents: AgentInfo[], activeAgent: AgentInfo | null
 }
 
 export { getPlugins } from "./registry";
-export type { UIPlugin, RenderContext, SidebarContext, HeaderContext, PanelContext } from "./registry";
+export type { UIPlugin, RenderContext, SidebarContext, HeaderContext } from "./registry";

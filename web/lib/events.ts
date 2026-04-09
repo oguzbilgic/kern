@@ -20,13 +20,11 @@ export function processStreamEvent(
   parts: ChatMessage[];
   append: ChatMessage[];
   flush: boolean;
-  panelRender?: { html: string; title: string };
 } {
   const result = {
     parts: [...parts],
     append: [] as ChatMessage[],
     flush: false,
-    panelRender: undefined as { html: string; title: string } | undefined,
   };
 
   switch (ev.type) {
@@ -157,7 +155,6 @@ export function processStreamEvent(
       if (pluginResult) {
         const target = inTurn ? result.parts : result.append;
         if (pluginResult.message) target.push(pluginResult.message);
-        if (pluginResult.panelOpen) result.panelRender = pluginResult.panelOpen;
       }
       break;
     }

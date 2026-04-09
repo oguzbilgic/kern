@@ -4,16 +4,20 @@
  * Self-contained plugin that handles all render/dashboard functionality.
  * The core web app delegates to this via the plugin registry.
  * No dashboard-specific types, imports, or logic exists in core.
+ *
+ * Panel display is handled via the Surface system — the plugin registers
+ * a panel surface when a dashboard is open. Core's SurfacePanel provides
+ * all chrome (resize, title, close). Plugin only provides content (iframe).
  */
 
-export { RenderBlock, RenderCard, RenderPanel, DashboardButton, DashboardSidebar, getDashboardData } from "./components";
+export { RenderBlock, RenderCard, DashboardButton, DashboardSidebar, DashboardIframe, getDashboardData } from "./components";
 export { useDashboards } from "./useDashboards";
 
 import type { ReactNode } from "react";
 import { createElement } from "react";
 import type { ChatMessage, StreamEvent } from "../../lib/types";
-import type { UIPlugin, RenderContext, SidebarContext, HeaderContext, PanelContext } from "../registry";
-import { RenderBlock, RenderCard, DashboardButton, DashboardSidebar, RenderPanel, getDashboardData } from "./components";
+import type { UIPlugin, RenderContext, SidebarContext, HeaderContext } from "../registry";
+import { RenderBlock, RenderCard, DashboardButton, DashboardSidebar, getDashboardData } from "./components";
 import { getDashboardStore } from "./useDashboards";
 
 // --- Dashboard-local types (not exported to core) ---
@@ -70,9 +74,8 @@ export function isRenderToolCall(toolName: string): boolean {
 
 export const dashboardPlugin: UIPlugin = {
   name: PLUGIN_NAME,
-  panelMinChatWidth: 360,
 
-  handleStreamEvent(ev: StreamEvent, inTurn: boolean) {
+  handleStreamEvent(ev: StreamEvent) {
     if (ev.type !== "render") return null;
     const render = (ev as { render: { html: string; dashboard?: string | null; target: string; title: string } }).render;
     const title = render.title || "Render";
@@ -89,16 +92,13 @@ export const dashboardPlugin: UIPlugin = {
       },
     };
 
-    // If panel target, also tell the store to open
+    // If panel target, tell the store to open (which registers a surface)
     if (target === "panel") {
       const store = getDashboardStore();
       store?.openPanel(render.html, title, render.dashboard ?? undefined);
     }
 
-    return {
-      message: msg,
-      panelOpen: target === "panel" ? { html: render.html, title } : undefined,
-    };
+    return { message: msg };
   },
 
   handleHistoryToolResult(toolName: string, output: string) {
@@ -141,7 +141,6 @@ export const dashboardPlugin: UIPlugin = {
     const store = getDashboardStore();
     const onOpen = (html: string, title: string) => {
       store?.openPanel(html, title);
-      ctx.onOpenPanel?.(html, title);
     };
     if (target === "panel") {
       return createElement(RenderCard, { msg, onOpenPanel: onOpen });
@@ -160,35 +159,6 @@ export const dashboardPlugin: UIPlugin = {
       token: ctx.token,
       serverUrl: ctx.serverUrl,
       onOpenDashboard: (name: string) => store?.loadAndOpen(name, ctx.agentName, ctx.serverUrl || "", ctx.token),
-    });
-  },
-
-  hasPanel(): boolean {
-    const store = getDashboardStore();
-    return !!store?.panelHtml;
-  },
-
-  closePanel(): void {
-    const store = getDashboardStore();
-    store?.closePanel();
-  },
-
-  renderPanel(ctx: PanelContext): ReactNode | null {
-    const store = getDashboardStore();
-    if (!store?.panelHtml) return null;
-    return createElement(RenderPanel, {
-      html: store.panelHtml.html,
-      title: store.panelHtml.title,
-      dashboards: store.dashboardList,
-      activeDashboard: store.panelHtml.dashboard,
-      onSwitchDashboard: (name: string) => {
-        const agent = store.activeAgent;
-        if (agent) store.loadAndOpen(name, agent.name, agent.serverUrl || "", agent.token || "");
-      },
-      onClose: () => {
-        store.closePanel();
-        ctx.onClose();
-      },
     });
   },
 };

@@ -22,7 +22,6 @@ interface FlatLayoutProps {
   loadMore?: () => Promise<void>;
   hasMore?: boolean;
   loadingMore?: boolean;
-  onOpenPanel?: (html: string, title: string) => void;
 }
 
 function Avatar({ name, isUser }: { name: string; isUser: boolean }) {
@@ -35,7 +34,7 @@ function Avatar({ name, isUser }: { name: string; isUser: boolean }) {
   );
 }
 
-export function FlatLayout({ messages, streamParts, thinking, agentName, token, serverUrl, showTools, coloredTools, peekLastTool, loadMore, hasMore, loadingMore, onOpenPanel }: FlatLayoutProps) {
+export function FlatLayout({ messages, streamParts, thinking, agentName, token, serverUrl, showTools, coloredTools, peekLastTool, loadMore, hasMore, loadingMore }: FlatLayoutProps) {
   const { containerRef, bottomRef, showScrollBtn, scrollToBottom, allMsgs, lastToolId, groups, showDots, loadingMore: isLoadingMore } = useChat({
     messages, streamParts, thinking, showTools, peekLastTool, loadMore, hasMore, loadingMore,
   });
@@ -62,7 +61,7 @@ export function FlatLayout({ messages, streamParts, thinking, agentName, token, 
     }
 
     // Delegate plugin-owned roles to plugin renderers
-    const pluginNode = renderPluginMessage(msg, { agentName: agentName || "", token: token || "", serverUrl, onOpenPanel });
+    const pluginNode = renderPluginMessage(msg, { agentName: agentName || "", token: token || "", serverUrl });
     if (pluginNode) {
       return <div key={msg.id} style={{ marginLeft: 42 }}>{pluginNode}</div>;
     }

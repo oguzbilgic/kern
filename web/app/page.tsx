@@ -8,11 +8,13 @@ import { Login } from "../components/Login";
 import { Sidebar } from "../components/Sidebar";
 import { Chat } from "../components/Chat";
 import { Input, fileToAttachment } from "../components/Input";
-import { Inspector } from "../components/Inspector";
 import { InfoPanel, PinnedStats } from "../components/InfoPanel";
 import { ThemePicker, usePreferences } from "../components/ThemePicker";
 import { ThinkingDots } from "../components/ThinkingDots";
-import { renderPluginHeaders, renderPluginPanel, hasPluginPanel, pluginPanelMinChatWidth } from "../plugins/registry";
+import { SurfaceModal, SurfacePanel, panelMinChatWidth } from "../components/SurfaceManager";
+import { useSurfaces } from "../lib/surfaces";
+import { useMemorySurfaces, MEMORY_SURFACE_ID } from "../components/inspector";
+import { renderPluginHeaders } from "../plugins/registry";
 import { usePluginInit } from "../plugins";
 import type { Attachment } from "../lib/types";
 
@@ -23,18 +25,20 @@ export default function Home() {
   const [dragOver, setDragOver] = useState(false);
   const [externalAttachments, setExternalAttachments] = useState<Attachment[]>([]);
   const { prefs, setPrefs } = usePreferences();
-  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [modalSurface, setModalSurface] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
-  const [, setPanelTick] = useState(0); // force re-render when plugin panel state changes
 
   // Initialize plugin hooks (dashboard discovery, etc.)
   usePluginInit(agents, activeAgent);
 
-  const handleOpenPanel = useCallback(() => {
-    setPanelTick(t => t + 1);
-  }, []);
+  // Register memory inspector tabs as modal surfaces
+  useMemorySurfaces({
+    agentName: activeAgent?.name || "",
+    token: activeAgent?.token || null,
+    serverUrl: activeAgent?.serverUrl,
+  });
 
-  const { messages, streamParts, thinking, activity, activityDetail, connected, status, send, loadMore, hasMore, loadingMore } = useAgent(activeAgent, { withHistory: true, onOpenPanel: handleOpenPanel });
+  const { messages, streamParts, thinking, activity, activityDetail, connected, status, send, loadMore, hasMore, loadingMore } = useAgent(activeAgent, { withHistory: true });
   const [pinned, setPinned] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     try {
@@ -109,7 +113,7 @@ export default function Home() {
     window.location.reload();
   }
 
-  const showPanel = hasPluginPanel();
+  const { hasPanels: showPanel } = useSurfaces();
 
   return (
     <div className="flex h-full w-full">
@@ -125,7 +129,7 @@ export default function Home() {
 
       <div
         className="flex-1 flex flex-col relative"
-        style={{ minWidth: showPanel ? pluginPanelMinChatWidth() : 0 }}
+        style={{ minWidth: showPanel ? panelMinChatWidth() : 0 }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={(e) => {
           if (e.currentTarget.contains(e.relatedTarget as Node)) return;
@@ -173,7 +177,7 @@ export default function Home() {
               serverUrl: activeAgent.serverUrl,
             })}
             <button
-              onClick={() => setInspectorOpen(true)}
+              onClick={() => setModalSurface(MEMORY_SURFACE_ID)}
               className="px-1.5 py-1 text-sm rounded text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-surface)] transition-colors leading-none cursor-pointer"
               title="Memory"
             >
@@ -201,7 +205,6 @@ export default function Home() {
           loadMore={loadMore}
           hasMore={hasMore}
           loadingMore={loadingMore}
-          onOpenPanel={handleOpenPanel}
         />
 
         {thinking && (
@@ -219,18 +222,14 @@ export default function Home() {
         />
       </div>
 
-      {activeAgent && (
-        <Inspector
-          open={inspectorOpen}
-          onClose={() => setInspectorOpen(false)}
-          agentName={activeAgent.name}
-          token={activeAgent.token}
-          serverUrl={activeAgent.serverUrl}
-        />
-      )}
+      {/* Surface: modal overlay (Memory inspector, etc.) */}
+      <SurfaceModal
+        openSurface={modalSurface}
+        onClose={() => setModalSurface(null)}
+      />
 
-      {/* Plugin panels */}
-      {showPanel && renderPluginPanel({ onClose: () => setPanelTick(t => t + 1) })}
+      {/* Surface: side panel (dashboards, etc.) */}
+      {showPanel && <SurfacePanel />}
     </div>
   );
 }

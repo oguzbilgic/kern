@@ -22,10 +22,9 @@ interface BubbleLayoutProps {
   loadMore?: () => Promise<void>;
   hasMore?: boolean;
   loadingMore?: boolean;
-  onOpenPanel?: (html: string, title: string) => void;
 }
 
-export function BubbleLayout({ messages, streamParts, thinking, agentName, token, serverUrl, showTools, coloredTools, peekLastTool, loadMore, hasMore, loadingMore, onOpenPanel }: BubbleLayoutProps) {
+export function BubbleLayout({ messages, streamParts, thinking, agentName, token, serverUrl, showTools, coloredTools, peekLastTool, loadMore, hasMore, loadingMore }: BubbleLayoutProps) {
   const { containerRef, bottomRef, showScrollBtn, scrollToBottom, allMsgs, lastToolId, groups, showDots, loadingMore: isLoadingMore } = useChat({
     messages, streamParts, thinking, showTools, peekLastTool, loadMore, hasMore, loadingMore,
   });
@@ -42,7 +41,7 @@ export function BubbleLayout({ messages, streamParts, thinking, agentName, token
     }
 
     // Delegate plugin-owned roles to plugin renderers
-    const pluginNode = renderPluginMessage(msg, { agentName: agentName || "", token: token || "", serverUrl, onOpenPanel });
+    const pluginNode = renderPluginMessage(msg, { agentName: agentName || "", token: token || "", serverUrl });
     if (pluginNode) {
       return <div key={msg.id} className="flex justify-start">{pluginNode}</div>;
     }

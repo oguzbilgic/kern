@@ -107,6 +107,19 @@ export function RenderCard({ msg, onOpenPanel }: { msg: ChatMessage; onOpenPanel
   );
 }
 
+/** Pure iframe content for panel surface — no chrome, just the rendered HTML */
+export function DashboardIframe({ html }: { html: string }) {
+  const wrappedHtml = wrapHtml(html);
+  return (
+    <iframe
+      srcDoc={wrappedHtml}
+      sandbox="allow-scripts"
+      className="w-full h-full border-0"
+      style={{ background: "transparent" }}
+    />
+  );
+}
+
 /** Dashboard header button with dropdown */
 export function DashboardButton({ agentName, token, serverUrl, onOpenDashboard }: {
   agentName?: string;
@@ -168,86 +181,6 @@ export function DashboardButton({ agentName, token, serverUrl, onOpenDashboard }
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-/** Resizable side panel for rendered content */
-export function RenderPanel({ html, title, dashboards, activeDashboard, onSwitchDashboard, onClose }: {
-  html: string;
-  title: string;
-  dashboards?: string[];
-  activeDashboard?: string;
-  onSwitchDashboard?: (name: string) => void;
-  onClose: () => void;
-}) {
-  const [width, setWidth] = useState(() => {
-    if (typeof window !== "undefined") {
-      const available = window.innerWidth - 400;
-      return Math.max(480, Math.min(Math.floor(available * 0.55), 800));
-    }
-    return 480;
-  });
-  const dragging = useRef(false);
-  const startX = useRef(0);
-  const startW = useRef(0);
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!dragging.current) return;
-      const delta = startX.current - e.clientX;
-      setWidth(Math.max(280, Math.min(startW.current + delta, 800)));
-    };
-    const onUp = () => { dragging.current = false; document.body.style.cursor = ""; document.body.style.userSelect = ""; };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
-  }, []);
-
-  const onDragStart = (e: React.MouseEvent) => {
-    dragging.current = true;
-    startX.current = e.clientX;
-    startW.current = width;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-  };
-
-  const wrappedHtml = wrapHtml(html);
-
-  return (
-    <div className="flex flex-col flex-shrink-0 relative" style={{ width }}>
-      <div
-        onMouseDown={onDragStart}
-        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-[var(--accent)] transition-colors z-10"
-        style={{ background: "var(--border)" }}
-      />
-      <div className="h-12 border-b border-[var(--border)] flex items-center justify-between px-4 flex-shrink-0 ml-1">
-        <div className="flex items-center gap-2 min-w-0">
-          <DashIcon size={13} className="text-[var(--text-muted)] flex-shrink-0" />
-          {dashboards && dashboards.length > 1 && onSwitchDashboard ? (
-            <select
-              value={activeDashboard || ""}
-              onChange={e => onSwitchDashboard(e.target.value)}
-              className="text-sm font-semibold bg-transparent border-none outline-none cursor-pointer truncate text-[var(--text)]"
-              style={{ appearance: "auto" }}
-            >
-              {dashboards.map(d => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-          ) : (
-            <span className="text-sm font-semibold truncate">{title}</span>
-          )}
-        </div>
-        <button onClick={onClose}
-          className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors cursor-pointer text-base leading-none ml-2">✕</button>
-      </div>
-      <iframe
-        srcDoc={wrappedHtml}
-        sandbox="allow-scripts"
-        className="flex-1 w-full border-0 ml-1"
-        style={{ background: "transparent" }}
-      />
     </div>
   );
 }

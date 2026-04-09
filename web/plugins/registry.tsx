@@ -12,7 +12,6 @@ export interface UIPlugin {
   /** Handle a stream event. Return ChatMessage to add to chat, or null to skip. */
   handleStreamEvent?: (ev: StreamEvent, inTurn: boolean) => {
     message?: ChatMessage;
-    panelOpen?: { html: string; title: string };
     hideToolCall?: boolean;
   } | null;
 
@@ -36,25 +35,12 @@ export interface UIPlugin {
 
   /** Render header buttons */
   renderHeader?: (ctx: HeaderContext) => ReactNode | null;
-
-  /** Render a side panel (returns null if plugin has no panel to show) */
-  renderPanel?: (ctx: PanelContext) => ReactNode | null;
-
-  /** Whether the plugin currently has an active panel */
-  hasPanel?: () => boolean;
-
-  /** Close the plugin's panel */
-  closePanel?: () => void;
-
-  /** Minimum chat width when panel is open */
-  panelMinChatWidth?: number;
 }
 
 export interface RenderContext {
   agentName: string;
   token: string;
   serverUrl?: string;
-  onOpenPanel?: (html: string, title: string) => void;
 }
 
 export interface SidebarContext {
@@ -67,10 +53,6 @@ export interface HeaderContext {
   agentName: string;
   serverUrl?: string;
   token: string;
-}
-
-export interface PanelContext {
-  onClose: () => void;
 }
 
 // --- Registry ---
@@ -114,29 +96,4 @@ export function renderPluginHeaders(ctx: HeaderContext): ReactNode[] {
     if (node) nodes.push(node);
   }
   return nodes;
-}
-
-/** Find the first plugin with an active panel and render it */
-export function renderPluginPanel(ctx: PanelContext): ReactNode | null {
-  for (const plugin of plugins) {
-    if (plugin.hasPanel?.()) {
-      return plugin.renderPanel?.(ctx) ?? null;
-    }
-  }
-  return null;
-}
-
-/** Check if any plugin has an active panel */
-export function hasPluginPanel(): boolean {
-  return plugins.some(p => p.hasPanel?.());
-}
-
-/** Get the minimum chat width required by active panel plugin */
-export function pluginPanelMinChatWidth(): number {
-  for (const plugin of plugins) {
-    if (plugin.hasPanel?.() && plugin.panelMinChatWidth) {
-      return plugin.panelMinChatWidth;
-    }
-  }
-  return 0;
 }
