@@ -3,6 +3,7 @@
 ## next
 
 ### Fixes
+- Chat now uses reverse-flow scrolling — browser-native bottom pinning eliminates scroll flicker, agent switch jump, and streaming jank ([#114](https://github.com/oguzbilgic/kern-ai/issues/114))
 - Unread counter no longer reappears after switching away from an agent ([#112](https://github.com/oguzbilgic/kern-ai/issues/112))
 - Desktop app: logout from web UI now returns to desktop connect screen instead of web login page ([#110](https://github.com/oguzbilgic/kern-ai/pull/110))
 - Side panel resize no longer grows beyond available space, preventing close button from being pushed off-screen ([#111](https://github.com/oguzbilgic/kern-ai/pull/111))
