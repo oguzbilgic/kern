@@ -72,7 +72,7 @@ Two layers:
 
 ### Agent discovery
 
-- **Local agents** are auto-discovered from `~/.kern/agents.json`
+- **Local agents** are auto-discovered from `~/.kern/config.json`
 - **Remote servers** can be added in the sidebar ("Add server" with URL + token)
 
 ### Global config

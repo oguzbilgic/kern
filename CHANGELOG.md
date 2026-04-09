@@ -4,7 +4,8 @@
 
 ### Features
 - **Self-contained agents** ([#126](https://github.com/oguzbilgic/kern-ai/issues/126)) — all agent runtime state (port, token, PID) now lives in the agent's own `.kern/` directory instead of a central registry
-  - `~/.kern/agents.json` simplified from complex records to a plain list of agent directory paths
+  - Agent list moved from `~/.kern/agents.json` to `agents` field in `~/.kern/config.json` — one global config file for everything
+  - Legacy `agents.json` auto-migrates on first load and gets deleted
   - New `port` config field: set a fixed port for direct network connections (default `0` = random)
   - Server binds `0.0.0.0` by default, enabling direct connections over Tailscale or LAN
 
