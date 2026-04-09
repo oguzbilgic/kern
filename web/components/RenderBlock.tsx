@@ -3,9 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import type { ChatMessage } from "../lib/types";
 
-export function RenderBlock({ msg }: { msg: ChatMessage }) {
+export function RenderBlock({ msg, onOpenPanel }: { msg: ChatMessage; onOpenPanel?: (html: string, title: string) => void }) {
   const [showSource, setShowSource] = useState(false);
-  const [fullscreen, setFullscreen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(200);
 
@@ -47,16 +46,18 @@ export function RenderBlock({ msg }: { msg: ChatMessage }) {
         <div className="flex gap-2">
           <button
             onClick={() => setShowSource(!showSource)}
-            className="text-[var(--text-muted)] hover:text-[var(--text-dim)] transition-colors"
+            className="text-[var(--text-muted)] hover:text-[var(--text-dim)] transition-colors cursor-pointer"
             title={showSource ? "Show render" : "Show source"}>
             {showSource ? "▶" : "{ }"}
           </button>
-          <button
-            onClick={() => setFullscreen(!fullscreen)}
-            className="text-[var(--text-muted)] hover:text-[var(--text-dim)] transition-colors"
-            title={fullscreen ? "Exit fullscreen" : "Fullscreen"}>
-            {fullscreen ? "✕" : "⛶"}
-          </button>
+          {onOpenPanel && (
+            <button
+              onClick={() => onOpenPanel(html, title)}
+              className="text-[var(--text-muted)] hover:text-[var(--text-dim)] transition-colors cursor-pointer"
+              title="Open in panel">
+              ⧉
+            </button>
+          )}
         </div>
       </div>
 
@@ -71,17 +72,12 @@ export function RenderBlock({ msg }: { msg: ChatMessage }) {
           ref={iframeRef}
           srcDoc={wrappedHtml}
           sandbox="allow-scripts"
-          className={`w-full border-0 rounded-b-lg ${fullscreen ? "fixed inset-0 z-50 rounded-none" : ""}`}
+          className="w-full border-0 rounded-b-lg"
           style={{
-            height: fullscreen ? "100vh" : height,
+            height,
             background: "transparent",
           }}
         />
-      )}
-
-      {/* Fullscreen backdrop */}
-      {fullscreen && (
-        <div className="fixed inset-0 z-40 bg-black/80" onClick={() => setFullscreen(false)} />
       )}
     </div>
   );

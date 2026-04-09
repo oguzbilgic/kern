@@ -24,6 +24,7 @@ export default function Home() {
   const { prefs, setPrefs } = usePreferences();
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [panelHtml, setPanelHtml] = useState<{ html: string; title: string } | null>(null);
   const [pinned, setPinned] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     try {
@@ -182,6 +183,7 @@ export default function Home() {
           loadMore={loadMore}
           hasMore={hasMore}
           loadingMore={loadingMore}
+          onOpenPanel={(html, title) => setPanelHtml({ html, title })}
         />
 
         {thinking && (
@@ -207,6 +209,25 @@ export default function Home() {
           token={activeAgent.token}
           serverUrl={activeAgent.serverUrl}
         />
+      )}
+
+      {/* Render panel */}
+      {panelHtml && (
+        <div className="flex flex-col border-l border-[var(--border)]" style={{ width: 480, minWidth: 320, flexShrink: 0 }}>
+          <div className="h-12 border-b border-[var(--border)] flex items-center justify-between px-4 flex-shrink-0">
+            <span className="text-sm font-semibold">{panelHtml.title}</span>
+            <button
+              onClick={() => setPanelHtml(null)}
+              className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors cursor-pointer text-base leading-none"
+            >✕</button>
+          </div>
+          <iframe
+            srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}body{margin:0;padding:0;background:transparent;color:#e0e0e0;font-family:-apple-system,sans-serif}</style></head><body>${panelHtml.html}</body></html>`}
+            sandbox="allow-scripts"
+            className="flex-1 w-full border-0"
+            style={{ background: "transparent" }}
+          />
+        </div>
       )}
     </div>
   );

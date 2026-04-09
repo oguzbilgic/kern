@@ -4,7 +4,7 @@ import type { ChatMessage } from "../lib/types";
 import { BubbleLayout } from "./layouts/BubbleLayout";
 import { FlatLayout } from "./layouts/FlatLayout";
 
-interface ChatProps {
+export interface ChatProps {
   messages: ChatMessage[];
   streamParts: ChatMessage[];
   thinking: boolean;
@@ -18,10 +18,11 @@ interface ChatProps {
   loadMore?: () => Promise<void>;
   hasMore?: boolean;
   loadingMore?: boolean;
+  onOpenPanel?: (html: string, title: string) => void;
 }
 
-export function Chat({ messages, streamParts, thinking, agentName, token, serverUrl, layout, showTools = true, coloredTools = true, peekLastTool = true, loadMore, hasMore, loadingMore }: ChatProps) {
-  const shared = { messages, streamParts, thinking, agentName, token, serverUrl, showTools, coloredTools, peekLastTool, loadMore, hasMore, loadingMore };
+export function Chat({ messages, streamParts, thinking, agentName, token, serverUrl, layout, showTools = true, coloredTools = true, peekLastTool = true, loadMore, hasMore, loadingMore, onOpenPanel }: ChatProps) {
+  const shared = { messages, streamParts, thinking, agentName, token, serverUrl, showTools, coloredTools, peekLastTool, loadMore, hasMore, loadingMore, onOpenPanel };
 
   if (layout === "flat") {
     return <FlatLayout {...shared} />;

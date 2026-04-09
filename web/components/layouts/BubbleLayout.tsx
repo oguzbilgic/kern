@@ -22,9 +22,10 @@ interface BubbleLayoutProps {
   loadMore?: () => Promise<void>;
   hasMore?: boolean;
   loadingMore?: boolean;
+  onOpenPanel?: (html: string, title: string) => void;
 }
 
-export function BubbleLayout({ messages, streamParts, thinking, agentName, token, serverUrl, showTools, coloredTools, peekLastTool, loadMore, hasMore, loadingMore }: BubbleLayoutProps) {
+export function BubbleLayout({ messages, streamParts, thinking, agentName, token, serverUrl, showTools, coloredTools, peekLastTool, loadMore, hasMore, loadingMore, onOpenPanel }: BubbleLayoutProps) {
   const { containerRef, bottomRef, showScrollBtn, scrollToBottom, allMsgs, lastToolId, groups, showDots, loadingMore: isLoadingMore } = useChat({
     messages, streamParts, thinking, showTools, peekLastTool, loadMore, hasMore, loadingMore,
   });
@@ -43,7 +44,7 @@ export function BubbleLayout({ messages, streamParts, thinking, agentName, token
     if (msg.role === "render") {
       return (
         <div key={msg.id} className="flex justify-start">
-          <RenderBlock msg={msg} />
+          <RenderBlock msg={msg} onOpenPanel={onOpenPanel} />
         </div>
       );
     }
