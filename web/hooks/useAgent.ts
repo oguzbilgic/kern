@@ -197,9 +197,8 @@ export function useAgent(
             setActivity(toolActivity(ev.toolName));
             setActivityDetail(toolDetail(ev.toolName, ev.toolInput as Record<string, unknown>));
           } else if (ev.type === "tool-result") {
-            inTurnRef.current = true;
+            inTurnRef.current = false; // Reset so next text segment counts as new message
             setThinking(true);
-            // Keep current tool activity visible
           } else if (ev.type === "text-delta") {
             inTurnRef.current = true;
             setThinking(true);
@@ -240,22 +239,24 @@ export function useAgent(
             setActivity(toolActivity(ev.toolName));
             setActivityDetail(toolDetail(ev.toolName, ev.toolInput as Record<string, unknown>));
           } else if (ev.type === "tool-result") {
-            inTurnRef.current = true;
+            inTurnRef.current = false; // Reset so next text segment counts as new message
             setThinking(true);
-            // Keep current tool activity visible
           } else if (ev.type === "text-delta") {
+            // Count first text chunk as one unread message per response
+            if (!withHistory && !inTurnRef.current) {
+              setUnread((n) => n + 1);
+            }
             inTurnRef.current = true;
             setThinking(true);
+          } else if (ev.type === "incoming") {
+            // Count each incoming cross-channel message
+            if (!withHistory) {
+              const text = ev.text?.trim() || "";
+              if (text) setUnread((n) => n + 1);
+            }
           } else if (ev.type === "finish") {
             inTurnRef.current = false;
             setThinking(false);
-            // Don't count NO_REPLY, empty, or active agent responses as unread
-            if (!withHistory) {
-              const resp = ev.text?.trim() || "";
-              if (resp && resp !== "NO_REPLY" && resp !== "(no text response)") {
-                setUnread((n) => n + 1);
-              }
-            }
           } else if (ev.type === "error") {
             inTurnRef.current = false;
             setThinking(false);

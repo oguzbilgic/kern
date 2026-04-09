@@ -3,6 +3,7 @@
 ## next
 
 ### Fixes
+- Unread counter now counts per text message instead of per turn — text after tool calls counts separately ([#118](https://github.com/oguzbilgic/kern-ai/pull/118))
 - Input field auto-focuses on agent switch and initial page load ([#117](https://github.com/oguzbilgic/kern-ai/pull/117))
 - Chat now uses reverse-flow scrolling — browser-native bottom pinning eliminates scroll flicker, agent switch jump, and streaming jank ([#114](https://github.com/oguzbilgic/kern-ai/issues/114))
 - Unread counter no longer reappears after switching away from an agent ([#112](https://github.com/oguzbilgic/kern-ai/issues/112))
