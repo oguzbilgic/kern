@@ -13,59 +13,75 @@ function AgentRow({
   activeThinking,
   mini,
   onSelect,
+  onRemove,
 }: {
   agent: AgentInfo;
   isActive: boolean;
   activeThinking?: boolean;
   mini: boolean;
   onSelect: () => void;
+  onRemove?: () => void;
 }) {
   const light = useAgent(isActive ? null : agent, { withHistory: false });
   const thinking = isActive ? activeThinking : light.thinking;
   const unread = isActive ? 0 : light.unread;
 
   return (
-    <button
-      onClick={onSelect}
-      className={`flex items-center gap-2.5 w-full rounded-lg text-sm text-left transition-colors cursor-pointer p-2.5 mb-0.5 overflow-hidden ${
-        isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"
-      } ${!agent.running ? "opacity-50" : ""}`}
-      title={mini ? agent.name : undefined}
-    >
-      {/* Avatar with status dot / unread badge */}
-      <div className="relative flex-shrink-0">
-        <div
-          className="w-10 h-10 flex items-center justify-center text-[16px] font-bold uppercase"
-          style={{ borderRadius: "22%", backgroundColor: avatarColor(agent.name), color: "#fff" }}
-        >
-          {agent.name[0]}
-        </div>
-        {(thinking || !agent.running || (unread > 0 && !isActive)) && (
-          <span
-            className={`absolute flex items-center justify-center rounded-full border-2 border-[var(--bg-sidebar)] transition-all duration-200 ${
-              unread > 0 && !isActive
-                ? "w-[18px] h-[18px] -bottom-[3px] -right-[3px] bg-[var(--accent)] text-[10px] font-bold text-[var(--bg)]"
-                : "w-3 h-3 bottom-0 right-0"
-            } ${
-              thinking
-                ? "bg-[var(--accent)] [animation:dot-pulse_1.5s_ease-in-out_infinite]"
-                : unread > 0 && !isActive
-                  ? ""
-                  : "bg-[var(--text-muted)]"
-            }`}
+    <div className="relative group">
+      <button
+        onClick={onSelect}
+        className={`flex items-center gap-2.5 w-full rounded-lg text-sm text-left transition-colors cursor-pointer p-2.5 mb-0.5 overflow-hidden ${
+          isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"
+        } ${!agent.running ? "opacity-50" : ""}`}
+        title={mini ? agent.name : undefined}
+      >
+        {/* Avatar with status dot / unread badge */}
+        <div className="relative flex-shrink-0">
+          <div
+            className="w-10 h-10 flex items-center justify-center text-[16px] font-bold uppercase"
+            style={{ borderRadius: "22%", backgroundColor: avatarColor(agent.name), color: "#fff" }}
           >
-            {unread > 0 && !isActive ? (unread > 99 ? "99+" : unread) : ""}
-          </span>
-        )}
-      </div>
+            {agent.name[0]}
+          </div>
+          {(thinking || !agent.running || (unread > 0 && !isActive)) && (
+            <span
+              className={`absolute flex items-center justify-center rounded-full border-2 border-[var(--bg-sidebar)] transition-all duration-200 ${
+                unread > 0 && !isActive
+                  ? "w-[18px] h-[18px] -bottom-[3px] -right-[3px] bg-[var(--accent)] text-[10px] font-bold text-[var(--bg)]"
+                  : "w-3 h-3 bottom-0 right-0"
+              } ${
+                thinking
+                  ? "bg-[var(--accent)] [animation:dot-pulse_1.5s_ease-in-out_infinite]"
+                  : unread > 0 && !isActive
+                    ? ""
+                    : "bg-[var(--text-muted)]"
+              }`}
+            >
+              {unread > 0 && !isActive ? (unread > 99 ? "99+" : unread) : ""}
+            </span>
+          )}
+        </div>
 
-      {/* Name — always rendered, clipped by overflow */}
-      <div className="flex-1 min-w-0">
-        <span className="truncate whitespace-nowrap">{agent.name}</span>
-      </div>
-    </button>
+        {/* Name — always rendered, clipped by overflow */}
+        <div className="flex-1 min-w-0">
+          <span className="truncate whitespace-nowrap">{agent.name}</span>
+        </div>
+      </button>
+      {/* Remove button for direct agents */}
+      {onRemove && !mini && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[var(--text-muted)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Remove agent"
+        >
+          ×
+        </button>
+      )}
+    </div>
   );
 }
+
+type AddMode = "agent" | "server";
 
 interface SidebarProps {
   agents: AgentInfo[];
@@ -75,12 +91,16 @@ interface SidebarProps {
   onLogout?: () => void;
   onAddServer?: (url: string, token: string) => void;
   onRemoveServer?: (url: string) => void;
+  onAddAgent?: (name: string, url: string, token: string) => void;
+  onRemoveAgent?: (url: string) => void;
 }
 
-export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, onAddServer, onRemoveServer }: SidebarProps) {
+export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, onAddServer, onRemoveServer, onAddAgent, onRemoveAgent }: SidebarProps) {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [addMode, setAddMode] = useState<AddMode>("agent");
   const [newUrl, setNewUrl] = useState("");
   const [newToken, setNewToken] = useState("");
+  const [newName, setNewName] = useState("");
 
   // Mini/full state persisted in localStorage
   const [mini, setMini] = useState(() => {
@@ -113,20 +133,31 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
     return () => window.removeEventListener("resize", check);
   }, [userSet]);
 
-  // Group agents by server — proxy agents have "/api/agents/" in baseUrl
-  const grouped = new Map<string, AgentInfo[]>();
+  // Group agents: proxy agents have "/api/agents/" in baseUrl, direct don't
+  const proxyGroups = new Map<string, AgentInfo[]>();
+  const directAgents: AgentInfo[] = [];
   for (const agent of agents) {
     const proxyIdx = agent.baseUrl.indexOf("/api/agents/");
-    const server = proxyIdx >= 0 ? (agent.baseUrl.slice(0, proxyIdx) || "local") : "direct";
-    if (!grouped.has(server)) grouped.set(server, []);
-    grouped.get(server)!.push(agent);
+    if (proxyIdx >= 0) {
+      const server = agent.baseUrl.slice(0, proxyIdx) || "local";
+      if (!proxyGroups.has(server)) proxyGroups.set(server, []);
+      proxyGroups.get(server)!.push(agent);
+    } else {
+      directAgents.push(agent);
+    }
   }
 
-  function handleAddServer() {
-    if (!newUrl.trim()) return;
-    onAddServer?.(newUrl.trim(), newToken.trim());
+  function handleAdd() {
+    if (addMode === "server") {
+      if (!newUrl.trim()) return;
+      onAddServer?.(newUrl.trim(), newToken.trim());
+    } else {
+      if (!newUrl.trim() || !newName.trim()) return;
+      onAddAgent?.(newName.trim(), newUrl.trim(), newToken.trim());
+    }
     setNewUrl("");
     setNewToken("");
+    setNewName("");
     setShowAddModal(false);
   }
 
@@ -161,7 +192,8 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
 
       {/* Agent list */}
       <div className="flex-1 overflow-y-auto p-2">
-        {Array.from(grouped.entries()).map(([server, serverAgents]) => (
+        {/* Proxy server groups */}
+        {Array.from(proxyGroups.entries()).map(([server, serverAgents]) => (
           <div key={server} className="mb-1.5">
             {/* Server header — only for remote, clips in mini */}
             {server !== "local" && (
@@ -195,17 +227,37 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
           </div>
         ))}
 
+        {/* Direct agents */}
+        {directAgents.length > 0 && (
+          <div className="mb-1.5">
+            {directAgents.map((agent) => {
+              const key = agentKey(agent);
+              return (
+                <AgentRow
+                  key={key}
+                  agent={agent}
+                  isActive={key === active}
+                  activeThinking={key === active ? activeThinking : undefined}
+                  mini={mini}
+                  onSelect={() => onSelect(key)}
+                  onRemove={() => onRemoveAgent?.(agent.baseUrl)}
+                />
+              );
+            })}
+          </div>
+        )}
+
         {agents.length === 0 && (
           <div className="text-xs text-[var(--text-muted)] px-2 py-4">
             No agents found.
           </div>
         )}
 
-        {/* Add server row — after agents */}
+        {/* Add button — after agents */}
         <button
           onClick={() => setShowAddModal(true)}
           className="flex items-center gap-2.5 w-full rounded-lg text-sm text-left transition-colors cursor-pointer p-2.5 mb-0.5 overflow-hidden hover:bg-white/[0.05]"
-          title="Add server"
+          title="Add agent or server"
         >
           <div className="relative flex-shrink-0">
             <div className="w-10 h-10 flex items-center justify-center border border-dashed border-[var(--text-muted)]"
@@ -216,7 +268,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
               </svg>
             </div>
           </div>
-          <span className="text-[var(--text-muted)] text-xs whitespace-nowrap">Add server</span>
+          <span className="text-[var(--text-muted)] text-xs whitespace-nowrap">Add</span>
         </button>
 
         {/* Plugin sidebar sections */}
@@ -240,36 +292,80 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
         </div>
       )}
 
-      {/* Add server modal */}
+      {/* Add modal — agent or server */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAddModal(false)}>
           <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-4 w-80" onClick={(e) => e.stopPropagation()}>
-            <div className="text-sm font-semibold mb-3">Add Server</div>
-            <input
-              type="text"
-              placeholder="Server URL (e.g. http://host:8080)"
-              value={newUrl}
-              onChange={(e) => setNewUrl(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-2 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
-            />
-            <input
-              type="password"
-              placeholder="Access token"
-              value={newToken}
-              onChange={(e) => setNewToken(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-3 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
-            />
+            {/* Tab switcher */}
+            <div className="flex gap-1 mb-3">
+              {(["agent", "server"] as AddMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setAddMode(mode)}
+                  className={`text-xs px-3 py-1 rounded transition-colors cursor-pointer capitalize ${
+                    addMode === mode ? "bg-white/10 text-[var(--text)]" : "text-[var(--text-muted)] hover:text-[var(--text-dim)]"
+                  }`}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+
+            {addMode === "agent" ? (
+              <>
+                <input
+                  type="text"
+                  placeholder="Agent name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-2 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
+                  autoFocus
+                />
+                <input
+                  type="text"
+                  placeholder="URL (e.g. http://host:4100)"
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-2 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
+                />
+                <input
+                  type="password"
+                  placeholder="Token (KERN_AUTH_TOKEN)"
+                  value={newToken}
+                  onChange={(e) => setNewToken(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-3 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
+                />
+              </>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  placeholder="Server URL (e.g. http://host:8080)"
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-2 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
+                  autoFocus
+                />
+                <input
+                  type="password"
+                  placeholder="Access token"
+                  value={newToken}
+                  onChange={(e) => setNewToken(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-3 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
+                />
+              </>
+            )}
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setShowAddModal(false)}
-                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-dim)] px-3 py-1.5"
+                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-dim)] px-3 py-1.5 cursor-pointer"
               >
                 Cancel
               </button>
               <button
-                onClick={handleAddServer}
-                disabled={!newUrl.trim()}
-                className="text-xs bg-[var(--accent)] text-white px-3 py-1.5 rounded disabled:opacity-30 hover:opacity-90"
+                onClick={handleAdd}
+                disabled={!newUrl.trim() || (addMode === "agent" && !newName.trim())}
+                className="text-xs bg-[var(--accent)] text-white px-3 py-1.5 rounded disabled:opacity-30 hover:opacity-90 cursor-pointer"
               >
                 Add
               </button>

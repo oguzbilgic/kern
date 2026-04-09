@@ -128,6 +128,8 @@ export default function Home() {
         onLogout={handleLogout}
         onAddServer={addServer}
         onRemoveServer={removeServer}
+        onAddAgent={addDirectAgent}
+        onRemoveAgent={removeDirectAgent}
       />
 
       <div
