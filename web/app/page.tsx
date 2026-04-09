@@ -12,7 +12,7 @@ import { Inspector } from "../components/Inspector";
 import { InfoPanel, PinnedStats } from "../components/InfoPanel";
 import { ThemePicker, usePreferences } from "../components/ThemePicker";
 import { ThinkingDots } from "../components/ThinkingDots";
-import { RenderPanel } from "../components/RenderBlock";
+import { RenderPanel, DashboardButton } from "../components/RenderBlock";
 import type { Attachment } from "../lib/types";
 
 export default function Home() {
@@ -24,10 +24,32 @@ export default function Home() {
   const { prefs, setPrefs } = usePreferences();
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
-  const [panelHtml, setPanelHtml] = useState<{ html: string; title: string } | null>(null);
-  const handleOpenPanel = useCallback((html: string, title: string) => {
-    setPanelHtml({ html, title });
+  const [panelHtml, setPanelHtml] = useState<{ html: string; title: string; dashboard?: string } | null>(null);
+  const [dashboardList, setDashboardList] = useState<string[]>([]);
+  const handleOpenPanel = useCallback((html: string, title: string, dashboard?: string) => {
+    setPanelHtml({ html, title, dashboard });
   }, []);
+  const openDashboard = useCallback((name: string) => {
+    if (!activeAgent) return;
+    const base = activeAgent.serverUrl || "";
+    const headers: Record<string, string> = {};
+    if (activeAgent.token) headers["Authorization"] = `Bearer ${activeAgent.token}`;
+    fetch(`${base}/api/agents/${activeAgent.name}/d/${name}/`, { headers })
+      .then(r => r.ok ? r.text() : Promise.reject())
+      .then(html => setPanelHtml({ html, title: name, dashboard: name }))
+      .catch(() => {});
+  }, [activeAgent]);
+  // Fetch dashboard list when agent changes
+  useEffect(() => {
+    if (!activeAgent) { setDashboardList([]); return; }
+    const base = activeAgent.serverUrl || "";
+    const headers: Record<string, string> = {};
+    if (activeAgent.token) headers["Authorization"] = `Bearer ${activeAgent.token}`;
+    fetch(`${base}/api/agents/${activeAgent.name}/dashboards`, { headers })
+      .then(r => r.json())
+      .then(d => setDashboardList(d.dashboards || []))
+      .catch(() => setDashboardList([]));
+  }, [activeAgent]);
   const { messages, streamParts, thinking, activity, activityDetail, connected, status, send, loadMore, hasMore, loadingMore } = useAgent(activeAgent, { withHistory: true, onOpenPanel: handleOpenPanel });
   const [pinned, setPinned] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
@@ -158,6 +180,12 @@ export default function Home() {
           </div>
           <div className="ml-auto flex items-center gap-1">
             <ThemePicker prefs={prefs} onPrefsChange={setPrefs} />
+            <DashboardButton
+              agentName={activeAgent?.name}
+              token={activeAgent?.token ?? undefined}
+              serverUrl={activeAgent?.serverUrl}
+              onOpenDashboard={openDashboard}
+            />
             <button
               onClick={() => setInspectorOpen(true)}
               className="px-1.5 py-1 text-sm rounded text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-surface)] transition-colors leading-none cursor-pointer"
@@ -217,7 +245,14 @@ export default function Home() {
 
       {/* Render panel */}
       {panelHtml && (
-        <RenderPanel html={panelHtml.html} title={panelHtml.title} onClose={() => setPanelHtml(null)} />
+        <RenderPanel
+          html={panelHtml.html}
+          title={panelHtml.title}
+          dashboards={dashboardList}
+          activeDashboard={panelHtml.dashboard}
+          onSwitchDashboard={openDashboard}
+          onClose={() => setPanelHtml(null)}
+        />
       )}
     </div>
   );
