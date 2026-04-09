@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
 import { join } from "path";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, readdirSync } from "fs";
 import type { StreamEvent } from "./runtime.js";
 import type { Attachment } from "./interfaces/types.js";
 import { log } from "./log.js";
@@ -606,7 +606,6 @@ export class AgentServer {
       const dashDir = join(this.agentDir, "dashboards");
       let dashboards: string[] = [];
       if (existsSync(dashDir)) {
-        const { readdirSync } = require("fs");
         dashboards = readdirSync(dashDir, { withFileTypes: true })
           .filter((d: any) => d.isDirectory() && existsSync(join(dashDir, d.name, "index.html")))
           .map((d: any) => d.name);
