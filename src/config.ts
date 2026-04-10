@@ -34,6 +34,7 @@ export interface KernConfig {
 
   // Runtime
   heartbeatInterval: number;
+  hub?: string;
 }
 
 const shell = process.platform === "win32" ? "pwsh" : "bash";
@@ -79,6 +80,7 @@ const FIELD_TYPES: Record<string, string> = {
   mediaContext: "number",
   telegramTools: "boolean",
   heartbeatInterval: "number",
+  hub: "string",
 };
 
 function validateConfig(userConfig: Record<string, unknown>): void {

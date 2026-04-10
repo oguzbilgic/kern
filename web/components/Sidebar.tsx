@@ -6,6 +6,7 @@ import { useAgent } from "../hooks/useAgent";
 import { agentKey } from "../hooks/useAgents";
 import { renderPluginSidebars } from "../plugins/registry";
 import { avatarColor } from "../lib/colors";
+import { HubSection } from "./HubSection";
 
 function AgentRow({
   agent,
@@ -276,6 +277,13 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
 
         {/* Plugin sidebar sections */}
         {renderPluginSidebars({ agents, activeAgent: activeAgentObj?.name ?? null, mini })}
+
+        {/* Hub section */}
+        <HubSection
+          token={null}
+          mini={mini}
+          localAgentNames={agents.map(a => a.name)}
+        />
       </div>
 
       {/* Add modal — agent or server */}

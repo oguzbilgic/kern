@@ -8,6 +8,7 @@ import { log } from "./log.js";
 export interface GlobalConfig {
   web_port: number;
   web_host: string;
+  hub_port: number;
   proxy_port: number;
   agents: string[];
 }
@@ -15,6 +16,7 @@ export interface GlobalConfig {
 const defaults: GlobalConfig = {
   web_port: 8080,
   web_host: "0.0.0.0",
+  hub_port: 4000,
   proxy_port: 9000,
   agents: [],
 };

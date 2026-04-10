@@ -190,3 +190,50 @@ export async function resummarizeSegment(baseUrl: string, token: string | null, 
   const res = await fetch(`${baseUrl}/segments/${segmentId}/resummarize`, { method: "POST", headers: headers(token) });
   return res.json();
 }
+
+// Hub API — proxied through web server at /api/hub/*
+export interface HubStatus {
+  configured: boolean;
+  running: boolean;
+  port: number;
+}
+
+export interface HubAgent {
+  id: string;
+  name: string;
+  online: boolean;
+  publicKey?: string;
+}
+
+export interface HubStats {
+  agents: { registered: number; online: number };
+  messages: number;
+  uptime: number;
+}
+
+export async function getHubStatus(token?: string | null, serverUrl?: string): Promise<HubStatus | null> {
+  try {
+    const base = serverUrl || "";
+    const res = await fetch(`${base}/api/hub`, { headers: headers(token) });
+    if (!res.ok) return null;
+    return res.json();
+  } catch { return null; }
+}
+
+export async function getHubAgents(token?: string | null, serverUrl?: string): Promise<HubAgent[]> {
+  try {
+    const base = serverUrl || "";
+    const res = await fetch(`${base}/api/hub/agents`, { headers: headers(token) });
+    if (!res.ok) return [];
+    return res.json();
+  } catch { return []; }
+}
+
+export async function getHubStats(token?: string | null, serverUrl?: string): Promise<HubStats | null> {
+  try {
+    const base = serverUrl || "";
+    const res = await fetch(`${base}/api/hub/stats`, { headers: headers(token) });
+    if (!res.ok) return null;
+    return res.json();
+  } catch { return null; }
+}
