@@ -6,7 +6,8 @@ import type { KernConfig } from "./config.js";
 
 const OPENROUTER_HEADERS = {
   "HTTP-Referer": "https://github.com/oguzbilgic/kern-ai",
-  "X-Title": "kern-ai",
+  "X-Title": "Kern Agent",
+  "X-OpenRouter-Title": "Kern Agent",
   "X-OpenRouter-Categories": "cli-agent,personal-agent",
 };
 
