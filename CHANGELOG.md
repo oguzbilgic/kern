@@ -1,5 +1,13 @@
 # Changelog
 
+## next
+
+### Fixes
+- **Dashboard links** ([#141](https://github.com/oguzbilgic/kern-ai/issues/141)) — external links inside dashboard iframes now open in a new tab
+
+### Improvements
+- **OpenRouter attribution** — updated app title to "Kern Agent" and added `X-OpenRouter-Title` header alongside legacy `X-Title`
+
 ## v0.25.0
 
 ### Features
