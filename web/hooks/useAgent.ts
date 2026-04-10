@@ -118,21 +118,20 @@ export function useAgent(
   // Track if we're in an active turn (between thinking/tool and finish)
   const inTurnRef = useRef(false);
 
-  const name = agent?.name ?? null;
+  const baseUrl = agent?.baseUrl ?? null;
   const token = agent?.token ?? null;
-  const serverUrl = agent?.serverUrl;
   const withHistory = opts.withHistory;
 
   // Load history + status on agent change (only when withHistory)
   useEffect(() => {
-    if (!name || !withHistory) return;
+    if (!baseUrl || !withHistory) return;
     let cancelled = false;
 
     async function load() {
       try {
         const [history, statusData] = await Promise.all([
-          api.getHistory(name!, token, 100, serverUrl),
-          api.getStatus(name!, token, serverUrl),
+          api.getHistory(baseUrl!, token, 100),
+          api.getStatus(baseUrl!, token),
         ]);
         if (cancelled) return;
         setMessages(historyToMessages(history));
@@ -165,18 +164,18 @@ export function useAgent(
     load();
 
     return () => { cancelled = true; };
-  }, [name, token, serverUrl, withHistory]);
+  }, [baseUrl, token, withHistory]);
 
-  // Reset unread on agent change or when becoming active
+  // Reset unread on agent change
   useEffect(() => {
     setUnread(0);
-  }, [name]);
+  }, [baseUrl]);
 
   // SSE connection — always active for running agents
   useEffect(() => {
-    if (!name) return;
+    if (!baseUrl) return;
 
-    const sse = api.connectSSE(name, token, {
+    const sse = api.connectSSE(baseUrl, token, {
       onEvent(ev: StreamEvent) {
         if (withHistory) {
           // Full mode: process streaming parts
@@ -211,8 +210,6 @@ export function useAgent(
 
           // Append completed messages
           if (result.flush) {
-            // Flush atomically — append to messages and clear stream in one batch
-            // to prevent layout jump from content disappearing then reappearing
             if (result.append.length > 0) {
               setMessages((prev) => [...prev, ...result.append]);
             }
@@ -222,7 +219,7 @@ export function useAgent(
             setActivity("");
             setActivityDetail("");
             inTurnRef.current = false;
-            api.getStatus(name!, token, serverUrl).then(setStatus).catch(() => {});
+            api.getStatus(baseUrl!, token).then(setStatus).catch(() => {});
           } else if (result.append.length > 0) {
             setMessages((prev) => [...prev, ...result.append]);
           }
@@ -239,17 +236,15 @@ export function useAgent(
             setActivity(toolActivity(ev.toolName));
             setActivityDetail(toolDetail(ev.toolName, ev.toolInput as Record<string, unknown>));
           } else if (ev.type === "tool-result") {
-            inTurnRef.current = false; // Reset so next text segment counts as new message
+            inTurnRef.current = false;
             setThinking(true);
           } else if (ev.type === "text-delta") {
-            // Count first text chunk as one unread message per response
             if (!withHistory && !inTurnRef.current) {
               setUnread((n) => n + 1);
             }
             inTurnRef.current = true;
             setThinking(true);
           } else if (ev.type === "incoming") {
-            // Count each incoming cross-channel message
             if (!withHistory) {
               const text = ev.text?.trim() || "";
               if (text) setUnread((n) => n + 1);
@@ -269,21 +264,21 @@ export function useAgent(
       onDisconnect() {
         setConnected(false);
       },
-    }, serverUrl);
+    });
 
     sseRef.current = sse;
     return () => {
       sse.close();
       sseRef.current = null;
     };
-  }, [name, token, serverUrl, withHistory]);
+  }, [baseUrl, token, withHistory]);
 
   const loadMore = useCallback(
     async () => {
-      if (!name || !withHistory || oldestIndexRef.current === undefined || oldestIndexRef.current <= 0 || loadingMore) return;
+      if (!baseUrl || !withHistory || oldestIndexRef.current === undefined || oldestIndexRef.current <= 0 || loadingMore) return;
       setLoadingMore(true);
       try {
-        const history = await api.getHistory(name, token, 100, serverUrl, oldestIndexRef.current);
+        const history = await api.getHistory(baseUrl, token, 100, oldestIndexRef.current);
         if (history.length === 0) {
           setHasMore(false);
           return;
@@ -299,12 +294,12 @@ export function useAgent(
         setLoadingMore(false);
       }
     },
-    [name, token, serverUrl, withHistory, loadingMore]
+    [baseUrl, token, withHistory, loadingMore]
   );
 
   const send = useCallback(
     async (text: string, attachments?: Attachment[]) => {
-      if (!name) return;
+      if (!baseUrl) return;
 
       // Append user message to chat (with media preview from attachments)
       const media: import("../lib/types").MediaItem[] | undefined =
@@ -336,13 +331,12 @@ export function useAgent(
         inTurnRef.current = true;
       }
 
-      await api.sendMessage(name, token, text, {
+      await api.sendMessage(baseUrl, token, text, {
         connectionId: sseRef.current?.connectionId,
         attachments,
-        serverUrl,
       });
     },
-    [name, token, serverUrl]
+    [baseUrl, token]
   );
 
   if (!agent) return EMPTY_STATE;

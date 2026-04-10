@@ -3,11 +3,16 @@
 export interface AgentInfo {
   name: string;
   running: boolean;
-  serverUrl?: string; // undefined = local proxy
   token: string;
+  baseUrl: string; // fully resolved — all API calls use this directly
 }
 
 export interface ServerConfig {
+  url: string;
+  token: string;
+}
+
+export interface DirectAgent {
   url: string;
   token: string;
 }
@@ -30,6 +35,7 @@ export type StreamEvent =
   | { type: "plugin"; plugin: string; data: Record<string, unknown> };
 
 export interface StatusData {
+  agent?: string;
   version?: string;
   model?: string;
   uptime?: string;
