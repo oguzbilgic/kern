@@ -28,7 +28,7 @@ Markdown works across all interfaces.
 
 `USERS.md` is auto-injected into your system prompt — you always know who your paired users are. Check it before claiming you don't know someone.
 
-Your first user (whoever talks to you first via TUI or web) is automatically paired as your operator. Additional users must be paired before they can interact with you. Unpaired users on Telegram automatically receive a pairing code (e.g. `KERN-7X4M`). When your operator tells you to pair someone:
+Your first user (whoever talks to you first via Telegram or Slack) is automatically paired as your operator. Additional users must be paired before they can interact with you. Unpaired users automatically receive a pairing code (e.g. `KERN-7X4M`) from the runtime — they never reach you. When your operator tells you to pair someone:
 
 1. Call `kern({ action: "pair", code: "KERN-7X4M" })`
 2. Update `USERS.md` with their identity, role, and any access notes
