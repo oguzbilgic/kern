@@ -1,11 +1,10 @@
 import { spawn } from "child_process";
-import { readFile, writeFile, unlink, mkdir, appendFile } from "fs/promises";
+import { readFile, writeFile, unlink, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync, openSync } from "fs";
 import { homedir } from "os";
-import { randomBytes } from "crypto";
 import { isProcessRunning } from "./registry.js";
-import { loadGlobalConfig } from "./global-config.js";
+import { loadGlobalConfig, getProxyToken } from "./global-config.js";
 
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -15,19 +14,6 @@ const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
 const KERN_DIR = join(homedir(), ".kern");
 const PID_FILE = join(KERN_DIR, "proxy.pid");
 const LOG_FILE = join(KERN_DIR, "proxy.log");
-const ENV_FILE = join(KERN_DIR, ".env");
-
-/** Read or generate the proxy token from ~/.kern/.env */
-async function getProxyToken(): Promise<string> {
-  if (existsSync(ENV_FILE)) {
-    const content = await readFile(ENV_FILE, "utf-8");
-    const match = content.match(/^KERN_PROXY_TOKEN=(.+)$/m);
-    if (match) return match[1].trim();
-  }
-  const token = randomBytes(16).toString("hex");
-  await appendFile(ENV_FILE, `${existsSync(ENV_FILE) ? "\n" : ""}KERN_PROXY_TOKEN=${token}\n`);
-  return token;
-}
 
 async function readPid(): Promise<number | null> {
   if (!existsSync(PID_FILE)) return null;

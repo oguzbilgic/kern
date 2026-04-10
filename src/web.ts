@@ -7,7 +7,7 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
 import { readFile, writeFile } from "fs/promises";
-import { join } from "path";
+import { join, resolve } from "path";
 import { existsSync } from "fs";
 import { homedir } from "os";
 import { loadGlobalConfig } from "./global-config.js";
@@ -61,15 +61,14 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     }
   }
 
-  // Path traversal guard
-  if (url.includes("/../") || url.endsWith("/..")) {
+  // Static file or SPA fallback
+  const filePath = url === "/" ? join(serveDir, "index.html") : join(serveDir, decodeURIComponent(url));
+  const resolved = resolve(filePath);
+  if (!resolved.startsWith(serveDir + "/") && resolved !== serveDir) {
     res.writeHead(403);
     res.end();
     return;
   }
-
-  // Static file or SPA fallback
-  const filePath = url === "/" ? join(serveDir, "index.html") : join(serveDir, url);
 
   if (existsSync(filePath)) {
     const ext = filePath.substring(filePath.lastIndexOf("."));

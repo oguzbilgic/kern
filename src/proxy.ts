@@ -20,31 +20,13 @@
  */
 
 import { createServer, request as httpRequest, type IncomingMessage, type ServerResponse } from "http";
-import { readFile, writeFile, appendFile } from "fs/promises";
-import { join } from "path";
+import { readFile, writeFile } from "fs/promises";
+import { join, resolve } from "path";
 import { existsSync } from "fs";
 import { homedir } from "os";
-import { randomBytes } from "crypto";
+
 import { loadRegistry, readAgentInfo, isProcessRunning, type AgentInfo } from "./registry.js";
-import { loadGlobalConfig } from "./global-config.js";
-
-const KERN_DIR = join(homedir(), ".kern");
-const ENV_FILE = join(KERN_DIR, ".env");
-
-/** Load or auto-generate the proxy auth token from ~/.kern/.env */
-async function getProxyToken(): Promise<string> {
-  if (existsSync(ENV_FILE)) {
-    const content = await readFile(ENV_FILE, "utf-8");
-    // Check new name first, fall back to legacy KERN_WEB_TOKEN
-    const match = content.match(/^KERN_PROXY_TOKEN=(.+)$/m)
-      || content.match(/^KERN_WEB_TOKEN=(.+)$/m);
-    if (match) return match[1].trim();
-  }
-  const token = randomBytes(16).toString("hex");
-  await appendFile(ENV_FILE, `${existsSync(ENV_FILE) ? "\n" : ""}KERN_PROXY_TOKEN=${token}\n`);
-  log(`generated proxy token: ${token.slice(0, 8)}...`);
-  return token;
-}
+import { loadGlobalConfig, getProxyToken } from "./global-config.js";
 
 let proxyToken: string;
 
@@ -62,12 +44,6 @@ function log(msg: string) {
   const ts = new Date().toISOString();
   process.stderr.write(`${ts} [proxy] ${msg}\n`);
 }
-
-const staticFiles: Record<string, { file: string; contentType: string }> = {
-  "/manifest.json": { file: "manifest.json", contentType: "application/manifest+json" },
-  "/sw.js": { file: "sw.js", contentType: "application/javascript" },
-  "/icon.svg": { file: "icon.svg", contentType: "image/svg+xml" },
-};
 
 /** Proxy a request to an agent's HTTP server, injecting its auth token */
 function proxyToAgent(req: IncomingMessage, res: ServerResponse, agent: AgentInfo, targetPath: string) {
@@ -130,13 +106,10 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (req.method === "GET" && !url.startsWith("/api/")) {
     const serveDir = join(import.meta.dirname, "..", "web", "out");
 
-    let filePath: string;
-    if (url === "/") {
-      filePath = join(serveDir, "index.html");
-    } else if (url.includes("/../") || url.endsWith("/..")) {
+    const filePath = url === "/" ? join(serveDir, "index.html") : join(serveDir, decodeURIComponent(url));
+    const resolved = resolve(filePath);
+    if (!resolved.startsWith(serveDir + "/") && resolved !== serveDir) {
       res.writeHead(403); res.end(); return;
-    } else {
-      filePath = join(serveDir, url);
     }
 
     if (existsSync(filePath)) {
