@@ -82,7 +82,7 @@ export function RenderBlock({ msg, onOpenPanel }: { msg: ChatMessage; onOpenPane
         <pre className="px-3 py-2 text-xs overflow-auto rounded-b-lg font-mono"
           style={{ background: "#161616", color: "var(--text-dim)", maxHeight: 400 }}>{html}</pre>
       ) : (
-        <iframe ref={iframeRef} srcDoc={wrappedHtml} sandbox="allow-scripts"
+        <iframe ref={iframeRef} srcDoc={wrappedHtml} sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
           className="w-full border-0 rounded-b-lg" style={{ height, background: "transparent" }} />
       )}
     </div>
@@ -113,7 +113,7 @@ export function DashboardIframe({ html }: { html: string }) {
   return (
     <iframe
       srcDoc={wrappedHtml}
-      sandbox="allow-scripts"
+      sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
       className="w-full h-full border-0"
       style={{ background: "transparent" }}
     />
