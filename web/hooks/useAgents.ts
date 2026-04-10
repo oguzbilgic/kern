@@ -57,10 +57,11 @@ export function useAgents(token: string | null) {
     }
 
     // Discover direct agents
+    const directList: AgentInfo[] = [];
     const directs = getDirectAgents();
     for (const d of directs) {
       const status = await api.pingAgent(d.url, d.token);
-      all.push({
+      directList.push({
         name: status?.agent?.split("/").pop() || new URL(d.url).hostname,
         running: status !== null,
         token: d.token,
@@ -68,7 +69,18 @@ export function useAgents(token: string | null) {
       });
     }
 
-    setAgents(all);
+    // Order: direct agents → local proxy → remote proxy (matches sidebar)
+    const localProxy: AgentInfo[] = [];
+    const remoteProxy: AgentInfo[] = [];
+    for (const a of all) {
+      const idx = a.baseUrl.indexOf("/api/agents/");
+      if (idx < 0) continue; // shouldn't happen, all are proxy here
+      const server = a.baseUrl.slice(0, idx) || "local";
+      if (server === "local") localProxy.push(a);
+      else remoteProxy.push(a);
+    }
+
+    setAgents([...directList, ...localProxy, ...remoteProxy]);
 
     // Auto-select first running agent if none active
     if (!activeRef.current) {

@@ -68,13 +68,13 @@ function AgentRow({
         </div>
       </button>
       {/* Remove button for direct agents */}
-      {onRemove && !mini && (
+      {onRemove && (
         <button
           onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[var(--text-muted)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+          className={`absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-[var(--bg-hover)] opacity-0 group-hover:opacity-100 transition-opacity text-xs ${mini ? "right-0.5 w-4 h-4" : ""}`}
           title="Remove agent"
         >
-          ×
+          ✕
         </button>
       )}
     </div>
@@ -147,13 +147,22 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
     }
   }
 
+  function normalizeUrl(raw: string): string {
+    let url = raw.trim();
+    if (!url) return url;
+    // Add http:// if no protocol
+    if (!/^https?:\/\//i.test(url)) url = `http://${url}`;
+    // Strip trailing slash
+    return url.replace(/\/+$/, "");
+  }
+
   function handleAdd() {
+    const url = normalizeUrl(newUrl);
+    if (!url) return;
     if (addMode === "server") {
-      if (!newUrl.trim()) return;
-      onAddServer?.(newUrl.trim(), newToken.trim());
+      onAddServer?.(url, newToken.trim());
     } else {
-      if (!newUrl.trim()) return;
-      onAddAgent?.(newUrl.trim(), newToken.trim());
+      onAddAgent?.(url, newToken.trim());
     }
     setNewUrl("");
     setNewToken("");
@@ -191,42 +200,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
 
       {/* Agent list */}
       <div className="flex-1 overflow-y-auto p-2">
-        {/* Proxy server groups */}
-        {Array.from(proxyGroups.entries()).map(([server, serverAgents]) => (
-          <div key={server} className="mb-1.5">
-            {/* Server header — only for remote, clips in mini */}
-            {server !== "local" && (
-              <div className="flex items-center justify-between px-2 mb-1">
-                <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider truncate">
-                  {server.replace(/^https?:\/\//, "")}
-                </span>
-                <button
-                  onClick={() => onRemoveServer?.(server)}
-                  className="text-[10px] text-[var(--text-muted)] hover:text-red-400"
-                  title="Remove server"
-                >
-                  ×
-                </button>
-              </div>
-            )}
-
-            {serverAgents.map((agent) => {
-              const key = agentKey(agent);
-              return (
-                <AgentRow
-                  key={key}
-                  agent={agent}
-                  isActive={key === active}
-                  activeThinking={key === active ? activeThinking : undefined}
-                  mini={mini}
-                  onSelect={() => onSelect(key)}
-                />
-              );
-            })}
-          </div>
-        ))}
-
-        {/* Direct agents */}
+        {/* Direct agents — no header */}
         {directAgents.length > 0 && (
           <div className="mb-1.5">
             {directAgents.map((agent) => {
@@ -245,6 +219,61 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
             })}
           </div>
         )}
+
+        {/* Local proxy agents */}
+        {proxyGroups.has("local") && (
+          <div className="mb-1.5">
+            <div className="flex items-center px-2 mb-1">
+              <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Local</span>
+            </div>
+            {proxyGroups.get("local")!.map((agent) => {
+              const key = agentKey(agent);
+              return (
+                <AgentRow
+                  key={key}
+                  agent={agent}
+                  isActive={key === active}
+                  activeThinking={key === active ? activeThinking : undefined}
+                  mini={mini}
+                  onSelect={() => onSelect(key)}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {/* Remote proxy server groups */}
+        {Array.from(proxyGroups.entries())
+          .filter(([server]) => server !== "local")
+          .map(([server, serverAgents]) => (
+          <div key={server} className="mb-1.5">
+            <div className="flex items-center justify-between px-2 mb-1">
+              <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider truncate">
+                {server.replace(/^https?:\/\//, "")}
+              </span>
+              <button
+                onClick={() => onRemoveServer?.(server)}
+                className="text-[10px] text-[var(--text-muted)] hover:text-red-400"
+                title="Remove server"
+              >
+                ×
+              </button>
+            </div>
+            {serverAgents.map((agent) => {
+              const key = agentKey(agent);
+              return (
+                <AgentRow
+                  key={key}
+                  agent={agent}
+                  isActive={key === active}
+                  activeThinking={key === active ? activeThinking : undefined}
+                  mini={mini}
+                  onSelect={() => onSelect(key)}
+                />
+              );
+            })}
+          </div>
+        ))}
 
         {agents.length === 0 && (
           <div className="text-xs text-[var(--text-muted)] px-2 py-4">
@@ -294,72 +323,69 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
       {/* Add modal — agent or server */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAddModal(false)}>
-          <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-4 w-80" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#1a1a1a] border border-[var(--border)] rounded-lg shadow-xl w-[340px]" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
+              <span className="text-[13px] font-medium text-[var(--text)]">Add connection</span>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="w-5 h-5 flex items-center justify-center rounded text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer text-sm"
+              >✕</button>
+            </div>
+
             {/* Tab switcher */}
-            <div className="flex gap-1 mb-3">
+            <div className="flex px-4 gap-4 border-b border-[var(--border)]">
               {(["agent", "server"] as AddMode[]).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setAddMode(mode)}
-                  className={`text-xs px-3 py-1 rounded transition-colors cursor-pointer capitalize ${
-                    addMode === mode ? "bg-white/10 text-[var(--text)]" : "text-[var(--text-muted)] hover:text-[var(--text-dim)]"
+                  className={`text-xs pb-2 transition-colors cursor-pointer border-b-2 -mb-px ${
+                    addMode === mode
+                      ? "border-[var(--text-dim)] text-[var(--text)]"
+                      : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-dim)]"
                   }`}
                 >
-                  {mode}
+                  {mode === "agent" ? "Direct agent" : "Proxy server"}
                 </button>
               ))}
             </div>
 
-            {addMode === "agent" ? (
-              <>
-                <input
-                  type="text"
-                  placeholder="URL (e.g. http://host:4100)"
-                  value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-2 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
-                  autoFocus
-                />
-                <input
-                  type="password"
-                  placeholder="Token (KERN_AUTH_TOKEN)"
-                  value={newToken}
-                  onChange={(e) => setNewToken(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-3 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
-                />
-              </>
-            ) : (
-              <>
-                <input
-                  type="text"
-                  placeholder="Server URL (e.g. http://host:8080)"
-                  value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-2 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
-                  autoFocus
-                />
-                <input
-                  type="password"
-                  placeholder="Access token"
-                  value={newToken}
-                  onChange={(e) => setNewToken(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded mb-3 text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)]"
-                />
-              </>
-            )}
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-dim)] px-3 py-1.5 cursor-pointer"
-              >
-                Cancel
-              </button>
+            {/* Form */}
+            <div className="px-4 pt-3 pb-4">
+              <p className="text-[11px] text-[var(--text-muted)] mb-3 leading-relaxed">
+                {addMode === "agent"
+                  ? "Connect directly to a running agent."
+                  : "Connect to a kern web proxy managing multiple agents."}
+              </p>
+
+              <label className="block text-[10px] text-[var(--text-muted)] mb-1">
+                {addMode === "agent" ? "URL" : "Server URL"}
+              </label>
+              <input
+                type="text"
+                placeholder={addMode === "agent" ? "host:4100" : "host:8080"}
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg mb-3 text-[var(--text)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)] transition-colors"
+                autoFocus
+              />
+
+              <label className="block text-[10px] text-[var(--text-muted)] mb-1">Token</label>
+              <input
+                type="password"
+                placeholder={addMode === "agent" ? "KERN_AUTH_TOKEN" : "KERN_WEB_TOKEN"}
+                value={newToken}
+                onChange={(e) => setNewToken(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg mb-4 text-[var(--text)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)] transition-colors"
+                onKeyDown={(e) => { if (e.key === "Enter" && newUrl.trim()) handleAdd(); }}
+              />
+
               <button
                 onClick={handleAdd}
                 disabled={!newUrl.trim()}
-                className="text-xs bg-[var(--accent)] text-white px-3 py-1.5 rounded disabled:opacity-30 hover:opacity-90 cursor-pointer"
+                className="w-full text-sm py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] transition-colors cursor-pointer text-[var(--text)] hover:border-[var(--text-muted)] disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                Add
+                Connect
               </button>
             </div>
           </div>

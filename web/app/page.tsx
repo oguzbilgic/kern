@@ -87,6 +87,22 @@ export default function Home() {
     };
   }, [agents, activeAgent, connected, thinking, send, setActive]);
 
+  // Keyboard shortcuts: Cmd/Ctrl + 1..9 to switch agents
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const n = parseInt(e.key);
+      if (n >= 1 && n <= 9) {
+        e.preventDefault();
+        const running = agents.filter((a) => a.running);
+        const idx = n - 1;
+        if (idx < running.length) setActive(agentKey(running[idx]));
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [agents, setActive]);
+
   const handleDrop = useCallback(async (e: DragEvent) => {
     e.preventDefault();
     setDragOver(false);
