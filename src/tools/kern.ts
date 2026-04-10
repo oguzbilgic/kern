@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { readFile } from "fs/promises";
-import { join } from "path";
+import { join, basename } from "path";
 import { existsSync } from "fs";
 import type { SessionStats } from "../context.js";
 
@@ -116,6 +116,7 @@ export interface ContextBreakdown {
 
 export interface StatusData {
   version: string;
+  name: string;
   agent: string;
   model: string;
   provider: string;
@@ -194,6 +195,7 @@ export function getStatusData(): StatusData {
 
   return {
     version: _version,
+    name: _config.name || basename(_agentDir),
     agent: _agentDir,
     model: _config.model,
     provider: _config.provider,

@@ -239,6 +239,7 @@ async function runConfig(name: string, dir: string): Promise<void> {
 
   // Build new config
   const config: Partial<KernConfig> = {
+    name,
     model,
     provider,
     toolScope: currentConfig.toolScope || "full",
@@ -442,6 +443,7 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
 
   // .kern/config.json
   const config: Partial<KernConfig> = {
+    name,
     model,
     provider,
     toolScope: "full",

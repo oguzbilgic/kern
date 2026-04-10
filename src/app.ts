@@ -109,7 +109,14 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     }
   }
 
-  const agentName = basename(agentDir);
+  // Auto-migrate name into config if missing
+  if (!config.name) {
+    config.name = basename(agentDir);
+    await saveConfigField(agentDir, "name", config.name);
+    log("kern", `assigned name: ${config.name}`);
+  }
+
+  const agentName = config.name;
   process.chdir(agentDir);
 
   // Initialize pairing
@@ -244,7 +251,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   };
 
   server.setStatusFn(() => {
-    return { ...getStatusDataFn(), agentName };
+    return getStatusDataFn();
   });
 
   server.setMessageHandler(async (text, userId, iface, channel, attachments) => {

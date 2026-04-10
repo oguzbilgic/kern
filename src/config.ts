@@ -8,6 +8,7 @@ export type ToolScope = "full" | "write" | "read";
 
 export interface KernConfig {
   // Core
+  name: string;
   model: string;
   provider: string;
   toolScope: ToolScope;
@@ -44,6 +45,7 @@ const TOOL_SCOPES: Record<ToolScope, string[]> = {
 };
 
 export const configDefaults: KernConfig = {
+  name: "",
   model: "anthropic/claude-opus-4.6",
   provider: "openrouter",
   toolScope: "full",

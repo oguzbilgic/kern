@@ -53,7 +53,7 @@ export function useAgents() {
     for (const d of directs) {
       const status = await api.pingAgent(d.url, d.token);
       directList.push({
-        name: status?.agent?.split("/").pop() || new URL(d.url).hostname,
+        name: status?.name || new URL(d.url).hostname,
         running: status !== null,
         token: d.token,
         baseUrl: d.url,
