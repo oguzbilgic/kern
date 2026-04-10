@@ -2,7 +2,7 @@ import { mkdir, writeFile, readFile } from "fs/promises";
 import { join, resolve } from "path";
 import { existsSync } from "fs";
 import { input, select, password } from "@inquirer/prompts";
-import { registerAgent, findAgent, isProcessRunning, setPid } from "./registry.js";
+import { registerAgent, findAgent, isProcessRunning, readPid, removePidFile, assignPort } from "./registry.js";
 import { startAgent } from "./daemon.js";
 import type { KernConfig } from "./config.js";
 
@@ -239,6 +239,7 @@ async function runConfig(name: string, dir: string): Promise<void> {
 
   // Build new config
   const config: Partial<KernConfig> = {
+    name,
     model,
     provider,
     toolScope: currentConfig.toolScope || "full",
@@ -277,12 +278,15 @@ async function runConfig(name: string, dir: string): Promise<void> {
   print("  ✓ Config updated");
 
   // Restart if running, otherwise start
-  const agent = await findAgent(name);
-  if (agent?.pid && isProcessRunning(agent.pid)) {
-    process.kill(agent.pid, "SIGTERM");
-    await setPid(name, null);
-    print("  ✓ Stopped");
-    await new Promise((r) => setTimeout(r, 500));
+  const agent = findAgent(name);
+  if (agent) {
+    const pid = readPid(agent.path);
+    if (pid && isProcessRunning(pid)) {
+      process.kill(pid, "SIGTERM");
+      await removePidFile(agent.path);
+      print("  ✓ Stopped");
+      await new Promise((r) => setTimeout(r, 500));
+    }
   }
 
   print("  ✓ Starting...");
@@ -293,7 +297,7 @@ async function runConfig(name: string, dir: string): Promise<void> {
 export async function runInit(targetArg?: string, flags?: Record<string, string>): Promise<void> {
   // Check if target is an existing agent — go straight to config
   if (targetArg && !flags) {
-    const registered = await findAgent(targetArg);
+    const registered = findAgent(targetArg);
     const dir = registered ? registered.path : resolve(targetArg);
     if (existsSync(dir) && (existsSync(join(dir, "AGENTS.md")) || existsSync(join(dir, ".kern")))) {
       await runConfig(registered?.name || targetArg, dir);
@@ -459,9 +463,11 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
 
   // .kern/config.json
   const config: Partial<KernConfig> = {
+    name,
     model,
     provider,
     toolScope: "full",
+    port: await assignPort(),
   };
   if (hub) config.hub = hub;
   // .kern/.env
@@ -559,7 +565,7 @@ node_modules/
   const { ensureKeypair } = await import("./keys.js");
   ensureKeypair(dir);
 
-  await registerAgent(name, dir);
+  await registerAgent(dir);
   print("");
   print("  ✓ Starting...");
   print("");

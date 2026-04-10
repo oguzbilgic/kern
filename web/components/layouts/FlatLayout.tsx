@@ -15,7 +15,7 @@ interface FlatLayoutProps {
   thinking: boolean;
   agentName?: string;
   token?: string;
-  serverUrl?: string;
+  baseUrl?: string;
   showTools: boolean;
   coloredTools: boolean;
   peekLastTool: boolean;
@@ -34,7 +34,7 @@ function Avatar({ name, isUser }: { name: string; isUser: boolean }) {
   );
 }
 
-export function FlatLayout({ messages, streamParts, thinking, agentName, token, serverUrl, showTools, coloredTools, peekLastTool, loadMore, hasMore, loadingMore }: FlatLayoutProps) {
+export function FlatLayout({ messages, streamParts, thinking, agentName, token, baseUrl, showTools, coloredTools, peekLastTool, loadMore, hasMore, loadingMore }: FlatLayoutProps) {
   const { containerRef, showScrollBtn, scrollToBottom, allMsgs, lastToolId, groups, showDots, loadingMore: isLoadingMore } = useChat({
     agentName, messages, streamParts, thinking, showTools, peekLastTool, loadMore, hasMore, loadingMore,
   });
@@ -61,7 +61,7 @@ export function FlatLayout({ messages, streamParts, thinking, agentName, token, 
     }
 
     // Delegate plugin-owned roles to plugin renderers
-    const pluginNode = renderPluginMessage(msg, { agentName: agentName || "", token: token || "", serverUrl });
+    const pluginNode = renderPluginMessage(msg, { agentName: agentName || "", token: token || "", baseUrl: baseUrl || "" });
     if (pluginNode) {
       return <div key={msg.id} style={{ marginLeft: 42 }}>{pluginNode}</div>;
     }
@@ -114,7 +114,7 @@ export function FlatLayout({ messages, streamParts, thinking, agentName, token, 
           )}
 
           {msg.media && msg.media.length > 0 && (
-            <MediaAttachments media={msg.media} agentName={agentName} token={token} serverUrl={serverUrl} />
+            <MediaAttachments media={msg.media} baseUrl={baseUrl} token={token} />
           )}
 
           {!isHeartbeat && !isNoReply && (msg.text || !msg.media?.length) && (

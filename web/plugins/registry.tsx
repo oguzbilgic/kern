@@ -40,7 +40,7 @@ export interface UIPlugin {
 export interface RenderContext {
   agentName: string;
   token: string;
-  serverUrl?: string;
+  baseUrl: string;
 }
 
 export interface SidebarContext {
@@ -51,7 +51,7 @@ export interface SidebarContext {
 
 export interface HeaderContext {
   agentName: string;
-  serverUrl?: string;
+  baseUrl: string;
   token: string;
 }
 

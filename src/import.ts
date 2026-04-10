@@ -3,7 +3,7 @@ import { join } from "path";
 import { existsSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { homedir } from "os";
-import { findAgent, loadRegistry } from "./registry.js";
+import { findAgent, loadRegistry, readAgentInfo } from "./registry.js";
 import { log } from "./log.js";
 
 interface OpenCodeMessage {
@@ -248,7 +248,7 @@ export async function importOpenCode(args: string[]): Promise<void> {
   const agentArg = getFlag(args, "agent");
 
   if (agentArg) {
-    const agent = await findAgent(agentArg);
+    const agent = findAgent(agentArg);
     if (!agent) {
       console.error(`Agent not found: ${agentArg}`);
       db.close();
@@ -257,7 +257,8 @@ export async function importOpenCode(args: string[]): Promise<void> {
     agentPath = agent.path;
     agentName = agent.name;
   } else {
-    const agents = await loadRegistry();
+    const paths = await loadRegistry();
+    const agents = paths.map((p) => readAgentInfo(p)).filter(Boolean) as { name: string; path: string }[];
     if (agents.length === 0) {
       console.error("No agents registered. Run 'kern init <name>' first.");
       db.close();

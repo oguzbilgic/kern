@@ -1,5 +1,24 @@
 # Changelog
 
+## next
+
+### Features
+- **Self-contained agents** ([#126](https://github.com/oguzbilgic/kern-ai/issues/126)) — all agent runtime state (port, token, PID) now lives in the agent's own `.kern/` directory instead of a central registry
+  - Agent list moved from `~/.kern/agents.json` to `agents` field in `~/.kern/config.json` — one global config file for everything
+  - Legacy `agents.json` auto-migrates on first load and gets deleted
+  - Sticky ports: agents get a fixed port (4100-4999) assigned on creation or first start — no more random ports
+  - Server binds `0.0.0.0` by default, enabling direct connections over Tailscale or LAN
+- **Direct agent connections** ([#124](https://github.com/oguzbilgic/kern-ai/issues/124)) — connect to any agent from the web UI without running `kern web`. Click **+** in the sidebar, enter the agent's URL and token.
+  - `kern web` is now optional — useful for multi-agent proxy, but not required
+  - Login page removed — the web UI loads instantly, agents are added from the sidebar
+- **Agent name auto-migration** ([#131](https://github.com/oguzbilgic/kern-ai/issues/131)) — `name` field auto-set to directory basename on first startup if missing, persisted to config, and exposed in `/status` API for reliable UI display
+- **`kern proxy`** ([#127](https://github.com/oguzbilgic/kern-ai/issues/127)) — authenticated reverse proxy extracted from `kern web` into its own command
+  - `kern proxy <start|stop|status|token>` — manages the proxy server with agent discovery, token auth, and API routing
+  - `kern web` is now a minimal static file server with no auth or proxy routes
+  - Token renamed from `KERN_WEB_TOKEN` to `KERN_PROXY_TOKEN` (legacy token accepted as fallback)
+  - Proxy uses `proxy_port` config (default 9000), web uses `web_port` (default 8080)
+  - `kern install --proxy` installs a systemd service for the proxy
+
 ## v0.24.1
 
 ### Fixes

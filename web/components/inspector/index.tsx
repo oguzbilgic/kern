@@ -10,9 +10,8 @@ import { MediaTab } from "./MediaTab";
 import { ContextTab } from "./ContextTab";
 
 interface Props {
-  agentName: string;
+  baseUrl: string;
   token: string | null;
-  serverUrl?: string;
 }
 
 const MEMORY_TABS = [
@@ -29,9 +28,9 @@ const MEMORY_TABS = [
  * Call once at app root. Surfaces are re-registered when agent changes
  * so each tab gets fresh props.
  */
-export function useMemorySurfaces({ agentName, token, serverUrl }: Props) {
-  const propsRef = useRef({ agentName, token, serverUrl });
-  propsRef.current = { agentName, token, serverUrl };
+export function useMemorySurfaces({ baseUrl, token }: Props) {
+  const propsRef = useRef({ baseUrl, token });
+  propsRef.current = { baseUrl, token };
 
   useEffect(() => {
     // Register all memory tabs as modal surfaces
@@ -42,8 +41,8 @@ export function useMemorySurfaces({ agentName, token, serverUrl }: Props) {
         label: tab.label,
         mode: "modal",
         render: () => {
-          const { agentName: a, token: t, serverUrl: s } = propsRef.current;
-          return <tab.Component agentName={a} token={t} serverUrl={s} />;
+          const { baseUrl: b, token: t } = propsRef.current;
+          return <tab.Component baseUrl={b} token={t} />;
         },
       });
     }

@@ -8,9 +8,9 @@ Show help and available commands.
 
 Create a new agent or reconfigure an existing one.
 
-**New agent**: interactive wizard asks for provider, API key, model, Telegram/Slack tokens. Scaffolds agent-kernel files (AGENTS.md, IDENTITY.md, KNOWLEDGE.md, USERS.md), creates `.kern/` config, initializes git, registers in `~/.kern/agents.json`, and starts the agent.
+**New agent**: interactive wizard asks for provider, API key, model, Telegram/Slack tokens. Scaffolds agent-kernel files (AGENTS.md, IDENTITY.md, KNOWLEDGE.md, USERS.md), creates `.kern/` config, initializes git, registers in `~/.kern/config.json`, and starts the agent.
 
-**Existing agent**: detects by name (from registry) or path. Shows current config with masked secrets. Update any field — press enter to keep current value. Restarts automatically after changes.
+**Existing agent**: detects by name or path. Shows current config with masked secrets. Update any field — press enter to keep current value. Restarts automatically after changes.
 
 **Adopting an existing repo**: if the directory exists but has no `.kern/`, creates only `.kern/` config without overwriting existing AGENTS.md, IDENTITY.md, etc.
 
@@ -66,11 +66,11 @@ kern uninstall atlas  # single agent
 Start agents as background daemons.
 
 - No argument: starts all registered agents
-- With name: starts that agent (looks up in registry)
+- With name: starts that agent (looks up in `~/.kern/config.json`)
 - With path: auto-registers and starts (e.g. `kern start ./cloned-repo`)
 - Waits 2 seconds after fork, verifies process is alive
 - Shows error log if startup fails
-- Writes PID and port to `~/.kern/agents.json`
+- Writes PID to agent's `.kern/agent.pid`
 - If a systemd service is installed for the agent, delegates to `systemctl --user start`
 
 ## kern stop [name]
@@ -79,7 +79,7 @@ Stop agents.
 
 - No argument: stops all running agents
 - With name: stops that agent
-- Sends SIGTERM, clears PID from registry
+- Sends SIGTERM, removes agent's `.kern/agent.pid`
 - If a systemd service is installed, delegates to `systemctl --user stop`
 
 ## kern restart [name]
@@ -148,29 +148,43 @@ Backup an agent to a `.tar.gz` file.
 Restore an agent from a backup archive.
 
 - Extracts to `./{agent-name}/` in the current directory
-- Registers the agent in `~/.kern/agents.json`
+- Registers the agent in `~/.kern/config.json`
 - If agent already exists: warns and asks to confirm overwrite
 - If agent is running: stops it before overwriting
 
-## kern web \<start|stop|status|token\>
+## kern web \<start|stop|status\>
 
-Manage the web UI server.
+Minimal static file server for the web UI. No auth, no proxy.
 
 ```bash
-kern web start    # start web UI, prints URL with auth token
+kern web start    # start static web server
 kern web stop     # stop it
 kern web status   # check if running
-kern web token    # print URL with auth token
 ```
 
-- Serves the web UI and proxies all agent API requests
-- Agents bind to `127.0.0.1` — only reachable through the proxy
-- `KERN_WEB_TOKEN` auto-generated on first start, stored in `~/.kern/.env`
-- All `/api/*` routes require the web token (Bearer header or `?token=` query param)
-- `kern web start` and `kern web token` always print the full URL with token
-- Port configurable in `~/.kern/config.json` (default 9000)
+- Serves the web UI static files only — no API proxy, no auth
+- Port configurable via `web_port` in `~/.kern/config.json` (default 8080)
 - PID tracked in `~/.kern/web.pid`, logs in `~/.kern/web.log`
-- If installed via `kern install`, start/stop/restart delegate to systemd
+- If installed via `kern install --web`, start/stop/restart delegate to systemd
+- Connect to agents directly from the sidebar (enter URL + token)
+
+## kern proxy \<start|stop|status|token\>
+
+Authenticated reverse proxy for multi-agent access. Also serves the web UI.
+
+```bash
+kern proxy start    # start proxy, prints URL with auth token
+kern proxy stop     # stop it
+kern proxy status   # check if running
+kern proxy token    # print URL with auth token
+```
+
+- Proxies all agent API requests (`/api/agents/:name/*`) with token injection
+- `KERN_PROXY_TOKEN` auto-generated on first start, stored in `~/.kern/.env` (also accepts legacy `KERN_WEB_TOKEN`)
+- All `/api/*` routes require the proxy token (Bearer header or `?token=` query param)
+- Port configurable via `proxy_port` in `~/.kern/config.json` (default 9000)
+- PID tracked in `~/.kern/proxy.pid`, logs in `~/.kern/proxy.log`
+- If installed via `kern install --proxy`, start/stop/restart delegate to systemd
 
 ## kern hub \<start|stop|status\>
 

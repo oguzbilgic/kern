@@ -59,7 +59,9 @@ Interactive terminal chat. Type a message, get a response. The agent has tools â
 kern web start
 ```
 
-Opens a web UI. Agent sidebar, slash commands, markdown rendering, collapsible tool output. Share the URL with others on your network.
+Opens a web UI with an agent proxy. Or connect directly to any agent â€” open the web UI, click **+** in the sidebar, enter the agent's URL and token. No proxy needed.
+
+Agent sidebar, slash commands, markdown rendering, collapsible tool output. Share the URL with others on your network.
 
 ## Add Telegram
 

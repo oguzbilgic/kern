@@ -5,28 +5,30 @@ How kern's processes fit together.
 ## Overview
 
 ```
-Browser ──→ kern web (:9000) ──→ agent A (:random)
-                               ├─→ agent B (:random)
-                               └─→ agent C (:random)
+Browser ──→ agent A (:4100)              # direct connection
+Browser ──→ kern proxy (:9000) ──→ agent A (:4100)   # via proxy
+                                 ├─→ agent B (:4101)
+                                 └─→ agent C (:4102)
+Browser ──→ kern web (:8080)             # static files only
 
-TUI ──────────────────────────→ agent A (:random)
+TUI ──────────────────────────→ agent A (:4100)
 Telegram ←────────────────────→ agent A (long poll)
 Slack ←───────────────────────→ agent A (socket mode)
 ```
 
-Each agent is a separate process. The web server is a separate process. They communicate over HTTP on localhost.
+Each agent is a separate process. `kern web` serves the UI as static files. `kern proxy` is an optional authenticated reverse proxy for multi-agent access. Browsers can connect directly to agents or through the proxy.
 
 ## Agent process
 
 `kern start` launches an agent as a background daemon. Each agent process:
 
-- Binds an HTTP server to `127.0.0.1` on a **random port** (OS-assigned)
-- Registers its PID, port, and auth token in `~/.kern/agents.json`
+- Binds an HTTP server to `0.0.0.0` on a **sticky port** (auto-assigned from 4100-4999 on first start, saved to config)
+- Registers its path in `~/.kern/config.json` and writes PID to its own `.kern/agent.pid`
 - Connects to Telegram (long polling) and/or Slack (socket mode) if tokens are configured
 - Runs the message queue, tool executor, and model calls
 - Serves SSE for real-time streaming to connected clients (TUI, web UI)
 
-The agent never binds to `0.0.0.0` — it's only reachable from localhost. All external access goes through the web proxy.
+Agents bind to `0.0.0.0` so they're reachable over the network (e.g. via Tailscale). The proxy is optional — clients can connect directly if they have the agent's port and token.
 
 ### Agent HTTP endpoints
 
@@ -48,60 +50,59 @@ These are internal — the web proxy forwards to them, TUI connects directly.
 
 ### Auth
 
-Each agent generates a random token on first start, stored in `.kern/.env` as `KERN_AGENT_TOKEN`. Every request must include `Authorization: Bearer <token>`. The TUI reads the token from the agent's `.env` file. The web proxy reads it from the registry.
+Each agent generates a random token on first start, stored in `.kern/.env` as `KERN_AUTH_TOKEN`. Every request must include `Authorization: Bearer <token>`. The TUI and proxy read the token from the agent's `.kern/.env` file.
 
 ## Web server
 
-`kern web start` launches a separate HTTP server (default port 9000, configurable in `~/.kern/config.json`).
+`kern web start` launches a minimal static file server (default port 8080, configurable via `web_port` in `~/.kern/config.json`). It serves only the web UI static files — no auth, no proxy, no agent discovery. Connect to agents directly from the sidebar by entering their URL and token.
 
-It serves two things:
-1. **Static files** — the web UI (HTML, CSS, JS)
-2. **Agent proxy** — forwards `/api/agents/:name/*` to the correct agent process
+## Proxy server
+
+`kern proxy start` launches an authenticated reverse proxy (default port 9000, configurable via `proxy_port` in `~/.kern/config.json`). It also serves the web UI static files.
+
+It provides:
+1. **Agent discovery** — `GET /api/agents` returns all registered agents
+2. **Agent proxy** — forwards `/api/agents/:name/*` to the correct agent process with token injection
 
 ### Proxy flow
 
 ```
 Browser → GET /api/agents/vega/status
-       → kern web reads ~/.kern/agents.json
-       → finds vega: { port: 34521, token: "abc..." }
-       → forwards to 127.0.0.1:34521/status with Authorization header
+       → kern proxy reads ~/.kern/config.json agents list
+       → finds vega: { port: 4100, token: "abc..." }
+       → forwards to 127.0.0.1:4100/status with Authorization header
        → streams response back to browser
 ```
 
-The browser never knows agent ports or tokens. It authenticates once with `KERN_WEB_TOKEN` (auto-generated, stored in `~/.kern/.env`), and the proxy handles the rest.
+The proxy injects agent tokens on behalf of the browser, so proxy clients don't need individual agent credentials.
 
-### Web auth
+### Proxy auth
 
-A single token (`KERN_WEB_TOKEN`) protects the web server. It's generated on first `kern web start` and printed as part of the URL:
+**Static files** are served without authentication.
 
-```
-http://100.115.98.30:9000?token=abc123...
-```
+**Proxy routes** (`/api/*`) are protected by `KERN_PROXY_TOKEN` (auto-generated on first `kern proxy start`, stored in `~/.kern/.env`). Also accepts legacy `KERN_WEB_TOKEN`. The token is passed as a Bearer header or `?token=` query param.
 
-The browser stores this token and sends it with every request. No per-agent auth from the browser side — the proxy injects agent tokens internally.
+**Direct connections** bypass the proxy entirely. The browser connects to the agent's port with `KERN_AUTH_TOKEN`. No proxy needed.
+
+Users add agents or proxy servers from the sidebar UI, entering the URL and token manually.
 
 ## Registry
 
-`~/.kern/agents.json` is the coordination point. Every agent registers itself on start:
+`~/.kern/config.json` is the coordination point. Every agent registers its path on start:
 
 ```json
-[
-  {
-    "name": "vega",
-    "path": "/root/vega",
-    "pid": 12345,
-    "port": 34521,
-    "token": "kern_...",
-    "addedAt": "2026-03-26T10:00:00Z"
-  }
-]
+{
+  "web_port": 8080,
+  "proxy_port": 9000,
+  "agents": ["/root/vega", "/home/kern/atlas"]
+}
 ```
 
-The web server and TUI read this file to discover agents. `kern list` reads it to show status. PIDs are checked with `kill -0` to detect stale entries.
+The proxy, TUI, and CLI read this file to discover agents, then read each agent's `.kern/` directory for port, token, and PID. `kern list` reads it to show status. PIDs are checked with `kill -0` to detect stale entries.
 
 ## TUI
 
-`kern tui [name]` connects directly to an agent's HTTP server — no web proxy involved. It reads the agent's port and token from the registry, opens an SSE connection for streaming, and sends messages via POST. It's a direct localhost connection.
+`kern tui [name]` connects directly to an agent's HTTP server — no proxy involved. It reads the agent's port and token from the agent's `.kern/` directory, opens an SSE connection for streaming, and sends messages via POST. It's a direct localhost connection.
 
 ## Telegram & Slack
 
@@ -114,7 +115,7 @@ Both inject messages into the same queue as TUI and web. The agent doesn't know 
 
 ## Service management
 
-`kern install` creates systemd user services for agents and the web server. This gives you:
+`kern install` creates systemd user services for agents, the web server, and the proxy. This gives you:
 
 - Auto-restart on crash
 - Start on boot (with lingering enabled)
@@ -123,6 +124,7 @@ Both inject messages into the same queue as TUI and web. The agent doesn't know 
 ```bash
 kern install vega       # install agent as systemd service
 kern install --web      # install web server as systemd service
+kern install --proxy    # install proxy server as systemd service
 kern uninstall vega     # remove service
 ```
 
@@ -132,15 +134,15 @@ Without `kern install`, agents run as plain daemons managed by PID files.
 
 ```
 ~/.kern/
-  agents.json          # agent registry (discovery, PIDs, ports, tokens)
-  config.json          # global config (web port, host)
-  .env                 # KERN_WEB_TOKEN
+  config.json          # global config + agent registry
+  .env                 # KERN_WEB_TOKEN (for proxy auth)
   web.pid              # web server PID
 
 ~/my-agent/
   .kern/
-    config.json        # agent config (model, provider, toolScope)
-    .env               # API keys, bot tokens, KERN_AGENT_TOKEN
+    config.json        # agent config (model, provider, port, toolScope)
+    .env               # API keys, bot tokens, KERN_AUTH_TOKEN
+    agent.pid          # PID file (written on start, removed on stop)
     sessions/          # conversation JSONL
     recall.db          # memory database (embeddings, segments, summaries)
     logs/              # structured logs
@@ -156,7 +158,7 @@ Without `kern install`, agents run as plain daemons managed by PID files.
 
 | Process | Binds to | Port | Accessible from |
 |---------|----------|------|-----------------|
-| Agent | 127.0.0.1 | random | localhost only |
+| Agent | 0.0.0.0 | 4100-4999 | sticky, auto-assigned |
 | Web server | 0.0.0.0 (configurable) | 9000 (configurable) | LAN / Tailscale |
 | Telegram | outbound only | — | — |
 | Slack | outbound only | — | — |

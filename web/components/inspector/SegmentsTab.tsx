@@ -5,7 +5,7 @@ import * as api from "../../lib/api";
 import { renderMarkdown } from "../../lib/markdown";
 import { TabProps, accent, accentDim, StatCard, ActionBtn, EmptyState } from "./shared";
 
-export function SegmentsTab({ agentName, token, serverUrl }: TabProps) {
+export function SegmentsTab({ baseUrl, token }: TabProps) {
   const [segments, setSegments] = useState<any>(null);
   const [contextIds, setContextIds] = useState<Set<number>>(new Set());
   const [filter, setFilter] = useState<"all" | "context">("context");
@@ -14,11 +14,11 @@ export function SegmentsTab({ agentName, token, serverUrl }: TabProps) {
   const [resummarizing, setResummarizing] = useState(false);
 
   const load = useCallback(() => {
-    api.getSegments(agentName, token, serverUrl).then(setSegments).catch(() => setSegments({ segments: [] }));
-    api.getContextSegments(agentName, token, serverUrl).then((d) => {
+    api.getSegments(baseUrl, token).then(setSegments).catch(() => setSegments({ segments: [] }));
+    api.getContextSegments(baseUrl, token).then((d) => {
       if (d?.segments) setContextIds(new Set(d.segments.map((s: any) => s.id)));
     }).catch(() => {});
-  }, [agentName, token, serverUrl]);
+  }, [baseUrl, token]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { const iv = setInterval(load, 5000); return () => clearInterval(iv); }, [load]);
@@ -61,7 +61,7 @@ export function SegmentsTab({ agentName, token, serverUrl }: TabProps) {
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             <ActionBtn
-              onClick={() => { if (confirm("Rebuild segments from scratch?")) { setRebuilding(true); api.rebuildSegments(agentName, token, serverUrl).finally(() => { setRebuilding(false); load(); }); } }}
+              onClick={() => { if (confirm("Rebuild segments from scratch?")) { setRebuilding(true); api.rebuildSegments(baseUrl, token).finally(() => { setRebuilding(false); load(); }); } }}
               disabled={rebuilding}
             >
               ↻ {rebuilding ? "Rebuilding…" : "Rebuild"}
@@ -156,7 +156,7 @@ export function SegmentsTab({ agentName, token, serverUrl }: TabProps) {
               <ActionBtn
                 onClick={() => {
                   setResummarizing(true);
-                  api.resummarizeSegment(agentName, token, serverUrl, selected.id)
+                  api.resummarizeSegment(baseUrl, token, selected.id)
                     .then(load)
                     .finally(() => setResummarizing(false));
                 }}

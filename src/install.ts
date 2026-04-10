@@ -1,9 +1,9 @@
 import { execSync, spawnSync } from "child_process";
 import { existsSync } from "fs";
 import { mkdir, writeFile, unlink, readFile } from "fs/promises";
-import { join } from "path";
+import { join, basename } from "path";
 import { homedir } from "os";
-import { loadRegistry, findAgent, isProcessRunning, setPid } from "./registry.js";
+import { loadRegistry, findAgent, readAgentInfo, isProcessRunning, readPid, removePidFile } from "./registry.js";
 
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -13,6 +13,7 @@ const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
 
 const SERVICE_PREFIX = "kern-agent-";
 const WEB_SERVICE = "kern-web";
+const PROXY_SERVICE = "kern-proxy";
 const SYSTEMD_DIR = join(homedir(), ".config", "systemd", "user");
 
 function hasSystemd(): boolean {
@@ -78,6 +79,11 @@ export function getWebServiceStatus(): "active" | "installed" | null {
   return isActive(WEB_SERVICE) ? "active" : "installed";
 }
 
+export function getProxyServiceStatus(): "active" | "installed" | null {
+  if (!isInstalled(PROXY_SERVICE)) return null;
+  return isActive(PROXY_SERVICE) ? "active" : "installed";
+}
+
 function agentServiceUnit(agentName: string, agentPath: string): string {
   const kernEntry = join(import.meta.dirname, "index.js");
   const nodeBin = process.execPath;
@@ -117,6 +123,25 @@ WantedBy=default.target
 `;
 }
 
+function proxyServiceUnit(): string {
+  const proxyEntry = join(import.meta.dirname, "proxy.js");
+  const nodeBin = process.execPath;
+  return `[Unit]
+Description=kern proxy server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=${nodeBin} --no-deprecation ${proxyEntry}
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=default.target
+`;
+}
+
 function systemctl(...args: string[]): boolean {
   const result = spawnSync("systemctl", ["--user", ...args], { stdio: "pipe" });
   return result.status === 0;
@@ -134,12 +159,13 @@ async function installAgent(agentName: string, agentPath: string): Promise<void>
 
   // Stop PID-based daemon if running (but not if it's the systemd-managed process)
   if (!existsSync(unitPath)) {
-    const agent = await findAgent(agentName);
-    if (agent?.pid && isProcessRunning(agent.pid)) {
+    const agent = findAgent(agentName);
+    const pid = agent ? readPid(agent.path) : null;
+    if (pid && isProcessRunning(pid)) {
       try {
-        process.kill(agent.pid, "SIGTERM");
-        console.log(`  ${dim("stopped pid-based daemon")} ${dim(`(pid ${agent.pid})`)}`);
-        await setPid(agentName, null);
+        process.kill(pid, "SIGTERM");
+        console.log(`  ${dim("stopped pid-based daemon")} ${dim(`(pid ${pid})`)}`);
+        if (agent) await removePidFile(agent.path);
         await new Promise((r) => setTimeout(r, 1000));
       } catch {}
     }
@@ -203,6 +229,44 @@ async function installWeb(): Promise<void> {
   }
 }
 
+async function installProxy(): Promise<void> {
+  const unitPath = join(SYSTEMD_DIR, `${PROXY_SERVICE}.service`);
+
+  if (existsSync(unitPath) && isActive(PROXY_SERVICE)) {
+    console.log(`  ${green("●")} ${bold("proxy")} already installed and running`);
+    return;
+  }
+
+  if (!existsSync(unitPath)) {
+    const pidFile = join(homedir(), ".kern", "proxy.pid");
+    if (existsSync(pidFile)) {
+      try {
+        const pid = parseInt(await readFile(pidFile, "utf-8"), 10);
+        if (pid && isProcessRunning(pid)) {
+          process.kill(pid, "SIGTERM");
+          console.log(`  ${dim("stopped pid-based proxy daemon")} ${dim(`(pid ${pid})`)}`);
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+        await unlink(pidFile).catch(() => {});
+      } catch {}
+    }
+  }
+
+  await writeFile(unitPath, proxyServiceUnit());
+
+  systemctl("daemon-reload");
+  systemctl("enable", PROXY_SERVICE);
+  systemctl("restart", PROXY_SERVICE);
+
+  await new Promise((r) => setTimeout(r, 1500));
+  if (isActive(PROXY_SERVICE)) {
+    console.log(`  ${green("●")} ${bold("proxy")} installed and running`);
+  } else {
+    console.log(`  ${red("●")} ${bold("proxy")} installed but failed to start`);
+    console.log(`    ${dim(`journalctl --user -u ${PROXY_SERVICE} -n 10`)}`);
+  }
+}
+
 export async function install(nameOrFlag?: string): Promise<void> {
   const w = (s: string) => process.stdout.write(s + "\n");
 
@@ -220,35 +284,44 @@ export async function install(nameOrFlag?: string): Promise<void> {
     w("");
   }
 
-  const webOnly = nameOrFlag === "--web";
-
-  if (webOnly) {
+  if (nameOrFlag === "--web") {
     w("");
     await installWeb();
     w("");
     return;
   }
 
-  const agents = nameOrFlag
-    ? [await findAgent(nameOrFlag)].filter(Boolean)
-    : await loadRegistry();
+  if (nameOrFlag === "--proxy") {
+    w("");
+    await installProxy();
+    w("");
+    return;
+  }
 
-  if (agents.length === 0) {
-    if (nameOrFlag) {
+  let agentPaths: string[];
+  if (nameOrFlag) {
+    const agent = findAgent(nameOrFlag);
+    if (!agent) {
       console.error(`Agent not found: ${nameOrFlag}`);
-    } else {
-      console.error("No agents registered. Run 'kern init <name>' first.");
+      process.exit(1);
     }
-    process.exit(1);
+    agentPaths = [agent.path];
+  } else {
+    agentPaths = await loadRegistry();
+    if (agentPaths.length === 0) {
+      console.error("No agents registered. Run 'kern init <name>' first.");
+      process.exit(1);
+    }
   }
 
   w("");
   w(`  ${bold("installing kern services")}`);
   w("");
 
-  for (const agent of agents) {
-    if (!agent) continue;
-    await installAgent(agent.name, agent.path);
+  for (const agentPath of agentPaths) {
+    const info = readAgentInfo(agentPath);
+    const name = info?.name || basename(agentPath);
+    await installAgent(name, agentPath);
   }
 
   // Also install web if installing all
@@ -290,11 +363,14 @@ export async function uninstall(name?: string): Promise<void> {
     w(`  ${bold("uninstalling kern services")}`);
     w("");
 
-    const agents = await loadRegistry();
-    for (const agent of agents) {
-      await uninstallOne(serviceName(agent.name), agent.name);
+    const paths = await loadRegistry();
+    for (const agentPath of paths) {
+      const info = readAgentInfo(agentPath);
+      const name = info?.name || basename(agentPath);
+      await uninstallOne(serviceName(name), name);
     }
     await uninstallOne(WEB_SERVICE, "web");
+    await uninstallOne(PROXY_SERVICE, "proxy");
   }
 
   systemctl("daemon-reload");

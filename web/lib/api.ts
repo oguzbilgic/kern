@@ -1,5 +1,5 @@
 // Pure API functions — no React, no state
-// All agent requests go through the web proxy: /api/agents/{name}/*
+// All requests use a resolved baseUrl (proxy or direct — caller doesn't care)
 
 import type { StreamEvent, StatusData, HistoryMessage, Attachment } from "./types";
 
@@ -9,32 +9,24 @@ function headers(token?: string | null): Record<string, string> {
   return h;
 }
 
-/** Build proxied base URL for an agent */
-export function agentUrl(name: string, serverUrl?: string): string {
-  const base = serverUrl || "";
-  return `${base}/api/agents/${encodeURIComponent(name)}`;
-}
-
-// SSE connection — uses proxied events endpoint
+// SSE connection
 export interface SSEConnection {
   close: () => void;
   connectionId: string | null;
 }
 
 export function connectSSE(
-  agentName: string,
+  baseUrl: string,
   token: string | null,
   callbacks: {
     onEvent: (ev: StreamEvent) => void;
     onConnect?: () => void;
     onDisconnect?: () => void;
   },
-  serverUrl?: string
 ): SSEConnection {
-  const base = agentUrl(agentName, serverUrl);
   const url = token
-    ? `${base}/events?token=${encodeURIComponent(token)}`
-    : `${base}/events`;
+    ? `${baseUrl}/events?token=${encodeURIComponent(token)}`
+    : `${baseUrl}/events`;
   const es = new EventSource(url);
   let connectionId: string | null = null;
   let closed = false;
@@ -54,8 +46,6 @@ export function connectSSE(
     } catch { /* ignore */ }
   };
 
-  // Let EventSource auto-reconnect on transient errors.
-  // Only call onDisconnect so UI can show status, but don't close.
   es.onerror = () => {
     if (!closed) {
       callbacks.onDisconnect?.();
@@ -71,28 +61,37 @@ export function connectSSE(
   };
 }
 
-// Discovery — returns raw agent list from a server
+// Discovery — returns raw agent list from a proxy server
 export interface RawAgent {
   name: string;
   running: boolean;
 }
 
-export async function fetchAgents(token?: string | null, serverUrl?: string): Promise<RawAgent[]> {
-  const base = serverUrl || "";
-  const res = await fetch(`${base}/api/agents`, { headers: headers(token) });
+export async function fetchAgents(serverUrl: string, token: string): Promise<RawAgent[]> {
+  const res = await fetch(`${serverUrl}/api/agents`, { headers: headers(token) });
   if (!res.ok) return [];
   return res.json();
 }
 
-// Agent REST API — all through proxy
+// Check if a direct agent is reachable
+export async function pingAgent(baseUrl: string, token: string): Promise<StatusData | null> {
+  try {
+    const res = await fetch(`${baseUrl}/status`, { headers: headers(token) });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+// Agent REST API — all use resolved baseUrl
 export async function sendMessage(
-  agentName: string,
+  baseUrl: string,
   token: string | null,
   text: string,
   opts: {
     connectionId?: string | null;
     attachments?: Attachment[];
-    serverUrl?: string;
   } = {}
 ): Promise<{ ok: boolean }> {
   const payload: Record<string, unknown> = {
@@ -111,7 +110,7 @@ export async function sendMessage(
       size: a.size || 0,
     }));
   }
-  const res = await fetch(`${agentUrl(agentName, opts.serverUrl)}/message`, {
+  const res = await fetch(`${baseUrl}/message`, {
     method: "POST",
     headers: headers(token),
     body: JSON.stringify(payload),
@@ -119,76 +118,76 @@ export async function sendMessage(
   return res.json();
 }
 
-export async function getStatus(agentName: string, token?: string | null, serverUrl?: string): Promise<StatusData> {
-  const res = await fetch(`${agentUrl(agentName, serverUrl)}/status`, { headers: headers(token) });
+export async function getStatus(baseUrl: string, token?: string | null): Promise<StatusData> {
+  const res = await fetch(`${baseUrl}/status`, { headers: headers(token) });
   return res.json();
 }
 
-export async function getHistory(agentName: string, token?: string | null, limit = 100, serverUrl?: string, before?: number): Promise<HistoryMessage[]> {
+export async function getHistory(baseUrl: string, token?: string | null, limit = 100, before?: number): Promise<HistoryMessage[]> {
   const params = new URLSearchParams({ limit: String(limit) });
   if (before !== undefined) params.set("before", String(before));
-  const res = await fetch(`${agentUrl(agentName, serverUrl)}/history?${params}`, { headers: headers(token) });
+  const res = await fetch(`${baseUrl}/history?${params}`, { headers: headers(token) });
   return res.json();
 }
 
-export async function getSystemPrompt(agentName: string, token?: string | null, serverUrl?: string): Promise<string> {
-  const res = await fetch(`${agentUrl(agentName, serverUrl)}/context/system`, { headers: headers(token) });
+export async function getSystemPrompt(baseUrl: string, token?: string | null): Promise<string> {
+  const res = await fetch(`${baseUrl}/context/system`, { headers: headers(token) });
   return res.text();
 }
 
-export async function getContextSegments(agentName: string, token?: string | null, serverUrl?: string) {
-  const res = await fetch(`${agentUrl(agentName, serverUrl)}/context/segments`, { headers: headers(token) });
+export async function getContextSegments(baseUrl: string, token?: string | null) {
+  const res = await fetch(`${baseUrl}/context/segments`, { headers: headers(token) });
   return res.json();
 }
 
-export async function getSessions(agentName: string, token?: string | null, serverUrl?: string) {
-  const res = await fetch(`${agentUrl(agentName, serverUrl)}/sessions`, { headers: headers(token) });
+export async function getSessions(baseUrl: string, token?: string | null) {
+  const res = await fetch(`${baseUrl}/sessions`, { headers: headers(token) });
   return res.json();
 }
 
-export async function getSessionActivity(agentName: string, token: string | null, serverUrl?: string, sessionId?: string) {
-  const res = await fetch(`${agentUrl(agentName, serverUrl)}/sessions/${sessionId}/activity`, { headers: headers(token) });
+export async function getSessionActivity(baseUrl: string, token: string | null, sessionId?: string) {
+  const res = await fetch(`${baseUrl}/sessions/${sessionId}/activity`, { headers: headers(token) });
   return res.json();
 }
 
-export async function getSummaries(agentName: string, token?: string | null, serverUrl?: string) {
-  const res = await fetch(`${agentUrl(agentName, serverUrl)}/summaries`, { headers: headers(token) });
+export async function getSummaries(baseUrl: string, token?: string | null) {
+  const res = await fetch(`${baseUrl}/summaries`, { headers: headers(token) });
   return res.json();
 }
 
-export async function regenerateSummary(agentName: string, token?: string | null, serverUrl?: string) {
-  const res = await fetch(`${agentUrl(agentName, serverUrl)}/summaries/regenerate`, { method: "POST", headers: headers(token) });
+export async function regenerateSummary(baseUrl: string, token?: string | null) {
+  const res = await fetch(`${baseUrl}/summaries/regenerate`, { method: "POST", headers: headers(token) });
   return res.json();
 }
 
-export async function recallSearch(agentName: string, token: string | null, serverUrl?: string, query?: string, limit = 10) {
+export async function recallSearch(baseUrl: string, token: string | null, query?: string, limit = 10) {
   const params = new URLSearchParams({ q: query || "", limit: String(limit) });
-  const res = await fetch(`${agentUrl(agentName, serverUrl)}/recall/search?${params}`, { headers: headers(token) });
+  const res = await fetch(`${baseUrl}/recall/search?${params}`, { headers: headers(token) });
   return res.json();
 }
 
-export async function getRecallStats(agentName: string, token?: string | null, serverUrl?: string) {
-  const res = await fetch(`${agentUrl(agentName, serverUrl)}/recall/stats`, { headers: headers(token) });
+export async function getRecallStats(baseUrl: string, token?: string | null) {
+  const res = await fetch(`${baseUrl}/recall/stats`, { headers: headers(token) });
   return res.json();
 }
 
-export async function getMediaList(agentName: string, token?: string | null, serverUrl?: string) {
-  const res = await fetch(`${agentUrl(agentName, serverUrl)}/media/list`, { headers: headers(token) });
+export async function getMediaList(baseUrl: string, token?: string | null) {
+  const res = await fetch(`${baseUrl}/media/list`, { headers: headers(token) });
   return res.json();
 }
 
-export async function getSegments(agentName: string, token?: string | null, serverUrl?: string) {
-  const res = await fetch(`${agentUrl(agentName, serverUrl)}/segments`, { headers: headers(token) });
+export async function getSegments(baseUrl: string, token?: string | null) {
+  const res = await fetch(`${baseUrl}/segments`, { headers: headers(token) });
   return res.json();
 }
 
-export async function rebuildSegments(agentName: string, token?: string | null, serverUrl?: string) {
-  const res = await fetch(`${agentUrl(agentName, serverUrl)}/segments/rebuild`, { method: "POST", headers: headers(token) });
+export async function rebuildSegments(baseUrl: string, token?: string | null) {
+  const res = await fetch(`${baseUrl}/segments/rebuild`, { method: "POST", headers: headers(token) });
   return res.json();
 }
 
-export async function resummarizeSegment(agentName: string, token: string | null, serverUrl?: string, segmentId?: number) {
-  const res = await fetch(`${agentUrl(agentName, serverUrl)}/segments/${segmentId}/resummarize`, { method: "POST", headers: headers(token) });
+export async function resummarizeSegment(baseUrl: string, token: string | null, segmentId?: number) {
+  const res = await fetch(`${baseUrl}/segments/${segmentId}/resummarize`, { method: "POST", headers: headers(token) });
   return res.json();
 }
 

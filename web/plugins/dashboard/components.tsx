@@ -121,10 +121,9 @@ export function DashboardIframe({ html }: { html: string }) {
 }
 
 /** Dashboard header button with dropdown */
-export function DashboardButton({ agentName, token, serverUrl, onOpenDashboard }: {
-  agentName?: string;
+export function DashboardButton({ baseUrl, token, onOpenDashboard }: {
+  baseUrl?: string;
   token?: string;
-  serverUrl?: string;
   onOpenDashboard: (name: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -132,15 +131,14 @@ export function DashboardButton({ agentName, token, serverUrl, onOpenDashboard }
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open || !agentName) return;
-    const base = serverUrl || "";
+    if (!open || !baseUrl) return;
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    fetch(`${base}/api/agents/${agentName}/dashboards`, { headers })
+    fetch(`${baseUrl}/dashboards`, { headers })
       .then(r => r.json())
       .then(d => setDashboards(d.dashboards || []))
       .catch(() => setDashboards([]));
-  }, [open, agentName, token, serverUrl]);
+  }, [open, baseUrl, token]);
 
   useEffect(() => {
     if (!open) return;
@@ -186,7 +184,7 @@ export function DashboardButton({ agentName, token, serverUrl, onOpenDashboard }
 }
 
 /** Sidebar section showing dashboards from all agents */
-export function DashboardSidebar({ agents, mini }: { agents: { name: string; running: boolean; serverUrl?: string; token: string }[]; activeAgent: string | null; mini: boolean }) {
+export function DashboardSidebar({ agents, mini }: { agents: { name: string; running: boolean; baseUrl: string; token: string }[]; activeAgent: string | null; mini: boolean }) {
   const store = getDashboardStoreFromImport();
   const dashboards = store?.allDashboards || [];
   const activeDashboard = store?.activeDashboard || null;
@@ -201,23 +199,23 @@ export function DashboardSidebar({ agents, mini }: { agents: { name: string; run
           <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Dashboards</span>
         </div>
       )}
-      {dashboards.map((d: { name: string; agentName: string; serverUrl: string }) => {
+      {dashboards.map((d: { name: string; baseUrl: string }) => {
         const isActive = activeDashboard === d.name;
-        const agent = agents.find(a => a.name === d.agentName && (a.serverUrl || "") === d.serverUrl);
+        const agent = agents.find(a => a.baseUrl === d.baseUrl);
         return (
           <button
-            key={`${d.agentName}-${d.name}`}
+            key={`${d.baseUrl}-${d.name}`}
             onClick={() => {
               if (isActive) {
                 store?.closePanel();
               } else if (agent) {
-                store?.loadAndOpen(d.name, agent.name, agent.serverUrl || "", agent.token || "");
+                store?.loadAndOpen(d.name, agent.baseUrl, agent.token || "");
               }
             }}
             className={`flex items-center w-full text-left transition-colors cursor-pointer rounded-lg overflow-hidden p-2.5 ${
               mini ? "justify-center" : "gap-2"
             } ${isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"}`}
-            title={mini ? `${d.name} (${d.agentName})` : d.name}
+            title={mini ? `${d.name} (${agent?.name || ""})` : d.name}
           >
             <span
               className="flex-shrink-0 w-2 h-2"
@@ -233,7 +231,7 @@ export function DashboardSidebar({ agents, mini }: { agents: { name: string; run
                   {d.name}
                 </span>
                 <span className="text-[10px] text-[var(--text-muted)] ml-auto opacity-50 flex-shrink-0">
-                  {d.agentName}
+                  {agent?.name || ""}
                 </span>
               </>
             )}

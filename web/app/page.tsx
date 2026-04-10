@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect, type DragEvent } from "react";
-import { useAuth } from "../hooks/useAuth";
-import { useServers, agentKey } from "../hooks/useServers";
+import { useAgents, agentKey } from "../hooks/useAgents";
 import { useAgent } from "../hooks/useAgent";
-import { Login } from "../components/Login";
 import { Sidebar } from "../components/Sidebar";
 import { Chat } from "../components/Chat";
 import { Input, fileToAttachment } from "../components/Input";
@@ -19,9 +17,7 @@ import { usePluginInit } from "../plugins";
 import type { Attachment } from "../lib/types";
 
 export default function Home() {
-  const { token, setToken } = useAuth();
-  const validToken = token ?? null;
-  const { agents, activeAgent, active, setActive, addServer, removeServer } = useServers(validToken);
+  const { agents, activeAgent, active, setActive, addServer, removeServer, addDirectAgent, removeDirectAgent } = useAgents();
   const [dragOver, setDragOver] = useState(false);
   const [externalAttachments, setExternalAttachments] = useState<Attachment[]>([]);
   const { prefs, setPrefs } = usePreferences();
@@ -34,9 +30,8 @@ export default function Home() {
 
   // Register memory inspector tabs as modal surfaces
   useMemorySurfaces({
-    agentName: activeAgent?.name || "",
+    baseUrl: activeAgent?.baseUrl || "",
     token: activeAgent?.token || null,
-    serverUrl: activeAgent?.serverUrl,
   });
 
   const { messages, streamParts, thinking, activity, activityDetail, connected, status, send, loadMore, hasMore, loadingMore } = useAgent(activeAgent, { withHistory: true });
@@ -88,6 +83,22 @@ export default function Home() {
     };
   }, [agents, activeAgent, connected, thinking, send, setActive]);
 
+  // Keyboard shortcuts: Cmd/Ctrl + 1..9 to switch agents
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const n = parseInt(e.key);
+      if (n >= 1 && n <= 9) {
+        e.preventDefault();
+        const running = agents.filter((a) => a.running);
+        const idx = n - 1;
+        if (idx < running.length) setActive(agentKey(running[idx]));
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [agents, setActive]);
+
   const handleDrop = useCallback(async (e: DragEvent) => {
     e.preventDefault();
     setDragOver(false);
@@ -101,35 +112,17 @@ export default function Home() {
     if (atts.length) setExternalAttachments((prev) => [...prev, ...atts]);
   }, []);
 
-  if (token === undefined) {
-    return <div className="h-full w-full bg-[var(--bg)]" />;
-  }
-
-  if (!token) {
-    return <Login onLogin={setToken} />;
-  }
-
-  function handleLogout() {
-    localStorage.removeItem("kern-token");
-    const tauri = (window as any).__TAURI__;
-    if (tauri?.core?.invoke) {
-      window.location.replace("tauri://localhost/index.html?logout=1");
-    } else {
-      window.location.reload();
-    }
-  }
-
   return (
     <div className="flex h-full w-full">
       <Sidebar
         agents={agents}
         active={active}
         activeThinking={thinking}
-        token={token}
         onSelect={setActive}
-        onLogout={handleLogout}
         onAddServer={addServer}
         onRemoveServer={removeServer}
+        onAddAgent={addDirectAgent}
+        onRemoveAgent={removeDirectAgent}
       />
 
       <div
@@ -179,7 +172,7 @@ export default function Home() {
             {activeAgent && renderPluginHeaders({
               agentName: activeAgent.name,
               token: activeAgent.token,
-              serverUrl: activeAgent.serverUrl,
+              baseUrl: activeAgent.baseUrl,
             })}
             <button
               onClick={() => setModalSurface(MEMORY_SURFACE_ID)}
@@ -202,7 +195,7 @@ export default function Home() {
           thinking={thinking}
           agentName={activeAgent?.name}
           token={activeAgent?.token ?? undefined}
-          serverUrl={activeAgent?.serverUrl}
+          baseUrl={activeAgent?.baseUrl}
           layout={prefs.chatLayout}
           showTools={prefs.showTools}
           coloredTools={prefs.coloredTools}

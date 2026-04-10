@@ -4,12 +4,12 @@ import { TelegramInterface } from "./interfaces/telegram.js";
 import { SlackInterface } from "./interfaces/slack.js";
 import { CliInterface } from "./interfaces/cli.js";
 import { HubInterface } from "./interfaces/hub.js";
-import { loadConfig } from "./config.js";
+import { loadConfig, saveConfigField } from "./config.js";
 import { readFile, appendFile } from "fs/promises";
 import { join, basename } from "path";
 import { randomBytes } from "crypto";
 import type { Interface, MessageHandler } from "./interfaces/types.js";
-import { registerAgent, setPortAndToken, setPid } from "./registry.js";
+import { registerAgent, writePidFile, removePidFile, assignPort } from "./registry.js";
 import { AgentServer } from "./server.js";
 import { PairingManager } from "./pairing.js";
 import { setMessageSender } from "./tools/message.js";
@@ -69,7 +69,6 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   // Auto-generate auth token if missing
   if (!process.env.KERN_AUTH_TOKEN) {
     const envPath = join(agentDir, ".kern", ".env");
-    // Check if token already exists in file (env might not have loaded it)
     let existingToken: string | null = null;
     try {
       const envContent = await readFile(envPath, "utf-8");
@@ -115,8 +114,14 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     }
   }
 
-  const agentName = basename(agentDir);
-  await registerAgent(agentName, agentDir);
+  // Auto-migrate name into config if missing
+  if (!config.name) {
+    config.name = basename(agentDir);
+    await saveConfigField(agentDir, "name", config.name);
+    log("kern", `assigned name: ${config.name}`);
+  }
+
+  const agentName = config.name;
   process.chdir(agentDir);
 
   // Initialize pairing
@@ -253,7 +258,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   };
 
   server.setStatusFn(() => {
-    return { ...getStatusDataFn(), agentName };
+    return getStatusDataFn();
   });
 
   server.setMessageHandler(async (text, userId, iface, channel, attachments) => {
@@ -360,9 +365,18 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     };
   });
 
-  const port = await server.start("127.0.0.1");
-  await setPortAndToken(agentName, port, process.env.KERN_AUTH_TOKEN || null);
-  await setPid(agentName, process.pid);
+  // Assign a sticky port if none configured
+  if (!config.port) {
+    config.port = await assignPort();
+    if (config.port > 0) {
+      await saveConfigField(agentDir, "port", config.port);
+      log("kern", `assigned sticky port :${config.port}`);
+    }
+  }
+
+  const port = await server.start("0.0.0.0", config.port);
+  await registerAgent(agentDir);
+  await writePidFile(agentDir, process.pid);
 
   // Start Telegram if configured
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -529,6 +543,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     await plugins.shutdown(pluginCtx);
     server.stop();
     memoryDB.close();
+    await removePidFile(agentDir);
     log("kern", `stopped ${agentName}`);
     process.exit(0);
   };

@@ -49,15 +49,15 @@ function parsePromptSections(prompt: string): PromptSectionData[] {
 }
 
 // ─── Context Tab ────────────────────────────────────────
-export function ContextTab({ agentName, token, serverUrl }: TabProps) {
+export function ContextTab({ baseUrl, token }: TabProps) {
   const [prompt, setPrompt] = useState<string | null>(null);
   const [status, setStatus] = useState<any>(null);
   const [view, setView] = useState<"structured" | "raw">("structured");
 
   useEffect(() => {
-    api.getSystemPrompt(agentName, token, serverUrl).then(setPrompt).catch(() => {});
-    api.getStatus(agentName, token, serverUrl).then(setStatus).catch(() => {});
-  }, [agentName, token, serverUrl]);
+    api.getSystemPrompt(baseUrl, token).then(setPrompt).catch(() => {});
+    api.getStatus(baseUrl, token).then(setStatus).catch(() => {});
+  }, [baseUrl, token]);
 
   if (prompt === null) return <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading...</div>;
 

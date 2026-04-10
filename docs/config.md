@@ -16,10 +16,12 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 
 | Field | Default | Description |
 |-------|---------|-------------|
+| `name` | directory name | Agent name. Auto-set to directory basename on first startup if missing. Exposed in `/status` response. |
 | `model` | `anthropic/claude-opus-4.6` | Model ID. Format depends on provider. |
 | `provider` | `openrouter` | API provider: `openrouter`, `anthropic`, `openai`, `ollama` |
 | `toolScope` | `full` | Tool access level: `full`, `write`, `read` |
 | `maxSteps` | `30` | Max tool-use steps per message |
+| `port` | auto | Fixed port for the agent HTTP server. Assigned automatically from 4100-4999 on creation or first start. |
 | `maxContextTokens` | `100000` | Token budget for context window. Messages beyond this are trimmed oldest-first. Full history stays in session JSONL files. |
 | `maxToolResultChars` | `20000` | Max characters per tool result in context. Oversized results are truncated in context only. Full results stay in session storage. Set to `0` to disable. |
 | `telegramTools` | `false` | Show tool call progress lines (⚙ bash, etc.) in Telegram messages. |
@@ -66,42 +68,37 @@ Only set the API keys for providers/interfaces you use.
 **`KERN_AUTH_TOKEN`** — per-agent Bearer token required on all agent API endpoints (except `/health`).
 
 - Auto-generated on first agent start — written to `.kern/.env` automatically
-- Registered in `~/.kern/agents.json` so the TUI and web proxy can read it
-- TUI reads it from the registry automatically
+- TUI and web proxy read it from the agent's `.kern/.env` automatically
 - Web proxy injects it into proxied requests — the browser never sees agent tokens
 
-**`KERN_WEB_TOKEN`** — web proxy auth token stored in `~/.kern/.env`.
+**`KERN_PROXY_TOKEN`** — proxy auth token stored in `~/.kern/.env`.
 
-- Auto-generated on first `kern web start`
+- Auto-generated on first `kern proxy start`
 - Required on all `/api/*` proxy routes (Bearer header or `?token=` query param)
-- Printed by `kern web start` and `kern web token`
-- Web UI prompts for it on first visit, saves to localStorage
+- Printed by `kern proxy start` and `kern proxy token`
+- Legacy `KERN_WEB_TOKEN` also accepted as fallback
 
 You never need to set either token manually unless you want specific values.
 
 ## Global: ~/.kern/config.json
 
-Global settings for `kern web` and `kern hub`. Optional — defaults apply if the file doesn't exist.
+Global settings, agent registry, and service ports. Optional — defaults apply if the file doesn't exist.
 
 ```json
 {
-  "web_port": 9000,
-  "web_host": "0.0.0.0",
-  "hub_port": 4000
+  "web_port": 8080,
+  "proxy_port": 9000,
+  "hub_port": 4000,
+  "agents": ["/home/user/my-agent"]
 }
 ```
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `web_port` | `9000` | Port for the `kern web` UI server. |
-| `web_host` | `0.0.0.0` | Bind address for the web UI server. |
+| `web_port` | `8080` | Port for the `kern web` static file server. |
+| `proxy_port` | `9000` | Port for the `kern proxy` authenticated reverse proxy. |
 | `hub_port` | `4000` | Port for the `kern hub` server. |
-
-## Global: ~/.kern/agents.json
-
-Agent registry. Managed automatically — do not edit by hand.
-
-Tracks all registered agents with their name, path, PID, port, and auth token. Updated when agents start/stop.
+| `agents` | `[]` | List of registered agent directory paths. Managed automatically by `kern init` and `kern start`. |
 
 ## .kern/ local files
 

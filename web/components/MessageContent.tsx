@@ -5,10 +5,10 @@ import type { MessageProps } from "../lib/messages";
 import { renderMarkdown } from "../lib/markdown";
 import { formatTime } from "../lib/messages";
 
-export function MediaAttachments({ media, agentName, token, serverUrl }: { media: MediaItem[]; agentName?: string; token?: string; serverUrl?: string }) {
+export function MediaAttachments({ media, baseUrl, token }: { media: MediaItem[]; baseUrl?: string; token?: string }) {
   if (!media.length) return null;
   const qs = token ? `?token=${token}` : "";
-  const base = serverUrl ? `${serverUrl}/api/agents/${agentName}` : `/api/agents/${agentName}`;
+  const base = baseUrl || "";
   const resolveUrl = (url: string) =>
     url.startsWith("data:") ? url : `${base}/media/${url}${qs}`;
   return (
