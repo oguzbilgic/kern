@@ -13,6 +13,7 @@ const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
 
 const SERVICE_PREFIX = "kern-agent-";
 const WEB_SERVICE = "kern-web";
+const PROXY_SERVICE = "kern-proxy";
 const SYSTEMD_DIR = join(homedir(), ".config", "systemd", "user");
 
 function hasSystemd(): boolean {
@@ -78,6 +79,11 @@ export function getWebServiceStatus(): "active" | "installed" | null {
   return isActive(WEB_SERVICE) ? "active" : "installed";
 }
 
+export function getProxyServiceStatus(): "active" | "installed" | null {
+  if (!isInstalled(PROXY_SERVICE)) return null;
+  return isActive(PROXY_SERVICE) ? "active" : "installed";
+}
+
 function agentServiceUnit(agentName: string, agentPath: string): string {
   const kernEntry = join(import.meta.dirname, "index.js");
   const nodeBin = process.execPath;
@@ -108,6 +114,25 @@ After=network.target
 [Service]
 Type=simple
 ExecStart=${nodeBin} --no-deprecation ${webEntry}
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=default.target
+`;
+}
+
+function proxyServiceUnit(): string {
+  const proxyEntry = join(import.meta.dirname, "proxy.js");
+  const nodeBin = process.execPath;
+  return `[Unit]
+Description=kern proxy server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=${nodeBin} --no-deprecation ${proxyEntry}
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
@@ -204,6 +229,44 @@ async function installWeb(): Promise<void> {
   }
 }
 
+async function installProxy(): Promise<void> {
+  const unitPath = join(SYSTEMD_DIR, `${PROXY_SERVICE}.service`);
+
+  if (existsSync(unitPath) && isActive(PROXY_SERVICE)) {
+    console.log(`  ${green("●")} ${bold("proxy")} already installed and running`);
+    return;
+  }
+
+  if (!existsSync(unitPath)) {
+    const pidFile = join(homedir(), ".kern", "proxy.pid");
+    if (existsSync(pidFile)) {
+      try {
+        const pid = parseInt(await readFile(pidFile, "utf-8"), 10);
+        if (pid && isProcessRunning(pid)) {
+          process.kill(pid, "SIGTERM");
+          console.log(`  ${dim("stopped pid-based proxy daemon")} ${dim(`(pid ${pid})`)}`);
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+        await unlink(pidFile).catch(() => {});
+      } catch {}
+    }
+  }
+
+  await writeFile(unitPath, proxyServiceUnit());
+
+  systemctl("daemon-reload");
+  systemctl("enable", PROXY_SERVICE);
+  systemctl("restart", PROXY_SERVICE);
+
+  await new Promise((r) => setTimeout(r, 1500));
+  if (isActive(PROXY_SERVICE)) {
+    console.log(`  ${green("●")} ${bold("proxy")} installed and running`);
+  } else {
+    console.log(`  ${red("●")} ${bold("proxy")} installed but failed to start`);
+    console.log(`    ${dim(`journalctl --user -u ${PROXY_SERVICE} -n 10`)}`);
+  }
+}
+
 export async function install(nameOrFlag?: string): Promise<void> {
   const w = (s: string) => process.stdout.write(s + "\n");
 
@@ -221,11 +284,16 @@ export async function install(nameOrFlag?: string): Promise<void> {
     w("");
   }
 
-  const webOnly = nameOrFlag === "--web";
-
-  if (webOnly) {
+  if (nameOrFlag === "--web") {
     w("");
     await installWeb();
+    w("");
+    return;
+  }
+
+  if (nameOrFlag === "--proxy") {
+    w("");
+    await installProxy();
     w("");
     return;
   }
@@ -302,6 +370,7 @@ export async function uninstall(name?: string): Promise<void> {
       await uninstallOne(serviceName(name), name);
     }
     await uninstallOne(WEB_SERVICE, "web");
+    await uninstallOne(PROXY_SERVICE, "proxy");
   }
 
   systemctl("daemon-reload");

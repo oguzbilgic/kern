@@ -42,10 +42,11 @@ async function showHelp() {
   w(`    ${cyan("kern import")} ${dim("opencode <name>")}  import session from OpenCode`);
   w(`    ${cyan("kern restore")} ${dim("<file>")}         restore agent from backup`);
   w(`    ${cyan("kern logs")} ${dim("[name] [-f] [-n 50] [--level warn]")}  show agent logs`);
-  w(`    ${cyan("kern install")} ${dim("[name|--web]")}    install systemd services`);
+  w(`    ${cyan("kern install")} ${dim("[name|--web|--proxy]")} install systemd services`);
   w(`    ${cyan("kern uninstall")} ${dim("[name]")}        remove systemd services`);
   w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
-  w(`    ${cyan("kern web")} ${dim("<start|stop|status|token>")}  web UI server`);
+  w(`    ${cyan("kern web")} ${dim("<start|stop|status>")}        static web UI server`);
+  w(`    ${cyan("kern proxy")} ${dim("<start|stop|status|token>")} authenticated proxy server`);
   w("");
 }
 
@@ -362,10 +363,9 @@ async function main() {
   }
 
   if (cmd === "web") {
-    const subcmd = args[1]; // start, stop, status
-    const { webStart, webStop, webStatus, webToken } = await import("./web-daemon.js");
+    const subcmd = args[1];
+    const { webStart, webStop, webStatus } = await import("./web-daemon.js");
     if (subcmd === "start" || subcmd === "stop" || subcmd === "restart") {
-      // Delegate to systemd if installed
       const { getWebServiceStatus } = await import("./install.js");
       if (getWebServiceStatus() !== null) {
         const { spawnSync } = await import("child_process");
@@ -377,10 +377,32 @@ async function main() {
       else { await webStop(); await new Promise(r => setTimeout(r, 500)); await webStart(); }
     } else if (subcmd === "status") {
       await webStatus();
-    } else if (subcmd === "token") {
-      await webToken();
     } else {
-      console.error("Usage: kern web <start|stop|status|token>");
+      console.error("Usage: kern web <start|stop|status>");
+      process.exit(1);
+    }
+    return;
+  }
+
+  if (cmd === "proxy") {
+    const subcmd = args[1];
+    const { proxyStart, proxyStop, proxyStatus, proxyToken } = await import("./proxy-daemon.js");
+    if (subcmd === "start" || subcmd === "stop" || subcmd === "restart") {
+      const { getProxyServiceStatus } = await import("./install.js");
+      if (getProxyServiceStatus() !== null) {
+        const { spawnSync } = await import("child_process");
+        spawnSync("systemctl", ["--user", subcmd, "kern-proxy"], { stdio: "pipe" });
+        return;
+      }
+      if (subcmd === "start") await proxyStart();
+      else if (subcmd === "stop") await proxyStop();
+      else { await proxyStop(); await new Promise(r => setTimeout(r, 500)); await proxyStart(); }
+    } else if (subcmd === "status") {
+      await proxyStatus();
+    } else if (subcmd === "token") {
+      await proxyToken();
+    } else {
+      console.error("Usage: kern proxy <start|stop|status|token>");
       process.exit(1);
     }
     return;

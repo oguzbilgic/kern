@@ -12,6 +12,12 @@
   - `kern web` is now optional — useful for multi-agent proxy, but not required
   - Login page removed — the web UI loads instantly, agents are added from the sidebar
 - **Agent name auto-migration** ([#131](https://github.com/oguzbilgic/kern-ai/issues/131)) — `name` field auto-set to directory basename on first startup if missing, persisted to config, and exposed in `/status` API for reliable UI display
+- **`kern proxy`** ([#127](https://github.com/oguzbilgic/kern-ai/issues/127)) — authenticated reverse proxy extracted from `kern web` into its own command
+  - `kern proxy <start|stop|status|token>` — manages the proxy server with agent discovery, token auth, and API routing
+  - `kern web` is now a minimal static file server with no auth or proxy routes
+  - Token renamed from `KERN_WEB_TOKEN` to `KERN_PROXY_TOKEN` (legacy token accepted as fallback)
+  - Proxy uses `proxy_port` config (default 9000), web uses `web_port` (default 8080)
+  - `kern install --proxy` installs a systemd service for the proxy
 
 ## v0.24.1
 

@@ -25,7 +25,7 @@ kern init my-agent
 kern tui
 ```
 
-The init wizard scaffolds your agent, asks for a provider and API key, then starts it. `kern tui` opens an interactive chat. `kern web start` opens it in the browser.
+The init wizard scaffolds your agent, asks for a provider and API key, then starts it. `kern tui` opens an interactive chat. `kern web start` serves the UI in the browser.
 
 For automation: `kern init my-agent --api-key sk-or-...` (no prompts, defaults to openrouter + opus 4.6). For Ollama: `kern init my-agent --provider ollama --api-key http://localhost:11434 --model gemma4:31b`.
 
@@ -69,34 +69,36 @@ kern init <name>          # create or configure an agent
 kern start [name|path]    # start agents in background
 kern stop [name]          # stop agents
 kern restart [name]       # restart agents
-kern install [name|--web] # install systemd services (auto-restart, boot persistence)
+kern install [name|--web|--proxy] # install systemd services (auto-restart, boot persistence)
 kern uninstall [name]     # remove systemd services
 kern tui [name]           # interactive chat
-kern web <start|stop|status|token>  # web UI server
+kern web <start|stop|status>      # static web UI server
+kern proxy <start|stop|status|token>  # authenticated reverse proxy
 kern logs [name]          # follow agent logs
-kern list                 # show all agents and web status
+kern list                 # show all agents, web, and proxy status
 kern remove <name>        # unregister an agent
 kern backup <name>        # backup agent to .tar.gz
 kern restore <file>       # restore agent from backup
 kern import opencode      # import session from OpenCode
 ```
 
-Agents auto-register when you init, start, or run them. `kern list` shows every agent and the web daemon with running state and mode (systemd/daemon).
+Agents auto-register when you init, start, or run them. `kern list` shows every agent, web, and proxy with running state and mode (systemd/daemon).
 
 ### Web UI
 
-`kern web start` launches an optional web proxy server (default port 9000) that discovers local agents and proxies requests to them.
+`kern web start` serves the web UI as static files (default port 8080). Connect to agents directly from the sidebar by entering their URL and token.
+
+`kern proxy start` launches an optional authenticated reverse proxy (default port 9000) that discovers local agents and proxies requests to them.
 
 ```bash
-kern web start    # start web UI proxy, prints URL with token
-kern web stop     # stop it
-kern web status   # check if running
-kern web token    # print the URL with token again
+kern web start      # start static web server
+kern proxy start    # start proxy, prints URL with token
+kern proxy token    # print URL with token again
 ```
 
 The web UI can connect to agents two ways:
 - **Direct** — enter the agent's URL and `KERN_AUTH_TOKEN` in the sidebar. No proxy needed.
-- **Via proxy** — connect to a `kern web` server with `KERN_WEB_TOKEN`. The proxy discovers and forwards to local agents.
+- **Via proxy** — connect to a `kern proxy` server with `KERN_PROXY_TOKEN`. The proxy discovers and forwards to local agents.
 
 Agents bind to `0.0.0.0` on sticky ports (4100-4999), accessible over Tailscale or LAN. Add agents or remote proxy servers from the sidebar.
 
@@ -203,18 +205,18 @@ Structured, leveled logs with colored labels. Stored in `.kern/logs/kern.log`. A
 
 `maxContextTokens` controls the sliding context window — older messages are trimmed to stay within budget. `maxToolResultChars` caps individual tool results in context (full results stay in session JSONL and are searchable via recall). `summaryBudget` controls what fraction of the context window is reserved for compressed segment summaries when old messages are trimmed (default 75%, cached via prompt caching so effectively free). Set to `0` to disable.
 
-Agent auth tokens are auto-generated on first start and stored in `.kern/.env`. The web proxy injects them automatically — no manual setup needed.
+Agent auth tokens are auto-generated on first start and stored in `.kern/.env`. The proxy injects them automatically — no manual setup needed.
 
 ### Global: `~/.kern/config.json`
 
 ```json
 {
-  "web_port": 9000,
-  "web_host": "0.0.0.0"
+  "web_port": 8080,
+  "proxy_port": 9000
 }
 ```
 
-Controls the `kern web` server. Optional — defaults apply if the file doesn't exist.
+Controls the `kern web` and `kern proxy` servers. Optional — defaults apply if the file doesn't exist.
 
 ### Tool scopes
 
