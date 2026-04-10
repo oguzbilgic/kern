@@ -4,6 +4,29 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { AgentInfo, ServerConfig, DirectAgent } from "../lib/types";
 import * as api from "../lib/api";
 
+/** Apply saved order from localStorage, appending any new agents at the end */
+function applyOrder(agents: AgentInfo[]): AgentInfo[] {
+  try {
+    const stored = localStorage.getItem("kern-agent-order");
+    if (!stored) return agents;
+    const order: string[] = JSON.parse(stored);
+    const map = new Map(agents.map((a) => [a.baseUrl, a]));
+    const ordered: AgentInfo[] = [];
+    for (const url of order) {
+      const agent = map.get(url);
+      if (agent) {
+        ordered.push(agent);
+        map.delete(url);
+      }
+    }
+    // Append agents not in saved order
+    for (const agent of map.values()) ordered.push(agent);
+    return ordered;
+  } catch {
+    return agents;
+  }
+}
+
 export function useAgents() {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [active, setActiveState] = useState<string | null>(null);
@@ -60,8 +83,8 @@ export function useAgents() {
       });
     }
 
-    // Order: direct agents → proxy servers (matches sidebar)
-    const all = [...directList, ...proxyAgents];
+    // Order: direct agents → proxy servers, then apply saved order
+    const all = applyOrder([...directList, ...proxyAgents]);
     setAgents(all);
 
     // Auto-select first running agent if none active
@@ -118,9 +141,19 @@ export function useAgents() {
     setAgents((prev) => prev.filter((a) => a.baseUrl !== url));
   }, [getDirectAgents]);
 
+  const reorder = useCallback((fromIndex: number, toIndex: number) => {
+    setAgents((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      localStorage.setItem("kern-agent-order", JSON.stringify(next.map((a) => a.baseUrl)));
+      return next;
+    });
+  }, []);
+
   const activeAgent = agents.find((a) => a.baseUrl === active) ?? null;
 
-  return { agents, activeAgent, active, setActive, addServer, removeServer, addDirectAgent, removeDirectAgent, refresh: discover };
+  return { agents, activeAgent, active, setActive, addServer, removeServer, addDirectAgent, removeDirectAgent, reorder, refresh: discover };
 }
 
 /** Stable key for an agent — baseUrl is unique */

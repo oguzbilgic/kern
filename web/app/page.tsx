@@ -17,7 +17,7 @@ import { usePluginInit } from "../plugins";
 import type { Attachment } from "../lib/types";
 
 export default function Home() {
-  const { agents, activeAgent, active, setActive, addServer, removeServer, addDirectAgent, removeDirectAgent } = useAgents();
+  const { agents, activeAgent, active, setActive, addServer, removeServer, addDirectAgent, removeDirectAgent, reorder } = useAgents();
   const [dragOver, setDragOver] = useState(false);
   const [externalAttachments, setExternalAttachments] = useState<Attachment[]>([]);
   const { prefs, setPrefs } = usePreferences();
@@ -123,6 +123,7 @@ export default function Home() {
         onRemoveServer={removeServer}
         onAddAgent={addDirectAgent}
         onRemoveAgent={removeDirectAgent}
+        onReorder={reorder}
       />
 
       <div
