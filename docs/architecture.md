@@ -149,7 +149,7 @@ Without `kern install`, agents run as plain daemons managed by PID files.
   AGENTS.md            # agent behavior
   IDENTITY.md          # agent identity
   KNOWLEDGE.md         # knowledge index
-  USERS.md             # paired users
+  USERS.md             # users and channels encountered
   knowledge/           # mutable state files
   notes/               # daily logs
 ```
