@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { AgentInfo, ServerConfig, DirectAgent } from "../lib/types";
 import * as api from "../lib/api";
 
-export function useAgents(token: string | null) {
+export function useAgents() {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [active, setActiveState] = useState<string | null>(null);
   const activeRef = useRef<string | null>(null);
@@ -12,18 +12,12 @@ export function useAgents(token: string | null) {
 
   // Get proxy servers from localStorage
   const getServers = useCallback((): ServerConfig[] => {
-    const servers: ServerConfig[] = [
-      { url: "", token: token || "" }, // local proxy
-    ];
     try {
       const stored = localStorage.getItem("kern-servers");
-      if (stored) {
-        const parsed: ServerConfig[] = JSON.parse(stored);
-        servers.push(...parsed);
-      }
+      if (stored) return JSON.parse(stored);
     } catch { /* ignore */ }
-    return servers;
-  }, [token]);
+    return [];
+  }, []);
 
   // Get direct agents from localStorage
   const getDirectAgents = useCallback((): DirectAgent[] => {
@@ -35,22 +29,19 @@ export function useAgents(token: string | null) {
   }, []);
 
   const discover = useCallback(async () => {
-    if (!token) return;
-    const all: AgentInfo[] = [];
+    const proxyAgents: AgentInfo[] = [];
 
     // Discover from proxy servers
     const servers = getServers();
     for (const server of servers) {
       try {
-        const raw = await api.fetchAgents(server.url || "", server.token);
+        const raw = await api.fetchAgents(server.url, server.token);
         for (const a of raw) {
-          all.push({
+          proxyAgents.push({
             name: a.name,
             running: a.running,
             token: server.token,
-            baseUrl: server.url
-              ? `${server.url}/api/agents/${encodeURIComponent(a.name)}`
-              : `/api/agents/${encodeURIComponent(a.name)}`,
+            baseUrl: `${server.url}/api/agents/${encodeURIComponent(a.name)}`,
           });
         }
       } catch { /* ignore unreachable servers */ }
@@ -69,18 +60,9 @@ export function useAgents(token: string | null) {
       });
     }
 
-    // Order: direct agents → local proxy → remote proxy (matches sidebar)
-    const localProxy: AgentInfo[] = [];
-    const remoteProxy: AgentInfo[] = [];
-    for (const a of all) {
-      const idx = a.baseUrl.indexOf("/api/agents/");
-      if (idx < 0) continue; // shouldn't happen, all are proxy here
-      const server = a.baseUrl.slice(0, idx) || "local";
-      if (server === "local") localProxy.push(a);
-      else remoteProxy.push(a);
-    }
-
-    setAgents([...directList, ...localProxy, ...remoteProxy]);
+    // Order: direct agents → proxy servers (matches sidebar)
+    const all = [...directList, ...proxyAgents];
+    setAgents(all);
 
     // Auto-select first running agent if none active
     if (!activeRef.current) {
@@ -92,7 +74,7 @@ export function useAgents(token: string | null) {
         if (first) setActiveState(first.baseUrl);
       }
     }
-  }, [token, getServers, getDirectAgents]);
+  }, [getServers, getDirectAgents]);
 
   // Discover on mount and periodically
   useEffect(() => {
@@ -108,7 +90,7 @@ export function useAgents(token: string | null) {
 
   // Server management (proxy)
   const addServer = useCallback((url: string, serverToken: string) => {
-    const servers = getServers().slice(1); // skip local
+    const servers = getServers();
     if (servers.some((s) => s.url === url)) return;
     servers.push({ url, token: serverToken });
     localStorage.setItem("kern-servers", JSON.stringify(servers));
@@ -116,7 +98,7 @@ export function useAgents(token: string | null) {
   }, [getServers, discover]);
 
   const removeServer = useCallback((url: string) => {
-    const servers = getServers().slice(1).filter((s) => s.url !== url);
+    const servers = getServers().filter((s) => s.url !== url);
     localStorage.setItem("kern-servers", JSON.stringify(servers));
     setAgents((prev) => prev.filter((a) => !a.baseUrl.startsWith(url)));
   }, [getServers]);

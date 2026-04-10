@@ -88,14 +88,13 @@ interface SidebarProps {
   active: string | null;
   activeThinking?: boolean;
   onSelect: (key: string) => void;
-  onLogout?: () => void;
   onAddServer?: (url: string, token: string) => void;
   onRemoveServer?: (url: string) => void;
   onAddAgent?: (url: string, token: string) => void;
   onRemoveAgent?: (url: string) => void;
 }
 
-export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, onAddServer, onRemoveServer, onAddAgent, onRemoveAgent }: SidebarProps) {
+export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer, onRemoveServer, onAddAgent, onRemoveAgent }: SidebarProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addMode, setAddMode] = useState<AddMode>("agent");
   const [newUrl, setNewUrl] = useState("");
@@ -139,7 +138,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
   for (const agent of agents) {
     const proxyIdx = agent.baseUrl.indexOf("/api/agents/");
     if (proxyIdx >= 0) {
-      const server = agent.baseUrl.slice(0, proxyIdx) || "local";
+      const server = agent.baseUrl.slice(0, proxyIdx);
       if (!proxyGroups.has(server)) proxyGroups.set(server, []);
       proxyGroups.get(server)!.push(agent);
     } else {
@@ -220,32 +219,8 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
           </div>
         )}
 
-        {/* Local proxy agents */}
-        {proxyGroups.has("local") && (
-          <div className="mb-1.5">
-            <div className="flex items-center px-2 mb-1">
-              <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Local</span>
-            </div>
-            {proxyGroups.get("local")!.map((agent) => {
-              const key = agentKey(agent);
-              return (
-                <AgentRow
-                  key={key}
-                  agent={agent}
-                  isActive={key === active}
-                  activeThinking={key === active ? activeThinking : undefined}
-                  mini={mini}
-                  onSelect={() => onSelect(key)}
-                />
-              );
-            })}
-          </div>
-        )}
-
-        {/* Remote proxy server groups */}
-        {Array.from(proxyGroups.entries())
-          .filter(([server]) => server !== "local")
-          .map(([server, serverAgents]) => (
+        {/* Proxy server groups */}
+        {Array.from(proxyGroups.entries()).map(([server, serverAgents]) => (
           <div key={server} className="mb-1.5">
             <div className="flex items-center justify-between px-2 mb-1">
               <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider truncate">
@@ -302,23 +277,6 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onLogout, on
         {/* Plugin sidebar sections */}
         {renderPluginSidebars({ agents, activeAgent: activeAgentObj?.name ?? null, mini })}
       </div>
-
-      {/* Footer: logout */}
-      {onLogout && (
-        <div className="py-2 px-4 border-t border-[var(--border)] flex justify-end">
-          <button
-            onClick={onLogout}
-            className="text-[var(--text-muted)] hover:text-[var(--text-dim)] transition-colors cursor-pointer"
-            title="Logout"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <path d="M6 2H4a2 2 0 00-2 2v8a2 2 0 002 2h2" />
-              <path d="M10 11l3-3-3-3" />
-              <line x1="6" y1="8" x2="13" y2="8" />
-            </svg>
-          </button>
-        </div>
-      )}
 
       {/* Add modal — agent or server */}
       {showAddModal && (

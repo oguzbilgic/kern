@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect, type DragEvent } from "react";
-import { useAuth } from "../hooks/useAuth";
 import { useAgents, agentKey } from "../hooks/useAgents";
 import { useAgent } from "../hooks/useAgent";
-import { Login } from "../components/Login";
 import { Sidebar } from "../components/Sidebar";
 import { Chat } from "../components/Chat";
 import { Input, fileToAttachment } from "../components/Input";
@@ -19,9 +17,7 @@ import { usePluginInit } from "../plugins";
 import type { Attachment } from "../lib/types";
 
 export default function Home() {
-  const { token, setToken } = useAuth();
-  const validToken = token ?? null;
-  const { agents, activeAgent, active, setActive, addServer, removeServer, addDirectAgent, removeDirectAgent } = useAgents(validToken);
+  const { agents, activeAgent, active, setActive, addServer, removeServer, addDirectAgent, removeDirectAgent } = useAgents();
   const [dragOver, setDragOver] = useState(false);
   const [externalAttachments, setExternalAttachments] = useState<Attachment[]>([]);
   const { prefs, setPrefs } = usePreferences();
@@ -116,24 +112,6 @@ export default function Home() {
     if (atts.length) setExternalAttachments((prev) => [...prev, ...atts]);
   }, []);
 
-  if (token === undefined) {
-    return <div className="h-full w-full bg-[var(--bg)]" />;
-  }
-
-  if (!token) {
-    return <Login onLogin={setToken} />;
-  }
-
-  function handleLogout() {
-    localStorage.removeItem("kern-token");
-    const tauri = (window as any).__TAURI__;
-    if (tauri?.core?.invoke) {
-      window.location.replace("tauri://localhost/index.html?logout=1");
-    } else {
-      window.location.reload();
-    }
-  }
-
   return (
     <div className="flex h-full w-full">
       <Sidebar
@@ -141,7 +119,6 @@ export default function Home() {
         active={active}
         activeThinking={thinking}
         onSelect={setActive}
-        onLogout={handleLogout}
         onAddServer={addServer}
         onRemoveServer={removeServer}
         onAddAgent={addDirectAgent}
