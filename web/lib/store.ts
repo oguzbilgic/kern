@@ -102,6 +102,9 @@ if (typeof window !== "undefined" && !localStorage.getItem("kern")) {
       const legacyKeys = [
         "kern-prefs", "kern-hljs-theme", "kern-servers", "kern-agents",
         "kern-agent-order", "kern-sidebar-mini", "kern-pinned-stats", "kern-active-dashboard",
+        "kern-chat-layout", "kern-token",
+        "kern_filters", "kern_pinned_stats", "kern_servers", "kern_sidebar_prev",
+        "kern_sidebar_state", "kern_web_token",
       ];
       for (const k of legacyKeys) localStorage.removeItem(k);
     }
