@@ -3,10 +3,11 @@
 ## next
 
 ### Features
-- **Self-contained agents** ([#126](https://github.com/oguzbilgic/kern-ai/issues/126)) — each agent owns its runtime state (port, token, PID) in its own `.kern/` directory
-  - Sticky ports assigned from 4100-4999 on creation — no more random ports on every restart
-  - Agents bind `0.0.0.0` by default, reachable over Tailscale or LAN without a proxy
-  - Global registry simplified to a path list in `~/.kern/config.json`
+- **Self-contained agents** ([#126](https://github.com/oguzbilgic/kern-ai/issues/126)) — all agent runtime state (port, token, PID) now lives in the agent's own `.kern/` directory instead of a central registry
+  - Agent list moved from `~/.kern/agents.json` to `agents` field in `~/.kern/config.json` — one global config file for everything
+  - Legacy `agents.json` auto-migrates on first load and gets deleted
+  - Sticky ports: agents get a fixed port (4100-4999) assigned on creation or first start — no more random ports
+  - Server binds `0.0.0.0` by default, enabling direct connections over Tailscale or LAN
 - **Direct agent connections** ([#124](https://github.com/oguzbilgic/kern-ai/issues/124)) — connect to any agent from the web UI without running `kern web`. Click **+** in the sidebar, enter the agent's URL and token.
   - `kern web` is now optional — useful for multi-agent proxy, but not required
   - Login page removed — the web UI loads instantly, agents are added from the sidebar
