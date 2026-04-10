@@ -22,6 +22,13 @@
 ### Improvements
 - **Agent prompt: "How replies work"** ([#138](https://github.com/oguzbilgic/kern-ai/pull/138)) — new section in KERN.md explaining reply vs `message` tool vs NO_REPLY, clarified pairing scope (Telegram/Slack DMs only, first user auto-paired), and expanded USERS.md description
 
+### Migration
+- **Web UI now connects directly to agents** — add agents via the sidebar `+` button with their URL (`http://<host>:<port>`) and `KERN_AUTH_TOKEN` from `.kern/.env`
+  - `kern proxy` is no longer required for single-agent setups
+  - If you still need multi-agent proxy, use the new `kern proxy` command — `kern web` no longer proxies or requires auth
+- Rename `KERN_WEB_TOKEN` to `KERN_PROXY_TOKEN` in `~/.kern/.env` (old name still works as fallback)
+- Agents now bind `0.0.0.0` by default — set `host: "127.0.0.1"` in agent config if you want localhost only
+
 ## v0.24.1
 
 ### Fixes
