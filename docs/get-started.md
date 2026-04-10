@@ -90,7 +90,9 @@ The agent reads every message in channels it's in but only responds when @mentio
 
 ## User pairing
 
-The first person to message the agent becomes the operator. Everyone else gets a pairing code:
+Pairing applies only to Telegram and Slack DMs. TUI and web users connect directly — no pairing needed.
+
+The first user to message the agent on Telegram or Slack is automatically paired (likely the operator). After that, unpaired users receive a pairing code from the runtime:
 
 1. New user messages the agent → receives `KERN-XXXX`
 2. They share the code with you

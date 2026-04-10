@@ -1,11 +1,13 @@
 # User Pairing
 
-kern uses a code-based pairing system. No allowlists — every user pairs through the agent.
+kern uses a code-based pairing system for Telegram and Slack DMs. TUI and web users connect directly — no pairing needed.
+
+The first user to message the bot on Telegram or Slack is automatically paired as the operator.
 
 ## Flow
 
 1. Unknown user messages the bot (Telegram DM or Slack DM)
-2. Bot responds with a pairing code: `KERN-XXXX`
+2. Runtime responds with a pairing code: `KERN-XXXX`
 3. User shares the code with the operator out-of-band (text, email, in person)
 4. Operator tells the agent who this person is:
    > "pair KERN-7X4M — that's Sarah, my cofounder, she handles finance but shouldn't see personal stuff"
@@ -46,9 +48,9 @@ The agent manages this file — reads it to know who people are, updates it as i
 
 ## Operator
 
-The first person to message the bot is auto-paired as the operator — no code needed, silent. The TUI is also always the operator.
+The first person to message the bot on Telegram or Slack is auto-paired as the operator — no code needed, silent. TUI and web users are always the operator — no pairing needed.
 
-Every subsequent user goes through the pairing code flow.
+Every subsequent Telegram/Slack user goes through the pairing code flow.
 
 ## Approving users
 

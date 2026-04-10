@@ -19,6 +19,9 @@
   - Proxy uses `proxy_port` config (default 9000), web uses `web_port` (default 8080)
   - `kern install --proxy` installs a systemd service for the proxy
 
+### Improvements
+- **Agent prompt: "How replies work"** ([#138](https://github.com/oguzbilgic/kern-ai/pull/138)) — new section in KERN.md explaining reply vs `message` tool vs NO_REPLY, clarified pairing scope (Telegram/Slack DMs only, first user auto-paired), and expanded USERS.md description
+
 ## v0.24.1
 
 ### Fixes
