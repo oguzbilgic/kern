@@ -212,7 +212,7 @@
         // Just check if the URL is reachable by fetching the root page
         let res;
         try {
-          res = await fetch(url + '/', { method: 'HEAD' });
+          res = await fetch(url + '/');
         } catch (networkErr) {
           throw new Error(`Could not reach ${url}\n\n${networkErr?.message || 'Network request failed'}`);
         }
