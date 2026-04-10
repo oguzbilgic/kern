@@ -158,6 +158,55 @@ export const useStore = create<KernStore>()(
         connections: state.connections,
         ui: state.ui,
       }),
+      onRehydrateStorage: () => (state) => {
+        // Zustand skips migrate() when no prior persisted key exists.
+        // Check for legacy keys and import them on first hydration.
+        if (!state) return;
+        try {
+          const hasLegacy = localStorage.getItem("kern-prefs") || localStorage.getItem("kern-agents") || localStorage.getItem("kern-servers");
+          if (!hasLegacy) return;
+
+          const oldPrefs = JSON.parse(localStorage.getItem("kern-prefs") || "{}");
+          const oldTheme = localStorage.getItem("kern-hljs-theme");
+          const oldServers: ConnectionEntry[] = JSON.parse(localStorage.getItem("kern-servers") || "[]");
+          const oldAgents: ConnectionEntry[] = JSON.parse(localStorage.getItem("kern-agents") || "[]");
+          const oldMini = localStorage.getItem("kern-sidebar-mini") === "true";
+          const oldPinned: string[] = JSON.parse(localStorage.getItem("kern-pinned-stats") || "[]");
+          const oldDashboard = localStorage.getItem("kern-active-dashboard") || null;
+
+          // Apply saved order to direct agents
+          let agents = oldAgents;
+          try {
+            const order: string[] = JSON.parse(localStorage.getItem("kern-agent-order") || "[]");
+            if (order.length) {
+              const map = new Map<string, ConnectionEntry>(agents.map((a) => [a.url, a]));
+              const ordered: ConnectionEntry[] = [];
+              for (const url of order) {
+                const agent = map.get(url);
+                if (agent) { ordered.push(agent); map.delete(url); }
+              }
+              for (const agent of map.values()) ordered.push(agent);
+              agents = ordered;
+            }
+          } catch { /* ignore */ }
+
+          const prefs = { ...PREFS_DEFAULTS, ...oldPrefs };
+          if (oldTheme) prefs.syntaxTheme = oldTheme;
+
+          useStore.setState({
+            prefs,
+            connections: { servers: oldServers, agents },
+            ui: { sidebarMini: oldMini, pinnedStats: oldPinned, activeDashboard: oldDashboard },
+          });
+
+          // Clean up legacy keys
+          const legacyKeys = [
+            "kern-prefs", "kern-hljs-theme", "kern-servers", "kern-agents",
+            "kern-agent-order", "kern-sidebar-mini", "kern-pinned-stats", "kern-active-dashboard",
+          ];
+          for (const k of legacyKeys) localStorage.removeItem(k);
+        } catch { /* ignore migration errors */ }
+      },
     },
   ),
 );
