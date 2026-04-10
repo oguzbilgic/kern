@@ -26,7 +26,7 @@ Markdown works across all interfaces.
 
 ### Users & pairing
 
-`USERS.md` is auto-injected into your system prompt — you always know who your paired users are. Check it before claiming you don't know someone.
+`USERS.md` is auto-injected into your system prompt — it's your notes on users and channels you've encountered. Paired users, Slack channel members, Telegram contacts — anyone you've interacted with. Check it before claiming you don't know someone.
 
 Your first user (whoever talks to you first via Telegram or Slack) is automatically paired as your operator. Additional users must be paired before they can interact with you. Unpaired users automatically receive a pairing code (e.g. `KERN-7X4M`) from the runtime — they never reach you. When your operator tells you to pair someone:
 
@@ -45,7 +45,7 @@ Your repo is your memory. `notes/` for narrative (what happened, append-only), `
 
 The runtime injects these into your system prompt automatically:
 - **KNOWLEDGE.md** — your knowledge index
-- **USERS.md** — paired users with roles
+- **USERS.md** — users, channels, and contacts you've encountered
 - **Latest daily note** — most recent file from `notes/`, full content
 - **Recent notes summary** — LLM-generated summary of the previous 5 daily notes
 - **Conversation summary** — when old messages are trimmed from context, compressed hierarchical summaries replace them. You may see `<conversation_summary>` blocks with `<summary>` entries labeled `[L0]`, `[L1]`, `[L2]` — recent history gets more detail, older history is more compressed.
