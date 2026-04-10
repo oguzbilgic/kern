@@ -6,6 +6,7 @@ import type { AgentInfo } from "../../lib/types";
 import type { DashboardInfo } from "./index";
 import { fetchDashboards, loadDashboardHtml } from "./index";
 import { registerSurface, unregisterSurface } from "../../lib/surfaces";
+import { useStore } from "../../lib/store";
 import { DashboardIframe } from "./components";
 
 interface DashboardStore {
@@ -35,9 +36,12 @@ const SURFACE_ID = "dashboard:panel";
 export function useDashboards(agents: AgentInfo[], activeAgent: AgentInfo | null): DashboardStore {
   const [panelHtml, setPanelHtml] = useState<{ html: string; title: string; dashboard?: string } | null>(null);
   const [allDashboards, setAllDashboards] = useState<DashboardInfo[]>([]);
-  const [activeDashboard, setActiveDashboard] = useState<string | null>(null);
+  const [activeDashboard, setActiveDashboardLocal] = useState<string | null>(null);
   const panelRef = useRef(panelHtml);
   panelRef.current = panelHtml;
+
+  const storeActiveDashboard = useStore((s) => s.ui.activeDashboard);
+  const storeSetActiveDashboard = useStore((s) => s.setActiveDashboard);
 
   // Fetch dashboards from all running agents
   useEffect(() => {
@@ -52,28 +56,31 @@ export function useDashboards(agents: AgentInfo[], activeAgent: AgentInfo | null
 
   const openPanel = useCallback((html: string, title: string, dashboard?: string) => {
     setPanelHtml({ html, title, dashboard });
-    if (dashboard) { setActiveDashboard(dashboard); localStorage.setItem("kern-active-dashboard", dashboard); }
-  }, []);
+    if (dashboard) {
+      setActiveDashboardLocal(dashboard);
+      storeSetActiveDashboard(dashboard);
+    }
+  }, [storeSetActiveDashboard]);
 
   const closePanel = useCallback(() => {
     setPanelHtml(null);
-    setActiveDashboard(null);
-    localStorage.removeItem("kern-active-dashboard");
+    setActiveDashboardLocal(null);
+    storeSetActiveDashboard(null);
     unregisterSurface(SURFACE_ID);
-  }, []);
+  }, [storeSetActiveDashboard]);
 
   const loadAndOpen = useCallback((name: string, baseUrl: string, token: string) => {
     loadDashboardHtml(name, baseUrl, token)
       .then(html => {
         if (html) {
           setPanelHtml({ html, title: name, dashboard: name });
-          setActiveDashboard(name);
-          localStorage.setItem("kern-active-dashboard", name);
+          setActiveDashboardLocal(name);
+          storeSetActiveDashboard(name);
         } else {
           closePanel();
         }
       });
-  }, [closePanel]);
+  }, [closePanel, storeSetActiveDashboard]);
 
   // Stable render function that reads from ref to avoid re-registration loops
   const renderPanel = useCallback(() => createElement(DashboardIframe, { html: panelRef.current?.html || "" }), []);
@@ -96,11 +103,10 @@ export function useDashboards(agents: AgentInfo[], activeAgent: AgentInfo | null
     }
   }, [panelHtml, renderPanel, onClosePanel]);
 
-  // Restore active dashboard on load
+  // Restore active dashboard on load from store
   useEffect(() => {
     if (!activeAgent) return;
-    const saved = localStorage.getItem("kern-active-dashboard");
-    if (saved) loadAndOpen(saved, activeAgent.baseUrl, activeAgent.token || "");
+    if (storeActiveDashboard) loadAndOpen(storeActiveDashboard, activeAgent.baseUrl, activeAgent.token || "");
   }, [activeAgent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close panel if active dashboard no longer exists
