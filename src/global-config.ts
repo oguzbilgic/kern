@@ -1,18 +1,21 @@
-import { readFile, writeFile, mkdir, unlink } from "fs/promises";
+import { readFile, writeFile, mkdir, unlink, appendFile } from "fs/promises";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
+import { randomBytes } from "crypto";
 import { log } from "./log.js";
 
 export interface GlobalConfig {
   web_port: number;
   web_host: string;
+  proxy_port: number;
   agents: string[];
 }
 
 const defaults: GlobalConfig = {
-  web_port: 9000,
+  web_port: 8080,
   web_host: "0.0.0.0",
+  proxy_port: 9000,
   agents: [],
 };
 
@@ -80,4 +83,21 @@ async function migrateLegacyAgents(): Promise<void> {
   } catch (err) {
     log.warn("config", `agents.json migration failed: ${err}`);
   }
+}
+
+const ENV_FILE = join(homedir(), ".kern", ".env");
+
+/** Load or auto-generate the proxy auth token from ~/.kern/.env */
+export async function getProxyToken(): Promise<string> {
+  if (existsSync(ENV_FILE)) {
+    const content = await readFile(ENV_FILE, "utf-8");
+    // Check new name first, fall back to legacy KERN_WEB_TOKEN
+    const match = content.match(/^KERN_PROXY_TOKEN=(.+)$/m)
+      || content.match(/^KERN_WEB_TOKEN=(.+)$/m);
+    if (match) return match[1].trim();
+  }
+  const token = randomBytes(16).toString("hex");
+  await appendFile(ENV_FILE, `${existsSync(ENV_FILE) ? "\n" : ""}KERN_PROXY_TOKEN=${token}\n`);
+  log("proxy", `generated proxy token: ${token.slice(0, 8)}...`);
+  return token;
 }

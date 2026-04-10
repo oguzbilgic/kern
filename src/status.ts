@@ -90,10 +90,31 @@ export async function showStatus(): Promise<void> {
     : dim("stopped");
   const webMode = webInstall ? "systemd" : webRunning ? "daemon" : "—";
 
-  w(`  ${bold("kern web")}`);
+  // Proxy status
+  const { getProxyServiceStatus } = await import("./install.js");
+  const proxyInstall = getProxyServiceStatus();
+  const proxyPidFile = join(homedir(), ".kern", "proxy.pid");
+  let proxyPid: number | null = null;
+  let proxyRunning = false;
+  if (existsSync(proxyPidFile)) {
+    try {
+      proxyPid = parseInt(await readFile(proxyPidFile, "utf-8"), 10);
+      proxyRunning = !!proxyPid && isProcessRunning(proxyPid);
+    } catch {}
+  }
+  if (!proxyRunning) proxyRunning = proxyInstall === "active";
+  const proxyDot = proxyRunning ? green("●") : dim("●");
+  const proxyStatusStr = proxyRunning
+    ? green("running") + dim(` (:${config.proxy_port})`)
+    : dim("stopped");
+  const proxyMode = proxyInstall ? "systemd" : proxyRunning ? "daemon" : "—";
+
+  w(`  ${bold("kern services")}`);
   w("");
-  w(`  ${webDot} ${bold("web")}  ${webStatus}`);
+  w(`  ${webDot} ${bold("web")}    ${webStatus}`);
   w(`    ${dim("mode:")} ${webMode}`);
+  w(`  ${proxyDot} ${bold("proxy")}  ${proxyStatusStr}`);
+  w(`    ${dim("mode:")} ${proxyMode}`);
   w("");
 
   if (hasUninstalled) {

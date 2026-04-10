@@ -1,66 +1,27 @@
 #!/usr/bin/env node
 
 /**
- * kern web — serves the web UI, provides agent discovery, and proxies to agents.
- *
- * Routes:
- *   GET  /                              → web UI (index.html)
- *   GET  /api/agents                    → list of registered agents
- *   GET  /api/agents/:name/events       → SSE proxy to agent
- *   POST /api/agents/:name/message      → proxy to agent
- *   GET  /api/agents/:name/status       → proxy to agent
- *   GET  /api/agents/:name/history      → proxy to agent
- *   GET  /api/agents/:name/health       → proxy to agent
- *   GET  /api/agents/:name/segments     → proxy to agent (semantic segment DAG)
- *   POST /api/agents/:name/segments/rebuild → proxy to agent (clear + re-index)
- *   GET  /manifest.json                 → PWA manifest
- *   GET  /sw.js                         → service worker
- *   GET  /icon.svg                      → app icon
+ * kern web — minimal static file server for the web UI.
+ * No auth, no proxy, no agent discovery. For multi-agent proxy, use `kern proxy`.
  */
 
-import { createServer, request as httpRequest, type IncomingMessage, type ServerResponse } from "http";
-import { readFile, writeFile, appendFile } from "fs/promises";
-import { join } from "path";
+import { createServer, type IncomingMessage, type ServerResponse } from "http";
+import { readFile, writeFile } from "fs/promises";
+import { join, resolve } from "path";
 import { existsSync } from "fs";
 import { homedir } from "os";
-import { randomBytes } from "crypto";
-import { loadRegistry, readAgentInfo, isProcessRunning, type AgentInfo } from "./registry.js";
 import { loadGlobalConfig } from "./global-config.js";
-
-const KERN_DIR = join(homedir(), ".kern");
-const ENV_FILE = join(KERN_DIR, ".env");
-
-/** Load or auto-generate the web auth token from ~/.kern/.env */
-async function getWebToken(): Promise<string> {
-  // Check existing .env
-  if (existsSync(ENV_FILE)) {
-    const content = await readFile(ENV_FILE, "utf-8");
-    const match = content.match(/^KERN_WEB_TOKEN=(.+)$/m);
-    if (match) return match[1].trim();
-  }
-  // Generate and persist
-  const token = randomBytes(16).toString("hex");
-  await appendFile(ENV_FILE, `${existsSync(ENV_FILE) ? "\n" : ""}KERN_WEB_TOKEN=${token}\n`);
-  log(`generated web token: ${token.slice(0, 8)}...`);
-  return token;
-}
-
-let webToken: string;
-
-async function loadAgents(): Promise<AgentInfo[]> {
-  const paths = await loadRegistry();
-  const agents: AgentInfo[] = [];
-  for (const p of paths) {
-    const info = readAgentInfo(p);
-    if (info) agents.push(info);
-  }
-  return agents;
-}
 
 function log(msg: string) {
   const ts = new Date().toISOString();
   process.stderr.write(`${ts} [web] ${msg}\n`);
 }
+
+const STATIC_MIME: Record<string, string> = {
+  ".html": "text/html", ".css": "text/css", ".js": "application/javascript",
+  ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png",
+  ".ico": "image/x-icon", ".txt": "text/plain", ".woff2": "font/woff2",
+};
 
 const staticFiles: Record<string, { file: string; contentType: string }> = {
   "/manifest.json": { file: "manifest.json", contentType: "application/manifest+json" },
@@ -68,150 +29,69 @@ const staticFiles: Record<string, { file: string; contentType: string }> = {
   "/icon.svg": { file: "icon.svg", contentType: "image/svg+xml" },
 };
 
-/** Proxy a request to an agent's HTTP server, injecting its auth token */
-function proxyToAgent(req: IncomingMessage, res: ServerResponse, agent: AgentInfo, targetPath: string) {
-  const proxyReq = httpRequest(
-    {
-      hostname: "127.0.0.1",
-      port: agent.port,
-      path: targetPath,
-      method: req.method,
-      headers: {
-        ...req.headers,
-        host: `127.0.0.1:${agent.port}`,
-        authorization: agent.token ? `Bearer ${agent.token}` : "",
-      },
-    },
-    (proxyRes) => {
-      // Copy status + headers from agent response
-      res.writeHead(proxyRes.statusCode || 502, proxyRes.headers);
-      // Pipe the response — works for SSE streams and regular responses
-      proxyRes.pipe(res);
-    },
-  );
-
-  proxyReq.on("error", (err) => {
-    log(`proxy error for ${agent.name}: ${err.message}`);
-    if (!res.headersSent) {
-      res.writeHead(502, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "agent unreachable" }));
-    }
-  });
-
-  // Abort proxy request if client disconnects (important for SSE streams)
-  res.on("close", () => proxyReq.destroy());
-
-  // Pipe request body (for POST /message)
-  req.pipe(proxyReq);
-}
-
 const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-  const rawUrl = req.url || "/";
-  const url = rawUrl.split("?")[0];
+  const url = (req.url || "/").split("?")[0];
 
   // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") {
     res.writeHead(200);
     res.end();
     return;
   }
 
-  // Static file serving — Next.js static export from web/out/
-  const STATIC_MIME: Record<string, string> = {
-    ".html": "text/html", ".css": "text/css", ".js": "application/javascript",
-    ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png",
-    ".ico": "image/x-icon", ".txt": "text/plain", ".woff2": "font/woff2",
-  };
-
-  if (req.method === "GET" && !url.startsWith("/api/")) {
-    const serveDir = join(import.meta.dirname, "..", "web", "out");
-
-    let filePath: string;
-    if (url === "/") {
-      filePath = join(serveDir, "index.html");
-    } else if (url.includes("/../") || url.endsWith("/..")) {
-      res.writeHead(403); res.end(); return;
-    } else {
-      filePath = join(serveDir, url);
-    }
-
-    if (existsSync(filePath)) {
-      const ext = filePath.substring(filePath.lastIndexOf("."));
-      const contentType = STATIC_MIME[ext] ?? "application/octet-stream";
-      const content = await readFile(filePath);
-      res.writeHead(200, { "Content-Type": contentType });
-      res.end(content);
-    } else {
-      // SPA fallback — serve index.html for client-side routing
-      const indexPath = join(serveDir, "index.html");
-      if (existsSync(indexPath)) {
-        const html = await readFile(indexPath);
-        res.writeHead(200, { "Content-Type": "text/html" });
-        res.end(html);
-      } else {
-        res.writeHead(404); res.end();
-      }
-    }
+  if (req.method !== "GET") {
+    res.writeHead(405);
+    res.end();
     return;
   }
 
-  // Auth check — all /api/* routes require web token
-  if (url.startsWith("/api/")) {
-    const authHeader = req.headers.authorization;
-    const queryToken = new URL(rawUrl, "http://localhost").searchParams.get("token");
-    if (authHeader !== `Bearer ${webToken}` && queryToken !== webToken) {
-      res.writeHead(401, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "unauthorized" }));
+  const serveDir = join(import.meta.dirname, "..", "web", "out");
+
+  // Known static files
+  if (staticFiles[url]) {
+    const sf = staticFiles[url];
+    const fp = join(serveDir, sf.file);
+    if (existsSync(fp)) {
+      res.writeHead(200, { "Content-Type": sf.contentType });
+      res.end(await readFile(fp));
       return;
     }
   }
 
-  // Agent list API — returns agents (no port/token — proxy handles auth)
-  if (url === "/api/agents" && req.method === "GET") {
-    const agents = await loadAgents();
-    const result = agents.map((a) => ({
-      name: a.name,
-      running: !!(a.pid && isProcessRunning(a.pid)),
-    }));
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(result));
+  // Static file or SPA fallback
+  const filePath = url === "/" ? join(serveDir, "index.html") : join(serveDir, decodeURIComponent(url));
+  const resolved = resolve(filePath);
+  if (!resolved.startsWith(serveDir + "/") && resolved !== serveDir) {
+    res.writeHead(403);
+    res.end();
     return;
   }
 
-  // Agent proxy — /api/agents/:name/:endpoint
-  const proxyMatch = url.match(/^\/api\/agents\/([^/]+)\/(.+)$/);
-  if (proxyMatch) {
-    const [, agentName, endpoint] = proxyMatch;
-    const agents = await loadAgents();
-    const agent = agents.find((a) => a.name === agentName);
-
-    if (!agent || !agent.port || !agent.pid || !isProcessRunning(agent.pid)) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "agent not found or not running" }));
-      return;
+  if (existsSync(filePath)) {
+    const ext = filePath.substring(filePath.lastIndexOf("."));
+    res.writeHead(200, { "Content-Type": STATIC_MIME[ext] ?? "application/octet-stream" });
+    res.end(await readFile(filePath));
+  } else {
+    // SPA fallback
+    const indexPath = join(serveDir, "index.html");
+    if (existsSync(indexPath)) {
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end(await readFile(indexPath));
+    } else {
+      res.writeHead(404);
+      res.end();
     }
-
-    // Build target URL — preserve query string
-    const queryString = rawUrl.includes("?") ? rawUrl.slice(rawUrl.indexOf("?")) : "";
-    const targetPath = `/${endpoint}${queryString}`;
-
-    proxyToAgent(req, res, agent, targetPath);
-    return;
   }
-
-  res.writeHead(404, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({ error: "not found" }));
 });
 
 async function start() {
-  webToken = await getWebToken();
   const config = await loadGlobalConfig();
-  server.listen(config.web_port, config.web_host, async () => {
-    log(`listening on ${config.web_host}:${config.web_port}`);
-    // Write PID so status checks work regardless of how the server was started
+  const port = config.web_port;
+  server.listen(port, "0.0.0.0", async () => {
+    log(`listening on 0.0.0.0:${port}`);
     const pidFile = join(homedir(), ".kern", "web.pid");
     await writeFile(pidFile, String(process.pid));
   });
