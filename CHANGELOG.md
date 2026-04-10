@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.25.0
 
 ### Features
 - **Self-contained agents** ([#126](https://github.com/oguzbilgic/kern-ai/issues/126)) — all agent runtime state (port, token, PID) now lives in the agent's own `.kern/` directory instead of a central registry
