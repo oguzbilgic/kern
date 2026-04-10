@@ -11,6 +11,7 @@
 - **Direct agent connections** ([#124](https://github.com/oguzbilgic/kern-ai/issues/124)) — connect to any agent from the web UI without running `kern web`. Click **+** in the sidebar, enter the agent's URL and token.
   - `kern web` is now optional — useful for multi-agent proxy, but not required
   - Login page removed — the web UI loads instantly, agents are added from the sidebar
+- **Agent name auto-migration** ([#131](https://github.com/oguzbilgic/kern-ai/issues/131)) — `name` field auto-set to directory basename on first startup if missing, persisted to config, and exposed in `/status` API for reliable UI display
 
 ## v0.24.1
 

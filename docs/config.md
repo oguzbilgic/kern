@@ -16,7 +16,7 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `name` | directory name | Agent name. Written during `kern init`. Falls back to the directory basename if not set. |
+| `name` | directory name | Agent name. Auto-set to directory basename on first startup if missing. Exposed in `/status` response. |
 | `model` | `anthropic/claude-opus-4.6` | Model ID. Format depends on provider. |
 | `provider` | `openrouter` | API provider: `openrouter`, `anthropic`, `openai`, `ollama` |
 | `toolScope` | `full` | Tool access level: `full`, `write`, `read` |
