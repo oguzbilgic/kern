@@ -5,7 +5,8 @@ How kern's processes fit together.
 ## Overview
 
 ```
-Browser ──→ kern web (:9000) ──→ agent A (:4100)
+Browser ──→ agent A (:4100)           # direct connection
+Browser ──→ kern web (:9000) ──→ agent A (:4100)   # via proxy
                                ├─→ agent B (:4101)
                                └─→ agent C (:4102)
 
@@ -14,7 +15,7 @@ Telegram ←────────────────────→ agen
 Slack ←───────────────────────→ agent A (socket mode)
 ```
 
-Each agent is a separate process. The web server is a separate process. They communicate over HTTP on localhost.
+Each agent is a separate process. The web server is an optional proxy. Browsers can connect directly to agents or through the proxy.
 
 ## Agent process
 
@@ -68,17 +69,17 @@ Browser → GET /api/agents/vega/status
        → streams response back to browser
 ```
 
-The browser never knows agent ports or tokens. It authenticates once with `KERN_WEB_TOKEN` (auto-generated, stored in `~/.kern/.env`), and the proxy handles the rest.
+The proxy injects agent tokens on behalf of the browser, so proxy clients don't need to know individual agent credentials.
 
 ### Web auth
 
-A single token (`KERN_WEB_TOKEN`) protects the web server. It's generated on first `kern web start` and printed as part of the URL:
+The web UI serves static files without authentication — anyone who can reach the URL can load the page.
 
-```
-http://100.115.98.30:9000?token=abc123...
-```
+**Proxy routes** (`/api/*`) are protected by `KERN_WEB_TOKEN` (auto-generated on first `kern web start`, stored in `~/.kern/.env`). The token is passed as a Bearer header or `?token=` query param.
 
-The browser stores this token and sends it with every request. No per-agent auth from the browser side — the proxy injects agent tokens internally.
+**Direct connections** bypass the proxy entirely. The browser connects to the agent's port with `KERN_AUTH_TOKEN`. No web server needed.
+
+Users add agents or proxy servers from the sidebar UI, entering the URL and token manually.
 
 ## Registry
 
@@ -127,7 +128,7 @@ Without `kern install`, agents run as plain daemons managed by PID files.
 ```
 ~/.kern/
   config.json          # global config + agent registry
-  .env                 # KERN_WEB_TOKEN
+  .env                 # KERN_WEB_TOKEN (for proxy auth)
   web.pid              # web server PID
 
 ~/my-agent/

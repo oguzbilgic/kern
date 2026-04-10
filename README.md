@@ -85,18 +85,20 @@ Agents auto-register when you init, start, or run them. `kern list` shows every 
 
 ### Web UI
 
-`kern web start` launches a web UI server (default port 9000). It prints a URL with an auth token — click it to connect.
+`kern web start` launches an optional web proxy server (default port 9000) that discovers local agents and proxies requests to them.
 
 ```bash
-kern web start    # start web UI, prints URL with token
+kern web start    # start web UI proxy, prints URL with token
 kern web stop     # stop it
 kern web status   # check if running
 kern web token    # print the URL with token again
 ```
 
-The web UI proxies all agent requests — agents bind to localhost only and are never exposed directly. Auth is handled at the proxy level with a single `KERN_WEB_TOKEN` (auto-generated, stored in `~/.kern/.env`).
+The web UI can connect to agents two ways:
+- **Direct** — enter the agent's URL and `KERN_AUTH_TOKEN` in the sidebar. No proxy needed.
+- **Via proxy** — connect to a `kern web` server with `KERN_WEB_TOKEN`. The proxy discovers and forwards to local agents.
 
-Works over Tailscale or LAN. Add remote kern servers in the sidebar.
+Agents bind to `0.0.0.0` on sticky ports (4100-4999), accessible over Tailscale or LAN. Add agents or remote proxy servers from the sidebar.
 
 ### Slash commands
 

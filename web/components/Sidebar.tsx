@@ -251,8 +251,8 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
         ))}
 
         {agents.length === 0 && (
-          <div className="text-xs text-[var(--text-muted)] px-2 py-4">
-            No agents found.
+          <div className="text-xs text-[var(--text-muted)] px-2 py-4 text-center">
+            Add an agent to get started.
           </div>
         )}
 
@@ -303,7 +303,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
                       : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-dim)]"
                   }`}
                 >
-                  {mode === "agent" ? "Direct agent" : "Proxy server"}
+                  {mode === "agent" ? "Agent" : "Proxy server"}
                 </button>
               ))}
             </div>

@@ -8,6 +8,12 @@
   - Legacy `agents.json` auto-migrates on first load and gets deleted
   - Sticky ports: agents get a fixed port (4100-4999) assigned on creation or first start — no more random ports
   - Server binds `0.0.0.0` by default, enabling direct connections over Tailscale or LAN
+- **Direct agent connections** ([#124](https://github.com/oguzbilgic/kern-ai/issues/124)) — web UI can connect directly to agents without the web proxy
+  - Add agents or proxy servers from the sidebar — enter URL and token to connect
+  - Agent name auto-discovered from `/status` endpoint
+  - Unified `baseUrl` routing replaces separate `serverUrl`/`agentName` parameters throughout the codebase
+  - Login page and global token gate removed — web UI serves static files openly, proxy routes still require `KERN_WEB_TOKEN`
+  - Keyboard shortcuts: Cmd/Ctrl+1..9 to switch between agents
 
 ## v0.24.1
 
