@@ -115,6 +115,11 @@
 - Chat loses scroll position on window resize ([#73](https://github.com/oguzbilgic/kern-ai/issues/73))
 - URL auto-linking capturing trailing punctuation
 
+## desktop-next
+
+### Improvements
+- **Simplified connect screen** — removed token input; just enter the kern web URL. Agents are added with tokens through the web UI sidebar.
+
 ## desktop-v0.1.1
 
 ### Features
