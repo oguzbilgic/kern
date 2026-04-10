@@ -6,6 +6,7 @@
 - **Dashboard links** ([#141](https://github.com/oguzbilgic/kern-ai/issues/141)) — external links inside dashboard iframes now open in a new tab
 
 ### Improvements
+- **Sidebar agent reordering** ([#145](https://github.com/oguzbilgic/kern-ai/issues/145)) — drag-and-drop to reorder direct agents in the sidebar; order persisted across sessions; Cmd/Ctrl+1..9 shortcuts follow sidebar order
 - **OpenRouter attribution** — updated app title to "Kern Agent" and added `X-OpenRouter-Title` header alongside legacy `X-Title`
 
 ## v0.25.0

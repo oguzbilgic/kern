@@ -92,13 +92,16 @@ interface SidebarProps {
   onRemoveServer?: (url: string) => void;
   onAddAgent?: (url: string, token: string) => void;
   onRemoveAgent?: (url: string) => void;
+  onReorder?: (from: number, to: number) => void;
 }
 
-export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer, onRemoveServer, onAddAgent, onRemoveAgent }: SidebarProps) {
+export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer, onRemoveServer, onAddAgent, onRemoveAgent, onReorder }: SidebarProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addMode, setAddMode] = useState<AddMode>("agent");
   const [newUrl, setNewUrl] = useState("");
   const [newToken, setNewToken] = useState("");
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
 
 
   // Mini/full state persisted in localStorage
@@ -134,15 +137,16 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
 
   // Group agents: proxy agents have "/api/agents/" in baseUrl, direct don't
   const proxyGroups = new Map<string, AgentInfo[]>();
-  const directAgents: AgentInfo[] = [];
-  for (const agent of agents) {
+  const directAgents: { agent: AgentInfo; globalIndex: number }[] = [];
+  for (let idx = 0; idx < agents.length; idx++) {
+    const agent = agents[idx];
     const proxyIdx = agent.baseUrl.indexOf("/api/agents/");
     if (proxyIdx >= 0) {
       const server = agent.baseUrl.slice(0, proxyIdx);
       if (!proxyGroups.has(server)) proxyGroups.set(server, []);
       proxyGroups.get(server)!.push(agent);
     } else {
-      directAgents.push(agent);
+      directAgents.push({ agent, globalIndex: idx });
     }
   }
 
@@ -199,21 +203,30 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
 
       {/* Agent list */}
       <div className="flex-1 overflow-y-auto p-2">
-        {/* Direct agents — no header */}
+        {/* Direct agents — draggable */}
         {directAgents.length > 0 && (
           <div className="mb-1.5">
-            {directAgents.map((agent) => {
+            {directAgents.map(({ agent, globalIndex }) => {
               const key = agentKey(agent);
               return (
-                <AgentRow
+                <div
                   key={key}
-                  agent={agent}
-                  isActive={key === active}
-                  activeThinking={key === active ? activeThinking : undefined}
-                  mini={mini}
-                  onSelect={() => onSelect(key)}
-                  onRemove={() => onRemoveAgent?.(agent.baseUrl)}
-                />
+                  draggable
+                  onDragStart={(e) => { setDragIndex(globalIndex); e.dataTransfer.effectAllowed = "move"; }}
+                  onDragOver={(e) => { e.preventDefault(); setDropIndex(globalIndex); }}
+                  onDrop={(e) => { e.preventDefault(); if (dragIndex !== null && dragIndex !== globalIndex) onReorder?.(dragIndex, globalIndex); setDragIndex(null); setDropIndex(null); }}
+                  onDragEnd={() => { setDragIndex(null); setDropIndex(null); }}
+                  className={dropIndex === globalIndex && dragIndex !== null && dragIndex !== globalIndex ? "border-t-2 border-[var(--accent)]" : "border-t-2 border-transparent"}
+                >
+                  <AgentRow
+                    agent={agent}
+                    isActive={key === active}
+                    activeThinking={key === active ? activeThinking : undefined}
+                    mini={mini}
+                    onSelect={() => onSelect(key)}
+                    onRemove={() => onRemoveAgent?.(agent.baseUrl)}
+                  />
+                </div>
               );
             })}
           </div>
