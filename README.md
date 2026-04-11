@@ -2,7 +2,7 @@
 
 Agents that do the work and show it.
 
-One brain across every channel. Your agent sits in Slack channels, Telegram DMs, the terminal, and the browser — one continuous session, nothing lost. It uses real tools, remembers everything, and publishes its own dashboards.
+Agents that run on your machine, use real tools, remember everything, and publish their own dashboards. Not chatbots — autonomous workers with one brain across every channel.
 
 ![kern web UI](https://kern-ai.com/images/agent-intranet.png)
 
@@ -60,7 +60,9 @@ Telegram ─────┤── one session
 Slack ────────┘
 ```
 
-Every interface feeds into the same session. Message from Telegram, pick up in the terminal, continue in the browser. The agent knows who said what, on which channel, and connects context across all of them.
+Every interface feeds into the same session. Message from Telegram, pick up in the terminal, continue in the browser. Each message carries metadata — who said it, which channel, when — so the agent connects context across all of them without losing track.
+
+The agent reads and writes its own memory files through tools — takes notes, updates knowledge, commits to git. The next time you talk to it, from any interface, it picks up exactly where it left off.
 
 [Blog: Why your agent needs one session](https://kern-ai.com/blog/why-your-agent-needs-one-session)
 
