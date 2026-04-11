@@ -79,22 +79,20 @@ export function useAgents() {
     sessionStorage.setItem("kern_active_agent", key);
   }, []);
 
-  // Server management — trigger discover after store update
+  // Server management — store update triggers discover via useEffect deps
   const addServer = useCallback((url: string, token: string) => {
     storeAddServer(url, token);
-    setTimeout(discover, 100);
-  }, [storeAddServer, discover]);
+  }, [storeAddServer]);
 
   const removeServer = useCallback((url: string) => {
     storeRemoveServer(url);
     setAgents((prev) => prev.filter((a) => !a.baseUrl.startsWith(url)));
   }, [storeRemoveServer]);
 
-  // Direct agent management — trigger discover after store update
+  // Direct agent management — store update triggers discover via useEffect deps
   const addDirectAgent = useCallback((url: string, token: string) => {
     storeAddAgent(url, token);
-    setTimeout(discover, 100);
-  }, [storeAddAgent, discover]);
+  }, [storeAddAgent]);
 
   const removeDirectAgent = useCallback((url: string) => {
     storeRemoveAgent(url);
