@@ -10,6 +10,7 @@ One brain across every channel. Your agent sits in Slack channels, Telegram DMs,
 
 - **One brain, every channel** — terminal, browser, Telegram, Slack feed into one session. The agent knows who's talking, what channel it's in, and what happened 10,000 messages ago.
 - **Memory that compounds** — conversations segmented by topic, summarized into a hierarchy, compressed into context. Semantic recall over everything. The agent gets better the longer it runs.
+- **Agents build their own UI** — dashboards with live data, served from the agent, displayed in a side panel. Not chat — real interfaces that update themselves.
 - **Your infra, your data** — runs on your laptop, server, or homelab. The whole agent is a git-tracked folder. Pay only for API tokens — or use Ollama for fully local, zero-cost inference.
 
 kern pairs with [agent-kernel](https://github.com/oguzbilgic/agent-kernel) — the kernel defines how an agent remembers, kern runs it.
@@ -36,40 +37,6 @@ Slack ────────┘
 ```
 
 Every interface feeds into the same session. The agent reads and writes its own memory files through tools — takes notes, updates knowledge, commits to git. The next time you talk to it, from any interface, it picks up exactly where it left off.
-
-## What ships today
-
-| Feature | Description |
-|---------|-------------|
-| **Agent-built dashboards** | Agents create HTML dashboards with live data injection, rendered in a side panel or inline in chat |
-| **Multi-modal** | Images, PDFs, files across every channel. Vision pre-digest, PDF extraction, dedicated analysis tools |
-| **Desktop app** | Native macOS via Tauri. Tray icon, Cmd+1-9 agent switching, direct connections |
-| **Prompt caching** | Three cache breakpoints. 99% mid-turn hits, 10x cost reduction. Automatic for Anthropic |
-| **React web UI** | Flat and bubble layouts, syntax highlighting, infinite scroll, multi-agent sidebar with live status |
-| **Real tools** | bash, read, write, edit, grep, webfetch, websearch, pdf, image, render — full system access |
-| **4 providers** | OpenRouter, Anthropic, OpenAI, Ollama. Mix models per role — chat, embeddings, summaries, vision |
-| **Plugin architecture** | Dashboard, media, recall, notes extracted as plugins with lifecycle hooks |
-| **Heartbeat** | Agents wake periodically to review notes, update knowledge, and reach out if needed |
-
-## Agent structure
-
-```
-my-agent/
-  AGENTS.md              # how the agent behaves (system prompt)
-  IDENTITY.md            # who the agent is
-  KNOWLEDGE.md           # index of what it knows
-  USERS.md               # paired users with roles and guardrails
-  knowledge/             # mutable state files
-  notes/                 # daily logs (append-only)
-  dashboards/            # agent-built dashboards
-  .kern/
-    config.json          # model, provider, toolScope
-    .env                 # API keys, bot tokens (gitignored)
-    sessions/            # conversation history (gitignored)
-    recall.db            # memory database (gitignored)
-```
-
-Everything the agent needs is in this folder. Move it, zip it, clone it — the agent comes with it.
 
 ## Memory
 
