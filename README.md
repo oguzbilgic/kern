@@ -58,12 +58,11 @@ Agents create and maintain their own dashboards — HTML pages with structured d
 dashboards/homelab/
   index.html       # visualization
   data.json        # structured data (injected as window.__KERN_DATA__)
-  refresh.sh       # update script
 ```
 
 The agent writes `data.json`, creates the HTML, then calls `render({ dashboard: "homelab" })` to display it. Dashboards appear in the sidebar and can be switched from the panel header.
 
-See [Dashboards docs](docs/dashboards.md) for the full file contract, data injection, refresh scripts, and examples.
+See [Dashboards docs](docs/dashboards.md) for the full file contract, data injection, and examples.
 
 ## CLI
 

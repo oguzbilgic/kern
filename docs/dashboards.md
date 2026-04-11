@@ -10,12 +10,10 @@ A dashboard is a folder inside the agent's working directory:
 dashboards/<name>/
   index.html    # visualization (required)
   data.json     # structured data (optional)
-  refresh.sh    # update script (optional)
 ```
 
 - **`index.html`** — the dashboard UI. Rendered in a sandboxed iframe with scripts enabled. Include CDN libraries (Chart.js, D3, etc.) via `<script>` and `<link>` tags directly.
 - **`data.json`** — structured data the agent writes. Automatically injected into the dashboard as `window.__KERN_DATA__` at serve time.
-- **`refresh.sh`** — a shell script that updates `data.json`. Run manually by the agent or on a schedule.
 
 ## Creating a dashboard
 
@@ -78,23 +76,6 @@ The web UI automatically discovers dashboards from connected agents:
 - **Header** — a dropdown lists all available dashboards for quick switching
 
 The panel is resizable by dragging its left edge (min 280px, max dependent on viewport).
-
-## Refresh scripts
-
-A `refresh.sh` script updates `data.json` with fresh data:
-
-```bash
-#!/bin/bash
-# dashboards/homelab/refresh.sh
-cat > dashboards/homelab/data.json << 'EOF'
-{
-  "hosts": [...],
-  "updatedAt": "2026-04-11T19:00:00Z"
-}
-EOF
-```
-
-The agent can run this script via the `bash` tool, then call `render` to refresh the panel. Scripts should write `data.json` atomically and exit with code 0 on success.
 
 ## CDN libraries
 
