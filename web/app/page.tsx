@@ -1,26 +1,28 @@
 "use client";
 
-import { useState, useCallback, useEffect, type DragEvent } from "react";
+import { useState, useCallback, useEffect, useMemo, type DragEvent } from "react";
 import { useAgents, agentKey } from "../hooks/useAgents";
 import { useAgent } from "../hooks/useAgent";
 import { Sidebar } from "../components/Sidebar";
 import { Chat } from "../components/Chat";
 import { Input, fileToAttachment } from "../components/Input";
 import { InfoPanel, PinnedStats } from "../components/InfoPanel";
-import { ThemePicker, usePreferences } from "../components/ThemePicker";
+import { ThemePicker } from "../components/ThemePicker";
 import { ThinkingDots } from "../components/ThinkingDots";
 import { SurfaceModal, SurfacePanel, panelMinChatWidth } from "../components/SurfaceManager";
 import { useSurfaces } from "../lib/surfaces";
 import { useMemorySurfaces, MEMORY_SURFACE_ID } from "../components/inspector";
 import { renderPluginHeaders } from "../plugins/registry";
 import { usePluginInit } from "../plugins";
+import { useStore } from "../lib/store";
 import type { Attachment } from "../lib/types";
 
 export default function Home() {
   const { agents, activeAgent, active, setActive, addServer, removeServer, addDirectAgent, removeDirectAgent, reorder } = useAgents();
   const [dragOver, setDragOver] = useState(false);
   const [externalAttachments, setExternalAttachments] = useState<Attachment[]>([]);
-  const { prefs, setPrefs } = usePreferences();
+  const prefs = useStore((s) => s.prefs);
+  const setPrefs = useStore((s) => s.setPrefs);
   const [modalSurface, setModalSurface] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const { hasPanels: showPanel } = useSurfaces();
@@ -35,22 +37,9 @@ export default function Home() {
   });
 
   const { messages, streamParts, thinking, activity, activityDetail, connected, status, send, loadMore, hasMore, loadingMore } = useAgent(activeAgent, { withHistory: true });
-  const [pinned, setPinned] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set();
-    try {
-      const saved = localStorage.getItem("kern-pinned-stats");
-      return saved ? new Set(JSON.parse(saved)) : new Set();
-    } catch { return new Set(); }
-  });
-
-  const togglePin = useCallback((key: string) => {
-    setPinned((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      localStorage.setItem("kern-pinned-stats", JSON.stringify([...next]));
-      return next;
-    });
-  }, []);
+  const pinnedArray = useStore((s) => s.ui.pinnedStats);
+  const togglePin = useStore((s) => s.togglePin);
+  const pinned = useMemo(() => new Set(pinnedArray), [pinnedArray]);
 
   // KernBridge — stable API for desktop app (Tauri) and Android WebView
   useEffect(() => {
@@ -168,7 +157,7 @@ export default function Home() {
             <PinnedStats status={status} pinned={pinned} />
           </div>
           <div className="ml-auto flex items-center gap-1">
-            <ThemePicker prefs={prefs} onPrefsChange={setPrefs} />
+            <ThemePicker />
             {/* Plugin header buttons */}
             {activeAgent && renderPluginHeaders({
               agentName: activeAgent.name,

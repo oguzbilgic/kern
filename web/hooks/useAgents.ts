@@ -1,31 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { AgentInfo, ServerConfig, DirectAgent } from "../lib/types";
+import { useShallow } from "zustand/react/shallow";
+import type { AgentInfo } from "../lib/types";
+import { useStore } from "../lib/store";
 import * as api from "../lib/api";
-
-/** Apply saved order from localStorage, appending any new agents at the end */
-function applyOrder(agents: AgentInfo[]): AgentInfo[] {
-  try {
-    const stored = localStorage.getItem("kern-agent-order");
-    if (!stored) return agents;
-    const order: string[] = JSON.parse(stored);
-    const map = new Map(agents.map((a) => [a.baseUrl, a]));
-    const ordered: AgentInfo[] = [];
-    for (const url of order) {
-      const agent = map.get(url);
-      if (agent) {
-        ordered.push(agent);
-        map.delete(url);
-      }
-    }
-    // Append agents not in saved order
-    for (const agent of map.values()) ordered.push(agent);
-    return ordered;
-  } catch {
-    return agents;
-  }
-}
 
 export function useAgents() {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
@@ -33,29 +12,19 @@ export function useAgents() {
   const activeRef = useRef<string | null>(null);
   activeRef.current = active;
 
-  // Get proxy servers from localStorage
-  const getServers = useCallback((): ServerConfig[] => {
-    try {
-      const stored = localStorage.getItem("kern-servers");
-      if (stored) return JSON.parse(stored);
-    } catch { /* ignore */ }
-    return [];
-  }, []);
-
-  // Get direct agents from localStorage
-  const getDirectAgents = useCallback((): DirectAgent[] => {
-    try {
-      const stored = localStorage.getItem("kern-agents");
-      if (stored) return JSON.parse(stored);
-    } catch { /* ignore */ }
-    return [];
-  }, []);
+  // Read connections from store with shallow equality to avoid spurious rerenders
+  const servers = useStore(useShallow((s) => s.connections.servers));
+  const directs = useStore(useShallow((s) => s.connections.agents));
+  const storeAddServer = useStore((s) => s.addServer);
+  const storeRemoveServer = useStore((s) => s.removeServer);
+  const storeAddAgent = useStore((s) => s.addAgent);
+  const storeRemoveAgent = useStore((s) => s.removeAgent);
+  const storeReorder = useStore((s) => s.reorderAgents);
 
   const discover = useCallback(async () => {
     const proxyAgents: AgentInfo[] = [];
 
     // Discover from proxy servers
-    const servers = getServers();
     for (const server of servers) {
       try {
         const raw = await api.fetchAgents(server.url, server.token);
@@ -70,9 +39,8 @@ export function useAgents() {
       } catch { /* ignore unreachable servers */ }
     }
 
-    // Discover direct agents
+    // Discover direct agents (order preserved from store array)
     const directList: AgentInfo[] = [];
-    const directs = getDirectAgents();
     for (const d of directs) {
       const status = await api.pingAgent(d.url, d.token);
       directList.push({
@@ -83,8 +51,8 @@ export function useAgents() {
       });
     }
 
-    // Order: direct agents → proxy servers, then apply saved order
-    const all = applyOrder([...directList, ...proxyAgents]);
+    // Order: direct agents → proxy servers
+    const all = [...directList, ...proxyAgents];
     setAgents(all);
 
     // Auto-select first running agent if none active
@@ -97,7 +65,7 @@ export function useAgents() {
         if (first) setActiveState(first.baseUrl);
       }
     }
-  }, [getServers, getDirectAgents]);
+  }, [servers, directs]);
 
   // Discover on mount and periodically
   useEffect(() => {
@@ -111,45 +79,37 @@ export function useAgents() {
     sessionStorage.setItem("kern_active_agent", key);
   }, []);
 
-  // Server management (proxy)
-  const addServer = useCallback((url: string, serverToken: string) => {
-    const servers = getServers();
-    if (servers.some((s) => s.url === url)) return;
-    servers.push({ url, token: serverToken });
-    localStorage.setItem("kern-servers", JSON.stringify(servers));
-    discover();
-  }, [getServers, discover]);
+  // Server management — store update triggers discover via useEffect deps
+  const addServer = useCallback((url: string, token: string) => {
+    storeAddServer(url, token);
+  }, [storeAddServer]);
 
   const removeServer = useCallback((url: string) => {
-    const servers = getServers().filter((s) => s.url !== url);
-    localStorage.setItem("kern-servers", JSON.stringify(servers));
+    storeRemoveServer(url);
     setAgents((prev) => prev.filter((a) => !a.baseUrl.startsWith(url)));
-  }, [getServers]);
+  }, [storeRemoveServer]);
 
-  // Direct agent management
-  const addDirectAgent = useCallback((url: string, agentToken: string) => {
-    const directs = getDirectAgents();
-    if (directs.some((d) => d.url === url)) return;
-    directs.push({ url, token: agentToken });
-    localStorage.setItem("kern-agents", JSON.stringify(directs));
-    discover();
-  }, [getDirectAgents, discover]);
+  // Direct agent management — store update triggers discover via useEffect deps
+  const addDirectAgent = useCallback((url: string, token: string) => {
+    storeAddAgent(url, token);
+  }, [storeAddAgent]);
 
   const removeDirectAgent = useCallback((url: string) => {
-    const directs = getDirectAgents().filter((d) => d.url !== url);
-    localStorage.setItem("kern-agents", JSON.stringify(directs));
+    storeRemoveAgent(url);
     setAgents((prev) => prev.filter((a) => a.baseUrl !== url));
-  }, [getDirectAgents]);
+  }, [storeRemoveAgent]);
 
   const reorder = useCallback((fromIndex: number, toIndex: number) => {
+    // Reorder in store (persistent)
+    storeReorder(fromIndex, toIndex);
+    // Reorder in local state (immediate UI update)
     setAgents((prev) => {
       const next = [...prev];
       const [moved] = next.splice(fromIndex, 1);
       next.splice(toIndex, 0, moved);
-      localStorage.setItem("kern-agent-order", JSON.stringify(next.map((a) => a.baseUrl)));
       return next;
     });
-  }, []);
+  }, [storeReorder]);
 
   const activeAgent = agents.find((a) => a.baseUrl === active) ?? null;
 

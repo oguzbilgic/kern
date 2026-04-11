@@ -6,6 +6,7 @@ import { useAgent } from "../hooks/useAgent";
 import { agentKey } from "../hooks/useAgents";
 import { renderPluginSidebars } from "../plugins/registry";
 import { avatarColor } from "../lib/colors";
+import { useStore } from "../lib/store";
 
 function AgentRow({
   agent,
@@ -104,31 +105,25 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
   const [dropIndex, setDropIndex] = useState<number | null>(null);
 
 
-  // Mini/full state persisted in localStorage
-  const [mini, setMini] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("kern-sidebar-mini") === "true";
-  });
+  // Mini/full state from store
+  const mini = useStore((s) => s.ui.sidebarMini);
+  const setSidebarMini = useStore((s) => s.setSidebarMini);
   const [userSet, setUserSet] = useState(false); // track manual toggle
-
-  useEffect(() => {
-    localStorage.setItem("kern-sidebar-mini", String(mini));
-  }, [mini]);
 
   // Manual toggle wrapper
   function toggleMini() {
     setUserSet(true);
-    setMini((m) => !m);
+    setSidebarMini(!mini);
   }
 
   // Auto-collapse on narrow, auto-expand on wide — unless user manually toggled
   useEffect(() => {
     function check() {
       if (window.innerWidth < 768) {
-        setMini(true);
+        setSidebarMini(true);
         setUserSet(false); // reset so widening will auto-expand
       } else if (window.innerWidth >= 1024 && !userSet) {
-        setMini(false);
+        setSidebarMini(false);
       }
     }
     window.addEventListener("resize", check);

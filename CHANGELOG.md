@@ -2,12 +2,20 @@
 
 ## next
 
+### Features
+- **Sidebar agent reordering** ([#145](https://github.com/oguzbilgic/kern-ai/issues/145)) — drag-and-drop to reorder direct agents in the sidebar; order persisted across sessions; Cmd/Ctrl+1..9 shortcuts follow sidebar order
+
+### Improvements
+- **Zustand store** ([#148](https://github.com/oguzbilgic/kern-ai/pull/148)) — replaced ~12 fragmented localStorage keys with a single persisted Zustand store; automatic migration from legacy keys on first load
+- **OpenRouter attribution** — updated app title to "Kern Agent" and added `X-OpenRouter-Title` header alongside legacy `X-Title`
+
 ### Fixes
 - **Dashboard links** ([#141](https://github.com/oguzbilgic/kern-ai/issues/141)) — external links inside dashboard iframes now open in a new tab
 
+## desktop-next
+
 ### Improvements
-- **Sidebar agent reordering** ([#145](https://github.com/oguzbilgic/kern-ai/issues/145)) — drag-and-drop to reorder direct agents in the sidebar; order persisted across sessions; Cmd/Ctrl+1..9 shortcuts follow sidebar order
-- **OpenRouter attribution** — updated app title to "Kern Agent" and added `X-OpenRouter-Title` header alongside legacy `X-Title`
+- **Simplified connect screen** — removed token input; just enter the kern web URL. Agents are added with tokens through the web UI sidebar.
 
 ## v0.25.0
 
@@ -115,11 +123,6 @@
 - Scroll-to-bottom button overlapping multi-line input ([#72](https://github.com/oguzbilgic/kern-ai/issues/72)) — repositions dynamically above input pill; chat re-anchors on window resize
 - Chat loses scroll position on window resize ([#73](https://github.com/oguzbilgic/kern-ai/issues/73))
 - URL auto-linking capturing trailing punctuation
-
-## desktop-next
-
-### Improvements
-- **Simplified connect screen** — removed token input; just enter the kern web URL. Agents are added with tokens through the web UI sidebar.
 
 ## desktop-v0.1.1
 
