@@ -108,23 +108,22 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
   // Mini/full state from store
   const mini = useStore((s) => s.ui.sidebarMini);
   const setSidebarMini = useStore((s) => s.setSidebarMini);
-  const setMini = setSidebarMini;
   const [userSet, setUserSet] = useState(false); // track manual toggle
 
   // Manual toggle wrapper
   function toggleMini() {
     setUserSet(true);
-    setMini(!mini);
+    setSidebarMini(!mini);
   }
 
   // Auto-collapse on narrow, auto-expand on wide — unless user manually toggled
   useEffect(() => {
     function check() {
       if (window.innerWidth < 768) {
-        setMini(true);
+        setSidebarMini(true);
         setUserSet(false); // reset so widening will auto-expand
       } else if (window.innerWidth >= 1024 && !userSet) {
-        setMini(false);
+        setSidebarMini(false);
       }
     }
     window.addEventListener("resize", check);

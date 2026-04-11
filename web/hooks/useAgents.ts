@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useShallow } from "zustand/react/shallow";
 import type { AgentInfo } from "../lib/types";
 import { useStore } from "../lib/store";
 import * as api from "../lib/api";
@@ -11,9 +12,9 @@ export function useAgents() {
   const activeRef = useRef<string | null>(null);
   activeRef.current = active;
 
-  // Read connections from store
-  const servers = useStore((s) => s.connections.servers);
-  const directs = useStore((s) => s.connections.agents);
+  // Read connections from store with shallow equality to avoid spurious rerenders
+  const servers = useStore(useShallow((s) => s.connections.servers));
+  const directs = useStore(useShallow((s) => s.connections.agents));
   const storeAddServer = useStore((s) => s.addServer);
   const storeRemoveServer = useStore((s) => s.removeServer);
   const storeAddAgent = useStore((s) => s.addAgent);
@@ -78,20 +79,22 @@ export function useAgents() {
     sessionStorage.setItem("kern_active_agent", key);
   }, []);
 
-  // Server management
+  // Server management — trigger discover after store update
   const addServer = useCallback((url: string, token: string) => {
     storeAddServer(url, token);
-  }, [storeAddServer]);
+    setTimeout(discover, 100);
+  }, [storeAddServer, discover]);
 
   const removeServer = useCallback((url: string) => {
     storeRemoveServer(url);
     setAgents((prev) => prev.filter((a) => !a.baseUrl.startsWith(url)));
   }, [storeRemoveServer]);
 
-  // Direct agent management
+  // Direct agent management — trigger discover after store update
   const addDirectAgent = useCallback((url: string, token: string) => {
     storeAddAgent(url, token);
-  }, [storeAddAgent]);
+    setTimeout(discover, 100);
+  }, [storeAddAgent, discover]);
 
   const removeDirectAgent = useCallback((url: string) => {
     storeRemoveAgent(url);

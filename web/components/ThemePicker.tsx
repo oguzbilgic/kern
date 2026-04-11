@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useStore, type Preferences } from "../lib/store";
+import { useStore } from "../lib/store";
 
 const THEMES = [
   "github-dark-dimmed",
@@ -31,16 +31,16 @@ function loadTheme(theme: string) {
   link.href = `${CDN}/${theme}.min.css`;
 }
 
-export function ThemePicker({ prefs, onPrefsChange }: { prefs: Preferences; onPrefsChange: (p: Partial<Preferences>) => void }) {
+export function ThemePicker() {
   const [open, setOpen] = useState(false);
-  const syntaxTheme = useStore((s) => s.prefs.syntaxTheme);
+  const prefs = useStore((s) => s.prefs);
   const setPrefs = useStore((s) => s.setPrefs);
   const ref = useRef<HTMLDivElement>(null);
 
   // Load syntax theme CSS on mount and when it changes
   useEffect(() => {
-    loadTheme(syntaxTheme);
-  }, [syntaxTheme]);
+    loadTheme(prefs.syntaxTheme);
+  }, [prefs.syntaxTheme]);
 
   useEffect(() => {
     if (!open) return;
@@ -50,11 +50,6 @@ export function ThemePicker({ prefs, onPrefsChange }: { prefs: Preferences; onPr
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
-
-  const selectTheme = (theme: string) => {
-    setPrefs({ syntaxTheme: theme });
-    setOpen(false);
-  };
 
   return (
     <div className="relative" ref={ref}>
@@ -73,7 +68,7 @@ export function ThemePicker({ prefs, onPrefsChange }: { prefs: Preferences; onPr
           {([["bubble", "Bubble"], ["flat", "Flat"]] as const).map(([key, label]) => (
             <button
               key={key}
-              onClick={() => onPrefsChange({ chatLayout: key })}
+              onClick={() => setPrefs({ chatLayout: key })}
               className={`w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--border)] transition-colors cursor-pointer ${
                 key === prefs.chatLayout ? "text-[var(--accent)]" : "text-[var(--text-dim)]"
               }`}
@@ -86,19 +81,19 @@ export function ThemePicker({ prefs, onPrefsChange }: { prefs: Preferences; onPr
             Tools
           </div>
           <button
-            onClick={() => onPrefsChange({ showTools: !prefs.showTools })}
+            onClick={() => setPrefs({ showTools: !prefs.showTools })}
             className="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--border)] transition-colors cursor-pointer text-[var(--text-dim)]"
           >
             {prefs.showTools ? "●" : "○"} Show tool calls
           </button>
           <button
-            onClick={() => onPrefsChange({ coloredTools: !prefs.coloredTools })}
+            onClick={() => setPrefs({ coloredTools: !prefs.coloredTools })}
             className="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--border)] transition-colors cursor-pointer text-[var(--text-dim)]"
           >
             {prefs.coloredTools ? "●" : "○"} Colored tool names
           </button>
           <button
-            onClick={() => onPrefsChange({ peekLastTool: !prefs.peekLastTool })}
+            onClick={() => setPrefs({ peekLastTool: !prefs.peekLastTool })}
             className="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--border)] transition-colors cursor-pointer text-[var(--text-dim)]"
           >
             {prefs.peekLastTool ? "●" : "○"} Peek last tool output
@@ -110,12 +105,12 @@ export function ThemePicker({ prefs, onPrefsChange }: { prefs: Preferences; onPr
           {THEMES.map((t) => (
             <button
               key={t}
-              onClick={() => selectTheme(t)}
+              onClick={() => { setPrefs({ syntaxTheme: t }); setOpen(false); }}
               className={`w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--border)] transition-colors cursor-pointer ${
-                t === syntaxTheme ? "text-[var(--accent)]" : "text-[var(--text-dim)]"
+                t === prefs.syntaxTheme ? "text-[var(--accent)]" : "text-[var(--text-dim)]"
               }`}
             >
-              {t === syntaxTheme && "● "}{t}
+              {t === prefs.syntaxTheme && "● "}{t}
             </button>
           ))}
         </div>

@@ -36,12 +36,11 @@ const SURFACE_ID = "dashboard:panel";
 export function useDashboards(agents: AgentInfo[], activeAgent: AgentInfo | null): DashboardStore {
   const [panelHtml, setPanelHtml] = useState<{ html: string; title: string; dashboard?: string } | null>(null);
   const [allDashboards, setAllDashboards] = useState<DashboardInfo[]>([]);
-  const [activeDashboard, setActiveDashboardLocal] = useState<string | null>(null);
   const panelRef = useRef(panelHtml);
   panelRef.current = panelHtml;
 
-  const storeActiveDashboard = useStore((s) => s.ui.activeDashboard);
-  const storeSetActiveDashboard = useStore((s) => s.setActiveDashboard);
+  const activeDashboard = useStore((s) => s.ui.activeDashboard);
+  const setActiveDashboard = useStore((s) => s.setActiveDashboard);
 
   // Fetch dashboards from all running agents
   useEffect(() => {
@@ -56,31 +55,26 @@ export function useDashboards(agents: AgentInfo[], activeAgent: AgentInfo | null
 
   const openPanel = useCallback((html: string, title: string, dashboard?: string) => {
     setPanelHtml({ html, title, dashboard });
-    if (dashboard) {
-      setActiveDashboardLocal(dashboard);
-      storeSetActiveDashboard(dashboard);
-    }
-  }, [storeSetActiveDashboard]);
+    if (dashboard) setActiveDashboard(dashboard);
+  }, [setActiveDashboard]);
 
   const closePanel = useCallback(() => {
     setPanelHtml(null);
-    setActiveDashboardLocal(null);
-    storeSetActiveDashboard(null);
+    setActiveDashboard(null);
     unregisterSurface(SURFACE_ID);
-  }, [storeSetActiveDashboard]);
+  }, [setActiveDashboard]);
 
   const loadAndOpen = useCallback((name: string, baseUrl: string, token: string) => {
     loadDashboardHtml(name, baseUrl, token)
       .then(html => {
         if (html) {
           setPanelHtml({ html, title: name, dashboard: name });
-          setActiveDashboardLocal(name);
-          storeSetActiveDashboard(name);
+          setActiveDashboard(name);
         } else {
           closePanel();
         }
       });
-  }, [closePanel, storeSetActiveDashboard]);
+  }, [closePanel, setActiveDashboard]);
 
   // Stable render function that reads from ref to avoid re-registration loops
   const renderPanel = useCallback(() => createElement(DashboardIframe, { html: panelRef.current?.html || "" }), []);
@@ -106,7 +100,7 @@ export function useDashboards(agents: AgentInfo[], activeAgent: AgentInfo | null
   // Restore active dashboard on load from store
   useEffect(() => {
     if (!activeAgent) return;
-    if (storeActiveDashboard) loadAndOpen(storeActiveDashboard, activeAgent.baseUrl, activeAgent.token || "");
+    if (activeDashboard) loadAndOpen(activeDashboard, activeAgent.baseUrl, activeAgent.token || "");
   }, [activeAgent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close panel if active dashboard no longer exists

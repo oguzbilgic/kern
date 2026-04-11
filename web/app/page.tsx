@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, type DragEvent } from "react";
+import { useState, useCallback, useEffect, useMemo, type DragEvent } from "react";
 import { useAgents, agentKey } from "../hooks/useAgents";
 import { useAgent } from "../hooks/useAgent";
 import { Sidebar } from "../components/Sidebar";
@@ -39,7 +39,7 @@ export default function Home() {
   const { messages, streamParts, thinking, activity, activityDetail, connected, status, send, loadMore, hasMore, loadingMore } = useAgent(activeAgent, { withHistory: true });
   const pinnedArray = useStore((s) => s.ui.pinnedStats);
   const togglePin = useStore((s) => s.togglePin);
-  const pinned = new Set(pinnedArray);
+  const pinned = useMemo(() => new Set(pinnedArray), [pinnedArray]);
 
   // KernBridge — stable API for desktop app (Tauri) and Android WebView
   useEffect(() => {
@@ -157,7 +157,7 @@ export default function Home() {
             <PinnedStats status={status} pinned={pinned} />
           </div>
           <div className="ml-auto flex items-center gap-1">
-            <ThemePicker prefs={prefs} onPrefsChange={setPrefs} />
+            <ThemePicker />
             {/* Plugin header buttons */}
             {activeAgent && renderPluginHeaders({
               agentName: activeAgent.name,
