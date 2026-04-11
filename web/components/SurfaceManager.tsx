@@ -209,8 +209,8 @@ export function SurfacePanel() {
 
   return (
     <div className="flex flex-col flex-shrink-0 relative" style={{ width }}>
-      {/* Drag overlay — blocks iframe from stealing mouse events */}
-      {isDragging && <div className="absolute inset-0 z-20" />}
+      {/* Drag overlay — covers entire viewport to block text selection and iframe mouse capture */}
+      {isDragging && <div className="fixed inset-0 z-[9999] cursor-col-resize" />}
       {/* Resize handle — wide invisible hit area with thin visible line */}
       <div
         onMouseDown={onDragStart}
