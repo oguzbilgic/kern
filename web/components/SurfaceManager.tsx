@@ -158,13 +158,15 @@ export function SurfacePanel() {
   }, []);
 
   useEffect(() => {
+    const getMaxWidth = () => {
+      const sidebarEl = document.querySelector('[data-sidebar]') as HTMLElement | null;
+      const sidebarW = sidebarEl?.offsetWidth ?? 0;
+      return window.innerWidth - sidebarW - 360;
+    };
     const onMove = (e: MouseEvent) => {
       if (!dragging.current) return;
       const delta = startX.current - e.clientX;
-      const sidebarEl = document.querySelector('[data-sidebar]') as HTMLElement | null;
-      const sidebarW = sidebarEl?.offsetWidth ?? 0;
-      const maxW = window.innerWidth - sidebarW - 360;
-      setWidth(Math.max(280, Math.min(startW.current + delta, maxW)));
+      setWidth(Math.max(280, Math.min(startW.current + delta, getMaxWidth())));
     };
     const onUp = () => {
       dragging.current = false;
@@ -172,11 +174,23 @@ export function SurfacePanel() {
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     };
+    const onResize = () => {
+      const maxW = getMaxWidth();
+      if (maxW < 280) {
+        // Not enough room — close all panel surfaces
+        const panelSurfaces = getSurfaces().filter(s => s.mode === "panel");
+        panelSurfaces.forEach(s => s.onClose?.());
+        return;
+      }
+      setWidth(prev => Math.max(280, Math.min(prev, maxW)));
+    };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
+    window.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("resize", onResize);
     };
   }, []);
 

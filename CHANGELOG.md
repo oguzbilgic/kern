@@ -10,6 +10,7 @@
 - **OpenRouter attribution** — updated app title to "Kern Agent" and added `X-OpenRouter-Title` header alongside legacy `X-Title`
 
 ### Fixes
+- **Dashboard panel resize** ([#121](https://github.com/oguzbilgic/kern-ai/issues/121)) — panel width now clamps on window resize; auto-closes when window is too narrow
 - **Dashboard links** ([#141](https://github.com/oguzbilgic/kern-ai/issues/141)) — external links inside dashboard iframes now open in a new tab
 
 ## desktop-v0.2.0
