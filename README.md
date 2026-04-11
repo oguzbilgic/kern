@@ -29,6 +29,8 @@ For automation: `kern init my-agent --api-key sk-or-...` (no prompts, defaults t
 
 ## Dashboards
 
+![Agent dashboards](https://kern-ai.com/images/dashboards.png)
+
 Agents create and maintain their own dashboards — HTML pages with live data, served from the agent and displayed in the web UI side panel. Not chat transcripts. Real interfaces that update themselves.
 
 ```
