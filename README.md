@@ -27,32 +27,9 @@ The init wizard scaffolds your agent, asks for a provider and API key, then star
 
 For automation: `kern init my-agent --api-key sk-or-...` (no prompts, defaults to openrouter + opus 4.6). For Ollama: `kern init my-agent --provider ollama --api-key http://localhost:11434 --model gemma4:31b`.
 
-## How it works
-
-```
-Terminal ─────┐
-Web UI ───────┤
-Telegram ─────┤── one session ── one folder
-Slack ────────┘
-```
-
-Every interface feeds into the same session. The agent reads and writes its own memory files through tools — takes notes, updates knowledge, commits to git. The next time you talk to it, from any interface, it picks up exactly where it left off.
-
-## Memory
-
-![Memory UI — Segments](https://kern-ai.com/images/segments-2.png)
-
-Agents remember across sessions through three mechanisms:
-
-- **Files** — `knowledge/` for mutable state, `notes/` for daily logs. Git-tracked, inspectable, portable.
-- **Recall** — semantic search over all past conversations via local SQLite + embeddings.
-- **Segments** — messages grouped by topic, summarized into a hierarchy (L0 → L1 → L2), compressed into context when old messages are trimmed.
-
-The web UI includes a Memory overlay with five tabs for examining sessions, segments, notes, recall, and the full context pipeline.
-
 ## Dashboards
 
-Agents create and maintain their own dashboards — HTML pages with structured data, served from the agent and displayed in the web UI side panel.
+Agents create and maintain their own dashboards — HTML pages with live data, served from the agent and displayed in the web UI side panel. Not chat transcripts. Real interfaces that update themselves.
 
 ```
 dashboards/homelab/
@@ -62,7 +39,30 @@ dashboards/homelab/
 
 The agent writes `data.json`, creates the HTML, then calls `render({ dashboard: "homelab" })` to display it. Dashboards appear in the sidebar and can be switched from the panel header.
 
-See [Dashboards docs](docs/dashboards.md) for the full file contract, data injection, and examples.
+[Dashboards docs](docs/dashboards.md) · [Blog: Why every agent needs a dashboard](https://kern-ai.com/blog/agent-dashboards)
+
+## Memory
+
+![Memory UI — Segments](https://kern-ai.com/images/segments-2.png)
+
+Conversations are automatically segmented by topic, summarized, and rolled up into a hierarchy (L0 → L1 → L2). When old messages are trimmed from context, compressed summaries take their place — the agent sees its full history at decreasing resolution. Semantic recall searches everything.
+
+The web UI includes a Memory overlay with five tabs for inspecting sessions, segments, notes, recall, and the full context pipeline with token breakdowns.
+
+[Memory docs](docs/memory.md) · [Blog: Lossless context management](https://kern-ai.com/blog/lossless-context-management) · [Blog: See inside your agent's brain](https://kern-ai.com/blog/memory-ui)
+
+## One session
+
+```
+Terminal ─────┐
+Web UI ───────┤
+Telegram ─────┤── one session
+Slack ────────┘
+```
+
+Every interface feeds into the same session. Message from Telegram, pick up in the terminal, continue in the browser. The agent knows who said what, on which channel, and connects context across all of them.
+
+[Blog: Why your agent needs one session](https://kern-ai.com/blog/why-your-agent-needs-one-session)
 
 ## CLI
 
