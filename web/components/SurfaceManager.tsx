@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { getSurfaces, getSurfaceGroups, getSurfacesByGroup, onSurfaceChange, type Surface } from "../lib/surfaces";
-import { useStore } from "../lib/store";
 
 const accent = "#e5b567";
 
@@ -178,23 +177,7 @@ export function SurfacePanel() {
     const onResize = () => {
       const maxW = getMaxWidth();
       if (maxW < 280) {
-        // Try collapsing sidebar to mini first
-        const { ui, setSidebarMini } = useStore.getState();
-        if (!ui.sidebarMini) {
-          setSidebarMini(true);
-          // Recheck after sidebar collapses (200→75 = +125px)
-          requestAnimationFrame(() => {
-            const newMaxW = getMaxWidth();
-            if (newMaxW < 280) {
-              const panelSurfaces = getSurfaces().filter(s => s.mode === "panel");
-              panelSurfaces.forEach(s => s.onClose?.());
-            } else {
-              setWidth(prev => Math.max(280, Math.min(prev, newMaxW)));
-            }
-          });
-          return;
-        }
-        // Already mini — close panel
+        // Not enough room — close all panel surfaces
         const panelSurfaces = getSurfaces().filter(s => s.mode === "panel");
         panelSurfaces.forEach(s => s.onClose?.());
         return;
