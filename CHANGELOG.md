@@ -12,7 +12,7 @@
 ### Fixes
 - **Dashboard links** ([#141](https://github.com/oguzbilgic/kern-ai/issues/141)) — external links inside dashboard iframes now open in a new tab
 
-## desktop-next
+## desktop-v0.2.0
 
 ### Improvements
 - **Simplified connect screen** — removed token input; just enter the kern web URL. Agents are added with tokens through the web UI sidebar.
