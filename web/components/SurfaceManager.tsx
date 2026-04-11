@@ -175,7 +175,14 @@ export function SurfacePanel() {
       document.body.style.userSelect = "";
     };
     const onResize = () => {
-      setWidth(prev => Math.max(280, Math.min(prev, getMaxWidth())));
+      const maxW = getMaxWidth();
+      if (maxW < 280) {
+        // Not enough room — close all panel surfaces
+        const panelSurfaces = getSurfaces().filter(s => s.mode === "panel");
+        panelSurfaces.forEach(s => s.onClose?.());
+        return;
+      }
+      setWidth(prev => Math.max(280, Math.min(prev, maxW)));
     };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
