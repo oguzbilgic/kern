@@ -1,19 +1,17 @@
 # kern
 
-AI agents built for coworking.
+Agents that do the work and show it.
 
-One brain across every channel. Your agent sits in Slack channels, Telegram DMs, the terminal, and the browser. It knows who's talking, reads the room, and remembers everything. Humans and agents, same channels, same conversation.
+Agents that run on your machine, use real tools, remember everything, and publish their own dashboards. Not chatbots — autonomous workers with one brain across every channel.
 
-![kern web UI](https://kern-ai.com/images/web-ui.png)
+![kern web UI](https://kern-ai.com/images/agent-intranet.png)
 
 ## Why kern
 
-Most agent frameworks give you sessions that reset, memory that's a black box, or infrastructure you have to manage. kern takes a different approach:
-
-- **One brain** — a single continuous session across every interface. Message from Telegram, pick up in the terminal, continue in the browser. The agent always knows what happened.
-- **Context-aware** — the agent knows who's talking and where. It sees the user, the channel, and the interface — so it can adjust tone, filter context, and keep track of different conversations within the same session.
-- **A folder is the agent** — AGENTS.md defines behavior, IDENTITY.md defines who it is, knowledge/ and notes/ are its memory. Everything is plain text, git-tracked, and inspectable.
-- **No external infra** — no hosted server or managed database required. Runs locally with a folder, SQLite, an API key, and `npm install -g kern-ai`.
+- **One brain, every channel** — terminal, browser, Telegram, Slack feed into one session. The agent knows who's talking, what channel it's in, and what happened 10,000 messages ago.
+- **Memory that compounds** — conversations segmented by topic, summarized into a hierarchy, compressed into context. Semantic recall over everything. The agent gets better the longer it runs.
+- **Agents build their own UI** — dashboards with live data, served from the agent, displayed in a side panel. Not chat — real interfaces that update themselves.
+- **Your infra, your data** — runs on your laptop, server, or homelab. The whole agent is a git-tracked folder. Pay only for API tokens — or use Ollama for fully local, zero-cost inference.
 
 kern pairs with [agent-kernel](https://github.com/oguzbilgic/agent-kernel) — the kernel defines how an agent remembers, kern runs it.
 
@@ -29,38 +27,46 @@ The init wizard scaffolds your agent, asks for a provider and API key, then star
 
 For automation: `kern init my-agent --api-key sk-or-...` (no prompts, defaults to openrouter + opus 4.6). For Ollama: `kern init my-agent --provider ollama --api-key http://localhost:11434 --model gemma4:31b`.
 
-## How it works
+## Dashboards
+
+![Agent dashboards](https://kern-ai.com/images/dashboards.png)
+
+Agents create and maintain their own dashboards — HTML pages with live data, served from the agent and displayed in the web UI side panel. Not chat transcripts. Real interfaces that update themselves.
 
 ```
-TUI ──────────────┐
-Web UI ───────────┤
-Telegram DM ──────┤── kern ── one session ── one folder
-#engineering ─────┤
-Slack DM ─────────┘
+dashboards/homelab/
+  index.html       # visualization
+  data.json        # structured data (injected as window.__KERN_DATA__)
 ```
 
-Every interface feeds into the same session. The agent reads and writes its own memory files through tools — takes notes, updates knowledge, commits to git. The next time you talk to it, from any interface, it picks up exactly where it left off.
+The agent writes `data.json`, creates the HTML, then calls `render({ dashboard: "homelab" })` to display it. Dashboards appear in the sidebar and can be switched from the panel header.
 
-## Agent structure
+[Dashboards docs](docs/dashboards.md) · [Blog: Why every agent needs a dashboard](https://kern-ai.com/blog/agent-dashboards)
 
-After `kern init`, your agent directory looks like:
+## Memory
+
+![Memory UI — Segments](https://kern-ai.com/images/segments-2.png)
+
+Conversations are automatically segmented by topic, summarized, and rolled up into a hierarchy (L0 → L1 → L2). When old messages are trimmed from context, compressed summaries take their place — the agent sees its full history at decreasing resolution. Semantic recall searches everything.
+
+The web UI includes a Memory overlay with five tabs for inspecting sessions, segments, notes, recall, and the full context pipeline with token breakdowns.
+
+[Memory docs](docs/memory.md) · [Blog: Lossless context management](https://kern-ai.com/blog/lossless-context-management) · [Blog: See inside your agent's brain](https://kern-ai.com/blog/memory-ui)
+
+## One session
 
 ```
-my-agent/
-  AGENTS.md              # how the agent behaves (system prompt)
-  IDENTITY.md            # who the agent is
-  KNOWLEDGE.md           # index of what it knows
-  USERS.md               # paired users with roles and guardrails
-  knowledge/             # mutable state files
-  notes/                 # daily logs (append-only)
-  .kern/
-    config.json          # model, provider, toolScope (committed)
-    .env                 # API keys, bot tokens (gitignored)
-    sessions/            # conversation history (gitignored)
-    recall.db            # memory database (gitignored)
+Terminal ─────┐
+Web UI ───────┤
+Telegram ─────┤── one session
+Slack ────────┘
 ```
 
-Everything the agent needs is in this folder. Move it, zip it, clone it — the agent comes with it. Run `kern init` on any existing repo to adopt it as a kern agent.
+Every interface feeds into the same session. Message from Telegram, pick up in the terminal, continue in the browser. Each message carries metadata — who said it, which channel, when — so the agent connects context across all of them without losing track.
+
+The agent reads and writes its own memory files through tools — takes notes, updates knowledge, commits to git. The next time you talk to it, from any interface, it picks up exactly where it left off.
+
+[Blog: Why your agent needs one session](https://kern-ai.com/blog/why-your-agent-needs-one-session)
 
 ## CLI
 
@@ -69,42 +75,22 @@ kern init <name>          # create or configure an agent
 kern start [name|path]    # start agents in background
 kern stop [name]          # stop agents
 kern restart [name]       # restart agents
-kern install [name|--web|--proxy] # install systemd services (auto-restart, boot persistence)
-kern uninstall [name]     # remove systemd services
+kern install [name|--web|--proxy] # install systemd services
 kern tui [name]           # interactive chat
-kern web <start|stop|status>      # static web UI server
-kern proxy <start|stop|status|token>  # authenticated reverse proxy
+kern web <start|stop>     # static web UI server
+kern proxy <start|stop|token>  # authenticated reverse proxy
 kern logs [name]          # follow agent logs
-kern list                 # show all agents, web, and proxy status
-kern remove <name>        # unregister an agent
+kern list                 # show all agents and services
 kern backup <name>        # backup agent to .tar.gz
-kern restore <file>       # restore agent from backup
-kern import opencode      # import session from OpenCode
 ```
 
-Agents auto-register when you init, start, or run them. `kern list` shows every agent, web, and proxy with running state and mode (systemd/daemon).
+### Connecting
 
-### Web UI
+Agents bind to `0.0.0.0` on sticky ports (4100-4999), accessible over Tailscale or LAN. The web UI connects directly — enter the agent's URL and `KERN_AUTH_TOKEN` in the sidebar.
 
-`kern web start` serves the web UI as static files (default port 8080). Connect to agents directly from the sidebar by entering their URL and token.
-
-`kern proxy start` launches an optional authenticated reverse proxy (default port 9000) that discovers local agents and proxies requests to them.
-
-```bash
-kern web start      # start static web server
-kern proxy start    # start proxy, prints URL with token
-kern proxy token    # print URL with token again
-```
-
-The web UI can connect to agents two ways:
-- **Direct** — enter the agent's URL and `KERN_AUTH_TOKEN` in the sidebar. No proxy needed.
-- **Via proxy** — connect to a `kern proxy` server with `KERN_PROXY_TOKEN`. The proxy discovers and forwards to local agents.
-
-Agents bind to `0.0.0.0` on sticky ports (4100-4999), accessible over Tailscale or LAN. Add agents or remote proxy servers from the sidebar.
+Optionally, `kern proxy start` launches an authenticated reverse proxy that discovers and forwards to local agents.
 
 ### Slash commands
-
-Type these in any channel (TUI, Web, Telegram, Slack). Handled by the runtime — no LLM call, instant response.
 
 ```
 /status     # agent status, model, uptime, session size
@@ -112,85 +98,21 @@ Type these in any channel (TUI, Web, Telegram, Slack). Handled by the runtime �
 /help       # list available commands
 ```
 
-## User pairing
+## Interfaces
 
-The first person to message the bot becomes the operator — auto-paired, no code needed. Every user after pairs with a code:
+| Interface | Setup |
+|-----------|-------|
+| **Terminal** | `kern tui` — interactive chat |
+| **Web UI** | `kern web start` — browser at port 8080 |
+| **Telegram** | Set `TELEGRAM_BOT_TOKEN` in `.kern/.env` |
+| **Slack** | Set `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` in `.kern/.env` |
+| **Desktop** | macOS app via Tauri ([releases](https://github.com/oguzbilgic/kern-ai/releases)) |
 
-1. Unknown user messages the bot → gets a `KERN-XXXX` code
-2. User shares code with the operator
-3. Operator approves: tell the agent, or `kern pair atlas KERN-XXXX` from CLI
-4. Agent pairs them and writes USERS.md with identity and access notes
-
-No allowlists. The agent manages its own access.
-
-## Telegram
-
-Set `TELEGRAM_BOT_TOKEN` in `.kern/.env` and kern connects via long polling. No public URL needed — works behind NAT. Messages show up in real time in the TUI.
-
-## Slack
-
-Set `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` in `.kern/.env`. Uses Socket Mode — no public URL needed.
-
-- **DMs**: pairing required, same as Telegram
-- **Channels**: agent reads all messages, only responds when @mentioned or relevant
-- **NO_REPLY**: agent silently absorbs channel context without cluttering the conversation
-
-Invite the bot to channels where it should listen.
-
-## Media
-
-Send images and files through any interface — Telegram, Slack, or Web UI. Files are stored locally in `.kern/media/` with content-addressed naming.
-
-By default, images are pre-digested: a vision model describes each image once, and the description is cached. The chat model sees text instead of raw image data — works with any model, saves tokens. Set `mediaDigest: false` to send raw images inline instead.
-
-See [Media docs](docs/media.md) for details.
-
-## Memory
-
-Agents remember across sessions through three mechanisms:
-
-- **Files** — `knowledge/` for mutable state, `notes/` for daily logs. The agent reads and writes these through tools. Git-tracked, inspectable, portable.
-- **Recall** — semantic search over all past conversations. Messages are embedded and stored in a local SQLite database (`recall.db`). The agent uses the `recall` tool to search by query with optional date filters, or load raw messages from a specific session.
-- **Segments** — messages are automatically grouped into topic-coherent segments, summarized, and rolled up into a hierarchy (L0 → L1 → L2). When old messages are trimmed from context, compressed summaries are injected in their place — the agent sees its full conversation history at decreasing resolution.
-
-On startup, the agent's system prompt is automatically injected with:
-- The latest daily note (full content)
-- An LLM-generated summary of the previous 5 daily notes
-- Compressed conversation history from segments (when messages have been trimmed)
-
-This means the agent boots with recent context — no manual reading required. Summaries are cached in SQLite and regenerated in the background on day rollover.
-
-### Memory UI
-
-The web UI includes a Memory overlay with five tabs for examining all aspects of agent memory: sessions, segments, notes, recall, and context. See the full context pipeline — from raw messages through segment hierarchy to the final system prompt — with token breakdowns and compression ratios.
-
-![Memory UI — Segments](https://kern-ai.com/images/segments-2.png)
-
-## Heartbeat
-
-Kern sends a periodic `[heartbeat]` to the agent. The agent reviews notes, updates knowledge files, and messages the operator if something needs attention. Visible in the TUI only — Telegram and Slack never see it.
-
-```json
-{
-  "heartbeatInterval": 60
-}
-```
-
-Interval in minutes. Default 60 (1 hour). Set to 0 to disable.
-
-## Logging
-
-```bash
-kern logs [name]              # follow logs (default)
-kern logs [name] -n 50        # last 50 lines, exit
-kern logs [name] --level warn # warnings and errors only
-```
-
-Structured, leveled logs with colored labels. Stored in `.kern/logs/kern.log`. All levels written, filter on read.
+First Telegram/Slack user is auto-paired as operator. Others pair with `KERN-XXXX` codes.
 
 ## Configuration
 
-### Per-agent: `.kern/config.json`
+### `.kern/config.json`
 
 ```json
 {
@@ -198,44 +120,41 @@ Structured, leveled logs with colored labels. Stored in `.kern/logs/kern.log`. A
   "provider": "openrouter",
   "toolScope": "full",
   "maxContextTokens": 100000,
-  "maxToolResultChars": 20000,
   "summaryBudget": 0.75
 }
 ```
 
-`maxContextTokens` controls the sliding context window — older messages are trimmed to stay within budget. `maxToolResultChars` caps individual tool results in context (full results stay in session JSONL and are searchable via recall). `summaryBudget` controls what fraction of the context window is reserved for compressed segment summaries when old messages are trimmed (default 75%, cached via prompt caching so effectively free). Set to `0` to disable.
-
-Agent auth tokens are auto-generated on first start and stored in `.kern/.env`. The proxy injects them automatically — no manual setup needed.
-
-### Global: `~/.kern/config.json`
-
-```json
-{
-  "web_port": 8080,
-  "proxy_port": 9000
-}
-```
-
-Controls the `kern web` and `kern proxy` servers. Optional — defaults apply if the file doesn't exist.
-
 ### Tool scopes
 
-- **full** — shell (bash/pwsh), read, write, edit, glob, grep, webfetch, websearch, kern, message, recall
-- **write** — read, write, edit, glob, grep, webfetch, websearch, kern, message, recall
-- **read** — read, glob, grep, webfetch, websearch, kern, recall
-
-Shell tool is platform-specific: `bash` on Unix/Linux, `pwsh` on Windows. Selected automatically.
+- **full** — shell, read, write, edit, glob, grep, webfetch, websearch, kern, message, recall, pdf, image, render
+- **write** — everything except shell
+- **read** — read-only tools
 
 ### Providers
 
-- **openrouter** — any model via OpenRouter (default)
-- **anthropic** — direct Anthropic API
-- **openai** — OpenAI / Azure
-- **ollama** — local models via [Ollama](https://ollama.com)
+| Provider | Description |
+|----------|-------------|
+| **openrouter** | Any model via OpenRouter (default) |
+| **anthropic** | Direct Anthropic API |
+| **openai** | OpenAI / Azure |
+| **ollama** | Local models via [Ollama](https://ollama.com) |
+
+Models can be mixed per role: `model` for chat, `embeddingModel` for recall, `summaryModel` for segments, `mediaModel` for vision.
 
 ## Documentation
 
-Detailed docs: [docs/](https://github.com/oguzbilgic/kern-ai/tree/master/docs)
+- [Get started](docs/get-started.md)
+- [Configuration](docs/config.md)
+- [Architecture](docs/architecture.md)
+- [Memory](docs/memory.md)
+- [Dashboards](docs/dashboards.md)
+- [Context & segments](docs/context.md)
+- [Prompt caching](docs/caching.md)
+- [Media](docs/media.md)
+- [Tools](docs/tools.md)
+- [Interfaces](docs/interfaces.md)
+- [CLI commands](docs/commands.md)
+- [Pairing](docs/pairing.md)
 
 ## Built with
 
