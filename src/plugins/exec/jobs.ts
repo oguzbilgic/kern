@@ -59,6 +59,16 @@ export function removeJob(id: string): void {
   jobs.delete(id);
 }
 
+/** Read the full contents of a log file. */
+export function readLogFull(logFile: string): string {
+  try {
+    if (!existsSync(logFile)) return "(log file not found)";
+    return readFileSync(logFile, "utf-8");
+  } catch {
+    return "(failed to read log)";
+  }
+}
+
 /** Read the tail of a job's log file. */
 export function readLogTail(logFile: string, lines = 20): string {
   try {

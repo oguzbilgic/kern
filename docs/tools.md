@@ -7,11 +7,48 @@ kern provides built-in tools. Availability depends on `toolScope` in config.
 Run shell commands on Unix/Linux. Full access to the system.
 
 ```
-bash({ command: "ls -la", timeout: 120000 })
+bash({ command: "ls -la" })
+bash({ command: "npm run build", yieldMs: 30000 })
+bash({ command: "npm run dev", background: true })
 ```
 
 - `command` — shell command to execute
-- `timeout` — optional, milliseconds (default 120000)
+- `timeout` — optional, milliseconds (default 120000). Only applies to foreground commands.
+- `background` — optional, boolean. If `true`, run command in background immediately and return job info.
+- `yieldMs` — optional, auto-background timeout in milliseconds (default 10000). If the command hasn't finished within this time, it is backgrounded.
+
+### Fast path
+
+Commands that finish within `yieldMs` return output directly — same as the old behavior.
+
+### Auto-background
+
+Commands exceeding `yieldMs` are automatically backgrounded. The tool returns:
+
+```json
+{
+  "status": "background",
+  "jobId": "abc123",
+  "pid": 12345,
+  "logFile": ".kern/jobs/abc123.log",
+  "output": "... last 50 lines ..."
+}
+```
+
+Use `read` on `logFile` to check progress. Use `bash kill <pid>` to terminate.
+
+### Completion events
+
+When a background job finishes, a system message is injected:
+
+```
+[process] Job abc123 finished (exit 0): npm run build
+Last 20 lines:
+  Built in 4.2s
+  Output: dist/index.js
+```
+
+Log files are kept for 60 seconds after completion so you can `read` them.
 
 Scope: `full` only. Unix/Linux only — on Windows, `pwsh` is provided instead.
 

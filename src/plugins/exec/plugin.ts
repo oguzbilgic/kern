@@ -12,6 +12,7 @@ import {
   setExitCode,
   jobsDir,
   listJobs,
+  readLogFull,
   readLogTail,
   cleanupLogFile,
   startReaper,
@@ -24,35 +25,44 @@ import { log } from "../../log.js";
 const DEFAULT_YIELD_MS = 10_000;
 const LOG_TAIL_LINES = 50;
 const COMPLETION_TAIL_LINES = 20;
+const LOG_CLEANUP_DELAY_MS = 60_000; // keep log files for 60s after completion
 
 /**
- * Spawn a command and write stdout+stderr to a log file.
- * Returns immediately with the child process and log path.
+ * Spawn a command and write stdout+stderr to log files.
+ * stdout goes to `<id>.log`, stderr goes to `<id>.err.log`.
+ * Returns immediately with the child process and log paths.
  */
 function spawnWithLog(command: string, agentDir: string): {
   child: ReturnType<typeof spawn>;
   logFile: string;
+  errLogFile: string;
   jobId: string;
 } {
   const jobId = randomBytes(6).toString("hex");
   const dir = jobsDir(agentDir);
   const logFile = join(dir, `${jobId}.log`);
-  const stream = createWriteStream(logFile, { flags: "a" });
+  const errLogFile = join(dir, `${jobId}.err.log`);
+  const outStream = createWriteStream(logFile, { flags: "a" });
+  const errStream = createWriteStream(errLogFile, { flags: "a" });
 
   const child = spawn("sh", ["-c", command], {
     stdio: ["ignore", "pipe", "pipe"],
     detached: true,
   });
 
-  child.stdout?.on("data", (data: Buffer) => stream.write(data));
-  child.stderr?.on("data", (data: Buffer) => stream.write(data));
-  child.on("close", () => stream.end());
+  child.stdout?.on("data", (data: Buffer) => outStream.write(data));
+  child.stderr?.on("data", (data: Buffer) => {
+    outStream.write(data);   // combined log for `read` tool
+    errStream.write(data);   // separate stderr for error detection
+  });
+  child.on("close", () => { outStream.end(); errStream.end(); });
   child.on("error", (err) => {
-    stream.write(`\n[spawn error: ${err.message}]\n`);
-    stream.end();
+    outStream.write(`\n[spawn error: ${err.message}]\n`);
+    outStream.end();
+    errStream.end();
   });
 
-  return { child, logFile, jobId };
+  return { child, logFile, errLogFile, jobId };
 }
 
 function createBashTool(agentDir: string) {
@@ -82,10 +92,11 @@ function createBashTool(agentDir: string) {
         ),
     }),
     execute: async ({ command, timeout = 120000, background = false, yieldMs = DEFAULT_YIELD_MS }) => {
-      const { child, logFile, jobId } = spawnWithLog(command, agentDir);
+      const { child, logFile, errLogFile, jobId } = spawnWithLog(command, agentDir);
       const pid = child.pid;
       if (!pid) {
         cleanupLogFile(logFile);
+        cleanupLogFile(errLogFile);
         return "Error: failed to spawn process";
       }
 
@@ -158,20 +169,25 @@ function createBashTool(agentDir: string) {
       if (result.finished) {
         // Fast path — command finished within yieldMs
         completeJob(jobId, result.code);
-        const output = readLogTail(logFile, 10000); // read full output
+
+        // Read full output and stderr directly
+        let stdout = readLogFull(logFile);
+        const stderr = readLogFull(errLogFile);
+
+        // Clean up log files immediately for fast path (no need to keep around)
         cleanupLogFile(logFile);
+        cleanupLogFile(errLogFile);
 
         // Truncate to max output chars for consistency
-        let truncated = output;
-        if (truncated.length > 25_000) {
-          truncated = truncated.slice(0, 25_000) +
-            `\n\n[output truncated: ${output.length} chars, showing first 25000]`;
+        if (stdout.length > 25_000) {
+          stdout = stdout.slice(0, 25_000) +
+            `\n\n[output truncated: ${stdout.length} chars, showing first 25000]`;
         }
 
         // Format like the original bash tool for backward compatibility
         const shellResult: ShellExecResult = {
-          stdout: truncated,
-          stderr: "",
+          stdout,
+          stderr,
           code: result.code,
           killed: false,
         };
@@ -213,7 +229,10 @@ export const execPlugin: KernPlugin = {
       bash: "run shell commands (supports background execution)",
     };
 
-    // Start PID reaper — on completion, enqueue a system message for the agent
+    // Start PID reaper — on completion, enqueue a system message for the agent.
+    // Log files are kept around so the agent can `read` them after getting the
+    // completion event. They are cleaned up on the next reaper cycle after
+    // the job has been in a terminal state for at least LOG_CLEANUP_DELAY_MS.
     startReaper((job: Job, logTail: string) => {
       const msg = [
         `[process] Job ${job.id} finished (exit ${job.exitCode ?? "?"}): ${job.command}`,
@@ -225,8 +244,12 @@ export const execPlugin: KernPlugin = {
         ctx.enqueueMessage(msg);
       }
 
-      // Clean up log file after delivering completion
-      cleanupLogFile(job.logFile);
+      // Schedule deferred log file cleanup
+      setTimeout(() => {
+        cleanupLogFile(job.logFile);
+        // Also clean up the stderr log
+        cleanupLogFile(job.logFile.replace(/\.log$/, ".err.log"));
+      }, LOG_CLEANUP_DELAY_MS);
     });
 
     log("exec", "plugin started — PID reaper active");

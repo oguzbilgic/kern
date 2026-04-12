@@ -1,4 +1,3 @@
-import { bashTool } from "./bash.js";
 import { pwshTool } from "./pwsh.js";
 import { readTool } from "./read.js";
 import { writeTool } from "./write.js";
@@ -13,8 +12,9 @@ import { messageTool } from "./message.js";
 const isWindows = process.platform === "win32";
 
 export const allTools = {
-  // Platform-specific shell tool — one per platform
-  ...(isWindows ? { pwsh: pwshTool } : { bash: bashTool }),
+  // bash is provided by the exec plugin (src/plugins/exec/).
+  // On Windows, pwsh is still registered here as a core tool.
+  ...(isWindows ? { pwsh: pwshTool } : {}),
   read: readTool,
   write: writeTool,
   edit: editTool,
