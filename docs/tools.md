@@ -81,7 +81,7 @@ grep({ pattern: "TODO", path: ".", include: "*.md" })
 
 ## webfetch
 
-Fetch a URL. HTML pages are automatically converted to clean markdown. JSON and plain text are returned as-is.
+Fetch a URL. HTML pages are converted to markdown using a provider fallback chain: [Jina Reader](https://jina.ai/reader/) (primary, handles JS-rendered pages and PDFs) → local Turndown conversion (fallback). JSON and plain text are returned as-is.
 
 ```
 webfetch({ url: "https://example.com" })
@@ -89,7 +89,9 @@ webfetch({ url: "https://example.com", raw: true })
 ```
 
 - `url` — the URL to fetch
-- `raw` — return raw HTML instead of markdown (default: false)
+- `raw` — return raw HTML instead of markdown, bypassing both providers (default: false)
+
+Set `JINA_API_KEY` in `.kern/.env` for higher Jina rate limits (500 RPM vs 20 RPM free).
 
 Truncates responses over 50000 chars.
 
