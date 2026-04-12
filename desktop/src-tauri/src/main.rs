@@ -166,7 +166,7 @@ fn main() {
                                 o.onclick = function(e) { if(e.target===o) o.remove(); };
                                 o.innerHTML = '<div style="background:#1c1c1e;border:1px solid #2a2a2c;border-radius:16px;padding:32px 40px;text-align:center;min-width:280px">'
                                     + '<div style="font-size:28px;font-weight:700;color:#e6edf3;margin-bottom:4px">kern<span style="color:#fcd53a">.</span></div>'
-                                    + '<div style="color:#8b949e;font-size:13px;margin-bottom:16px">Version 0.2.0</div>'
+                                    + '<div style="color:#8b949e;font-size:13px;margin-bottom:16px">Version 0.3.0</div>'
                                     + '<div style="color:#8b949e;font-size:12px;margin-bottom:16px">AI agent runtime</div>'
                                     + '<a href="https://kern-ai.com" style="color:#fcd53a;font-size:12px;text-decoration:none">kern-ai.com</a>'
                                     + '<div style="margin-top:20px"><button onclick="this.closest(\'#kern-about-overlay\').remove()" style="background:#2a2a2c;color:#e6edf3;border:none;padding:6px 20px;border-radius:6px;font-size:13px;cursor:pointer">OK</button></div>'
