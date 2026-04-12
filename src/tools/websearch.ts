@@ -1,21 +1,51 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { htmlToMarkdown } from "../util.js";
+import { log } from "../log.js";
 
-export const websearchTool = tool({
-  description:
-    "Search the web using DuckDuckGo. Returns search results as markdown with titles, URLs, and snippets.",
-  inputSchema: z.object({
-    query: z.string().describe("The search query"),
-  }),
-  execute: async ({ query }) => {
-    const timeout = 30000;
+const TIMEOUT = 5000;
+
+type SearchProvider = {
+  name: string;
+  enabled: () => boolean;
+  search: (query: string) => Promise<string>;
+};
+
+const searxng: SearchProvider = {
+  name: "searxng",
+  enabled: () => !!process.env.SEARXNG_URL,
+  search: async (query) => {
+    const base = process.env.SEARXNG_URL!.replace(/\/$/, "");
+    const url = `${base}/search?q=${encodeURIComponent(query)}&format=json`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT);
+
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeout);
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timer);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const results = (data.results ?? []).slice(0, 10);
+      return results
+        .map((r: any) => `## ${r.title}\n${r.url}\n${r.content || ""}`)
+        .join("\n\n");
+    } catch (e) {
+      clearTimeout(timer);
+      throw e;
+    }
+  },
+};
 
+const ddg: SearchProvider = {
+  name: "ddg",
+  enabled: () => true,
+  search: async (query) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT);
+
+    try {
       const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-      const response = await fetch(url, {
+      const res = await fetch(url, {
         method: "POST",
         signal: controller.signal,
         headers: {
@@ -25,37 +55,46 @@ export const websearchTool = tool({
       });
 
       clearTimeout(timer);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      if (!response.ok) {
-        return `Error: HTTP ${response.status} ${response.statusText}`;
-      }
-
-      let html = await response.text();
-
-      // Strip DDG chrome — keep only the results section
+      let html = await res.text();
       const resultsStart = html.indexOf('<div class="serp__results">');
-      if (resultsStart !== -1) {
-        html = html.slice(resultsStart);
-      }
+      if (resultsStart !== -1) html = html.slice(resultsStart);
 
       const result = htmlToMarkdown(html);
-
-      // Truncate very large responses
       if (result.length > 50000) {
-        return (
-          result.slice(0, 50000) +
-          "\n...(truncated, " +
-          result.length +
-          " chars total)"
-        );
+        return result.slice(0, 50000) + "\n...(truncated, " + result.length + " chars total)";
       }
-
       return result;
-    } catch (e: any) {
-      if (e.name === "AbortError") {
-        return `Error: request timed out after ${timeout}ms`;
-      }
-      return `Error: ${e.message}`;
+    } catch (e) {
+      clearTimeout(timer);
+      throw e;
     }
+  },
+};
+
+const providers: SearchProvider[] = [searxng, ddg];
+
+export const websearchTool = tool({
+  description:
+    "Search the web. Returns search results as markdown with titles, URLs, and snippets.",
+  inputSchema: z.object({
+    query: z.string().describe("The search query"),
+  }),
+  execute: async ({ query }) => {
+    const active = providers.filter((p) => p.enabled());
+
+    for (const provider of active) {
+      try {
+        const result = await provider.search(query);
+        log.debug("tools", `websearch: ${provider.name} succeeded for "${query}"`);
+        return result;
+      } catch (e: any) {
+        const reason = e.name === "AbortError" ? "timeout" : e.message;
+        log.warn("tools", `websearch: ${provider.name} failed for "${query}": ${reason}`);
+      }
+    }
+
+    return "Error: all search providers failed. Try again later or use webfetch with a direct URL.";
   },
 });

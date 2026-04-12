@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import type { ChatMessage } from "../lib/types";
+import { renderMarkdown } from "../lib/markdown";
 import hljs from "highlight.js/lib/core";
 import bash from "highlight.js/lib/languages/bash";
 import javascript from "highlight.js/lib/languages/javascript";
@@ -297,6 +298,13 @@ function WriteOutput({ path, input, output }: { path: string; input: Record<stri
   return <PlainOutput output={output} />;
 }
 
+function MarkdownOutput({ output }: { output: string }) {
+  return (
+    <div className="markdown-body text-[12px]"
+      dangerouslySetInnerHTML={{ __html: renderMarkdown(output) }} />
+  );
+}
+
 function renderToolOutput(msg: ChatMessage) {
   const name = msg.toolName || "";
   const input = msg.toolInput || {};
@@ -315,7 +323,7 @@ function renderToolOutput(msg: ChatMessage) {
       return <GrepOutput output={output} />;
     case "webfetch":
     case "websearch":
-      return <PlainOutput output={output} maxLen={1500} />;
+      return <MarkdownOutput output={output} />;
     default:
       return <PlainOutput output={output} />;
   }

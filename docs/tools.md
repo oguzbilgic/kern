@@ -95,7 +95,7 @@ Truncates responses over 50000 chars.
 
 ## websearch
 
-Search the web using DuckDuckGo. Returns results as markdown with titles, links, and snippets.
+Search the web. Returns results as markdown with titles, URLs, and snippets. Uses a provider fallback chain: SearXNG (if `SEARXNG_URL` set) → DuckDuckGo.
 
 ```
 websearch({ query: "node.js html to markdown library" })
