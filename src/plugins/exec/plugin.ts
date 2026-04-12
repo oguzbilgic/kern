@@ -180,8 +180,9 @@ function createBashTool(agentDir: string) {
 
         // Truncate to max output chars for consistency
         if (stdout.length > 25_000) {
+          const originalLen = stdout.length;
           stdout = stdout.slice(0, 25_000) +
-            `\n\n[output truncated: ${stdout.length} chars, showing first 25000]`;
+            `\n\n[output truncated: ${originalLen} chars, showing first 25000]`;
         }
 
         // Format like the original bash tool for backward compatibility
