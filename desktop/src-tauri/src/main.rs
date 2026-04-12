@@ -54,25 +54,29 @@ fn main() {
             let window = WebviewWindowBuilder::new(
                 app,
                 "main",
-                WebviewUrl::External(start_url.parse().unwrap()),
+                WebviewUrl::App("index.html".into()),
             )
             .title("kern")
             .inner_size(1000.0, 700.0)
             .min_inner_size(600.0, 400.0)
-            .on_navigation(move |url| {
-                let scheme = url.scheme();
-                // Allow http (local agents) and the default app URL
-                if scheme == "http" || scheme == "tauri" {
-                    true
-                } else if scheme == "https" && url.host_str() == Some("app.kern-ai.com") {
-                    true
-                } else {
-                    // Open external https links in system browser
-                    let _ = handle.opener().open_url(url.as_str(), None::<&str>);
-                    false
-                }
+            .on_navigation(move |_url| {
+                // Allow all navigations in WebView — external link interception
+                // is handled by the click listener in on_page_load instead
+                true
             })
-            .on_page_load(|w, _payload| {
+            .on_page_load(move |w, _payload| {
+                // Redirect local page to target server URL
+                let url = if let Some(custom) = read_custom_url(w.app_handle()) {
+                    custom
+                } else {
+                    DEFAULT_URL.to_string()
+                };
+                let current_url = w.url().map(|u| u.to_string()).unwrap_or_default();
+                if current_url.starts_with("tauri://") {
+                    let _ = w.eval(&format!("window.location.replace('{}');", url));
+                }
+
+                // Intercept _blank links for on_navigation handling
                 w.eval(r#"
                     document.addEventListener('click', function(e) {
                         var a = e.target.closest('a[target="_blank"]');
