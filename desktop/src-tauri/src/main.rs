@@ -1,59 +1,78 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::fs;
+use std::path::PathBuf;
+
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::webview::WebviewWindowBuilder;
 use tauri::tray::TrayIconEvent;
 use tauri::{Emitter, Manager, WebviewUrl};
 use tauri_plugin_opener::OpenerExt;
 
-#[tauri::command]
-fn navigate_to(app: tauri::AppHandle, url: String) -> Result<(), String> {
-    if let Some(w) = app.get_webview_window("main") {
-        w.eval(&format!("window.location.replace('{}')", url))
-            .map_err(|e| format!("eval failed: {}", e))?;
-    }
-    Ok(())
-}
+const DEFAULT_URL: &str = "https://app.kern-ai.com";
 
 #[tauri::command]
-fn go_home(app: tauri::AppHandle) -> Result<(), String> {
-    if let Some(w) = app.get_webview_window("main") {
-        // Navigate back to the bundled connect screen
-        w.eval("window.location.replace('tauri://localhost/index.html')")
-            .map_err(|e| format!("eval failed: {}", e))?;
-    }
-    Ok(())
+fn set_custom_url(app: tauri::AppHandle, url: String) {
+    let u = if url.is_empty() { None } else { Some(url.as_str()) };
+    write_custom_url(&app, u);
+}
+
+fn config_path(app: &tauri::AppHandle) -> PathBuf {
+    let dir = app.path().app_config_dir().expect("no app config dir");
+    fs::create_dir_all(&dir).ok();
+    dir.join("config.json")
+}
+
+fn read_custom_url(app: &tauri::AppHandle) -> Option<String> {
+    let path = config_path(app);
+    let data = fs::read_to_string(path).ok()?;
+    let json: serde_json::Value = serde_json::from_str(&data).ok()?;
+    json.get("url").and_then(|v| v.as_str()).map(|s| s.to_string())
+}
+
+fn write_custom_url(app: &tauri::AppHandle, url: Option<&str>) {
+    let path = config_path(app);
+    let json = match url {
+        Some(u) => serde_json::json!({ "url": u }),
+        None => serde_json::json!({}),
+    };
+    fs::write(path, serde_json::to_string_pretty(&json).unwrap()).ok();
+}
+
+fn get_start_url(app: &tauri::AppHandle) -> String {
+    read_custom_url(app).unwrap_or_else(|| DEFAULT_URL.to_string())
 }
 
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![navigate_to, go_home])
+        .invoke_handler(tauri::generate_handler![set_custom_url])
         .setup(|app| {
+            let start_url = get_start_url(app.handle());
             let handle = app.handle().clone();
+
             let window = WebviewWindowBuilder::new(
                 app,
                 "main",
-                WebviewUrl::App("index.html".into()),
+                WebviewUrl::External(start_url.parse().unwrap()),
             )
             .title("kern")
             .inner_size(1000.0, 700.0)
             .min_inner_size(600.0, 400.0)
             .on_navigation(move |url| {
-                // Allow tauri:// and http:// (kern server) URLs to load in WebView
-                // Open https:// links in system browser via opener plugin
                 let scheme = url.scheme();
-                if scheme == "https" {
+                // Allow http (local agents) and the default app URL
+                if scheme == "http" || scheme == "tauri" {
+                    true
+                } else if scheme == "https" && url.host_str() == Some("app.kern-ai.com") {
+                    true
+                } else {
+                    // Open external https links in system browser
                     let _ = handle.opener().open_url(url.as_str(), None::<&str>);
                     false
-                } else {
-                    true
                 }
             })
             .on_page_load(|w, _payload| {
-                // Intercept target="_blank" link clicks and convert to same-window
-                // navigations so on_navigation can catch and open them externally.
-                // This is needed because on_navigation doesn't fire for _blank links.
                 w.eval(r#"
                     document.addEventListener('click', function(e) {
                         var a = e.target.closest('a[target="_blank"]');
@@ -65,14 +84,13 @@ fn main() {
                     }, true);
                 "#).ok();
             })
-            .disable_drag_drop_handler() // Let browser handle HTML5 drag-and-drop
+            .disable_drag_drop_handler()
             .build()?;
-
 
             #[cfg(debug_assertions)]
             window.open_devtools();
 
-            // Edit menu — required for Cmd+C/V/X/A to work on macOS
+            // Edit menu
             let edit_menu = Submenu::with_items(
                 app,
                 "Edit",
@@ -96,8 +114,9 @@ fn main() {
                 &[
                     &MenuItem::with_id(app, "about", "About kern", true, None::<&str>)?,
                     &PredefinedMenuItem::separator(app)?,
-                    &MenuItem::with_id(app, "logout", "Logout", true, None::<&str>)?,
-                    &MenuItem::with_id(app, "reconnect", "Reconnect…", true, None::<&str>)?,
+                    &MenuItem::with_id(app, "custom_server", "Custom Server…", true, None::<&str>)?,
+                    &MenuItem::with_id(app, "reset_server", &format!("Reset to {}", DEFAULT_URL), true, None::<&str>)?,
+                    &PredefinedMenuItem::separator(app)?,
                     &MenuItem::with_id(app, "reload", "Reload", true, Some("CmdOrCtrl+R"))?,
                     &MenuItem::with_id(app, "open_browser", "Open in Browser", true, None::<&str>)?,
                     &PredefinedMenuItem::separator(app)?,
@@ -105,7 +124,7 @@ fn main() {
                 ],
             )?;
 
-            // Agent switching shortcuts (Cmd+1 through Cmd+9)
+            // Agent switching shortcuts
             let mut agent_items: Vec<MenuItem<tauri::Wry>> = Vec::new();
             for i in 1..=9u32 {
                 let item = MenuItem::with_id(
@@ -147,7 +166,7 @@ fn main() {
                                 o.onclick = function(e) { if(e.target===o) o.remove(); };
                                 o.innerHTML = '<div style="background:#1c1c1e;border:1px solid #2a2a2c;border-radius:16px;padding:32px 40px;text-align:center;min-width:280px">'
                                     + '<div style="font-size:28px;font-weight:700;color:#e6edf3;margin-bottom:4px">kern<span style="color:#fcd53a">.</span></div>'
-                                    + '<div style="color:#8b949e;font-size:13px;margin-bottom:16px">Version 0.1.0</div>'
+                                    + '<div style="color:#8b949e;font-size:13px;margin-bottom:16px">Version 0.2.0</div>'
                                     + '<div style="color:#8b949e;font-size:12px;margin-bottom:16px">AI agent runtime</div>'
                                     + '<a href="https://kern-ai.com" style="color:#fcd53a;font-size:12px;text-decoration:none">kern-ai.com</a>'
                                     + '<div style="margin-top:20px"><button onclick="this.closest(\'#kern-about-overlay\').remove()" style="background:#2a2a2c;color:#e6edf3;border:none;padding:6px 20px;border-radius:6px;font-size:13px;cursor:pointer">OK</button></div>'
@@ -157,14 +176,44 @@ fn main() {
                         "#);
                     }
                 }
-                "logout" => {
-                    // Navigate to connect screen with ?logout flag to skip auto-reconnect
+                "custom_server" => {
                     if let Some(w) = &window {
-                        let _ = w.eval("window.location.replace('tauri://localhost/index.html?logout=1')");
+                        let current = read_custom_url(app).unwrap_or_default();
+                        let _ = w.eval(&format!(r#"
+                            (function() {{
+                                if (document.getElementById('kern-server-overlay')) return;
+                                var o = document.createElement('div');
+                                o.id = 'kern-server-overlay';
+                                o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(4px)';
+                                o.onclick = function(e) {{ if(e.target===o) o.remove(); }};
+                                o.innerHTML = '<div style="background:#1c1c1e;border:1px solid #2a2a2c;border-radius:16px;padding:32px 40px;text-align:center;min-width:340px">'
+                                    + '<div style="font-size:18px;font-weight:600;color:#e6edf3;margin-bottom:4px">Custom Server</div>'
+                                    + '<div style="color:#8b949e;font-size:12px;margin-bottom:16px">Enter a self-hosted kern web URL</div>'
+                                    + '<input id="kern-custom-url" type="url" value="{}" placeholder="http://100.115.98.30:8080" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid #2a2a2c;background:#161617;color:#e6edf3;font-size:14px;outline:none;margin-bottom:16px" />'
+                                    + '<div style="display:flex;gap:8px;justify-content:center">'
+                                    + '<button onclick="this.closest(\'#kern-server-overlay\').remove()" style="background:#2a2a2c;color:#e6edf3;border:none;padding:8px 20px;border-radius:8px;font-size:13px;cursor:pointer">Cancel</button>'
+                                    + '<button id="kern-custom-save" style="background:#fcd53a;color:#161617;border:none;padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Connect</button>'
+                                    + '</div></div>';
+                                document.body.appendChild(o);
+                                var inp = document.getElementById('kern-custom-url');
+                                inp.focus(); inp.select();
+                                document.getElementById('kern-custom-save').onclick = function() {{
+                                    var url = inp.value.trim().replace(/\/+$/, '');
+                                    if (!url) return;
+                                    if (!/^https?:\/\//i.test(url)) url = 'http://' + url;
+                                    if(window.__TAURI_INTERNALS__) window.__TAURI_INTERNALS__.invoke('set_custom_url', {{ url: url }});
+                                    window.location.replace(url);
+                                }};
+                                inp.addEventListener('keydown', function(e) {{ if(e.key==='Enter') document.getElementById('kern-custom-save').click(); }});
+                            }})();
+                        "#, current));
                     }
                 }
-                "reconnect" => {
-                    let _ = go_home(app.clone());
+                "reset_server" => {
+                    write_custom_url(app, None);
+                    if let Some(w) = &window {
+                        let _ = w.eval(&format!("window.location.replace('{}');", DEFAULT_URL));
+                    }
                 }
                 "reload" => {
                     if let Some(w) = window {

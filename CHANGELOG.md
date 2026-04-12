@@ -18,6 +18,11 @@
 - **Panel resize text selection** ([#122](https://github.com/oguzbilgic/kern-ai/issues/122)) — dragging the panel resize handle no longer selects text in the chat area
 - **Dashboard links** ([#141](https://github.com/oguzbilgic/kern-ai/issues/141)) — external links inside dashboard iframes now open in a new tab
 
+## desktop-next
+
+### Features
+- **Default to app.kern-ai.com** ([#170](https://github.com/oguzbilgic/kern-ai/issues/170)) — app opens directly to `app.kern-ai.com`, no connect screen. Self-hosted users can set a custom URL via Kern → Custom Server… menu.
+
 ## desktop-v0.2.0
 
 ### Improvements
