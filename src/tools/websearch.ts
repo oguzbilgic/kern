@@ -25,7 +25,10 @@ const searxng: SearchProvider = {
       clearTimeout(timer);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      return JSON.stringify(data.results ?? data, null, 2);
+      const results = (data.results ?? []).slice(0, 10);
+      return results
+        .map((r: any) => `## ${r.title}\n${r.url}\n${r.content || ""}`)
+        .join("\n\n");
     } catch (e) {
       clearTimeout(timer);
       throw e;
@@ -74,7 +77,7 @@ const providers: SearchProvider[] = [searxng, ddg];
 
 export const websearchTool = tool({
   description:
-    "Search the web using DuckDuckGo. Returns search results as markdown with titles, URLs, and snippets.",
+    "Search the web. Returns search results as markdown with titles, URLs, and snippets.",
   inputSchema: z.object({
     query: z.string().describe("The search query"),
   }),
