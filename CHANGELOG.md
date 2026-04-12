@@ -4,7 +4,7 @@
 
 ### Features
 - **SearXNG websearch provider** ([#177](https://github.com/oguzbilgic/kern-ai/issues/177)) — `websearch` tool now supports a provider fallback chain: SearXNG (if `SEARXNG_URL` set) → DuckDuckGo. SearXNG results formatted as markdown (top 10), DDG falls back to HTML scraping. Each provider has a 5s timeout; failures log and fall through
-- **Markdown tool output** — `websearch` and `webfetch` tool results now render as styled markdown in the web UI instead of plain monospace text
+- **Markdown search output** — `websearch` and `webfetch` tool results render as styled markdown in the web UI instead of plain monospace text
 - **Sidebar agent reordering** ([#145](https://github.com/oguzbilgic/kern-ai/issues/145)) — drag-and-drop to reorder direct agents in the sidebar; order persisted across sessions; Cmd/Ctrl+1..9 shortcuts follow sidebar order
 - **Agent connection info** ([#164](https://github.com/oguzbilgic/kern-ai/issues/164)) — info panel shows agent URL and masked token with copy buttons; both pinnable to header
 - **Code block copy button** ([#156](https://github.com/oguzbilgic/kern-ai/issues/156)) — fenced code blocks show a copy-to-clipboard button on hover with language label
