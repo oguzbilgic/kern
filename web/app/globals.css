@@ -33,6 +33,56 @@ body {
 .markdown-body {
   line-height: 1.6;
 }
+.markdown-body .code-block-wrapper {
+  position: relative;
+  margin: 8px 0;
+}
+.markdown-body .code-block-wrapper pre {
+  margin: 0;
+}
+.markdown-body .code-lang {
+  position: absolute;
+  top: 6px;
+  right: 52px;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  pointer-events: none;
+}
+.markdown-body .code-copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.markdown-body .code-copy-btn .copy-icon,
+.markdown-body .code-copy-btn .check-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+.markdown-body .code-copy-btn .check-icon {
+  display: none;
+}
+.markdown-body .code-copy-btn.copied .copy-icon { display: none; }
+.markdown-body .code-copy-btn.copied .check-icon { display: inline; }
+.markdown-body .code-block-wrapper:hover .code-copy-btn {
+  opacity: 1;
+}
+.markdown-body .code-copy-btn:hover {
+  color: var(--text-dim);
+  border-color: var(--text-muted);
+}
 .markdown-body pre {
   background: #161616;
   border: 1px solid var(--border);
