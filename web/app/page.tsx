@@ -154,7 +154,7 @@ export default function Home() {
                 {activeAgent?.name || "no agent"}
               </span>
             </button>
-            <PinnedStats status={status} pinned={pinned} />
+            <PinnedStats status={status} pinned={pinned} baseUrl={activeAgent?.baseUrl} token={activeAgent?.token} />
           </div>
           <div className="ml-auto flex items-center gap-1">
             <ThemePicker />
@@ -176,7 +176,7 @@ export default function Home() {
 
         {/* Info panel */}
         {infoOpen && (
-          <InfoPanel status={status} connected={connected} pinned={pinned} onTogglePin={togglePin} onClose={() => setInfoOpen(false)} />
+          <InfoPanel status={status} connected={connected} pinned={pinned} onTogglePin={togglePin} onClose={() => setInfoOpen(false)} baseUrl={activeAgent?.baseUrl} token={activeAgent?.token} />
         )}
 
         <Chat
