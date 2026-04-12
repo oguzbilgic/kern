@@ -13,6 +13,8 @@ export interface PluginContext {
   config: KernConfig;
   db: MemoryDB;
   sessionId: () => string | null;
+  /** Enqueue a system message to the agent (triggers a new turn). */
+  enqueueMessage?: (text: string) => void;
 }
 
 /**

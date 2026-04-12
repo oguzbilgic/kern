@@ -181,6 +181,13 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   const queue = new MessageQueue();
   setQueueStatusFn(() => queue.getStatus());
 
+  // Wire enqueueMessage into plugin context — lets plugins (e.g. exec reaper) trigger agent turns
+  pluginCtx.enqueueMessage = (text: string) => {
+    queue.enqueue({ text, userId: "system", interface: "system", channel: "exec" }).catch((err) => {
+      log.error("exec", `failed to enqueue completion: ${err.message}`);
+    });
+  };
+
   queue.setHandler(async (msg, getPendingMessages) => {
 
     const time = new Date().toISOString();

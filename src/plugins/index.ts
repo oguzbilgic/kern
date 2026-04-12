@@ -3,6 +3,7 @@ import { dashboardPlugin } from "./dashboard/plugin.js";
 import { notesPlugin } from "./notes/plugin.js";
 import { recallPlugin } from "./recall/plugin.js";
 import { mediaPlugin } from "./media/plugin.js";
+import { execPlugin } from "./exec/plugin.js";
 import { log } from "../log.js";
 
 export type { KernPlugin, PluginContext, RouteHandler, ContextInjection, BeforeContextInfo } from "./types.js";
@@ -12,6 +13,7 @@ export type { KernPlugin, PluginContext, RouteHandler, ContextInjection, BeforeC
  * In the future, config.plugins can gate which are loaded.
  */
 const availablePlugins: KernPlugin[] = [
+  execPlugin,
   notesPlugin,
   recallPlugin,
   mediaPlugin,
