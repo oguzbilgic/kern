@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { StatusData } from "../lib/types";
 
 interface InfoPanelProps {
@@ -6,6 +7,8 @@ interface InfoPanelProps {
   pinned: Set<string>;
   onTogglePin: (key: string) => void;
   onClose: () => void;
+  baseUrl?: string;
+  token?: string;
 }
 
 function getRows(status: StatusData): [string, string][] {
@@ -30,10 +33,14 @@ function getRows(status: StatusData): [string, string][] {
   ].filter((r): r is [string, string] => !!r[1]);
 }
 
-export function PinnedStats({ status, pinned }: { status: StatusData | null; pinned: Set<string> }) {
-  if (!status || pinned.size === 0) return null;
-  const rows = getRows(status);
-  const items = rows.filter(([label]) => pinned.has(label));
+export function PinnedStats({ status, pinned, baseUrl, token }: { status: StatusData | null; pinned: Set<string>; baseUrl?: string; token?: string }) {
+  if (pinned.size === 0) return null;
+  const rows = status ? getRows(status) : [];
+  const connectionRows: [string, string][] = [];
+  if (baseUrl) connectionRows.push(["URL", baseUrl]);
+  if (token) connectionRows.push(["Token", maskToken(token)]);
+  const allRows = [...rows, ...connectionRows];
+  const items = allRows.filter(([label]) => pinned.has(label));
   if (items.length === 0) return null;
 
   return (
@@ -45,7 +52,33 @@ export function PinnedStats({ status, pinned }: { status: StatusData | null; pin
   );
 }
 
-export function InfoPanel({ status, connected, pinned, onTogglePin, onClose }: InfoPanelProps) {
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.cssText = "position:fixed;opacity:0";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <button onClick={copy} className="ml-2 text-[10px] text-[var(--text-muted)] hover:text-[var(--text-dim)] transition-colors">
+      {copied ? "✓" : "copy"}
+    </button>
+  );
+}
+
+function maskToken(token: string): string {
+  if (token.length <= 8) return "••••••••";
+  return "••••••••" + token.slice(-4);
+}
+
+export function InfoPanel({ status, connected, pinned, onTogglePin, onClose, baseUrl, token }: InfoPanelProps) {
   if (!status) return null;
 
   const rows = getRows(status);
@@ -72,6 +105,37 @@ export function InfoPanel({ status, connected, pinned, onTogglePin, onClose }: I
               <td className="text-[var(--text-dim)] font-mono py-[2px]">{value}</td>
             </tr>
           ))}
+          {(baseUrl || token) && (
+            <>
+
+              {baseUrl && (
+                <tr className="cursor-pointer" onClick={() => onTogglePin("URL")}>
+                  <td className="pr-1 py-[2px] align-top">
+                    <span className={`text-[10px] ${pinned.has("URL") ? "text-[var(--text-dim)]" : "text-[var(--border)]"}`}>
+                      {pinned.has("URL") ? "●" : "○"}
+                    </span>
+                  </td>
+                  <td className="text-[var(--text-muted)] pr-4 py-[2px] align-top whitespace-nowrap">URL</td>
+                  <td className="text-[var(--text-dim)] font-mono py-[2px]">
+                    {baseUrl}<CopyButton text={baseUrl} />
+                  </td>
+                </tr>
+              )}
+              {token && (
+                <tr className="cursor-pointer" onClick={() => onTogglePin("Token")}>
+                  <td className="pr-1 py-[2px] align-top">
+                    <span className={`text-[10px] ${pinned.has("Token") ? "text-[var(--text-dim)]" : "text-[var(--border)]"}`}>
+                      {pinned.has("Token") ? "●" : "○"}
+                    </span>
+                  </td>
+                  <td className="text-[var(--text-muted)] pr-4 py-[2px] align-top whitespace-nowrap">Token</td>
+                  <td className="text-[var(--text-dim)] font-mono py-[2px]">
+                    {maskToken(token)}<CopyButton text={token} />
+                  </td>
+                </tr>
+              )}
+            </>
+          )}
         </tbody>
       </table>
     </div>
