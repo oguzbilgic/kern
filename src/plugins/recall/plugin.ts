@@ -1,6 +1,6 @@
 import type { KernPlugin, PluginContext, RouteHandler, BeforeContextInfo, ContextInjection } from "../types.js";
 import { RecallIndex } from "./recall.js";
-import { recallTool, setRecallIndex } from "./tool.js";
+import { recallTool, setRecallIndex, setContextBounds } from "./tool.js";
 import { log } from "../../log.js";
 
 let recallIndex: RecallIndex | null = null;
@@ -99,6 +99,7 @@ export const recallPlugin: KernPlugin = {
   },
 
   async onBeforeContext(info: BeforeContextInfo, ctx: PluginContext): Promise<ContextInjection | null> {
+    setContextBounds(info.sessionId, info.trimmedCount);
     if (!recallIndex || info.trimmedCount <= 0 || ctx.config.autoRecall === false) return null;
 
     try {

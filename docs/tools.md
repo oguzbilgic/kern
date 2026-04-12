@@ -174,7 +174,7 @@ recall({ query: "pfSense firewall rules", limit: 5, after: "2026-03-25", before:
 - `after` — only results after this date (ISO 8601 or YYYY-MM-DD)
 - `before` — only results before this date
 
-Returns matching conversation chunks with distance score, timestamp, session ID, and message range.
+Returns matching conversation chunks with distance score, timestamp, session ID, and message range. Chunks from the current session that are already visible in the context window are automatically filtered out to avoid duplicate information.
 
 ### Load mode
 
