@@ -212,7 +212,7 @@ export function DashboardSidebar({ agents, mini }: { agents: { name: string; run
                 store?.loadAndOpen(d.name, agent.baseUrl, agent.token || "");
               }
             }}
-            className={`flex items-center w-full text-left transition-colors cursor-pointer rounded-lg overflow-hidden p-2.5 ${
+            className={`flex items-center w-full text-left transition-colors cursor-pointer rounded-lg overflow-hidden px-2.5 py-1.5 ${
               mini ? "justify-center" : "gap-2"
             } ${isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"}`}
             title={mini ? `${d.name} (${agent?.name || ""})` : d.name}
