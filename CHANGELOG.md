@@ -19,6 +19,11 @@
 - **Panel resize text selection** ([#122](https://github.com/oguzbilgic/kern-ai/issues/122)) — dragging the panel resize handle no longer selects text in the chat area
 - **Dashboard links** ([#141](https://github.com/oguzbilgic/kern-ai/issues/141)) — external links inside dashboard iframes now open in a new tab
 
+## desktop-next
+
+### Fixes
+- **Dashboard iframe rendering** — fixed iframes not rendering in desktop app caused by overly strict navigation filter blocking iframe sub-resource loads
+
 ## desktop-v0.3.0
 
 ### Features
