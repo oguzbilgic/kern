@@ -16,6 +16,7 @@ export interface Preferences {
 export interface ConnectionEntry {
   url: string;
   token: string;
+  name?: string;
 }
 
 interface UIState {
@@ -39,6 +40,7 @@ export interface KernStore {
   addAgent: (url: string, token: string) => void;
   removeAgent: (url: string) => void;
   reorderAgents: (from: number, to: number) => void;
+  updateAgentName: (url: string, name: string) => void;
 
   // UI state
   ui: UIState;
@@ -146,6 +148,15 @@ export const useStore = create<KernStore>()(
           next.splice(to, 0, moved);
           return { connections: { ...s.connections, agents: next } };
         }),
+      updateAgentName: (url, name) =>
+        set((s) => ({
+          connections: {
+            ...s.connections,
+            agents: s.connections.agents.map((a) =>
+              a.url === url ? { ...a, name } : a
+            ),
+          },
+        })),
 
       // UI state
       ui: { sidebarMini: false, pinnedStats: [], activeDashboard: null },

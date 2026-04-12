@@ -20,6 +20,7 @@ export function useAgents() {
   const storeAddAgent = useStore((s) => s.addAgent);
   const storeRemoveAgent = useStore((s) => s.removeAgent);
   const storeReorder = useStore((s) => s.reorderAgents);
+  const storeUpdateName = useStore((s) => s.updateAgentName);
 
   const discover = useCallback(async () => {
     const proxyAgents: AgentInfo[] = [];
@@ -43,8 +44,17 @@ export function useAgents() {
     const directList: AgentInfo[] = [];
     for (const d of directs) {
       const status = await api.pingAgent(d.url, d.token);
+      let name: string;
+      if (status?.name) {
+        name = status.name;
+        // Cache name in store for offline fallback
+        if (name !== d.name) storeUpdateName(d.url, name);
+      } else {
+        // Offline — use cached name or fall back to hostname
+        name = d.name || new URL(d.url).hostname;
+      }
       directList.push({
-        name: status?.name || new URL(d.url).hostname,
+        name,
         running: status !== null,
         token: d.token,
         baseUrl: d.url,
