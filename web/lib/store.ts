@@ -193,7 +193,7 @@ export const useStore = create<KernStore>()(
 
       // Agent groups
       createGroup: (name, agentUrl) => {
-        const id = `group_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const id = crypto.randomUUID();
         set((s) => {
           const newGroup: AgentGroup = {
             id,

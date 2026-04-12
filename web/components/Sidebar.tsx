@@ -299,7 +299,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
   // Resolve group agents (only those present in directAgents)
   const directAgentMap = new Map(directAgents.map(({ agent }) => [agent.baseUrl, agent]));
   function resolveGroupAgents(group: AgentGroup): AgentInfo[] {
-    return group.agentUrls.map((url) => directAgentMap.get(url)).filter(Boolean) as AgentInfo[];
+    return group.agentUrls.map((url) => directAgentMap.get(url)).filter((a): a is AgentInfo => a !== undefined);
   }
 
   function normalizeUrl(raw: string): string {
