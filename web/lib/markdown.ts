@@ -55,6 +55,11 @@ const marked = new Marked(
     gfm: true,
     breaks: true,
     renderer: {
+      code({ text, lang }) {
+        const langClass = lang ? `hljs language-${lang}` : "hljs";
+        const langLabel = lang ? `<span class="code-lang">${lang}</span>` : "";
+        return `<div class="code-block-wrapper">${langLabel}<button class="code-copy-btn" title="Copy" onclick="var t=this.closest('.code-block-wrapper').querySelector('code').textContent||'',a=document.createElement('textarea');a.value=t;a.style.cssText='position:fixed;opacity:0';document.body.appendChild(a);a.select();document.execCommand('copy');document.body.removeChild(a);this.classList.add('copied');var b=this;setTimeout(function(){b.classList.remove('copied')},1500)"><span class="copy-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span><span class="check-icon" style="color:#3fb950"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg></span></button><pre><code class="${langClass}">${text}</code></pre></div>`;
+      },
       link({ href, text }) {
         // Block javascript: URLs
         if (/^javascript:/i.test(href)) return text;

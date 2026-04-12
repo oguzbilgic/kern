@@ -6,6 +6,7 @@
 - **Sidebar agent reordering** ([#145](https://github.com/oguzbilgic/kern-ai/issues/145)) — drag-and-drop to reorder direct agents in the sidebar; order persisted across sessions; Cmd/Ctrl+1..9 shortcuts follow sidebar order
 
 ### Improvements
+- **Code block copy button** ([#156](https://github.com/oguzbilgic/kern-ai/issues/156)) — fenced code blocks show a copy-to-clipboard button on hover with language label
 - **Zustand store** ([#148](https://github.com/oguzbilgic/kern-ai/pull/148)) — replaced ~12 fragmented localStorage keys with a single persisted Zustand store; automatic migration from legacy keys on first load
 - **OpenRouter attribution** — updated app title to "Kern Agent" and added `X-OpenRouter-Title` header alongside legacy `X-Title`
 
