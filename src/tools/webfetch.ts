@@ -12,7 +12,7 @@ async function fetchViaJina(url: string): Promise<string> {
     headers["Authorization"] = `Bearer ${apiKey}`;
   }
 
-  const response = await fetch(`https://r.jina.ai/${url}`, {
+  const response = await fetch(`https://r.jina.ai/${encodeURIComponent(url)}`, {
     headers,
     signal: AbortSignal.timeout(10000),
   });
