@@ -68,11 +68,11 @@ function AgentRow({
           <span className="truncate whitespace-nowrap">{agent.name}</span>
         </div>
       </button>
-      {/* Remove button for direct agents */}
-      {onRemove && (
+      {/* Remove button for direct agents — hidden in mini mode */}
+      {onRemove && !mini && (
         <button
           onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          className={`absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-[var(--bg-hover)] opacity-0 group-hover:opacity-100 transition-opacity text-xs ${mini ? "right-0.5 w-4 h-4" : ""}`}
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-[var(--bg-hover)] opacity-0 group-hover:opacity-100 transition-opacity text-xs"
           title="Remove agent"
         >
           ✕
