@@ -117,6 +117,10 @@ export function useAgent(
   const partsRef = useRef<ChatMessage[]>([]);
   // Track if we're in an active turn (between thinking/tool and finish)
   const inTurnRef = useRef(false);
+  // Track whether a full turn is active (thinking→finish/error). Unlike inTurnRef
+  // which resets on tool-result for text segmentation, this stays true until finish/error
+  // so mid-turn buffering works correctly across tool-call boundaries.
+  const turnActiveRef = useRef(false);
   // Buffer messages that arrive mid-turn (user sends, incoming from other clients)
   // so they appear after the agent's in-progress response, not above it
   const midTurnRef = useRef<ChatMessage[]>([]);
@@ -149,6 +153,7 @@ export function useAgent(
         if (statusData?.queue && typeof statusData.queue === "string" && statusData.queue.startsWith("busy")) {
           setThinking(true);
           inTurnRef.current = true;
+          turnActiveRef.current = true;
         }
       } catch {
         if (!cancelled) setMessages([]);
@@ -165,6 +170,7 @@ export function useAgent(
     setThinking(false);
     setActivity("");
     inTurnRef.current = false;
+    turnActiveRef.current = false;
     load();
 
     return () => { cancelled = true; };
@@ -192,11 +198,13 @@ export function useAgent(
           // Thinking + activity tracking
           if (ev.type === "thinking") {
             inTurnRef.current = true;
+            turnActiveRef.current = true;
             setThinking(true);
             setActivity("thinking");
             setActivityDetail("");
           } else if (ev.type === "tool-call") {
             inTurnRef.current = true;
+            turnActiveRef.current = true;
             setThinking(true);
             setActivity(toolActivity(ev.toolName));
             setActivityDetail(toolDetail(ev.toolName, ev.toolInput as Record<string, unknown>));
@@ -205,9 +213,11 @@ export function useAgent(
             setThinking(true);
           } else if (ev.type === "text-delta") {
             inTurnRef.current = true;
+            turnActiveRef.current = true;
             setThinking(true);
           } else if (ev.type === "finish" || ev.type === "error") {
             inTurnRef.current = false;
+            turnActiveRef.current = false;
             setThinking(false);
             setActivity("");
             setActivityDetail("");
@@ -227,9 +237,10 @@ export function useAgent(
             setActivity("");
             setActivityDetail("");
             inTurnRef.current = false;
+            turnActiveRef.current = false;
             api.getStatus(baseUrl!, token).then(setStatus).catch(() => {});
           } else if (result.append.length > 0) {
-            if (inTurnRef.current) {
+            if (turnActiveRef.current) {
               // Mid-turn: buffer messages to appear after streaming response
               midTurnRef.current.push(...result.append);
               setStreamParts([...partsRef.current, ...midTurnRef.current]);
@@ -339,7 +350,7 @@ export function useAgent(
         media: media?.length ? media : undefined,
       };
 
-      if (inTurnRef.current) {
+      if (turnActiveRef.current) {
         // Mid-turn: buffer message to appear after the agent's in-progress response
         midTurnRef.current.push(userMsg);
         setStreamParts([...partsRef.current, ...midTurnRef.current]);
@@ -352,6 +363,7 @@ export function useAgent(
         setThinking(true);
         setActivity("thinking");
         inTurnRef.current = true;
+        turnActiveRef.current = true;
       }
 
       await api.sendMessage(baseUrl, token, text, {
