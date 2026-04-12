@@ -4,7 +4,8 @@ const nextConfig: NextConfig = {
   output: "export",
   // No trailing slashes — our web server handles routing
   trailingSlash: false,
-  // Scope Turbopack to web/ so it doesn't pick up src/proxy.ts from parent
+  // Scope to web/ so Turbopack doesn't pick up src/proxy.ts from parent
+  outputFileTracingRoot: __dirname,
   turbopack: {
     root: ".",
   },
