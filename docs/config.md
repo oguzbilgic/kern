@@ -53,6 +53,7 @@ Secrets. Gitignored. Never committed.
 ```
 OPENROUTER_API_KEY=sk-or-...
 OLLAMA_BASE_URL=http://localhost:11434
+SEARXNG_URL=http://searxng:8080
 TELEGRAM_BOT_TOKEN=...
 SLACK_BOT_TOKEN=xoxb-...
 SLACK_APP_TOKEN=xapp-...
@@ -60,6 +61,8 @@ KERN_AUTH_TOKEN=...
 ```
 
 Only set the API keys for providers/interfaces you use.
+
+**`SEARXNG_URL`** — URL of a self-hosted [SearXNG](https://github.com/searxng/searxng) instance with JSON API enabled. When set, `websearch` tool uses SearXNG as primary search provider with DuckDuckGo as fallback.
 
 ### Auth tokens
 
