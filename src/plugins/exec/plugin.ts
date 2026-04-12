@@ -83,7 +83,11 @@ function createBashTool(agentDir: string) {
     }),
     execute: async ({ command, timeout = 120000, background = false, yieldMs = DEFAULT_YIELD_MS }) => {
       const { child, logFile, jobId } = spawnWithLog(command, agentDir);
-      const pid = child.pid!;
+      const pid = child.pid;
+      if (!pid) {
+        cleanupLogFile(logFile);
+        return "Error: failed to spawn process";
+      }
 
       // Register job
       const job: Job = {

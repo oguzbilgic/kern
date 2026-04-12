@@ -65,6 +65,10 @@ export function readLogTail(logFile: string, lines = 20): string {
     if (!existsSync(logFile)) return "(log file not found)";
     const content = readFileSync(logFile, "utf-8");
     const allLines = content.split("\n");
+    // Remove trailing empty string from final newline
+    if (allLines.length > 0 && allLines[allLines.length - 1] === "") {
+      allLines.pop();
+    }
     const tail = allLines.slice(-lines).join("\n");
     return tail;
   } catch {
