@@ -288,24 +288,19 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
 
       {/* Add modal — agent or server */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAddModal(false)}>
-          <div className="bg-[#1a1a1a] border border-[var(--border)] rounded-lg shadow-xl w-[340px]" onClick={(e) => e.stopPropagation()}>
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
-              <span className="text-[13px] font-medium text-[var(--text)]">Add connection</span>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="w-5 h-5 flex items-center justify-center rounded text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer text-sm"
-              >✕</button>
-            </div>
-
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.5)" }}
+          onClick={() => setShowAddModal(false)}
+        >
+          <div className="bg-[var(--bg)] border border-[var(--border)] rounded-lg w-[340px]" onClick={(e) => e.stopPropagation()}>
             {/* Tab switcher */}
-            <div className="flex px-4 gap-4 border-b border-[var(--border)]">
+            <div className="flex gap-4 px-4 pt-3 border-b border-[var(--border)]">
               {(["agent", "server"] as AddMode[]).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setAddMode(mode)}
-                  className={`text-xs pb-2 transition-colors cursor-pointer border-b-2 -mb-px ${
+                  className={`text-xs pb-2 transition-colors cursor-pointer border-b -mb-px ${
                     addMode === mode
                       ? "border-[var(--text-dim)] text-[var(--text)]"
                       : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-dim)]"
@@ -318,13 +313,13 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
 
             {/* Form */}
             <div className="px-4 pt-3 pb-4">
-              <p className="text-[11px] text-[var(--text-muted)] mb-3 leading-relaxed">
+              <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
                 {addMode === "agent"
                   ? "Connect directly to a running agent."
-                  : "Connect to a kern web proxy managing multiple agents."}
+                  : "Connect to a kern proxy managing multiple agents."}
               </p>
 
-              <label className="block text-[10px] text-[var(--text-muted)] mb-1">
+              <label className="block text-xs text-[var(--text-muted)] mb-1">
                 {addMode === "agent" ? "URL" : "Server URL"}
               </label>
               <input
@@ -332,27 +327,31 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
                 placeholder={addMode === "agent" ? "host:4100" : "host:8080"}
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg mb-3 text-[var(--text)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)] transition-colors"
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-sidebar)] border border-[var(--border)] rounded-md mb-3 text-[var(--text)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--text-muted)] transition-colors"
                 autoFocus
               />
 
-              <label className="block text-[10px] text-[var(--text-muted)] mb-1">Token</label>
+              <label className="block text-xs text-[var(--text-muted)] mb-1">Token</label>
               <input
                 type="password"
                 placeholder={addMode === "agent" ? "KERN_AUTH_TOKEN" : "KERN_WEB_TOKEN"}
                 value={newToken}
                 onChange={(e) => setNewToken(e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg mb-4 text-[var(--text)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent-dim)] transition-colors"
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-sidebar)] border border-[var(--border)] rounded-md mb-4 text-[var(--text)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--text-muted)] transition-colors"
                 onKeyDown={(e) => { if (e.key === "Enter" && newUrl.trim()) handleAdd(); }}
               />
 
               <button
                 onClick={handleAdd}
                 disabled={!newUrl.trim()}
-                className="w-full text-sm py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] transition-colors cursor-pointer text-[var(--text)] hover:border-[var(--text-muted)] disabled:opacity-30 disabled:cursor-not-allowed"
+                className="w-full text-sm py-2 rounded-md border border-[var(--border)] bg-[var(--bg-surface)] transition-colors cursor-pointer text-[var(--text-dim)] hover:text-[var(--text)] hover:border-[var(--text-muted)] disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Connect
               </button>
+
+              <p className="text-[11px] text-[var(--text-muted)] mt-3 text-center">
+                Don't have an agent? <a href="https://kern-ai.com/docs/get-started" target="_blank" rel="noopener" className="text-[var(--text-dim)] hover:text-[var(--text)] underline">Get started</a>
+              </p>
             </div>
           </div>
         </div>

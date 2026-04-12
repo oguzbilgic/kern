@@ -12,6 +12,7 @@
 - **OpenRouter attribution** — updated app title to "Kern Agent" and added `X-OpenRouter-Title` header alongside legacy `X-Title`
 
 ### Fixes
+- **Add modal styling** — aligned with app design language: flat background, sidebar-depth inputs, tighter spacing, get-started link for new users
 - **Offline agent names** ([#166](https://github.com/oguzbilgic/kern-ai/issues/166)) — offline direct agents now show their cached name instead of repeating the hostname
 - **Mini sidebar remove button** ([#159](https://github.com/oguzbilgic/kern-ai/issues/159)) — remove button no longer renders in mini mode, preventing accidental agent removal
 - **Dashboard panel resize** ([#121](https://github.com/oguzbilgic/kern-ai/issues/121)) — panel width now clamps on window resize; auto-closes when window is too narrow
