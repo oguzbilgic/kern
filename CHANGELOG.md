@@ -10,6 +10,7 @@
 - **OpenRouter attribution** — updated app title to "Kern Agent" and added `X-OpenRouter-Title` header alongside legacy `X-Title`
 
 ### Fixes
+- **Offline agent names** ([#166](https://github.com/oguzbilgic/kern-ai/issues/166)) — offline direct agents now show their cached name instead of repeating the hostname
 - **Dashboard panel resize** ([#121](https://github.com/oguzbilgic/kern-ai/issues/121)) — panel width now clamps on window resize; auto-closes when window is too narrow
 - **Panel resize text selection** ([#122](https://github.com/oguzbilgic/kern-ai/issues/122)) — dragging the panel resize handle no longer selects text in the chat area
 - **Dashboard links** ([#141](https://github.com/oguzbilgic/kern-ai/issues/141)) — external links inside dashboard iframes now open in a new tab
