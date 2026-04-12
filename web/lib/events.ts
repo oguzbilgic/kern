@@ -96,7 +96,7 @@ export function processStreamEvent(
 
     case "incoming": {
       const parsed = parseUserContent(ev.text);
-      const target = inTurn ? result.parts : result.append;
+      const target = result.append;
       if (parsed.type === "heartbeat") {
         target.push({
           id: `hb-${Date.now()}`,
@@ -118,7 +118,7 @@ export function processStreamEvent(
     }
 
     case "outgoing": {
-      const target = inTurn ? result.parts : result.append;
+      const target = result.append;
       target.push({
         id: `out-${Date.now()}`,
         role: "assistant",
@@ -130,7 +130,7 @@ export function processStreamEvent(
     }
 
     case "heartbeat": {
-      const target = inTurn ? result.parts : result.append;
+      const target = result.append;
       target.push({
         id: `hb-${Date.now()}`,
         role: "heartbeat",

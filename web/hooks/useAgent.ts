@@ -117,6 +117,9 @@ export function useAgent(
   const partsRef = useRef<ChatMessage[]>([]);
   // Track if we're in an active turn (between thinking/tool and finish)
   const inTurnRef = useRef(false);
+  // Buffer messages that arrive mid-turn (user sends, incoming from other clients)
+  // so they appear after the agent's in-progress response, not above it
+  const midTurnRef = useRef<ChatMessage[]>([]);
 
   const baseUrl = agent?.baseUrl ?? null;
   const token = agent?.token ?? null;
@@ -157,6 +160,7 @@ export function useAgent(
     setHasMore(false);
     oldestIndexRef.current = undefined;
     partsRef.current = [];
+    midTurnRef.current = [];
     setStreamParts([]);
     setThinking(false);
     setActivity("");
@@ -182,7 +186,8 @@ export function useAgent(
           const result = processStreamEvent(ev, partsRef.current, inTurnRef.current);
 
           partsRef.current = result.parts;
-          setStreamParts([...result.parts]);
+          // Always append buffered mid-turn messages after streaming parts
+          setStreamParts([...result.parts, ...midTurnRef.current]);
 
           // Thinking + activity tracking
           if (ev.type === "thinking") {
@@ -210,8 +215,11 @@ export function useAgent(
 
           // Append completed messages
           if (result.flush) {
-            if (result.append.length > 0) {
-              setMessages((prev) => [...prev, ...result.append]);
+            // Flush: agent response first, then any mid-turn messages (chronological)
+            const midTurn = [...midTurnRef.current];
+            midTurnRef.current = [];
+            if (result.append.length > 0 || midTurn.length > 0) {
+              setMessages((prev) => [...prev, ...result.append, ...midTurn]);
             }
             partsRef.current = [];
             setStreamParts([]);
@@ -221,7 +229,17 @@ export function useAgent(
             inTurnRef.current = false;
             api.getStatus(baseUrl!, token).then(setStatus).catch(() => {});
           } else if (result.append.length > 0) {
-            setMessages((prev) => [...prev, ...result.append]);
+            if (inTurnRef.current) {
+              // Mid-turn: buffer messages to appear after streaming response
+              midTurnRef.current.push(...result.append);
+              setStreamParts([...partsRef.current, ...midTurnRef.current]);
+            } else {
+              // Turn ended (e.g. error) or not in turn: flush mid-turn buffer too
+              const midTurn = [...midTurnRef.current];
+              midTurnRef.current = [];
+              setMessages((prev) => [...prev, ...midTurn, ...result.append]);
+              setStreamParts([...partsRef.current]);
+            }
           }
         } else {
           // Light mode: only track thinking + unread for sidebar
@@ -312,17 +330,22 @@ export function useAgent(
                 filename: a.filename,
               }))
           : undefined;
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `msg-${Date.now()}`,
-          role: "user" as const,
-          text,
-          timestamp: new Date().toISOString(),
-          iface: "web",
-          media: media?.length ? media : undefined,
-        },
-      ]);
+      const userMsg: ChatMessage = {
+        id: `msg-${Date.now()}`,
+        role: "user" as const,
+        text,
+        timestamp: new Date().toISOString(),
+        iface: "web",
+        media: media?.length ? media : undefined,
+      };
+
+      if (inTurnRef.current) {
+        // Mid-turn: buffer message to appear after the agent's in-progress response
+        midTurnRef.current.push(userMsg);
+        setStreamParts([...partsRef.current, ...midTurnRef.current]);
+      } else {
+        setMessages((prev) => [...prev, userMsg]);
+      }
 
       // Show thinking immediately for non-slash commands
       if (!text.startsWith("/")) {
