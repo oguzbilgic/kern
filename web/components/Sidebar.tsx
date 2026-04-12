@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { AgentInfo } from "../lib/types";
 import { useAgent } from "../hooks/useAgent";
 import { agentKey } from "../hooks/useAgents";
@@ -323,12 +323,12 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
   }
 
   // Find which group an agent belongs to
-  const findGroupForAgent = useCallback((agentUrl: string): string | null => {
+  function findGroupForAgent(agentUrl: string): string | null {
     for (const g of agentGroups) {
       if (g.agentUrls.includes(agentUrl)) return g.id;
     }
     return null;
-  }, [agentGroups]);
+  }
 
   // Handle agent three-dot menu
   function openAgentMenu(agentUrl: string, e: React.MouseEvent) {

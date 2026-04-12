@@ -202,17 +202,18 @@ export const useStore = create<KernStore>()(
             collapsed: false,
           };
           // Remove agent from any existing group if provided
+          const existing = s.ui.agentGroups ?? [];
           const groups = agentUrl
-            ? s.ui.agentGroups.map((g) => ({
+            ? existing.map((g) => ({
                 ...g,
                 agentUrls: g.agentUrls.filter((u) => u !== agentUrl),
               }))
-            : [...s.ui.agentGroups];
+            : [...existing];
           return {
             ui: {
               ...s.ui,
               agentGroups: [...groups, newGroup],
-              groupOrder: [...s.ui.groupOrder, id],
+              groupOrder: [...(s.ui.groupOrder ?? []), id],
             },
           };
         });
@@ -222,7 +223,7 @@ export const useStore = create<KernStore>()(
         set((s) => ({
           ui: {
             ...s.ui,
-            agentGroups: s.ui.agentGroups.map((g) =>
+            agentGroups: (s.ui.agentGroups ?? []).map((g) =>
               g.id === groupId ? { ...g, name } : g
             ),
           },
@@ -231,45 +232,55 @@ export const useStore = create<KernStore>()(
         set((s) => ({
           ui: {
             ...s.ui,
-            agentGroups: s.ui.agentGroups.filter((g) => g.id !== groupId),
-            groupOrder: s.ui.groupOrder.filter((id) => id !== groupId),
+            agentGroups: (s.ui.agentGroups ?? []).filter((g) => g.id !== groupId),
+            groupOrder: (s.ui.groupOrder ?? []).filter((id) => id !== groupId),
           },
         })),
       moveAgentToGroup: (agentUrl, groupId) =>
-        set((s) => ({
-          ui: {
-            ...s.ui,
-            agentGroups: s.ui.agentGroups.map((g) => {
-              // Remove from other groups
-              const filtered = g.agentUrls.filter((u) => u !== agentUrl);
-              // Add to target group
-              if (g.id === groupId) return { ...g, agentUrls: [...filtered, agentUrl] };
-              return { ...g, agentUrls: filtered };
-            }),
-          },
-        })),
+        set((s) => {
+          const updated = (s.ui.agentGroups ?? []).map((g) => {
+            const filtered = g.agentUrls.filter((u) => u !== agentUrl);
+            if (g.id === groupId) return { ...g, agentUrls: [...filtered, agentUrl] };
+            return { ...g, agentUrls: filtered };
+          });
+          // Auto-delete groups that became empty
+          const nonEmpty = updated.filter((g) => g.agentUrls.length > 0);
+          return {
+            ui: {
+              ...s.ui,
+              agentGroups: nonEmpty,
+              groupOrder: (s.ui.groupOrder ?? []).filter((id) => nonEmpty.some((g) => g.id === id)),
+            },
+          };
+        }),
       removeAgentFromGroup: (agentUrl) =>
-        set((s) => ({
-          ui: {
-            ...s.ui,
-            agentGroups: s.ui.agentGroups.map((g) => ({
-              ...g,
-              agentUrls: g.agentUrls.filter((u) => u !== agentUrl),
-            })),
-          },
-        })),
+        set((s) => {
+          const updated = (s.ui.agentGroups ?? []).map((g) => ({
+            ...g,
+            agentUrls: g.agentUrls.filter((u) => u !== agentUrl),
+          }));
+          // Auto-delete groups that became empty
+          const nonEmpty = updated.filter((g) => g.agentUrls.length > 0);
+          return {
+            ui: {
+              ...s.ui,
+              agentGroups: nonEmpty,
+              groupOrder: (s.ui.groupOrder ?? []).filter((id) => nonEmpty.some((g) => g.id === id)),
+            },
+          };
+        }),
       toggleGroupCollapsed: (groupId) =>
         set((s) => ({
           ui: {
             ...s.ui,
-            agentGroups: s.ui.agentGroups.map((g) =>
+            agentGroups: (s.ui.agentGroups ?? []).map((g) =>
               g.id === groupId ? { ...g, collapsed: !g.collapsed } : g
             ),
           },
         })),
       reorderGroups: (fromIndex, toIndex) =>
         set((s) => {
-          const next = [...s.ui.groupOrder];
+          const next = [...(s.ui.groupOrder ?? [])];
           const [moved] = next.splice(fromIndex, 1);
           next.splice(toIndex, 0, moved);
           return { ui: { ...s.ui, groupOrder: next } };
@@ -278,7 +289,7 @@ export const useStore = create<KernStore>()(
         set((s) => ({
           ui: {
             ...s.ui,
-            agentGroups: s.ui.agentGroups.map((g) => {
+            agentGroups: (s.ui.agentGroups ?? []).map((g) => {
               if (g.id !== groupId) return g;
               const urls = [...g.agentUrls];
               const [moved] = urls.splice(fromIndex, 1);
@@ -296,6 +307,14 @@ export const useStore = create<KernStore>()(
         connections: state.connections,
         ui: state.ui,
       }),
+      merge: (persisted, current) => {
+        const p = persisted as Partial<KernStore>;
+        return {
+          ...current,
+          ...p,
+          ui: { ...current.ui, ...(p.ui ?? {}) },
+        };
+      },
     },
   ),
 );
