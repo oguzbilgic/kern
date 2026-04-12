@@ -73,11 +73,11 @@ export const webfetchTool = tool({
           return `Error: HTTP ${response.status} ${response.statusText}`;
         }
         const text = await response.text();
-        if (text.length > 50000) {
-          return text.slice(0, 50000) + `\n...(truncated, ${text.length} chars total)`;
-        }
-        return text;
+        return truncate(text);
       } catch (e: any) {
+        if (e.name === "TimeoutError" || e.name === "AbortError") {
+          return `Error: request timed out after 30s`;
+        }
         return `Error: ${e.message}`;
       }
     }
@@ -112,6 +112,9 @@ export const webfetchTool = tool({
       const result = await fetchDirect(url);
       return truncate(result);
     } catch (e: any) {
+      if (e.name === "TimeoutError" || e.name === "AbortError") {
+        return `Error: request timed out after 30s`;
+      }
       return `Error: ${e.message}`;
     }
   },
