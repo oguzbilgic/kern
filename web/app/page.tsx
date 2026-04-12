@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useMemo, type DragEvent } from "react";
 import { useAgents, agentKey } from "../hooks/useAgents";
 import { useAgent } from "../hooks/useAgent";
+import type { AgentGroup } from "../lib/store";
 import { Sidebar } from "../components/Sidebar";
 import { Chat } from "../components/Chat";
 import { Input, fileToAttachment } from "../components/Input";
@@ -15,7 +16,7 @@ import { useMemorySurfaces, MEMORY_SURFACE_ID } from "../components/inspector";
 import { renderPluginHeaders } from "../plugins/registry";
 import { usePluginInit } from "../plugins";
 import { useStore } from "../lib/store";
-import type { Attachment } from "../lib/types";
+import type { Attachment, AgentInfo } from "../lib/types";
 
 export default function Home() {
   const { agents, activeAgent, active, setActive, addServer, removeServer, addDirectAgent, removeDirectAgent, reorder } = useAgents();
@@ -72,21 +73,63 @@ export default function Home() {
     };
   }, [agents, activeAgent, connected, thinking, send, setActive]);
 
-  // Keyboard shortcuts: Cmd/Ctrl + 1..9 to switch agents
+  // Read group state for keyboard shortcut ordering
+  const agentGroups = useStore((s) => s.ui.agentGroups);
+  const groupOrder = useStore((s) => s.ui.groupOrder);
+
+  // Keyboard shortcuts: Cmd/Ctrl + 1..9 to switch agents (follows visual sidebar order)
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (!(e.metaKey || e.ctrlKey)) return;
       const n = parseInt(e.key);
       if (n >= 1 && n <= 9) {
         e.preventDefault();
-        const running = agents.filter((a) => a.running);
+
+        // Build visual order: ungrouped direct agents → groups in order → proxy agents
+        const groupedUrls = new Set(agentGroups.flatMap((g: AgentGroup) => g.agentUrls));
+        const directAgents: AgentInfo[] = [];
+        const proxyAgents: AgentInfo[] = [];
+        for (const a of agents) {
+          if (a.baseUrl.indexOf("/api/agents/") >= 0) {
+            proxyAgents.push(a);
+          } else {
+            directAgents.push(a);
+          }
+        }
+
+        const ungrouped = directAgents.filter((a) => !groupedUrls.has(a.baseUrl));
+
+        // Ordered groups
+        const groupMap = new Map(agentGroups.map((g: AgentGroup) => [g.id, g]));
+        const ordered: AgentGroup[] = [];
+        for (const id of groupOrder) {
+          const g = groupMap.get(id);
+          if (g) ordered.push(g);
+        }
+        for (const g of agentGroups) {
+          if (!groupOrder.includes(g.id)) ordered.push(g);
+        }
+
+        const directAgentMap = new Map(directAgents.map((a) => [a.baseUrl, a]));
+        const visualOrder: AgentInfo[] = [...ungrouped];
+        for (const g of ordered) {
+          if (!g.collapsed) {
+            for (const url of g.agentUrls) {
+              const a = directAgentMap.get(url);
+              if (a) visualOrder.push(a);
+            }
+          }
+        }
+        visualOrder.push(...proxyAgents);
+
+        const running = visualOrder.filter((a) => a.running);
         const idx = n - 1;
         if (idx < running.length) setActive(agentKey(running[idx]));
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [agents, setActive]);
+  }, [agents, setActive, agentGroups, groupOrder]);
 
   const handleDrop = useCallback(async (e: DragEvent) => {
     e.preventDefault();

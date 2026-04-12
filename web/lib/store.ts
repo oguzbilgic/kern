@@ -19,10 +19,19 @@ export interface ConnectionEntry {
   name?: string;
 }
 
+export interface AgentGroup {
+  id: string;
+  name: string;
+  agentUrls: string[];
+  collapsed: boolean;
+}
+
 interface UIState {
   sidebarMini: boolean;
   pinnedStats: string[];
   activeDashboard: string | null;
+  agentGroups: AgentGroup[];
+  groupOrder: string[]; // group ids in display order
 }
 
 export interface KernStore {
@@ -47,6 +56,16 @@ export interface KernStore {
   setSidebarMini: (mini: boolean) => void;
   togglePin: (key: string) => void;
   setActiveDashboard: (name: string | null) => void;
+
+  // Agent groups
+  createGroup: (name: string, agentUrl?: string) => string;
+  renameGroup: (groupId: string, name: string) => void;
+  deleteGroup: (groupId: string) => void;
+  moveAgentToGroup: (agentUrl: string, groupId: string) => void;
+  removeAgentFromGroup: (agentUrl: string) => void;
+  toggleGroupCollapsed: (groupId: string) => void;
+  reorderGroups: (fromIndex: number, toIndex: number) => void;
+  reorderAgentInGroup: (groupId: string, fromIndex: number, toIndex: number) => void;
 }
 
 const PREFS_DEFAULTS: Preferences = {
@@ -159,7 +178,7 @@ export const useStore = create<KernStore>()(
         })),
 
       // UI state
-      ui: { sidebarMini: false, pinnedStats: [], activeDashboard: null },
+      ui: { sidebarMini: false, pinnedStats: [], activeDashboard: null, agentGroups: [], groupOrder: [] },
       setSidebarMini: (mini) =>
         set((s) => ({ ui: { ...s.ui, sidebarMini: mini } })),
       togglePin: (key) =>
@@ -171,6 +190,103 @@ export const useStore = create<KernStore>()(
         }),
       setActiveDashboard: (name) =>
         set((s) => ({ ui: { ...s.ui, activeDashboard: name } })),
+
+      // Agent groups
+      createGroup: (name, agentUrl) => {
+        const id = `group_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        set((s) => {
+          const newGroup: AgentGroup = {
+            id,
+            name,
+            agentUrls: agentUrl ? [agentUrl] : [],
+            collapsed: false,
+          };
+          // Remove agent from any existing group if provided
+          const groups = agentUrl
+            ? s.ui.agentGroups.map((g) => ({
+                ...g,
+                agentUrls: g.agentUrls.filter((u) => u !== agentUrl),
+              }))
+            : [...s.ui.agentGroups];
+          return {
+            ui: {
+              ...s.ui,
+              agentGroups: [...groups, newGroup],
+              groupOrder: [...s.ui.groupOrder, id],
+            },
+          };
+        });
+        return id;
+      },
+      renameGroup: (groupId, name) =>
+        set((s) => ({
+          ui: {
+            ...s.ui,
+            agentGroups: s.ui.agentGroups.map((g) =>
+              g.id === groupId ? { ...g, name } : g
+            ),
+          },
+        })),
+      deleteGroup: (groupId) =>
+        set((s) => ({
+          ui: {
+            ...s.ui,
+            agentGroups: s.ui.agentGroups.filter((g) => g.id !== groupId),
+            groupOrder: s.ui.groupOrder.filter((id) => id !== groupId),
+          },
+        })),
+      moveAgentToGroup: (agentUrl, groupId) =>
+        set((s) => ({
+          ui: {
+            ...s.ui,
+            agentGroups: s.ui.agentGroups.map((g) => {
+              // Remove from other groups
+              const filtered = g.agentUrls.filter((u) => u !== agentUrl);
+              // Add to target group
+              if (g.id === groupId) return { ...g, agentUrls: [...filtered, agentUrl] };
+              return { ...g, agentUrls: filtered };
+            }),
+          },
+        })),
+      removeAgentFromGroup: (agentUrl) =>
+        set((s) => ({
+          ui: {
+            ...s.ui,
+            agentGroups: s.ui.agentGroups.map((g) => ({
+              ...g,
+              agentUrls: g.agentUrls.filter((u) => u !== agentUrl),
+            })),
+          },
+        })),
+      toggleGroupCollapsed: (groupId) =>
+        set((s) => ({
+          ui: {
+            ...s.ui,
+            agentGroups: s.ui.agentGroups.map((g) =>
+              g.id === groupId ? { ...g, collapsed: !g.collapsed } : g
+            ),
+          },
+        })),
+      reorderGroups: (fromIndex, toIndex) =>
+        set((s) => {
+          const next = [...s.ui.groupOrder];
+          const [moved] = next.splice(fromIndex, 1);
+          next.splice(toIndex, 0, moved);
+          return { ui: { ...s.ui, groupOrder: next } };
+        }),
+      reorderAgentInGroup: (groupId, fromIndex, toIndex) =>
+        set((s) => ({
+          ui: {
+            ...s.ui,
+            agentGroups: s.ui.agentGroups.map((g) => {
+              if (g.id !== groupId) return g;
+              const urls = [...g.agentUrls];
+              const [moved] = urls.splice(fromIndex, 1);
+              urls.splice(toIndex, 0, moved);
+              return { ...g, agentUrls: urls };
+            }),
+          },
+        })),
     }),
     {
       name: "kern",
