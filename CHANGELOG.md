@@ -6,10 +6,8 @@
 - **Dockerized agents** ([#157](https://github.com/oguzbilgic/kern-ai/issues/157)) — run agents in containers with zero setup. See [docs/docker.md](docs/docker.md)
   - `docker run -v agent:/home/kern/agent -e KERN_MODEL=... -p 4100:4100 ghcr.io/oguzbilgic/kern-ai`
   - Auto-scaffolds on first start — no manual `kern init` needed
-  - Configure with `KERN_MODEL`, `KERN_PORT`, `KERN_NAME` env vars
+  - `KERN_MODEL`, `KERN_PORT`, `KERN_NAME`, `KERN_PROVIDER` env vars override config
   - Mount a volume at `/home/kern/agent` for persistent state
-- **Env var config overrides** ([#192](https://github.com/oguzbilgic/kern-ai/issues/192)) — `KERN_NAME`, `KERN_PORT`, `KERN_MODEL`, and `KERN_PROVIDER` environment variables override matching config fields. Env vars take priority over `config.json`. Designed for Docker deployments where config is passed via environment.
-- **`kern run --init-if-needed`** ([#193](https://github.com/oguzbilgic/kern-ai/issues/193)) — auto-scaffolds agent directory on first start if `.kern/config.json` is missing. Uses `KERN_*` env vars for config, no interactive prompts. Enables zero-config Docker container startup on empty volumes.
 
 ## v0.26.0
 
