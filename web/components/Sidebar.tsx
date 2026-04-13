@@ -209,8 +209,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
   const [addMode, setAddMode] = useState<AddMode>("agent");
   const [newUrl, setNewUrl] = useState("");
   const [newToken, setNewToken] = useState("");
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  
 
   // Agent context menu
   const [agentMenu, setAgentMenu] = useState<{ agentUrl: string; pos: MenuPosition } | null>(null);
@@ -422,42 +421,45 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
         draggable
         onDragStart={(e) => {
           setDragAgentUrl(agent.baseUrl);
-          setDragIndex(globalIndex);
           e.dataTransfer.effectAllowed = "move";
         }}
         onDragOver={(e) => {
           e.preventDefault();
           if (dragAgentUrl) {
             setDropTarget({ groupId, index: indexInGroup });
-          } else {
-            setDropIndex(globalIndex);
           }
         }}
         onDrop={(e) => {
           e.preventDefault();
-          if (dragAgentUrl) {
-            if (groupId) {
-              handleGroupDrop(groupId, e);
-            } else {
-              removeAgentFromGroup(dragAgentUrl);
-              setDragAgentUrl(null);
-              setDropTarget(null);
+          if (!dragAgentUrl) return;
+          const fromGroup = findGroupForAgent(dragAgentUrl);
+          if (fromGroup === groupId && groupId !== null) {
+            // Reorder within same group
+            const fromIdx = agentGroups.find(g => g.id === groupId)?.agentUrls.indexOf(dragAgentUrl) ?? -1;
+            if (fromIdx >= 0 && dropTarget && fromIdx !== dropTarget.index) {
+              reorderAgentInGroup(groupId, fromIdx, dropTarget.index);
             }
-          } else if (dragIndex !== null && dragIndex !== globalIndex) {
-            onReorder?.(dragIndex, globalIndex);
+          } else if (groupId !== null) {
+            // Move into a group
+            moveAgentToGroup(dragAgentUrl, groupId);
+          } else if (fromGroup !== null) {
+            // Drop onto ungrouped — remove from group
+            removeAgentFromGroup(dragAgentUrl);
+          } else {
+            // Ungrouped reorder
+            const fromIdx = ungroupedAgents.findIndex(u => u.agent.baseUrl === dragAgentUrl);
+            if (fromIdx >= 0 && fromIdx !== indexInGroup) {
+              onReorder?.(ungroupedAgents[fromIdx].globalIndex, globalIndex);
+            }
           }
-          setDragIndex(null);
-          setDropIndex(null);
-        }}
-        onDragEnd={() => {
-          setDragIndex(null);
-          setDropIndex(null);
           setDragAgentUrl(null);
           setDropTarget(null);
         }}
-        className={isDropTarget ? "border-t-2 border-[var(--orange)]" :
-          (dropIndex === globalIndex && dragIndex !== null && dragIndex !== globalIndex) ? "border-t-2 border-[var(--orange)]" :
-          "border-t-2 border-transparent"}
+        onDragEnd={() => {
+          setDragAgentUrl(null);
+          setDropTarget(null);
+        }}
+        className={isDropTarget ? "border-t-2 border-[var(--orange)]" : "border-t-2 border-transparent"}
       >
         <AgentRow
           agent={agent}
