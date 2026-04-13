@@ -17,13 +17,34 @@ kern pairs with [agent-kernel](https://github.com/oguzbilgic/agent-kernel) — t
 
 ## Quick start
 
+### Docker
+
+```bash
+# Run an agent
+docker run -d --restart=unless-stopped \
+  -p 4100:4100 \
+  -v my-agent:/home/kern/agent \
+  -e OPENROUTER_API_KEY=sk-or-... \
+  -e KERN_AUTH_TOKEN=my-secret-token \
+  ghcr.io/oguzbilgic/kern-ai
+
+# Run the web UI
+docker run -d -p 8080:8080 ghcr.io/oguzbilgic/kern-ai kern web
+```
+
+Open `http://localhost:8080`, click **Add agent**, enter `http://localhost:4100` and your token. That's it.
+
+Agent data lives in the `my-agent` volume — sessions, memory, dashboards persist across restarts. Configure with env vars: `KERN_NAME`, `KERN_MODEL`, `KERN_PORT`.
+
+### npm
+
 ```bash
 npm install -g kern-ai
 kern init my-agent
 kern tui
 ```
 
-The init wizard scaffolds your agent, asks for a provider and API key, then starts it. `kern tui` opens an interactive chat. `kern web start` serves the UI in the browser.
+The init wizard scaffolds your agent, asks for a provider and API key, then starts it. `kern tui` opens an interactive chat. `kern web start` serves the web UI.
 
 For automation: `kern init my-agent --api-key sk-or-...` (no prompts, defaults to openrouter + opus 4.6). For Ollama: `kern init my-agent --provider ollama --api-key http://localhost:11434 --model gemma4:31b`.
 
