@@ -152,19 +152,21 @@ Restore an agent from a backup archive.
 - If agent already exists: warns and asks to confirm overwrite
 - If agent is running: stops it before overwriting
 
-## kern web \<start|stop|status\>
+## kern web [start|stop|status]
 
 Minimal static file server for the web UI. No auth, no proxy.
 
 ```bash
-kern web start    # start static web server
-kern web stop     # stop it
+kern web          # run in foreground (for Docker or manual use)
+kern web start    # start as background daemon
+kern web stop     # stop daemon
 kern web status   # check if running
 ```
 
 - Serves the web UI static files only — no API proxy, no auth
 - Port configurable via `web_port` in `~/.kern/config.json` (default 8080)
-- PID tracked in `~/.kern/web.pid`, logs in `~/.kern/web.log`
+- `kern web` (no subcommand) runs in the foreground — useful for Docker containers
+- `kern web start` daemonizes: PID tracked in `~/.kern/web.pid`, logs in `~/.kern/web.log`
 - If installed via `kern install --web`, start/stop/restart delegate to systemd
 - Connect to agents directly from the sidebar (enter URL + token)
 

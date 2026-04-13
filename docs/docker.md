@@ -55,14 +55,25 @@ The agent stores all state in its working directory. Mount a volume to persist i
 -v kern-data:/home/kern
 ```
 
+## Web UI
+
+Run the web UI as a separate container:
+
+```bash
+docker run -d -p 8080:8080 ghcr.io/oguzbilgic/kern-ai kern web
+```
+
+Or start it on the host: `kern web start` / `npx kern-ai web start`.
+
+Then open `http://localhost:8080`, click **+**, enter `http://<host>:4100` and the agent's auth token (found in `.kern/.env` inside the volume).
+
 ## Connecting
 
-Once running, connect to the agent from the web UI:
+Connect to agents from the web UI sidebar:
 
-1. Open the kern web UI
-2. Click "Add agent"
-3. Enter `http://<host>:4100`
-4. Enter the agent's auth token (found in `.kern/.env` inside the volume)
+1. Click **+** (Add agent)
+2. Enter `http://<host>:4100`
+3. Enter the agent's auth token
 
 ## Building locally
 

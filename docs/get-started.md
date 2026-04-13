@@ -59,7 +59,7 @@ Interactive terminal chat. Type a message, get a response. The agent has tools �
 kern web start
 ```
 
-Opens a web UI with an agent proxy. Or connect directly to any agent — open the web UI, click **+** in the sidebar, enter the agent's URL and token. No proxy needed.
+Opens a static web UI. Click **+** in the sidebar, enter your agent's URL and token to connect. No proxy needed — the browser talks directly to the agent.
 
 Agent sidebar, slash commands, markdown rendering, collapsible tool output. Share the URL with others on your network.
 

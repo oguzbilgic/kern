@@ -54,7 +54,7 @@ Each agent generates a random token on first start, stored in `.kern/.env` as `K
 
 ## Web server
 
-`kern web start` launches a minimal static file server (default port 8080, configurable via `web_port` in `~/.kern/config.json`). It serves only the web UI static files — no auth, no proxy, no agent discovery. Connect to agents directly from the sidebar by entering their URL and token.
+`kern web` launches a minimal static file server (default port 8080, configurable via `web_port` in `~/.kern/config.json`). It serves only the web UI static files — no auth, no proxy, no agent discovery. Connect to agents directly from the sidebar by entering their URL and token. Use `kern web` for foreground mode (Docker) or `kern web start` to daemonize.
 
 ## Proxy server
 

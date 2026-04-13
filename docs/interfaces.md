@@ -36,7 +36,7 @@ kern tui [name]
 
 ## Web UI
 
-Browser-based chat via the `kern web` proxy server.
+Browser-based chat via the `kern web` static file server.
 
 ```bash
 kern web start
@@ -44,22 +44,22 @@ kern web start
 
 - Interface: `web`, channel: `web`, user: `tui`
 - Always the operator (no pairing required)
-- Connects through web proxy with token auth
+- Connect to agents directly from the sidebar by entering their URL and token
 
 ### Setup
 
 ```bash
-kern web start    # start web UI, prints URL with token
-kern web stop     # stop it
+kern web          # run in foreground (for Docker)
+kern web start    # start as background daemon
+kern web stop     # stop daemon
 kern web status   # check if running
-kern web token    # print URL with token again
 ```
 
 ### Architecture
 
-- `kern web` serves the HTML page and proxies all API requests to agents
-- Agents bind to `127.0.0.1` on random ports — only reachable locally via the proxy
-- The web proxy injects agent auth tokens automatically — the browser never sees them
+- `kern web` serves only static files — no proxy, no auth
+- Agents bind to `0.0.0.0` on sticky ports with their own auth tokens
+- Connect to agents directly from the sidebar by entering their URL and token
 - Single `KERN_WEB_TOKEN` protects the proxy layer
 
 ### Authentication
