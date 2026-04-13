@@ -46,6 +46,19 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 - **openai** — OpenAI or Azure. Model IDs like `gpt-4o`.
 - **ollama** — local Ollama server. Model IDs match Ollama model names like `gemma4:31b`. Set `OLLAMA_BASE_URL` in `.env` for remote servers (default: `http://localhost:11434`).
 
+## Environment variable overrides
+
+Environment variables override matching `config.json` fields. Useful for Docker deployments where config is passed via environment.
+
+| Env var | Config field | Type |
+|---------|-------------|------|
+| `KERN_NAME` | `name` | string |
+| `KERN_PORT` | `port` | number |
+| `KERN_MODEL` | `model` | string |
+| `KERN_PROVIDER` | `provider` | string |
+
+Env vars take priority over `config.json`. Overrides are logged on startup.
+
 ## Per-agent: .kern/.env
 
 Secrets. Gitignored. Never committed.
