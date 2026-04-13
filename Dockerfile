@@ -1,11 +1,9 @@
 FROM node:22-slim
 WORKDIR /app
 COPY . .
-RUN npm ci \
-    && cd web && npm ci && cd .. \
+RUN npm ci && cd web && npm ci && cd .. \
     && npm run build \
-    && npm pack \
-    && npm install -g kern-ai-*.tgz \
+    && npm pack && npm install -g kern-ai-*.tgz \
     && rm -rf /app
 
 RUN useradd -m kern
