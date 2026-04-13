@@ -7,7 +7,8 @@
   - Auto-scaffolds on first start — no manual `kern init` needed ([#193](https://github.com/oguzbilgic/kern-ai/issues/193))
   - `KERN_MODEL`, `KERN_PORT`, `KERN_NAME`, `KERN_PROVIDER` env vars override config ([#192](https://github.com/oguzbilgic/kern-ai/issues/192))
   - Mount a volume at `/home/kern/agent` for persistent state
-- **`kern web` foreground mode** — `kern web` (no subcommand) now runs the web server in the foreground, enabling `docker run IMAGE kern web` for containerized web UI
+- **Dockerized web UI** — same image runs the web UI in a container
+  - `kern web` (no subcommand) runs the server in the foreground for container use
 
 ### Examples
 ```bash
