@@ -161,7 +161,7 @@ export default function Home() {
       <div
         className="flex-1 flex flex-col relative"
         style={{ minWidth: showPanel ? panelMinChatWidth() : 0 }}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragOver={(e) => { if (e.dataTransfer?.types?.includes("Files")) { e.preventDefault(); setDragOver(true); } }}
         onDragLeave={(e) => {
           if (e.currentTarget.contains(e.relatedTarget as Node)) return;
           setDragOver(false);
