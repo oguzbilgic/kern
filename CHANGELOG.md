@@ -1,5 +1,10 @@
 # Changelog
 
+## next
+
+### Features
+- **Env var config overrides** ([#192](https://github.com/oguzbilgic/kern-ai/issues/192)) — `KERN_NAME`, `KERN_PORT`, and `KERN_MODEL` environment variables override matching config fields. Env vars take priority over `config.json`. Designed for Docker deployments where config is passed via environment.
+
 ## v0.26.0
 
 ### Features
