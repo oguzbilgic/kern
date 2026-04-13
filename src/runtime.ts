@@ -257,11 +257,17 @@ export class Runtime {
       // Accumulate mid-turn injections so they persist across all subsequent steps
       const midTurnMessages: { role: "user"; content: string }[] = [];
 
+      // For Ollama: pass num_ctx to limit KV cache allocation, disable thinking for speed
+      const ollamaOptions = this.config.provider === "ollama"
+        ? { providerOptions: { openai: { num_ctx: this.config.maxContextTokens, think: false } } }
+        : {};
+
       const result = streamText({
         model,
         system: systemWithInjections,
         messages: resolvedMessages,
         tools,
+        ...ollamaOptions,
         stopWhen: stepCountIs(this.config.maxSteps),
         onError: ({ error }) => {
           streamError = error;

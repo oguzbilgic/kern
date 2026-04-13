@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.27.0
 
 ### Features
 - **Dockerized agents** ([#157](https://github.com/oguzbilgic/kern-ai/issues/157)) — official Docker image for running agents and web UI in containers. See [docs/docker.md](docs/docker.md)
