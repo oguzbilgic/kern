@@ -7,7 +7,6 @@ import { agentKey } from "../hooks/useAgents";
 import { renderPluginSidebars } from "../plugins/registry";
 import { avatarColor } from "../lib/colors";
 import { useStore } from "../lib/store";
-import type { AgentGroup } from "../lib/store";
 
 /* ── Agent avatar row ─────────────────────────────────────────────── */
 
@@ -40,7 +39,6 @@ function AgentRow({
         } ${!agent.running ? "opacity-50" : ""}`}
         title={mini ? agent.name : undefined}
       >
-        {/* Avatar with status dot / unread badge */}
         <div className="relative flex-shrink-0">
           <div
             className="w-10 h-10 flex items-center justify-center text-[16px] font-bold uppercase"
@@ -66,13 +64,10 @@ function AgentRow({
             </span>
           )}
         </div>
-
-        {/* Name — always rendered, clipped by overflow */}
         <div className="flex-1 min-w-0">
           <span className="truncate whitespace-nowrap">{agent.name}</span>
         </div>
       </button>
-      {/* Three-dot menu button for direct agents — hidden in mini mode */}
       {onMenuOpen && !mini && (
         <button
           onClick={(e) => { e.stopPropagation(); onMenuOpen(e); }}
@@ -86,104 +81,33 @@ function AgentRow({
   );
 }
 
-/* ── Context menu (dropdown) ──────────────────────────────────────── */
+/* ── Dropdown menu ────────────────────────────────────────────────── */
 
-interface MenuPosition { x: number; y: number }
-interface MenuEntry { label: string; onClick: () => void; danger?: boolean }
+interface MenuEntry { label: string; onClick: () => void; danger?: boolean; separator?: boolean }
 
-function ContextMenu({ pos, items, onClose }: { pos: MenuPosition; items: MenuEntry[]; onClose: () => void }) {
+function DropdownMenu({ pos, items, onClose }: { pos: { x: number; y: number }; items: MenuEntry[]; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
   }, [onClose]);
 
   return (
-    <div
-      ref={ref}
-      className="fixed z-[100] bg-[var(--bg)] border border-[var(--border)] rounded-lg shadow-lg py-1 min-w-[160px]"
-      style={{ top: pos.y, left: pos.x }}
-    >
-      {items.map((item, i) => (
-        <button
-          key={i}
-          onClick={() => { item.onClick(); onClose(); }}
-          className={`w-full text-left text-xs px-3 py-1.5 transition-colors cursor-pointer ${
-            item.danger
-              ? "text-red-400 hover:bg-red-400/10"
-              : "text-[var(--text-dim)] hover:bg-white/[0.06]"
-          }`}
-        >
-          {item.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/* ── Submenu for "Move to group" ──────────────────────────────────── */
-
-function MoveToGroupMenu({
-  pos,
-  groups,
-  currentGroupId,
-  onMoveToGroup,
-  onNewGroup,
-  onMoveToUngrouped,
-  onClose,
-}: {
-  pos: MenuPosition;
-  groups: AgentGroup[];
-  currentGroupId: string | null;
-  onMoveToGroup: (groupId: string) => void;
-  onNewGroup: () => void;
-  onMoveToUngrouped: () => void;
-  onClose: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [onClose]);
-
-  return (
-    <div
-      ref={ref}
-      className="fixed z-[100] bg-[var(--bg)] border border-[var(--border)] rounded-lg shadow-lg py-1 min-w-[160px]"
-      style={{ top: pos.y, left: pos.x }}
-    >
-      {currentGroupId && (
-        <button
-          onClick={() => { onMoveToUngrouped(); onClose(); }}
-          className="w-full text-left text-xs px-3 py-1.5 text-[var(--text-dim)] hover:bg-white/[0.06] transition-colors cursor-pointer"
-        >
-          Ungrouped
-        </button>
+    <div ref={ref} className="fixed z-[100] bg-[var(--bg)] border border-[var(--border)] rounded-lg shadow-lg py-1 min-w-[160px]" style={{ top: pos.y, left: pos.x }}>
+      {items.map((item, i) =>
+        item.separator ? <div key={i} className="border-t border-[var(--border)] my-1" /> : (
+          <button
+            key={i}
+            onClick={() => { item.onClick(); onClose(); }}
+            className={`w-full text-left text-xs px-3 py-1.5 transition-colors cursor-pointer ${
+              item.danger ? "text-red-400 hover:bg-red-400/10" : "text-[var(--text-dim)] hover:bg-white/[0.06]"
+            }`}
+          >
+            {item.label}
+          </button>
+        )
       )}
-      {groups.filter(g => g.id !== currentGroupId).map((g) => (
-        <button
-          key={g.id}
-          onClick={() => { onMoveToGroup(g.id); onClose(); }}
-          className="w-full text-left text-xs px-3 py-1.5 text-[var(--text-dim)] hover:bg-white/[0.06] transition-colors cursor-pointer"
-        >
-          {g.name}
-        </button>
-      ))}
-      <div className="border-t border-[var(--border)] my-1" />
-      <button
-        onClick={() => { onNewGroup(); onClose(); }}
-        className="w-full text-left text-xs px-3 py-1.5 text-[var(--text-dim)] hover:bg-white/[0.06] transition-colors cursor-pointer"
-      >
-        New group…
-      </button>
     </div>
   );
 }
@@ -205,99 +129,132 @@ interface SidebarProps {
 }
 
 export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer, onRemoveServer, onAddAgent, onRemoveAgent, onReorder }: SidebarProps) {
+  // Add modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [addMode, setAddMode] = useState<AddMode>("agent");
   const [newUrl, setNewUrl] = useState("");
   const [newToken, setNewToken] = useState("");
-  
 
-  // Agent context menu
-  const [agentMenu, setAgentMenu] = useState<{ agentUrl: string; pos: MenuPosition } | null>(null);
-  const [moveToGroupMenu, setMoveToGroupMenu] = useState<{ agentUrl: string; currentGroupId: string | null; pos: MenuPosition } | null>(null);
-  const [groupMenu, setGroupMenu] = useState<{ groupId: string; pos: MenuPosition } | null>(null);
-  
+  // Menu state — one menu at a time
+  const [menu, setMenu] = useState<{ pos: { x: number; y: number }; items: MenuEntry[] } | null>(null);
+
+  // Group name modal (create/rename)
   const [groupModal, setGroupModal] = useState<{ mode: "create"; agentUrl: string } | { mode: "rename"; groupId: string } | null>(null);
   const [groupModalName, setGroupModalName] = useState("");
 
-  // Group drag state
-  const [dragGroupIndex, setDragGroupIndex] = useState<number | null>(null);
-  const [dropGroupIndex, setDropGroupIndex] = useState<number | null>(null);
-
-  // Agent drag within/between groups
-  const [dragAgentUrl, setDragAgentUrl] = useState<string | null>(null);
+  // Agent drag state
+  const [dragUrl, setDragUrl] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ groupId: string | null; index: number } | null>(null);
 
-  // Mini/full state from store
+  // Store
   const mini = useStore((s) => s.ui.sidebarMini);
   const setSidebarMini = useStore((s) => s.setSidebarMini);
   const [userSet, setUserSet] = useState(false);
-
-  // Group state from store
   const agentGroups = useStore((s) => s.ui.agentGroups);
   const groupOrder = useStore((s) => s.ui.groupOrder);
-  const createGroup = useStore((s) => s.createGroup);
-  const renameGroup = useStore((s) => s.renameGroup);
-  const deleteGroup = useStore((s) => s.deleteGroup);
-  const moveAgentToGroup = useStore((s) => s.moveAgentToGroup);
-  const removeAgentFromGroup = useStore((s) => s.removeAgentFromGroup);
-  const toggleGroupCollapsed = useStore((s) => s.toggleGroupCollapsed);
-  const reorderGroups = useStore((s) => s.reorderGroups);
-  const reorderAgentInGroup = useStore((s) => s.reorderAgentInGroup);
+  const { createGroup, renameGroup, deleteGroup, moveAgentToGroup, removeAgentFromGroup, toggleGroupCollapsed, reorderAgentInGroup } = useStore();
 
-  // Manual toggle wrapper
-  function toggleMini() {
-    setUserSet(true);
-    setSidebarMini(!mini);
-  }
+  // Mini/full toggle
+  function toggleMini() { setUserSet(true); setSidebarMini(!mini); }
 
-  // Auto-collapse on narrow, auto-expand on wide — unless user manually toggled
   useEffect(() => {
     function check() {
-      if (window.innerWidth < 768) {
-        setSidebarMini(true);
-        setUserSet(false);
-      } else if (window.innerWidth >= 1024 && !userSet) {
-        setSidebarMini(false);
-      }
+      if (window.innerWidth < 768) { setSidebarMini(true); setUserSet(false); }
+      else if (window.innerWidth >= 1024 && !userSet) setSidebarMini(false);
     }
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, [userSet]);
 
-  // Group agents: proxy agents have "/api/agents/" in baseUrl, direct don't
+  // Split agents into proxy groups and direct agents
   const proxyGroups = new Map<string, AgentInfo[]>();
   const directAgents: { agent: AgentInfo; globalIndex: number }[] = [];
-  for (let idx = 0; idx < agents.length; idx++) {
-    const agent = agents[idx];
-    const proxyIdx = agent.baseUrl.indexOf("/api/agents/");
-    if (proxyIdx >= 0) {
-      const server = agent.baseUrl.slice(0, proxyIdx);
+  for (let i = 0; i < agents.length; i++) {
+    const a = agents[i];
+    const pi = a.baseUrl.indexOf("/api/agents/");
+    if (pi >= 0) {
+      const server = a.baseUrl.slice(0, pi);
       if (!proxyGroups.has(server)) proxyGroups.set(server, []);
-      proxyGroups.get(server)!.push(agent);
+      proxyGroups.get(server)!.push(a);
     } else {
-      directAgents.push({ agent, globalIndex: idx });
+      directAgents.push({ agent: a, globalIndex: i });
     }
   }
 
-  // Build grouped and ungrouped agent lists for direct agents
+  const directMap = new Map(directAgents.map(({ agent }) => [agent.baseUrl, agent]));
   const groupedUrls = new Set(agentGroups.flatMap((g) => g.agentUrls));
-  const ungroupedAgents = directAgents.filter(({ agent }) => !groupedUrls.has(agent.baseUrl));
+  const ungrouped = directAgents.filter(({ agent }) => !groupedUrls.has(agent.baseUrl));
 
-  // Ordered groups: use groupOrder, then any groups not in the order
-  const orderedGroups: AgentGroup[] = [];
+  // Ordered groups
   const groupMap = new Map(agentGroups.map((g) => [g.id, g]));
-  for (const id of groupOrder) {
-    const g = groupMap.get(id);
-    if (g) orderedGroups.push(g);
-  }
-  for (const g of agentGroups) {
-    if (!groupOrder.includes(g.id)) orderedGroups.push(g);
+  const orderedGroups = [
+    ...groupOrder.map((id) => groupMap.get(id)).filter(Boolean),
+    ...agentGroups.filter((g) => !groupOrder.includes(g.id)),
+  ] as typeof agentGroups;
+
+  function resolveAgents(urls: string[]) {
+    return urls.map((u) => directMap.get(u)).filter(Boolean) as AgentInfo[];
   }
 
-  // Resolve group agents (only those present in directAgents)
-  const directAgentMap = new Map(directAgents.map(({ agent }) => [agent.baseUrl, agent]));
-  function resolveGroupAgents(group: AgentGroup): AgentInfo[] {
-    return group.agentUrls.map((url) => directAgentMap.get(url)).filter((a): a is AgentInfo => a !== undefined);
+  function findGroup(url: string): string | null {
+    return agentGroups.find((g) => g.agentUrls.includes(url))?.id ?? null;
+  }
+
+  // Drag-drop
+  function handleDrop() {
+    if (!dragUrl || !dropTarget) { setDragUrl(null); setDropTarget(null); return; }
+    const from = findGroup(dragUrl);
+    const { groupId: to, index } = dropTarget;
+
+    if (to === null) {
+      if (from) removeAgentFromGroup(dragUrl);
+      // ungrouped reorder not worth the complexity
+    } else if (from === to) {
+      const fromIdx = agentGroups.find((g) => g.id === to)?.agentUrls.indexOf(dragUrl) ?? -1;
+      if (fromIdx >= 0 && fromIdx !== index) reorderAgentInGroup(to, fromIdx, index);
+    } else {
+      moveAgentToGroup(dragUrl, to, index);
+    }
+    setDragUrl(null);
+    setDropTarget(null);
+  }
+
+  // Context menus
+  function agentMenuItems(url: string): MenuEntry[] {
+    const currentGroup = findGroup(url);
+    const moveItems: MenuEntry[] = [];
+    if (currentGroup) moveItems.push({ label: "Move to ungrouped", onClick: () => removeAgentFromGroup(url) });
+    for (const g of agentGroups) {
+      if (g.id !== currentGroup) moveItems.push({ label: `Move to ${g.name}`, onClick: () => moveAgentToGroup(url, g.id) });
+    }
+    moveItems.push({ separator: true, label: "", onClick: () => {} });
+    moveItems.push({ label: "New group…", onClick: () => { setGroupModal({ mode: "create", agentUrl: url }); setGroupModalName(""); } });
+    return [
+      ...moveItems,
+      { separator: true, label: "", onClick: () => {} },
+      { label: "Remove", danger: true, onClick: () => onRemoveAgent?.(url) },
+    ];
+  }
+
+  function groupMenuItems(groupId: string): MenuEntry[] {
+    return [
+      { label: "Rename", onClick: () => { const g = agentGroups.find((g) => g.id === groupId); setGroupModal({ mode: "rename", groupId }); setGroupModalName(g?.name ?? ""); } },
+      { label: "Delete group", danger: true, onClick: () => deleteGroup(groupId) },
+    ];
+  }
+
+  function openMenu(pos: { x: number; y: number }, items: MenuEntry[]) {
+    setMenu({ pos, items });
+  }
+
+  // Group modal submit
+  function handleGroupModalSubmit() {
+    const name = groupModalName.trim();
+    if (!name || !groupModal) return;
+    if (groupModal.mode === "create") createGroup(name, groupModal.agentUrl);
+    else renameGroup(groupModal.groupId, name);
+    setGroupModal(null);
+    setGroupModalName("");
   }
 
   function normalizeUrl(raw: string): string {
@@ -310,143 +267,45 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
   function handleAdd() {
     const url = normalizeUrl(newUrl);
     if (!url) return;
-    if (addMode === "server") {
-      onAddServer?.(url, newToken.trim());
-    } else {
-      onAddAgent?.(url, newToken.trim());
-    }
-    setNewUrl("");
-    setNewToken("");
-    setShowAddModal(false);
+    if (addMode === "server") onAddServer?.(url, newToken.trim());
+    else onAddAgent?.(url, newToken.trim());
+    setNewUrl(""); setNewToken(""); setShowAddModal(false);
   }
 
-  // Find which group an agent belongs to
-  function findGroupForAgent(agentUrl: string): string | null {
-    for (const g of agentGroups) {
-      if (g.agentUrls.includes(agentUrl)) return g.id;
-    }
-    return null;
-  }
-
-  // Handle agent three-dot menu
-  function openAgentMenu(agentUrl: string, e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setAgentMenu({ agentUrl, pos: { x: e.clientX, y: e.clientY } });
-    setMoveToGroupMenu(null);
-    setGroupMenu(null);
-  }
-
-  // Handle group three-dot menu
-  function openGroupMenu(groupId: string, e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setGroupMenu({ groupId, pos: { x: e.clientX, y: e.clientY } });
-    setAgentMenu(null);
-    setMoveToGroupMenu(null);
-  }
-
-  // Handle new group creation prompt
-  function handleGroupModalSubmit() {
-    const name = groupModalName.trim();
-    if (!name || !groupModal) return;
-    if (groupModal.mode === "create") {
-      createGroup(name, groupModal.agentUrl);
-    } else {
-      renameGroup(groupModal.groupId, name);
-    }
-    setGroupModal(null);
-    setGroupModalName("");
-  }
-
-  // Handle rename submit
-  
-
-  // Unified drop handler — always uses dropTarget state set by onDragOver
-  function handleAgentDrop() {
-    if (!dragAgentUrl || !dropTarget) {
-      setDragAgentUrl(null);
-      setDropTarget(null);
-      return;
-    }
-    const fromGroup = findGroupForAgent(dragAgentUrl);
-    const toGroup = dropTarget.groupId;
-    const toIdx = dropTarget.index;
-
-    if (toGroup === null) {
-      // Drop into ungrouped zone
-      if (fromGroup !== null) {
-        removeAgentFromGroup(dragAgentUrl);
-      } else {
-        // Reorder ungrouped
-        const fromIdx = ungroupedAgents.findIndex(u => u.agent.baseUrl === dragAgentUrl);
-        const toGlobal = toIdx >= 0 && toIdx < ungroupedAgents.length ? ungroupedAgents[toIdx].globalIndex : -1;
-        if (fromIdx >= 0 && toGlobal >= 0 && ungroupedAgents[fromIdx].globalIndex !== toGlobal) {
-          onReorder?.(ungroupedAgents[fromIdx].globalIndex, toGlobal);
-        }
-      }
-    } else if (fromGroup === toGroup) {
-      // Reorder within same group
-      const group = agentGroups.find(g => g.id === toGroup);
-      const fromIdx = group?.agentUrls.indexOf(dragAgentUrl) ?? -1;
-      if (fromIdx >= 0 && fromIdx !== toIdx) {
-        reorderAgentInGroup(toGroup, fromIdx, toIdx);
-      }
-    } else {
-      // Move between groups (or ungrouped → group)
-      moveAgentToGroup(dragAgentUrl, toGroup, toIdx);
-    }
-
-    setDragAgentUrl(null);
-    setDropTarget(null);
-  }
-
-  // Get the active agent name for plugin sidebar context
-  const activeAgentObj = agents.find(a => agentKey(a) === active);
-
-  // Render a single draggable agent row
-  function renderAgentItem(agent: AgentInfo, globalIndex: number, groupId: string | null, indexInGroup: number) {
+  // Render agent row with drag
+  function renderAgent(agent: AgentInfo, groupId: string | null, indexInGroup: number) {
     const key = agentKey(agent);
-    const dragging = dragAgentUrl !== null && dragAgentUrl !== agent.baseUrl;
-    const isDropBefore = dragging && dropTarget?.groupId === groupId && dropTarget?.index === indexInGroup;
-    const isDropAfter = dragging && dropTarget?.groupId === groupId && dropTarget?.index === indexInGroup + 1;
+    const dragging = dragUrl && dragUrl !== agent.baseUrl;
+    const isBefore = dragging && dropTarget?.groupId === groupId && dropTarget.index === indexInGroup;
+    const isAfter = dragging && dropTarget?.groupId === groupId && dropTarget.index === indexInGroup + 1;
 
     return (
       <div
         key={key}
         draggable
-        onDragStart={(e) => {
-          setDragAgentUrl(agent.baseUrl);
-          e.dataTransfer.effectAllowed = "move";
-        }}
+        onDragStart={(e) => { setDragUrl(agent.baseUrl); e.dataTransfer.effectAllowed = "move"; }}
         onDragOver={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (!dragAgentUrl) return;
-          const rect = e.currentTarget.getBoundingClientRect();
-          const idx = e.clientY < rect.top + rect.height / 2 ? indexInGroup : indexInGroup + 1;
-          setDropTarget({ groupId, index: idx });
+          e.preventDefault(); e.stopPropagation();
+          if (!dragUrl) return;
+          const r = e.currentTarget.getBoundingClientRect();
+          setDropTarget({ groupId, index: e.clientY < r.top + r.height / 2 ? indexInGroup : indexInGroup + 1 });
         }}
-        onDrop={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          handleAgentDrop();
-        }}
-        onDragEnd={() => { setDragAgentUrl(null); setDropTarget(null); }}
-        className="relative"
-        style={isDropBefore ? { boxShadow: "0 -2px 0 0 var(--orange)" } : isDropAfter ? { boxShadow: "0 2px 0 0 var(--orange)" } : undefined}
+        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(); }}
+        onDragEnd={() => { setDragUrl(null); setDropTarget(null); }}
+        style={isBefore ? { boxShadow: "0 -2px 0 0 var(--orange)" } : isAfter ? { boxShadow: "0 2px 0 0 var(--orange)" } : undefined}
       >
         <AgentRow
-          agent={agent}
-          isActive={key === active}
+          agent={agent} isActive={key === active}
           activeThinking={key === active ? activeThinking : undefined}
           mini={mini}
           onSelect={() => onSelect(key)}
-          onMenuOpen={(e) => openAgentMenu(agent.baseUrl, e)}
+          onMenuOpen={(e) => { e.preventDefault(); e.stopPropagation(); openMenu({ x: e.clientX, y: e.clientY }, agentMenuItems(agent.baseUrl)); }}
         />
       </div>
     );
   }
+
+  const activeAgentObj = agents.find((a) => agentKey(a) === active);
 
   return (
     <div
@@ -454,278 +313,113 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
       data-sidebar
       style={{ width: mini ? 75 : 200 }}
     >
-      {/* Right edge toggle strip */}
-      <div
-        onClick={toggleMini}
-        className="absolute top-0 right-0 w-[2px] h-full cursor-col-resize hover:bg-[var(--accent)] transition-colors duration-150 z-10"
-        style={{ background: "var(--border)" }}
-        title={mini ? "Expand sidebar" : "Collapse sidebar"}
-      />
-      {/* Header: logo toggles mini/full */}
+      {/* Right edge toggle */}
+      <div onClick={toggleMini} className="absolute top-0 right-0 w-[2px] h-full cursor-col-resize hover:bg-[var(--accent)] transition-colors duration-150 z-10" style={{ background: "var(--border)" }} title={mini ? "Expand" : "Collapse"} />
+
+      {/* Header */}
       <div className="h-12 flex items-center border-b border-[var(--border)] px-4 whitespace-nowrap">
-        <button
-          onClick={toggleMini}
-          className="cursor-pointer hover:opacity-80 transition-opacity"
-          title={mini ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          <span className="text-sm font-semibold">
-            kern<span className="text-[var(--accent)]">.</span>
-          </span>
+        <button onClick={toggleMini} className="cursor-pointer hover:opacity-80 transition-opacity">
+          <span className="text-sm font-semibold">kern<span className="text-[var(--accent)]">.</span></span>
         </button>
       </div>
 
       {/* Agent list */}
       <div className="flex-1 overflow-y-auto p-2">
-        {/* Ungrouped direct agents — draggable */}
-        {ungroupedAgents.length > 0 && (
+        {/* Ungrouped */}
+        {ungrouped.length > 0 && (
           <div
             className="mb-1.5"
-            onDragOver={(e) => {
-              e.preventDefault();
-              if (dragAgentUrl) setDropTarget({ groupId: null, index: -1 });
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              handleAgentDrop();
-            }}
+            onDragOver={(e) => { e.preventDefault(); if (dragUrl) setDropTarget({ groupId: null, index: -1 }); }}
+            onDrop={(e) => { e.preventDefault(); handleDrop(); }}
           >
-            {ungroupedAgents.map(({ agent, globalIndex }, i) =>
-              renderAgentItem(agent, globalIndex, null, i)
-            )}
+            {ungrouped.map(({ agent }, i) => renderAgent(agent, null, i))}
           </div>
         )}
 
-        {/* Agent groups */}
-        {orderedGroups.map((group, groupIdx) => {
-          const groupAgents = resolveGroupAgents(group);
-          // Keep empty groups visible
-
-          const isGroupDropTarget = dropGroupIndex === groupIdx && dragGroupIndex !== null && dragGroupIndex !== groupIdx;
-
+        {/* Groups */}
+        {orderedGroups.map((group) => {
+          const members = resolveAgents(group.agentUrls);
           return (
             <div
               key={group.id}
-              className={`mb-1.5 ${isGroupDropTarget ? "border-t-2 border-[var(--accent)]" : "border-t-2 border-transparent"}`}
-              draggable={!mini}
-              onDragStart={(e) => {
-                if (dragAgentUrl) return; // Don't drag group when dragging agent
-                e.stopPropagation();
-                setDragGroupIndex(groupIdx);
-                e.dataTransfer.effectAllowed = "move";
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                if (dragAgentUrl) {
-                  setDropTarget({ groupId: group.id, index: groupAgents.length });
-                } else if (dragGroupIndex !== null) {
-                  setDropGroupIndex(groupIdx);
-                }
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                if (dragAgentUrl) {
-                  handleAgentDrop();
-                } else if (dragGroupIndex !== null && dragGroupIndex !== groupIdx) {
-                  reorderGroups(dragGroupIndex, groupIdx);
-                }
-                setDragGroupIndex(null);
-                setDropGroupIndex(null);
-              }}
-              onDragEnd={() => { setDragGroupIndex(null); setDropGroupIndex(null); }}
+              className="mb-1.5"
+              onDragOver={(e) => { e.preventDefault(); if (dragUrl) setDropTarget({ groupId: group.id, index: members.length }); }}
+              onDrop={(e) => { e.preventDefault(); handleDrop(); }}
             >
-              {/* Group header */}
               <div className="flex items-center justify-between px-2 mb-1 group/header">
                 <button
                   onClick={() => toggleGroupCollapsed(group.id)}
                   className="flex items-center gap-1 text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold truncate cursor-pointer hover:text-[var(--text-dim)] transition-colors"
                 >
-                  <span className={`inline-block text-xs transition-transform duration-150 ${group.collapsed ? "" : "rotate-90"}`}>
-                    ▸
-                  </span>
-                  <span>
-                    {group.name}
-                    {group.collapsed ? ` (${groupAgents.length})` : ""}
-                  </span>
+                  <span className={`inline-block text-xs transition-transform duration-150 ${group.collapsed ? "" : "rotate-90"}`}>▸</span>
+                  <span>{group.name}{group.collapsed ? ` (${members.length})` : ""}</span>
                 </button>
                 {!mini && (
                   <button
-                    onClick={(e) => openGroupMenu(group.id, e)}
+                    onClick={(e) => { e.stopPropagation(); openMenu({ x: e.clientX, y: e.clientY }, groupMenuItems(group.id)); }}
                     className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-dim)] opacity-0 group-hover/header:opacity-100 transition-opacity cursor-pointer"
-                    title="Group options"
                   >
                     ⋯
                   </button>
                 )}
               </div>
-
-              {/* Group agents */}
-              {!group.collapsed && (groupAgents.length > 0
-                ? groupAgents.map((agent, i) => {
-                    const globalIndex = directAgents.find(d => d.agent.baseUrl === agent.baseUrl)?.globalIndex ?? 0;
-                    return renderAgentItem(agent, globalIndex, group.id, i);
-                  })
+              {!group.collapsed && (members.length > 0
+                ? members.map((agent, i) => renderAgent(agent, group.id, i))
                 : <div className="px-3 py-1.5 text-[10px] text-[var(--text-muted)] italic">No agents</div>
               )}
             </div>
           );
         })}
 
-        {/* Proxy server groups */}
+        {/* Proxy servers */}
         {Array.from(proxyGroups.entries()).map(([server, serverAgents]) => (
           <div key={server} className="mb-1.5">
             <div className="flex items-center justify-between px-2 mb-1">
-              <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider truncate">
-                {server.replace(/^https?:\/\//, "")}
-              </span>
-              <button
-                onClick={() => onRemoveServer?.(server)}
-                className="text-[10px] text-[var(--text-muted)] hover:text-red-400"
-                title="Remove server"
-              >
-                ×
-              </button>
+              <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider truncate">{server.replace(/^https?:\/\//, "")}</span>
+              <button onClick={() => onRemoveServer?.(server)} className="text-[10px] text-[var(--text-muted)] hover:text-red-400" title="Remove server">×</button>
             </div>
             {serverAgents.map((agent) => {
               const key = agentKey(agent);
-              return (
-                <AgentRow
-                  key={key}
-                  agent={agent}
-                  isActive={key === active}
-                  activeThinking={key === active ? activeThinking : undefined}
-                  mini={mini}
-                  onSelect={() => onSelect(key)}
-                />
-              );
+              return <AgentRow key={key} agent={agent} isActive={key === active} activeThinking={key === active ? activeThinking : undefined} mini={mini} onSelect={() => onSelect(key)} />;
             })}
           </div>
         ))}
 
         {agents.length === 0 && (
-          <div className="text-xs text-[var(--text-muted)] px-2 py-4 text-center">
-            Add an agent to get started.
-          </div>
+          <div className="text-xs text-[var(--text-muted)] px-2 py-4 text-center">Add an agent to get started.</div>
         )}
 
-        {/* Add button — after agents */}
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2.5 w-full rounded-lg text-sm text-left transition-colors cursor-pointer p-2.5 mb-0.5 overflow-hidden hover:bg-white/[0.05]"
-          title="Add agent or server"
-        >
+        {/* Add button */}
+        <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2.5 w-full rounded-lg text-sm text-left transition-colors cursor-pointer p-2.5 mb-0.5 overflow-hidden hover:bg-white/[0.05]" title="Add agent or server">
           <div className="relative flex-shrink-0">
-            <div className="w-10 h-10 flex items-center justify-center border border-dashed border-[var(--text-muted)]"
-              style={{ borderRadius: "22%" }}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round">
-                <line x1="8" y1="4" x2="8" y2="12" />
-                <line x1="4" y1="8" x2="12" y2="8" />
-              </svg>
+            <div className="w-10 h-10 flex items-center justify-center border border-dashed border-[var(--text-muted)]" style={{ borderRadius: "22%" }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round"><line x1="8" y1="4" x2="8" y2="12" /><line x1="4" y1="8" x2="12" y2="8" /></svg>
             </div>
           </div>
           <span className="text-[var(--text-muted)] text-xs whitespace-nowrap">Add</span>
         </button>
 
-        {/* Plugin sidebar sections */}
+        {/* Plugin sidebar */}
         {renderPluginSidebars({ agents, activeAgent: activeAgentObj?.name ?? null, mini })}
       </div>
 
-      {/* Agent context menu */}
-      {agentMenu && (
-        <ContextMenu
-          pos={agentMenu.pos}
-          items={[
-            {
-              label: "Move to group",
-              onClick: () => {
-                setMoveToGroupMenu({
-                  agentUrl: agentMenu.agentUrl,
-                  currentGroupId: findGroupForAgent(agentMenu.agentUrl),
-                  pos: agentMenu.pos,
-                });
-                setAgentMenu(null);
-              },
-            },
-            {
-              label: "Remove",
-              danger: true,
-              onClick: () => onRemoveAgent?.(agentMenu.agentUrl),
-            },
-          ]}
-          onClose={() => setAgentMenu(null)}
-        />
-      )}
+      {/* Dropdown menu */}
+      {menu && <DropdownMenu pos={menu.pos} items={menu.items} onClose={() => setMenu(null)} />}
 
-      {/* Move to group submenu */}
-      {moveToGroupMenu && (
-        <MoveToGroupMenu
-          pos={moveToGroupMenu.pos}
-          groups={agentGroups}
-          currentGroupId={moveToGroupMenu.currentGroupId}
-          onMoveToGroup={(groupId) => moveAgentToGroup(moveToGroupMenu.agentUrl, groupId)}
-          onNewGroup={() => {
-            setGroupModal({ mode: "create", agentUrl: moveToGroupMenu.agentUrl });
-            setGroupModalName("");
-          }}
-          onMoveToUngrouped={() => removeAgentFromGroup(moveToGroupMenu.agentUrl)}
-          onClose={() => setMoveToGroupMenu(null)}
-        />
-      )}
-
-      {/* Group context menu */}
-      {groupMenu && (
-        <ContextMenu
-          pos={groupMenu.pos}
-          items={[
-            {
-              label: "Rename",
-              onClick: () => {
-                const group = agentGroups.find(g => g.id === groupMenu.groupId);
-                setGroupModal({ mode: "rename", groupId: groupMenu.groupId });
-                setGroupModalName(group?.name ?? "");
-              },
-            },
-            {
-              label: "Delete",
-              danger: true,
-              onClick: () => deleteGroup(groupMenu.groupId),
-            },
-          ]}
-          onClose={() => setGroupMenu(null)}
-        />
-      )}
-
-      {/* Group name modal (create / rename) */}
+      {/* Group name modal */}
       {groupModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ background: "rgba(0,0,0,0.5)" }}
-          onClick={() => { setGroupModal(null); setGroupModalName(""); }}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }} onClick={() => { setGroupModal(null); setGroupModalName(""); }}>
           <div className="bg-[var(--bg)] border border-[var(--border)] rounded-lg w-[280px] p-4" onClick={(e) => e.stopPropagation()}>
-            <p className="text-xs text-[var(--text-dim)] mb-2 font-semibold">
-              {groupModal.mode === "create" ? "New group" : "Rename group"}
-            </p>
+            <p className="text-xs text-[var(--text-dim)] mb-2 font-semibold">{groupModal.mode === "create" ? "New group" : "Rename group"}</p>
             <input
-              autoFocus
-              type="text"
-              placeholder="Group name"
-              value={groupModalName}
+              autoFocus type="text" placeholder="Group name" value={groupModalName}
               onChange={(e) => setGroupModalName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleGroupModalSubmit(); if (e.key === "Escape") { setGroupModal(null); setGroupModalName(""); } }}
               className="w-full px-3 py-2 text-sm bg-[var(--bg-sidebar)] border border-[var(--border)] rounded-md mb-3 text-[var(--text)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--text-muted)] transition-colors"
             />
             <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => { setGroupModal(null); setGroupModalName(""); }}
-                className="text-xs px-3 py-1.5 rounded text-[var(--text-muted)] hover:text-[var(--text)] cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleGroupModalSubmit}
-                disabled={!groupModalName.trim()}
-                className="text-xs px-3 py-1.5 rounded bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-dim)] hover:text-[var(--text)] cursor-pointer disabled:opacity-30"
-              >
+              <button onClick={() => { setGroupModal(null); setGroupModalName(""); }} className="text-xs px-3 py-1.5 rounded text-[var(--text-muted)] hover:text-[var(--text)] cursor-pointer">Cancel</button>
+              <button onClick={handleGroupModalSubmit} disabled={!groupModalName.trim()} className="text-xs px-3 py-1.5 rounded bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-dim)] hover:text-[var(--text)] cursor-pointer disabled:opacity-30">
                 {groupModal.mode === "create" ? "Create" : "Rename"}
               </button>
             </div>
@@ -733,72 +427,29 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
         </div>
       )}
 
-      {/* Add modal — agent or server */}
+      {/* Add modal */}
       {showAddModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ background: "rgba(0,0,0,0.5)" }}
-          onClick={() => setShowAddModal(false)}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }} onClick={() => setShowAddModal(false)}>
           <div className="bg-[var(--bg)] border border-[var(--border)] rounded-lg w-[340px]" onClick={(e) => e.stopPropagation()}>
-            {/* Tab switcher */}
             <div className="flex gap-4 px-4 pt-3 border-b border-[var(--border)]">
               {(["agent", "server"] as AddMode[]).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setAddMode(mode)}
-                  className={`text-xs pb-2 transition-colors cursor-pointer border-b -mb-px ${
-                    addMode === mode
-                      ? "border-[var(--text-dim)] text-[var(--text)]"
-                      : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-dim)]"
-                  }`}
+                  className={`text-xs pb-2 transition-colors cursor-pointer border-b -mb-px ${addMode === mode ? "border-[var(--text-dim)] text-[var(--text)]" : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-dim)]"}`}
                 >
                   {mode === "agent" ? "Agent" : "Proxy server"}
                 </button>
               ))}
             </div>
-
-            {/* Form */}
             <div className="px-4 pt-3 pb-4">
-              <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
-                {addMode === "agent"
-                  ? "Connect directly to a running agent."
-                  : "Connect to a kern proxy managing multiple agents."}
-              </p>
-
-              <label className="block text-xs text-[var(--text-muted)] mb-1">
-                {addMode === "agent" ? "URL" : "Server URL"}
-              </label>
-              <input
-                type="text"
-                placeholder={addMode === "agent" ? "host:4100" : "host:8080"}
-                value={newUrl}
-                onChange={(e) => setNewUrl(e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-[var(--bg-sidebar)] border border-[var(--border)] rounded-md mb-3 text-[var(--text)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--text-muted)] transition-colors"
-                autoFocus
-              />
-
+              <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">{addMode === "agent" ? "Connect directly to a running agent." : "Connect to a kern proxy managing multiple agents."}</p>
+              <label className="block text-xs text-[var(--text-muted)] mb-1">{addMode === "agent" ? "URL" : "Server URL"}</label>
+              <input type="text" placeholder={addMode === "agent" ? "host:4100" : "host:8080"} value={newUrl} onChange={(e) => setNewUrl(e.target.value)} className="w-full px-3 py-2 text-sm bg-[var(--bg-sidebar)] border border-[var(--border)] rounded-md mb-3 text-[var(--text)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--text-muted)] transition-colors" autoFocus />
               <label className="block text-xs text-[var(--text-muted)] mb-1">Token</label>
-              <input
-                type="password"
-                placeholder={addMode === "agent" ? "KERN_AUTH_TOKEN" : "KERN_WEB_TOKEN"}
-                value={newToken}
-                onChange={(e) => setNewToken(e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-[var(--bg-sidebar)] border border-[var(--border)] rounded-md mb-4 text-[var(--text)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--text-muted)] transition-colors"
-                onKeyDown={(e) => { if (e.key === "Enter" && newUrl.trim()) handleAdd(); }}
-              />
-
-              <button
-                onClick={handleAdd}
-                disabled={!newUrl.trim()}
-                className="w-full text-sm py-2 rounded-md border border-[var(--border)] bg-[var(--bg-surface)] transition-colors cursor-pointer text-[var(--text-dim)] hover:text-[var(--text)] hover:border-[var(--text-muted)] disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                Connect
-              </button>
-
-              <p className="text-[11px] text-[var(--text-muted)] mt-3 text-center">
-                Don&apos;t have an agent? <a href="https://kern-ai.com/docs/get-started" target="_blank" rel="noopener" className="text-[var(--text-dim)] hover:text-[var(--text)] underline">Get started</a>
-              </p>
+              <input type="password" placeholder={addMode === "agent" ? "KERN_AUTH_TOKEN" : "KERN_WEB_TOKEN"} value={newToken} onChange={(e) => setNewToken(e.target.value)} className="w-full px-3 py-2 text-sm bg-[var(--bg-sidebar)] border border-[var(--border)] rounded-md mb-4 text-[var(--text)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--text-muted)] transition-colors" onKeyDown={(e) => { if (e.key === "Enter" && newUrl.trim()) handleAdd(); }} />
+              <button onClick={handleAdd} disabled={!newUrl.trim()} className="w-full text-sm py-2 rounded-md border border-[var(--border)] bg-[var(--bg-surface)] transition-colors cursor-pointer text-[var(--text-dim)] hover:text-[var(--text)] hover:border-[var(--text-muted)] disabled:opacity-30 disabled:cursor-not-allowed">Connect</button>
+              <p className="text-[11px] text-[var(--text-muted)] mt-3 text-center">Don&apos;t have an agent? <a href="https://kern-ai.com/docs/get-started" target="_blank" rel="noopener" className="text-[var(--text-dim)] hover:text-[var(--text)] underline">Get started</a></p>
             </div>
           </div>
         </div>
