@@ -8,7 +8,11 @@
   - `KERN_MODEL`, `KERN_PORT`, `KERN_NAME`, `KERN_PROVIDER` env vars override config ([#192](https://github.com/oguzbilgic/kern-ai/issues/192))
   - Mount a volume at `/home/kern/agent` for persistent state
   ```
-  docker run -v agent:/home/kern/agent -e KERN_MODEL=... -p 4100:4100 ghcr.io/oguzbilgic/kern-ai
+  docker run \
+    -v agent:/home/kern/agent \
+    -e KERN_MODEL=... \
+    -p 4100:4100 \
+    ghcr.io/oguzbilgic/kern-ai
   ```
 
 ## v0.26.0
