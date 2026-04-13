@@ -6,9 +6,9 @@ RUN npm run build:server \
     && npm install -g kern-ai-*.tgz \
     && rm -rf /app
 
-RUN chown -R node:node /home/node
-USER node
-WORKDIR /home/node/agent
+RUN useradd -m kern
+USER kern
+WORKDIR /home/kern/agent
 
 EXPOSE 4100
 ENV KERN_PORT=4100
