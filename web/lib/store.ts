@@ -241,7 +241,7 @@ export const useStore = create<KernStore>()(
           const updated = (s.ui.agentGroups ?? []).map((g) => {
             const filtered = g.agentUrls.filter((u) => u !== agentUrl);
             if (g.id === groupId) {
-              if (atIndex !== undefined && atIndex >= 0 && atIndex < filtered.length) {
+              if (atIndex !== undefined && atIndex >= 0 && atIndex <= filtered.length) {
                 const urls = [...filtered];
                 urls.splice(atIndex, 0, agentUrl);
                 return { ...g, agentUrls: urls };

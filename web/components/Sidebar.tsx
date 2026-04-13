@@ -391,14 +391,15 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
     e.preventDefault();
     if (dragAgentUrl) {
       const currentGroupId = findGroupForAgent(dragAgentUrl);
-      if (currentGroupId === groupId && dropTarget?.groupId === groupId && dropTarget.index >= 0) {
+      const targetIdx = dropTarget?.groupId === groupId ? dropTarget.index : undefined;
+      if (currentGroupId === groupId && targetIdx !== undefined && targetIdx >= 0) {
         // Reorder within same group
         const fromIdx = agentGroups.find(g => g.id === groupId)?.agentUrls.indexOf(dragAgentUrl) ?? -1;
-        if (fromIdx >= 0 && fromIdx !== dropTarget.index) {
-          reorderAgentInGroup(groupId, fromIdx, dropTarget.index);
+        if (fromIdx >= 0 && fromIdx !== targetIdx) {
+          reorderAgentInGroup(groupId, fromIdx, targetIdx);
         }
       } else {
-        moveAgentToGroup(dragAgentUrl, groupId);
+        moveAgentToGroup(dragAgentUrl, groupId, targetIdx);
       }
     }
     setDragAgentUrl(null);
