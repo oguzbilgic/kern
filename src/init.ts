@@ -136,7 +136,7 @@ const PROVIDERS = [
   { name: "Ollama (local)", value: "ollama", keyLabel: "Ollama server URL" },
 ];
 
-const API_KEY_ENV: Record<string, string> = {
+export const API_KEY_ENV: Record<string, string> = {
   openrouter: "OPENROUTER_API_KEY",
   anthropic: "ANTHROPIC_API_KEY",
   openai: "OPENAI_API_KEY",
@@ -397,7 +397,7 @@ export async function runInit(targetArg?: string, flags?: Record<string, string>
   });
 }
 
-interface ScaffoldOpts {
+export interface ScaffoldOpts {
   name: string;
   dir: string;
   provider: string;
@@ -410,7 +410,7 @@ interface ScaffoldOpts {
   skipStart?: boolean;
 }
 
-async function scaffoldAgent(opts: ScaffoldOpts): Promise<void> {
+export async function scaffoldAgent(opts: ScaffoldOpts): Promise<void> {
   const { name, dir, provider, model, apiKey, envVar, telegramToken, slackBotToken, slackAppToken, skipStart } = opts;
 
   const dirExists = existsSync(dir);
@@ -558,26 +558,3 @@ node_modules/
   }
 }
 
-/**
- * Minimal non-interactive init for Docker / --init-if-needed.
- * Calls scaffoldAgent with defaults from env vars, no prompts, no auto-start.
- */
-export async function initMinimal(dir: string): Promise<void> {
-  const name = process.env.KERN_NAME || basename(dir);
-  const provider = process.env.KERN_PROVIDER || "openrouter";
-  const envVar = API_KEY_ENV[provider] || "OPENROUTER_API_KEY";
-
-  await scaffoldAgent({
-    name,
-    dir: resolve(dir),
-    provider,
-    model: process.env.KERN_MODEL || "anthropic/claude-opus-4.6",
-    apiKey: process.env[envVar] || "",
-    envVar,
-    telegramToken: process.env.TELEGRAM_BOT_TOKEN || "",
-    slackBotToken: process.env.SLACK_BOT_TOKEN || "",
-    slackAppToken: process.env.SLACK_APP_TOKEN || "",
-    skipStart: true,
-  });
-  log("init", `initialized ${name} at ${dir}`);
-}

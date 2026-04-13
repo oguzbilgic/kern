@@ -1,6 +1,6 @@
 #!/usr/bin/env -S node --no-deprecation
 
-import { resolve } from "path";
+import { resolve, basename } from "path";
 import { existsSync } from "fs";
 import { startApp } from "./app.js";
 import { runInit } from "./init.js";
@@ -362,8 +362,18 @@ async function main() {
     const agentDir = initIfNeeded ? resolve(dirArg || ".") : await resolveAgentDir(dirArg);
 
     if (initIfNeeded && !existsSync(join(agentDir, ".kern", "config.json"))) {
-      const { initMinimal } = await import("./init.js");
-      await initMinimal(agentDir);
+      const { scaffoldAgent, API_KEY_ENV } = await import("./init.js");
+      const name = process.env.KERN_NAME || basename(agentDir);
+      const provider = process.env.KERN_PROVIDER || "openrouter";
+      const envVar = API_KEY_ENV[provider] || "OPENROUTER_API_KEY";
+      await scaffoldAgent({
+        name, dir: agentDir, provider, envVar, skipStart: true,
+        model: process.env.KERN_MODEL || "anthropic/claude-opus-4.6",
+        apiKey: process.env[envVar] || "",
+        telegramToken: process.env.TELEGRAM_BOT_TOKEN || "",
+        slackBotToken: process.env.SLACK_BOT_TOKEN || "",
+        slackAppToken: process.env.SLACK_APP_TOKEN || "",
+      });
     }
 
     await startApp(agentDir);
