@@ -1,0 +1,27 @@
+name: Docker
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: {}
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: |
+            ${{ github.event_name == 'release' && format('ghcr.io/oguzbilgic/kern-ai:{0}', github.event.release.tag_name) || '' }}
+            ${{ github.event_name == 'release' && 'ghcr.io/oguzbilgic/kern-ai:latest' || '' }}
+            ${{ github.event_name == 'workflow_dispatch' && format('ghcr.io/oguzbilgic/kern-ai:{0}', github.ref_name) || '' }}
