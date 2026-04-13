@@ -362,46 +362,41 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
   // Handle rename submit
   
 
-  // Handle agent drag into ungrouped zone
-  function handleUngroupedDragOver(e: React.DragEvent) {
-    e.preventDefault();
-    if (dragAgentUrl) {
-      setDropTarget({ groupId: null, index: -1 });
+  // Unified drop handler — always uses dropTarget state set by onDragOver
+  function handleAgentDrop() {
+    if (!dragAgentUrl || !dropTarget) {
+      setDragAgentUrl(null);
+      setDropTarget(null);
+      return;
     }
-  }
+    const fromGroup = findGroupForAgent(dragAgentUrl);
+    const toGroup = dropTarget.groupId;
+    const toIdx = dropTarget.index;
 
-  function handleUngroupedDrop(e: React.DragEvent) {
-    e.preventDefault();
-    if (dragAgentUrl) {
-      removeAgentFromGroup(dragAgentUrl);
-    }
-    setDragAgentUrl(null);
-    setDropTarget(null);
-  }
-
-  // Handle agent drag into group zone
-  function handleGroupDragOver(groupId: string, index: number, e: React.DragEvent) {
-    e.preventDefault();
-    if (dragAgentUrl) {
-      setDropTarget({ groupId, index });
-    }
-  }
-
-  function handleGroupDrop(groupId: string, e: React.DragEvent) {
-    e.preventDefault();
-    if (dragAgentUrl) {
-      const currentGroupId = findGroupForAgent(dragAgentUrl);
-      const targetIdx = dropTarget?.groupId === groupId ? dropTarget.index : undefined;
-      if (currentGroupId === groupId && targetIdx !== undefined && targetIdx >= 0) {
-        // Reorder within same group
-        const fromIdx = agentGroups.find(g => g.id === groupId)?.agentUrls.indexOf(dragAgentUrl) ?? -1;
-        if (fromIdx >= 0 && fromIdx !== targetIdx) {
-          reorderAgentInGroup(groupId, fromIdx, targetIdx);
-        }
+    if (toGroup === null) {
+      // Drop into ungrouped zone
+      if (fromGroup !== null) {
+        removeAgentFromGroup(dragAgentUrl);
       } else {
-        moveAgentToGroup(dragAgentUrl, groupId, targetIdx);
+        // Reorder ungrouped
+        const fromIdx = ungroupedAgents.findIndex(u => u.agent.baseUrl === dragAgentUrl);
+        const toGlobal = toIdx >= 0 && toIdx < ungroupedAgents.length ? ungroupedAgents[toIdx].globalIndex : -1;
+        if (fromIdx >= 0 && toGlobal >= 0 && ungroupedAgents[fromIdx].globalIndex !== toGlobal) {
+          onReorder?.(ungroupedAgents[fromIdx].globalIndex, toGlobal);
+        }
       }
+    } else if (fromGroup === toGroup) {
+      // Reorder within same group
+      const group = agentGroups.find(g => g.id === toGroup);
+      const fromIdx = group?.agentUrls.indexOf(dragAgentUrl) ?? -1;
+      if (fromIdx >= 0 && fromIdx !== toIdx) {
+        reorderAgentInGroup(toGroup, fromIdx, toIdx);
+      }
+    } else {
+      // Move between groups (or ungrouped → group)
+      moveAgentToGroup(dragAgentUrl, toGroup, toIdx);
     }
+
     setDragAgentUrl(null);
     setDropTarget(null);
   }
@@ -412,12 +407,9 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
   // Render a single draggable agent row
   function renderAgentItem(agent: AgentInfo, globalIndex: number, groupId: string | null, indexInGroup: number) {
     const key = agentKey(agent);
-    const isDropBefore = dropTarget?.groupId === groupId &&
-      dropTarget?.index === indexInGroup &&
-      dragAgentUrl !== null && dragAgentUrl !== agent.baseUrl;
-    const isDropAfter = dropTarget?.groupId === groupId &&
-      dropTarget?.index === indexInGroup + 1 &&
-      dragAgentUrl !== null && dragAgentUrl !== agent.baseUrl;
+    const dragging = dragAgentUrl !== null && dragAgentUrl !== agent.baseUrl;
+    const isDropBefore = dragging && dropTarget?.groupId === groupId && dropTarget?.index === indexInGroup;
+    const isDropAfter = dragging && dropTarget?.groupId === groupId && dropTarget?.index === indexInGroup + 1;
 
     return (
       <div
@@ -430,44 +422,17 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
         onDragOver={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (dragAgentUrl) {
-            const rect = e.currentTarget.getBoundingClientRect();
-            const midY = rect.top + rect.height / 2;
-            const idx = e.clientY < midY ? indexInGroup : indexInGroup + 1;
-            setDropTarget({ groupId, index: idx });
-          }
+          if (!dragAgentUrl) return;
+          const rect = e.currentTarget.getBoundingClientRect();
+          const idx = e.clientY < rect.top + rect.height / 2 ? indexInGroup : indexInGroup + 1;
+          setDropTarget({ groupId, index: idx });
         }}
         onDrop={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (!dragAgentUrl) return;
-          const fromGroup = findGroupForAgent(dragAgentUrl);
-          if (fromGroup === groupId && groupId !== null) {
-            // Reorder within same group
-            const fromIdx = agentGroups.find(g => g.id === groupId)?.agentUrls.indexOf(dragAgentUrl) ?? -1;
-            if (fromIdx >= 0 && dropTarget && fromIdx !== dropTarget.index) {
-              reorderAgentInGroup(groupId, fromIdx, dropTarget.index);
-            }
-          } else if (groupId !== null) {
-            // Move into a group at drop position
-            moveAgentToGroup(dragAgentUrl, groupId, indexInGroup);
-          } else if (fromGroup !== null) {
-            // Drop onto ungrouped — remove from group
-            removeAgentFromGroup(dragAgentUrl);
-          } else {
-            // Ungrouped reorder
-            const fromIdx = ungroupedAgents.findIndex(u => u.agent.baseUrl === dragAgentUrl);
-            if (fromIdx >= 0 && fromIdx !== indexInGroup) {
-              onReorder?.(ungroupedAgents[fromIdx].globalIndex, globalIndex);
-            }
-          }
-          setDragAgentUrl(null);
-          setDropTarget(null);
+          handleAgentDrop();
         }}
-        onDragEnd={() => {
-          setDragAgentUrl(null);
-          setDropTarget(null);
-        }}
+        onDragEnd={() => { setDragAgentUrl(null); setDropTarget(null); }}
         className="relative"
         style={isDropBefore ? { boxShadow: "0 -2px 0 0 var(--orange)" } : isDropAfter ? { boxShadow: "0 2px 0 0 var(--orange)" } : undefined}
       >
@@ -515,8 +480,14 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
         {ungroupedAgents.length > 0 && (
           <div
             className="mb-1.5"
-            onDragOver={handleUngroupedDragOver}
-            onDrop={handleUngroupedDrop}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (dragAgentUrl) setDropTarget({ groupId: null, index: -1 });
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              handleAgentDrop();
+            }}
           >
             {ungroupedAgents.map(({ agent, globalIndex }, i) =>
               renderAgentItem(agent, globalIndex, null, i)
@@ -545,7 +516,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
               onDragOver={(e) => {
                 e.preventDefault();
                 if (dragAgentUrl) {
-                  handleGroupDragOver(group.id, groupAgents.length, e);
+                  setDropTarget({ groupId: group.id, index: groupAgents.length });
                 } else if (dragGroupIndex !== null) {
                   setDropGroupIndex(groupIdx);
                 }
@@ -553,7 +524,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
               onDrop={(e) => {
                 e.preventDefault();
                 if (dragAgentUrl) {
-                  handleGroupDrop(group.id, e);
+                  handleAgentDrop();
                 } else if (dragGroupIndex !== null && dragGroupIndex !== groupIdx) {
                   reorderGroups(dragGroupIndex, groupIdx);
                 }
