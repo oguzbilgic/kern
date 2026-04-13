@@ -12,6 +12,11 @@ use tauri_plugin_opener::OpenerExt;
 const DEFAULT_URL: &str = "https://app.kern-ai.com";
 
 #[tauri::command]
+fn open_external(app: tauri::AppHandle, url: String) {
+    let _ = app.opener().open_url(&url, None::<&str>);
+}
+
+#[tauri::command]
 fn set_custom_url(app: tauri::AppHandle, url: String) {
     let u = if url.is_empty() { None } else { Some(url.as_str()) };
     write_custom_url(&app, u);
@@ -46,7 +51,7 @@ fn get_start_url(app: &tauri::AppHandle) -> String {
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![set_custom_url])
+        .invoke_handler(tauri::generate_handler![set_custom_url, open_external])
         .setup(|app| {
             let start_url = get_start_url(app.handle());
             let handle = app.handle().clone();
@@ -90,7 +95,7 @@ fn main() {
                         e.preventDefault();
                         e.stopPropagation();
                         if (window.__TAURI_INTERNALS__) {
-                            window.__TAURI_INTERNALS__.invoke('plugin:opener|open_url', { url: href });
+                            window.__TAURI_INTERNALS__.invoke('open_external', { url: href });
                         }
                     }, true);
                 "#).ok();
@@ -234,7 +239,7 @@ fn main() {
                 "open_browser" => {
                     if let Some(w) = window {
                         let _ = w.eval(
-                            "window.__TAURI_INTERNALS__?.invoke('plugin:opener|open_url', { url: window.location.href });",
+                            "window.__TAURI_INTERNALS__?.invoke('open_external', { url: window.location.href });",
                         );
                     }
                 }
