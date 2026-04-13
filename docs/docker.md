@@ -19,6 +19,7 @@ This starts an agent with default settings. The agent scaffolds itself on first 
 | Variable | Required | Default |
 |----------|----------|---------|
 | `OPENROUTER_API_KEY` | Yes (or provider-specific key) | — |
+| `KERN_AUTH_TOKEN` | No | Auto-generated on first run |
 | `KERN_NAME` | No | `agent` (directory basename) |
 | `KERN_MODEL` | No | `anthropic/claude-opus-4.6` |
 | `KERN_PROVIDER` | No | `openrouter` |

@@ -18,10 +18,15 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set tags
+        id: tags
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "tags=ghcr.io/oguzbilgic/kern-ai:${{ github.event.release.tag_name }},ghcr.io/oguzbilgic/kern-ai:latest" >> $GITHUB_OUTPUT
+          else
+            echo "tags=ghcr.io/oguzbilgic/kern-ai:${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
       - uses: docker/build-push-action@v6
         with:
           push: true
-          tags: |
-            ${{ github.event_name == 'release' && format('ghcr.io/oguzbilgic/kern-ai:{0}', github.event.release.tag_name) || '' }}
-            ${{ github.event_name == 'release' && 'ghcr.io/oguzbilgic/kern-ai:latest' || '' }}
-            ${{ github.event_name == 'workflow_dispatch' && format('ghcr.io/oguzbilgic/kern-ai:{0}', github.ref_name) || '' }}
+          tags: ${{ steps.tags.outputs.tags }}

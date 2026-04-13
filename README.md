@@ -176,6 +176,7 @@ Models can be mixed per role: `model` for chat, `embeddingModel` for recall, `su
 
 ## Documentation
 
+- [Docker](docs/docker.md)
 - [Get started](docs/get-started.md)
 - [Configuration](docs/config.md)
 - [Architecture](docs/architecture.md)
