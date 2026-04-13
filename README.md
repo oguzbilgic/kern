@@ -34,6 +34,18 @@ docker run -d -p 8080:8080 ghcr.io/oguzbilgic/kern-ai kern web
 
 Open `http://localhost:8080`, click **Add agent**, enter `http://localhost:4100` and your token. That's it.
 
+Or skip the web UI and talk to your agent on Telegram:
+
+```bash
+docker run -d --restart=unless-stopped \
+  -v my-agent:/home/kern/agent \
+  -e OPENROUTER_API_KEY=sk-or-... \
+  -e TELEGRAM_BOT_TOKEN=123456:ABC-... \
+  ghcr.io/oguzbilgic/kern-ai
+```
+
+No ports, no web UI — just message your bot. First message auto-pairs you as operator.
+
 Agent data lives in the `my-agent` volume — sessions, memory, dashboards persist across restarts. Mount `-v my-agent:/home/kern` instead to persist the entire home directory (installed packages, SSH keys, etc). Configure with env vars: `KERN_NAME`, `KERN_MODEL`, `KERN_PORT`. See [configuration docs](docs/config.md) for other providers and options.
 
 ### npm
