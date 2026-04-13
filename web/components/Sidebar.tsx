@@ -518,7 +518,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
         {/* Agent groups */}
         {orderedGroups.map((group, groupIdx) => {
           const groupAgents = resolveGroupAgents(group);
-          if (groupAgents.length === 0 && group.agentUrls.length === 0) return null;
+          // Keep empty groups visible
 
           const isGroupDropTarget = dropGroupIndex === groupIdx && dragGroupIndex !== null && dragGroupIndex !== groupIdx;
 
