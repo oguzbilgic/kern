@@ -10,10 +10,9 @@
   ```
   docker run \
     -v agent:/home/kern/agent \
+    -p 4100:4100 \
     -e OPENROUTER_API_KEY=sk-or-... \
     -e KERN_AUTH_TOKEN=my-secret-token \
-    -e KERN_MODEL=anthropic/claude-opus-4.6 \
-    -p 4100:4100 \
     ghcr.io/oguzbilgic/kern-ai
   ```
 
