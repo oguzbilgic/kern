@@ -3,7 +3,7 @@
 ## next
 
 ### Features
-- **Docker support** ([#157](https://github.com/oguzbilgic/kern-ai/issues/157)) — run agents in containers with zero setup. See [docs/docker.md](docs/docker.md)
+- **Dockerized agents** ([#157](https://github.com/oguzbilgic/kern-ai/issues/157)) — run agents in containers with zero setup. See [docs/docker.md](docs/docker.md)
   - `docker run -v agent:/home/kern/agent -e KERN_MODEL=... -p 4100:4100 ghcr.io/oguzbilgic/kern-ai`
   - Auto-scaffolds on first start — no manual `kern init` needed
   - Configure with `KERN_MODEL`, `KERN_PORT`, `KERN_NAME` env vars
