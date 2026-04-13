@@ -29,7 +29,7 @@ docker run -d --restart=unless-stopped \
   ghcr.io/oguzbilgic/kern-ai
 
 # Run the web UI
-docker run -d -p 8080:8080 ghcr.io/oguzbilgic/kern-ai kern web run run
+docker run -d -p 8080:8080 ghcr.io/oguzbilgic/kern-ai kern web run
 ```
 
 Open `http://localhost:8080`, click **Add agent**, enter `http://localhost:4100` and your token. That's it.
