@@ -3,9 +3,16 @@ import { z } from "zod";
 import type { RecallIndex } from "./recall.js";
 
 let _recallIndex: RecallIndex | null = null;
+let _contextSessionId: string | null = null;
+let _contextTrimmedCount = 0;
 
 export function setRecallIndex(index: RecallIndex) {
   _recallIndex = index;
+}
+
+export function setContextBounds(sessionId: string, trimmedCount: number) {
+  _contextSessionId = sessionId;
+  _contextTrimmedCount = trimmedCount;
 }
 
 export const recallTool = tool({
@@ -66,6 +73,13 @@ export const recallTool = tool({
         if (args.before) {
           const before = new Date(args.before).toISOString();
           results = results.filter((r) => r.timestamp <= before);
+        }
+
+        // Filter out chunks already in context window
+        if (_contextSessionId && _contextTrimmedCount > 0) {
+          results = results.filter(r =>
+            !(r.session_id === _contextSessionId && r.msg_end >= _contextTrimmedCount)
+          );
         }
         
         results = results.slice(0, args.limit || 5);

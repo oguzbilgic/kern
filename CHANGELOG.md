@@ -22,6 +22,7 @@
 - **Dashboard panel resize** ([#121](https://github.com/oguzbilgic/kern-ai/issues/121)) — panel width now clamps on window resize; auto-closes when window is too narrow
 - **Panel resize text selection** ([#122](https://github.com/oguzbilgic/kern-ai/issues/122)) — dragging the panel resize handle no longer selects text in the chat area
 - **Dashboard links** ([#141](https://github.com/oguzbilgic/kern-ai/issues/141)) — external links inside dashboard iframes now open in a new tab
+- **Recall tool in-context filtering** ([#58](https://github.com/oguzbilgic/kern-ai/issues/58)) — Recall tool no longer returns chunks already in the context window
 
 ## desktop-v0.3.1
 
