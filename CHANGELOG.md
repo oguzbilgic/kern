@@ -16,6 +16,9 @@
     ghcr.io/oguzbilgic/kern-ai
   ```
 
+### Fixes
+- **Agent name not persisting** — `name` field was missing from config validation, causing it to be silently dropped on every config load
+
 ## v0.26.0
 
 ### Features
