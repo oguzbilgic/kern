@@ -136,9 +136,10 @@ export async function loadConfig(agentDir: string): Promise<KernConfig> {
  * Only a small explicit set of fields are supported.
  */
 const ENV_CONFIG_MAP: Record<string, { key: keyof KernConfig; type: "string" | "number" }> = {
-  KERN_NAME:  { key: "name",  type: "string" },
-  KERN_PORT:  { key: "port",  type: "number" },
-  KERN_MODEL: { key: "model", type: "string" },
+  KERN_NAME:     { key: "name",     type: "string" },
+  KERN_PORT:     { key: "port",     type: "number" },
+  KERN_MODEL:    { key: "model",    type: "string" },
+  KERN_PROVIDER: { key: "provider", type: "string" },
 };
 
 function applyEnvOverrides(config: KernConfig): KernConfig {
