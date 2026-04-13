@@ -2,7 +2,8 @@ FROM node:22-slim
 WORKDIR /app
 COPY . .
 RUN npm ci \
-    && npm run build:server \
+    && cd web && npm ci && cd .. \
+    && npm run build \
     && npm pack \
     && npm install -g kern-ai-*.tgz \
     && rm -rf /app

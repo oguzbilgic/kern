@@ -1,4 +1,5 @@
 node_modules
 web/node_modules
 web/out
+web/.next
 .git
