@@ -557,7 +557,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
               <div className="flex items-center justify-between px-2 mb-1 group/header">
                 <button
                   onClick={() => toggleGroupCollapsed(group.id)}
-                  className="flex items-center gap-1 text-[10px] text-[var(--text-muted)] uppercase tracking-wider truncate cursor-pointer hover:text-[var(--text-dim)] transition-colors"
+                  className="flex items-center gap-1 text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold truncate cursor-pointer hover:text-[var(--text-dim)] transition-colors"
                 >
                   <span className={`inline-block text-xs transition-transform duration-150 ${group.collapsed ? "" : "rotate-90"}`}>
                     ▸
