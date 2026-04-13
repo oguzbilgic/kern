@@ -8,7 +8,7 @@
   - `KERN_MODEL`, `KERN_PORT`, `KERN_NAME`, `KERN_PROVIDER` env vars override config ([#192](https://github.com/oguzbilgic/kern-ai/issues/192))
   - Mount a volume at `/home/kern/agent` for persistent state
   ```
-  docker run \
+  docker run --restart=unless-stopped \
     -p 4100:4100 \
     -v agent:/home/kern/agent \
     -e OPENROUTER_API_KEY=sk-or-... \
