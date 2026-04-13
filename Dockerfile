@@ -1,7 +1,8 @@
 FROM node:22-slim
 WORKDIR /app
 COPY . .
-RUN npm run build:server \
+RUN npm ci \
+    && npm run build:server \
     && npm pack \
     && npm install -g kern-ai-*.tgz \
     && rm -rf /app
