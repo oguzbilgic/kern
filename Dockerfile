@@ -9,9 +9,12 @@ RUN npm ci && cd web && npm ci && cd .. \
     && npm pack && npm install -g kern-ai-*.tgz \
     && rm -rf /app
 
-RUN useradd -m kern
+RUN useradd -m kern \
+    && mkdir -p /home/kern/agent \
+    && chown -R kern:kern /home/kern
 USER kern
 WORKDIR /home/kern/agent
+VOLUME ["/home/kern/agent"]
 
 EXPOSE 4100
 ENV KERN_PORT=4100
