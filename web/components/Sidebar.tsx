@@ -208,7 +208,11 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
 
     if (to === null) {
       if (from) removeAgentFromGroup(dragUrl);
-      // ungrouped reorder not worth the complexity
+      else {
+        const fromIdx = ungrouped.findIndex((u) => u.agent.baseUrl === dragUrl);
+        const toIdx = Math.min(index, ungrouped.length - 1);
+        if (fromIdx >= 0 && toIdx >= 0 && fromIdx !== toIdx) onReorder?.(ungrouped[fromIdx].globalIndex, ungrouped[toIdx].globalIndex);
+      }
     } else if (from === to) {
       const fromIdx = agentGroups.find((g) => g.id === to)?.agentUrls.indexOf(dragUrl) ?? -1;
       if (fromIdx >= 0 && fromIdx !== index) reorderAgentInGroup(to, fromIdx, index);
