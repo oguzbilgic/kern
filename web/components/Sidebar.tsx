@@ -411,8 +411,11 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
   // Render a single draggable agent row
   function renderAgentItem(agent: AgentInfo, globalIndex: number, groupId: string | null, indexInGroup: number) {
     const key = agentKey(agent);
-    const isDropTarget = dropTarget?.groupId === groupId &&
+    const isDropBefore = dropTarget?.groupId === groupId &&
       dropTarget?.index === indexInGroup &&
+      dragAgentUrl !== null && dragAgentUrl !== agent.baseUrl;
+    const isDropAfter = dropTarget?.groupId === groupId &&
+      dropTarget?.index === indexInGroup + 1 &&
       dragAgentUrl !== null && dragAgentUrl !== agent.baseUrl;
 
     return (
@@ -427,7 +430,10 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
           e.preventDefault();
           e.stopPropagation();
           if (dragAgentUrl) {
-            setDropTarget({ groupId, index: indexInGroup });
+            const rect = e.currentTarget.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            const idx = e.clientY < midY ? indexInGroup : indexInGroup + 1;
+            setDropTarget({ groupId, index: idx });
           }
         }}
         onDrop={(e) => {
@@ -462,7 +468,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
           setDropTarget(null);
         }}
         className="relative"
-        style={isDropTarget ? { boxShadow: "0 -2px 0 0 var(--orange)" } : undefined}
+        style={isDropBefore ? { boxShadow: "0 -2px 0 0 var(--orange)" } : isDropAfter ? { boxShadow: "0 2px 0 0 var(--orange)" } : undefined}
       >
         <AgentRow
           agent={agent}
