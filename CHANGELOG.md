@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.26.0
 
 ### Features
 - **Jina Reader for webfetch** ([#180](https://github.com/oguzbilgic/kern-ai/issues/180)) — `webfetch` tool now uses [Jina Reader](https://jina.ai/reader/) as primary provider for URL→markdown conversion with local Turndown as fallback. Jina handles JS-rendered pages and PDFs. Optional `JINA_API_KEY` env var for higher rate limits (500 RPM vs 20 RPM free)
