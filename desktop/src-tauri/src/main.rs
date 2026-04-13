@@ -81,23 +81,24 @@ fn main() {
                     let _ = w.eval(&format!("window.location.replace('{}');", url));
                 }
 
-                // Intercept external links — open in system browser
+                // Intercept external links — open in system browser (deduplicated)
                 w.eval(r#"
-                    document.addEventListener('click', function(e) {
-                        var a = e.target.closest('a[href]');
-                        if (!a) return;
-                        var href = a.href;
-                        if (!href || href.startsWith('javascript:')) return;
-                        var url = new URL(href, window.location.href);
-                        // Same origin = let WebView handle it
-                        if (url.origin === window.location.origin) return;
-                        // External link = open in system browser
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (window.__TAURI_INTERNALS__) {
-                            window.__TAURI_INTERNALS__.invoke('open_external', { url: href });
-                        }
-                    }, true);
+                    if (!window.__kern_link_handler) {
+                        window.__kern_link_handler = true;
+                        document.addEventListener('click', function(e) {
+                            var a = e.target.closest('a[href]');
+                            if (!a) return;
+                            var href = a.href;
+                            if (!href || href.startsWith('javascript:')) return;
+                            var url = new URL(href, window.location.href);
+                            if (url.origin === window.location.origin) return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (window.__TAURI_INTERNALS__) {
+                                window.__TAURI_INTERNALS__.invoke('open_external', { url: href });
+                            }
+                        }, true);
+                    }
                 "#).ok();
             })
             .disable_drag_drop_handler()
