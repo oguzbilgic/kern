@@ -425,12 +425,14 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
         }}
         onDragOver={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           if (dragAgentUrl) {
             setDropTarget({ groupId, index: indexInGroup });
           }
         }}
         onDrop={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           if (!dragAgentUrl) return;
           const fromGroup = findGroupForAgent(dragAgentUrl);
           if (fromGroup === groupId && groupId !== null) {
@@ -459,7 +461,8 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
           setDragAgentUrl(null);
           setDropTarget(null);
         }}
-        className={isDropTarget ? "border-t-2 border-[var(--orange)]" : "border-t-2 border-transparent"}
+        className="relative"
+        style={isDropTarget ? { boxShadow: "0 -2px 0 0 var(--orange)" } : undefined}
       >
         <AgentRow
           agent={agent}
