@@ -61,7 +61,7 @@ export interface KernStore {
   createGroup: (name: string, agentUrl?: string) => string;
   renameGroup: (groupId: string, name: string) => void;
   deleteGroup: (groupId: string) => void;
-  moveAgentToGroup: (agentUrl: string, groupId: string) => void;
+  moveAgentToGroup: (agentUrl: string, groupId: string, atIndex?: number) => void;
   removeAgentFromGroup: (agentUrl: string) => void;
   toggleGroupCollapsed: (groupId: string) => void;
   reorderGroups: (fromIndex: number, toIndex: number) => void;
@@ -236,11 +236,18 @@ export const useStore = create<KernStore>()(
             groupOrder: (s.ui.groupOrder ?? []).filter((id) => id !== groupId),
           },
         })),
-      moveAgentToGroup: (agentUrl, groupId) =>
+      moveAgentToGroup: (agentUrl, groupId, atIndex) =>
         set((s) => {
           const updated = (s.ui.agentGroups ?? []).map((g) => {
             const filtered = g.agentUrls.filter((u) => u !== agentUrl);
-            if (g.id === groupId) return { ...g, agentUrls: [...filtered, agentUrl] };
+            if (g.id === groupId) {
+              if (atIndex !== undefined && atIndex >= 0 && atIndex < filtered.length) {
+                const urls = [...filtered];
+                urls.splice(atIndex, 0, agentUrl);
+                return { ...g, agentUrls: urls };
+              }
+              return { ...g, agentUrls: [...filtered, agentUrl] };
+            }
             return { ...g, agentUrls: filtered };
           });
           return { ui: { ...s.ui, agentGroups: updated } };

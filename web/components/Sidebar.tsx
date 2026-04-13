@@ -442,8 +442,8 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
               reorderAgentInGroup(groupId, fromIdx, dropTarget.index);
             }
           } else if (groupId !== null) {
-            // Move into a group
-            moveAgentToGroup(dragAgentUrl, groupId);
+            // Move into a group at drop position
+            moveAgentToGroup(dragAgentUrl, groupId, indexInGroup);
           } else if (fromGroup !== null) {
             // Drop onto ungrouped — remove from group
             removeAgentFromGroup(dragAgentUrl);
