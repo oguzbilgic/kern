@@ -29,7 +29,7 @@ docker run -d --restart=unless-stopped \
   ghcr.io/oguzbilgic/kern-ai
 
 # Run the web UI
-docker run -d -p 8080:8080 ghcr.io/oguzbilgic/kern-ai kern web
+docker run -d -p 8080:8080 ghcr.io/oguzbilgic/kern-ai kern web run run
 ```
 
 Open `http://localhost:8080`, click **Add agent**, enter `http://localhost:4100` and your token. That's it.
@@ -110,7 +110,7 @@ kern stop [name]          # stop agents
 kern restart [name]       # restart agents
 kern install [name|--web|--proxy] # install systemd services
 kern tui [name]           # interactive chat
-kern web <start|stop>     # static web UI server
+kern web <run|start|stop> # static web UI server
 kern proxy <start|stop|token>  # authenticated reverse proxy
 kern logs [name]          # follow agent logs
 kern list                 # show all agents and services

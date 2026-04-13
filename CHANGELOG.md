@@ -8,7 +8,7 @@
   - `KERN_MODEL`, `KERN_PORT`, `KERN_NAME`, `KERN_PROVIDER` env vars override config ([#192](https://github.com/oguzbilgic/kern-ai/issues/192))
   - Mount a volume at `/home/kern/agent` for persistent state
 - **Dockerized web UI** — same image runs the web UI in a container
-  - `kern web` (no subcommand) runs the server in the foreground for container use
+  - `kern web run` runs the server in the foreground for container use
 
 ### Examples
 ```bash
@@ -21,7 +21,7 @@ docker run -d --restart=unless-stopped \
   ghcr.io/oguzbilgic/kern-ai
 
 # Run the web UI
-docker run -d -p 8080:8080 ghcr.io/oguzbilgic/kern-ai kern web
+docker run -d -p 8080:8080 ghcr.io/oguzbilgic/kern-ai kern web run
 ```
 
 ### Fixes

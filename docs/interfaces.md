@@ -49,7 +49,7 @@ kern web start
 ### Setup
 
 ```bash
-kern web          # run in foreground (for Docker)
+kern web run      # run in foreground (for Docker)
 kern web start    # start as background daemon
 kern web stop     # stop daemon
 kern web status   # check if running

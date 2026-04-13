@@ -60,7 +60,7 @@ The agent stores all state in its working directory. Mount a volume to persist i
 Run the web UI as a separate container:
 
 ```bash
-docker run -d -p 8080:8080 ghcr.io/oguzbilgic/kern-ai kern web
+docker run -d -p 8080:8080 ghcr.io/oguzbilgic/kern-ai kern web run
 ```
 
 Or start it on the host: `kern web start` / `npx kern-ai web start`.
