@@ -3,18 +3,25 @@
 ## next
 
 ### Features
-- **Dockerized agents** ([#157](https://github.com/oguzbilgic/kern-ai/issues/157)) — run agents in containers with zero setup. See [docs/docker.md](docs/docker.md)
+- **Dockerized agents** ([#157](https://github.com/oguzbilgic/kern-ai/issues/157)) — official Docker image for running agents and web UI in containers. See [docs/docker.md](docs/docker.md)
   - Auto-scaffolds on first start — no manual `kern init` needed ([#193](https://github.com/oguzbilgic/kern-ai/issues/193))
   - `KERN_MODEL`, `KERN_PORT`, `KERN_NAME`, `KERN_PROVIDER` env vars override config ([#192](https://github.com/oguzbilgic/kern-ai/issues/192))
   - Mount a volume at `/home/kern/agent` for persistent state
-  ```
-  docker run --restart=unless-stopped \
-    -p 4100:4100 \
-    -v agent:/home/kern/agent \
-    -e OPENROUTER_API_KEY=sk-or-... \
-    -e KERN_AUTH_TOKEN=my-secret-token \
-    ghcr.io/oguzbilgic/kern-ai
-  ```
+- **`kern web` foreground mode** — `kern web` (no subcommand) now runs the web server in the foreground, enabling `docker run IMAGE kern web` for containerized web UI
+
+### Examples
+```bash
+# Run an agent
+docker run -d --restart=unless-stopped \
+  -p 4100:4100 \
+  -v agent:/home/kern/agent \
+  -e OPENROUTER_API_KEY=sk-or-... \
+  -e KERN_AUTH_TOKEN=my-secret-token \
+  ghcr.io/oguzbilgic/kern-ai
+
+# Run the web UI
+docker run -d -p 8080:8080 ghcr.io/oguzbilgic/kern-ai kern web
+```
 
 ### Fixes
 - **Agent name not persisting** — `name` field was missing from config validation, causing it to be silently dropped on every config load
