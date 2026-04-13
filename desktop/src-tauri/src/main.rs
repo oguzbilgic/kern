@@ -76,14 +76,21 @@ fn main() {
                     let _ = w.eval(&format!("window.location.replace('{}');", url));
                 }
 
-                // Intercept _blank links for on_navigation handling
+                // Intercept external links — open in system browser
                 w.eval(r#"
                     document.addEventListener('click', function(e) {
-                        var a = e.target.closest('a[target="_blank"]');
-                        if (a && a.href) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            window.location.href = a.href;
+                        var a = e.target.closest('a[href]');
+                        if (!a) return;
+                        var href = a.href;
+                        if (!href || href.startsWith('javascript:')) return;
+                        var url = new URL(href, window.location.href);
+                        // Same origin = let WebView handle it
+                        if (url.origin === window.location.origin) return;
+                        // External link = open in system browser
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (window.__TAURI_INTERNALS__) {
+                            window.__TAURI_INTERNALS__.invoke('plugin:opener|open_url', { url: href });
                         }
                     }, true);
                 "#).ok();
