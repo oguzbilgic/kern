@@ -60,15 +60,16 @@ kern web status   # check if running
 - `kern web` serves only static files — no proxy, no auth
 - Agents bind to `0.0.0.0` on sticky ports with their own auth tokens
 - Connect to agents directly from the sidebar by entering their URL and token
-- Single `KERN_WEB_TOKEN` protects the proxy layer
 
 ### Authentication
 
-Two layers:
+`kern web` does not provide a separate authentication layer. It only serves the static Web UI.
 
-1. **Web proxy auth** — `KERN_WEB_TOKEN` in `~/.kern/.env`, auto-generated on first `kern web start`. Required on all `/api/*` routes. Web UI prompts for it on first visit, saves to localStorage.
+Access control happens at the agent:
 
-2. **Agent auth** — per-agent `KERN_AUTH_TOKEN` in `.kern/.env`, auto-generated on first agent start. The web proxy injects them into proxied requests. Users never interact with agent tokens.
+1. **Agent auth** — each agent has its own `KERN_AUTH_TOKEN` in `.kern/.env`, auto-generated on first agent start.
+
+2. **Direct browser connection** — when connecting from the Web UI, users enter the agent URL and token in the sidebar. The browser connects to the agent directly.
 
 ### Agent discovery
 
