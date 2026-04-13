@@ -34,7 +34,7 @@ docker run -d -p 8080:8080 ghcr.io/oguzbilgic/kern-ai kern web
 
 Open `http://localhost:8080`, click **Add agent**, enter `http://localhost:4100` and your token. That's it.
 
-Agent data lives in the `my-agent` volume — sessions, memory, dashboards persist across restarts. Configure with env vars: `KERN_NAME`, `KERN_MODEL`, `KERN_PORT`.
+Agent data lives in the `my-agent` volume — sessions, memory, dashboards persist across restarts. Configure with env vars: `KERN_NAME`, `KERN_MODEL`, `KERN_PORT`. See [configuration docs](docs/config.md) for other providers and options.
 
 ### npm
 
