@@ -3,8 +3,29 @@
 ## next
 
 ### Features
-- **Env var config overrides** ([#192](https://github.com/oguzbilgic/kern-ai/issues/192)) — `KERN_NAME`, `KERN_PORT`, `KERN_MODEL`, and `KERN_PROVIDER` environment variables override matching config fields. Env vars take priority over `config.json`. Designed for Docker deployments where config is passed via environment.
-- **`kern run --init-if-needed`** ([#193](https://github.com/oguzbilgic/kern-ai/issues/193)) — auto-scaffolds agent directory on first start if `.kern/config.json` is missing. Uses `KERN_*` env vars for config, no interactive prompts. Enables zero-config Docker container startup on empty volumes.
+- **Dockerized agents** ([#157](https://github.com/oguzbilgic/kern-ai/issues/157)) — official Docker image for running agents and web UI in containers. See [docs/docker.md](docs/docker.md)
+  - Auto-scaffolds on first start — no manual `kern init` needed ([#193](https://github.com/oguzbilgic/kern-ai/issues/193))
+  - `KERN_MODEL`, `KERN_PORT`, `KERN_NAME`, `KERN_PROVIDER` env vars override config ([#192](https://github.com/oguzbilgic/kern-ai/issues/192))
+  - Mount a volume at `/home/kern/agent` for persistent state
+- **Dockerized web UI** — same image runs the web UI in a container
+  - `kern web run` runs the server in the foreground for container use
+
+### Examples
+```bash
+# Run an agent
+docker run -d --restart=unless-stopped \
+  -p 4100:4100 \
+  -v agent:/home/kern/agent \
+  -e OPENROUTER_API_KEY=sk-or-... \
+  -e KERN_AUTH_TOKEN=my-secret-token \
+  ghcr.io/oguzbilgic/kern-ai
+
+# Run the web UI
+docker run -d -p 8080:8080 ghcr.io/oguzbilgic/kern-ai kern web run
+```
+
+### Fixes
+- **Agent name not persisting** — `name` field was missing from config validation, causing it to be silently dropped on every config load
 
 ## v0.26.0
 

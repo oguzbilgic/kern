@@ -64,6 +64,7 @@ export const configDefaults: KernConfig = {
 };
 
 const FIELD_TYPES: Record<string, string> = {
+  name: "string",
   model: "string",
   provider: "string",
   toolScope: "string",

@@ -45,7 +45,7 @@ async function showHelp() {
   w(`    ${cyan("kern install")} ${dim("[name|--web|--proxy]")} install systemd services`);
   w(`    ${cyan("kern uninstall")} ${dim("[name]")}        remove systemd services`);
   w(`    ${cyan("kern tui")} ${dim("[name]")}             interactive chat`);
-  w(`    ${cyan("kern web")} ${dim("<start|stop|status>")}        static web UI server`);
+  w(`    ${cyan("kern web")} ${dim("<run|start|stop|status>")}     static web UI server`);
   w(`    ${cyan("kern proxy")} ${dim("<start|stop|status|token>")} authenticated proxy server`);
   w("");
 }
@@ -395,8 +395,11 @@ async function main() {
       else { await webStop(); await new Promise(r => setTimeout(r, 500)); await webStart(); }
     } else if (subcmd === "status") {
       await webStatus();
+    } else if (subcmd === "run") {
+      // Run web server in foreground (for Docker)
+      await import("./web.js");
     } else {
-      console.error("Usage: kern web <start|stop|status>");
+      console.error("Usage: kern web <run|start|stop|status>");
       process.exit(1);
     }
     return;

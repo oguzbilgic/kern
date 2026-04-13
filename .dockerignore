@@ -1,0 +1,8 @@
+node_modules
+web/node_modules
+web/out
+web/.next
+dist
+*.tgz
+.git
+.env
