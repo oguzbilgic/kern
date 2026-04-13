@@ -1,4 +1,7 @@
 FROM node:22-slim
+
+RUN apt-get update && apt-get install -y git openssh-client && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY . .
 RUN npm ci && cd web && npm ci && cd .. \
@@ -12,4 +15,4 @@ WORKDIR /home/kern/agent
 
 EXPOSE 4100
 ENV KERN_PORT=4100
-ENTRYPOINT ["kern", "run", "--init-if-needed", "."]
+CMD ["kern", "run", "--init-if-needed", "."]
