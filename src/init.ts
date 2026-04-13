@@ -1,10 +1,11 @@
 import { mkdir, writeFile, readFile } from "fs/promises";
-import { join, resolve } from "path";
+import { join, resolve, basename } from "path";
 import { existsSync } from "fs";
 import { input, select, password } from "@inquirer/prompts";
 import { registerAgent, findAgent, isProcessRunning, readPid, removePidFile, assignPort } from "./registry.js";
 import { startAgent } from "./daemon.js";
 import type { KernConfig } from "./config.js";
+import { log } from "./log.js";
 
 // Fallback models used when live fetch fails (e.g. no network, bad key)
 const FALLBACK_MODELS: Record<string, { name: string; value: string }[]> = {
@@ -551,4 +552,58 @@ node_modules/
   print(`    \x1b[36mkern web start\x1b[0m      browser chat`);
   print(`    \x1b[36mkern install ${name}\x1b[0m     auto-restart + boot persistence (systemd)`);
   print("");
+}
+
+/**
+ * Minimal non-interactive init for Docker / --init-if-needed.
+ * Creates .kern/config.json, .kern/.env, and scaffold files if missing.
+ * Uses KERN_* env vars and config defaults — no prompts.
+ */
+export async function initMinimal(dir: string): Promise<void> {
+  log("init", `initializing ${dir}`);
+
+  // Create directories
+  await mkdir(dir, { recursive: true });
+  await mkdir(join(dir, "knowledge"), { recursive: true });
+  await mkdir(join(dir, "notes"), { recursive: true });
+  await mkdir(join(dir, ".kern", "sessions"), { recursive: true });
+
+  const name = process.env.KERN_NAME || basename(dir);
+
+  // .kern/config.json
+  const config: Partial<KernConfig> = {
+    name,
+    model: process.env.KERN_MODEL || "anthropic/claude-opus-4.6",
+    provider: process.env.KERN_PROVIDER || "openrouter",
+    toolScope: "full",
+    port: await assignPort(),
+  };
+  await writeFile(join(dir, ".kern", "config.json"), JSON.stringify(config, null, 2) + "\n");
+
+  // .kern/.env — empty, secrets come from environment
+  if (!existsSync(join(dir, ".kern", ".env"))) {
+    await writeFile(join(dir, ".kern", ".env"), "");
+  }
+
+  // Scaffold markdown files if missing
+  if (!existsSync(join(dir, "AGENTS.md"))) {
+    const agentsMd = await readFile(join(import.meta.dirname, "..", "templates", "AGENTS.md"), "utf-8");
+    await writeFile(join(dir, "AGENTS.md"), agentsMd);
+  }
+  if (!existsSync(join(dir, "IDENTITY.md"))) {
+    const cap = name.charAt(0).toUpperCase() + name.slice(1);
+    await writeFile(join(dir, "IDENTITY.md"), `# Identity\n\nYou are ${cap}. Ask your human to define your role and responsibilities.\n\n## Home\n- Repo: this directory\n`);
+  }
+  if (!existsSync(join(dir, "KNOWLEDGE.md"))) {
+    await writeFile(join(dir, "KNOWLEDGE.md"), `# Knowledge Index\n\nNo knowledge files yet. Create files in \`knowledge/\` as you learn about your domain.\n`);
+  }
+  if (!existsSync(join(dir, "USERS.md"))) {
+    await writeFile(join(dir, "USERS.md"), `# Users\n\nNo paired users yet. Users pair via Telegram with a pairing code.\n`);
+  }
+  if (!existsSync(join(dir, ".gitignore"))) {
+    await writeFile(join(dir, ".gitignore"), `.kern/.env\n.kern/sessions/\n.kern/recall.db\n.kern/media/\n.kern/logs/\nnode_modules/\n`);
+  }
+
+  await registerAgent(dir);
+  log("init", `initialized ${name}`);
 }

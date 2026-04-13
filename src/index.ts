@@ -357,7 +357,15 @@ async function main() {
   }
 
   if (cmd === "run") {
-    const agentDir = await resolveAgentDir(args[1]);
+    const initIfNeeded = args.includes("--init-if-needed");
+    const dirArg = args.filter((a: string) => a !== "--init-if-needed")[1];
+    const agentDir = initIfNeeded ? resolve(dirArg || ".") : await resolveAgentDir(dirArg);
+
+    if (initIfNeeded && !existsSync(join(agentDir, ".kern", "config.json"))) {
+      const { initMinimal } = await import("./init.js");
+      await initMinimal(agentDir);
+    }
+
     await startApp(agentDir);
     return;
   }
