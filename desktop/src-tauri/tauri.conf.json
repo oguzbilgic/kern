@@ -1,6 +1,6 @@
 {
   "productName": "kern",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "identifier": "com.kern-ai.desktop",
   "build": {
     "frontendDist": "../ui"

@@ -23,7 +23,7 @@
 - **Dashboard links** ([#141](https://github.com/oguzbilgic/kern-ai/issues/141)) — external links inside dashboard iframes now open in a new tab
 - **Recall tool in-context filtering** ([#58](https://github.com/oguzbilgic/kern-ai/issues/58)) — Recall tool no longer returns chunks already in the context window
 
-## desktop-next
+## desktop-v0.3.2
 
 ### Fixes
 - **External links open in system browser** ([#190](https://github.com/oguzbilgic/kern-ai/pull/190)) — links to external sites (docs, GitHub, etc.) now open in the default browser instead of navigating inside the WebView
