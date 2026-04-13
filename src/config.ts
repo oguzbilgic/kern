@@ -125,10 +125,39 @@ export async function loadConfig(agentDir: string): Promise<KernConfig> {
       }
     }
 
-    return { ...configDefaults, ...cleaned };
+    return applyEnvOverrides({ ...configDefaults, ...cleaned });
   } catch {
-    return configDefaults;
+    return applyEnvOverrides(configDefaults);
   }
+}
+
+/**
+ * Apply KERN_* environment variable overrides to config.
+ * Only a small explicit set of fields are supported.
+ */
+const ENV_CONFIG_MAP: Record<string, { key: keyof KernConfig; type: "string" | "number" }> = {
+  KERN_NAME:  { key: "name",  type: "string" },
+  KERN_PORT:  { key: "port",  type: "number" },
+  KERN_MODEL: { key: "model", type: "string" },
+};
+
+function applyEnvOverrides(config: KernConfig): KernConfig {
+  for (const [envKey, { key, type }] of Object.entries(ENV_CONFIG_MAP)) {
+    const val = process.env[envKey];
+    if (val === undefined) continue;
+
+    if (type === "number") {
+      const num = Number(val);
+      if (!isNaN(num)) {
+        (config as any)[key] = num;
+        log("config", `${envKey} → ${key}=${num}`);
+      }
+    } else {
+      (config as any)[key] = val;
+      log("config", `${envKey} → ${key}=${val}`);
+    }
+  }
+  return config;
 }
 
 /**
