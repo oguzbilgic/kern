@@ -216,8 +216,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
   const [agentMenu, setAgentMenu] = useState<{ agentUrl: string; pos: MenuPosition } | null>(null);
   const [moveToGroupMenu, setMoveToGroupMenu] = useState<{ agentUrl: string; currentGroupId: string | null; pos: MenuPosition } | null>(null);
   const [groupMenu, setGroupMenu] = useState<{ groupId: string; pos: MenuPosition } | null>(null);
-  const [renameGroupId, setRenameGroupId] = useState<string | null>(null);
-  const [renameGroupValue, setRenameGroupValue] = useState("");
+  
   const [newGroupPromptFor, setNewGroupPromptFor] = useState<string | null>(null); // agentUrl to move after creating group
   const [newGroupName, setNewGroupName] = useState("");
 
@@ -358,12 +357,11 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
   }
 
   // Handle rename submit
-  function handleRenameSubmit() {
-    if (renameGroupId && renameGroupValue.trim()) {
-      renameGroup(renameGroupId, renameGroupValue.trim());
+  function handleRenameGroup(groupId: string, currentName: string) {
+    const newName = prompt("Rename group", currentName);
+    if (newName && newName.trim()) {
+      renameGroup(groupId, newName.trim());
     }
-    setRenameGroupId(null);
-    setRenameGroupValue("");
   }
 
   // Handle agent drag into ungrouped zone
@@ -562,25 +560,10 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
                   <span className={`inline-block text-xs transition-transform duration-150 ${group.collapsed ? "" : "rotate-90"}`}>
                     ▸
                   </span>
-                  {renameGroupId === group.id ? (
-                    <input
-                      autoFocus
-                      value={renameGroupValue}
-                      onChange={(e) => setRenameGroupValue(e.target.value)}
-                      onBlur={handleRenameSubmit}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleRenameSubmit();
-                        if (e.key === "Escape") { setRenameGroupId(null); setRenameGroupValue(""); }
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="bg-transparent border-b border-[var(--text-muted)] text-[10px] text-[var(--text-dim)] uppercase tracking-wider outline-none w-full"
-                    />
-                  ) : (
-                    <span>
-                      {group.name}
-                      {group.collapsed ? ` (${groupAgents.length})` : ""}
-                    </span>
-                  )}
+                  <span>
+                    {group.name}
+                    {group.collapsed ? ` (${groupAgents.length})` : ""}
+                  </span>
                 </button>
                 {!mini && (
                   <button
@@ -712,8 +695,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
               label: "Rename",
               onClick: () => {
                 const group = agentGroups.find(g => g.id === groupMenu.groupId);
-                setRenameGroupId(groupMenu.groupId);
-                setRenameGroupValue(group?.name ?? "");
+                handleRenameGroup(groupMenu.groupId, group?.name ?? "");
               },
             },
             {
