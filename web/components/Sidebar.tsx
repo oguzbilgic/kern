@@ -559,7 +559,7 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
                   onClick={() => toggleGroupCollapsed(group.id)}
                   className="flex items-center gap-1 text-[10px] text-[var(--text-muted)] uppercase tracking-wider truncate cursor-pointer hover:text-[var(--text-dim)] transition-colors"
                 >
-                  <span className={`transition-transform duration-150 ${group.collapsed ? "" : "rotate-90"}`}>
+                  <span className={`inline-block text-xs transition-transform duration-150 ${group.collapsed ? "" : "rotate-90"}`}>
                     ▸
                   </span>
                   {renameGroupId === group.id ? (

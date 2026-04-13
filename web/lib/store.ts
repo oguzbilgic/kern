@@ -243,32 +243,18 @@ export const useStore = create<KernStore>()(
             if (g.id === groupId) return { ...g, agentUrls: [...filtered, agentUrl] };
             return { ...g, agentUrls: filtered };
           });
-          // Auto-delete groups that became empty
-          const nonEmpty = updated.filter((g) => g.agentUrls.length > 0);
-          return {
-            ui: {
-              ...s.ui,
-              agentGroups: nonEmpty,
-              groupOrder: (s.ui.groupOrder ?? []).filter((id) => nonEmpty.some((g) => g.id === id)),
-            },
-          };
+          return { ui: { ...s.ui, agentGroups: updated } };
         }),
       removeAgentFromGroup: (agentUrl) =>
-        set((s) => {
-          const updated = (s.ui.agentGroups ?? []).map((g) => ({
-            ...g,
-            agentUrls: g.agentUrls.filter((u) => u !== agentUrl),
-          }));
-          // Auto-delete groups that became empty
-          const nonEmpty = updated.filter((g) => g.agentUrls.length > 0);
-          return {
-            ui: {
-              ...s.ui,
-              agentGroups: nonEmpty,
-              groupOrder: (s.ui.groupOrder ?? []).filter((id) => nonEmpty.some((g) => g.id === id)),
-            },
-          };
-        }),
+        set((s) => ({
+          ui: {
+            ...s.ui,
+            agentGroups: (s.ui.agentGroups ?? []).map((g) => ({
+              ...g,
+              agentUrls: g.agentUrls.filter((u) => u !== agentUrl),
+            })),
+          },
+        })),
       toggleGroupCollapsed: (groupId) =>
         set((s) => ({
           ui: {
