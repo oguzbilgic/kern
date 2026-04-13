@@ -5,6 +5,7 @@
 ### Features
 - **Env var config overrides** ([#192](https://github.com/oguzbilgic/kern-ai/issues/192)) — `KERN_NAME`, `KERN_PORT`, `KERN_MODEL`, and `KERN_PROVIDER` environment variables override matching config fields. Env vars take priority over `config.json`. Designed for Docker deployments where config is passed via environment.
 - **`kern run --init-if-needed`** ([#193](https://github.com/oguzbilgic/kern-ai/issues/193)) — auto-scaffolds agent directory on first start if `.kern/config.json` is missing. Uses `KERN_*` env vars for config, no interactive prompts. Enables zero-config Docker container startup on empty volumes.
+- **Dockerfile** ([#194](https://github.com/oguzbilgic/kern-ai/issues/194)) — official Docker image for running kern agents. Non-root `kern` user, persistent volume at `/home/kern/agent`, port 4100. Configure via environment variables, connect via web UI. See [docs/docker.md](docs/docker.md).
 
 ## v0.26.0
 
