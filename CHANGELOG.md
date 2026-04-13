@@ -9,8 +9,8 @@
   - Mount a volume at `/home/kern/agent` for persistent state
   ```
   docker run \
-    -v agent:/home/kern/agent \
     -p 4100:4100 \
+    -v agent:/home/kern/agent \
     -e OPENROUTER_API_KEY=sk-or-... \
     -e KERN_AUTH_TOKEN=my-secret-token \
     ghcr.io/oguzbilgic/kern-ai
