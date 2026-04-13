@@ -217,8 +217,8 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
   const [moveToGroupMenu, setMoveToGroupMenu] = useState<{ agentUrl: string; currentGroupId: string | null; pos: MenuPosition } | null>(null);
   const [groupMenu, setGroupMenu] = useState<{ groupId: string; pos: MenuPosition } | null>(null);
   
-  const [newGroupPromptFor, setNewGroupPromptFor] = useState<string | null>(null); // agentUrl to move after creating group
-  const [newGroupName, setNewGroupName] = useState("");
+  const [groupModal, setGroupModal] = useState<{ mode: "create"; agentUrl: string } | { mode: "rename"; groupId: string } | null>(null);
+  const [groupModalName, setGroupModalName] = useState("");
 
   // Group drag state
   const [dragGroupIndex, setDragGroupIndex] = useState<number | null>(null);
@@ -348,21 +348,20 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
   }
 
   // Handle new group creation prompt
-  function handleNewGroupSubmit() {
-    const name = newGroupName.trim();
-    if (!name) return;
-    createGroup(name, newGroupPromptFor ?? undefined);
-    setNewGroupPromptFor(null);
-    setNewGroupName("");
+  function handleGroupModalSubmit() {
+    const name = groupModalName.trim();
+    if (!name || !groupModal) return;
+    if (groupModal.mode === "create") {
+      createGroup(name, groupModal.agentUrl);
+    } else {
+      renameGroup(groupModal.groupId, name);
+    }
+    setGroupModal(null);
+    setGroupModalName("");
   }
 
   // Handle rename submit
-  function handleRenameGroup(groupId: string, currentName: string) {
-    const newName = prompt("Rename group", currentName);
-    if (newName && newName.trim()) {
-      renameGroup(groupId, newName.trim());
-    }
-  }
+  
 
   // Handle agent drag into ungrouped zone
   function handleUngroupedDragOver(e: React.DragEvent) {
@@ -577,10 +576,13 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
               </div>
 
               {/* Group agents */}
-              {!group.collapsed && groupAgents.map((agent, i) => {
-                const globalIndex = directAgents.find(d => d.agent.baseUrl === agent.baseUrl)?.globalIndex ?? 0;
-                return renderAgentItem(agent, globalIndex, group.id, i);
-              })}
+              {!group.collapsed && (groupAgents.length > 0
+                ? groupAgents.map((agent, i) => {
+                    const globalIndex = directAgents.find(d => d.agent.baseUrl === agent.baseUrl)?.globalIndex ?? 0;
+                    return renderAgentItem(agent, globalIndex, group.id, i);
+                  })
+                : <div className="px-3 py-1.5 text-[10px] text-[var(--text-muted)] italic">No agents</div>
+              )}
             </div>
           );
         })}
@@ -678,8 +680,8 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
           currentGroupId={moveToGroupMenu.currentGroupId}
           onMoveToGroup={(groupId) => moveAgentToGroup(moveToGroupMenu.agentUrl, groupId)}
           onNewGroup={() => {
-            setNewGroupPromptFor(moveToGroupMenu.agentUrl);
-            setNewGroupName("");
+            setGroupModal({ mode: "create", agentUrl: moveToGroupMenu.agentUrl });
+            setGroupModalName("");
           }}
           onMoveToUngrouped={() => removeAgentFromGroup(moveToGroupMenu.agentUrl)}
           onClose={() => setMoveToGroupMenu(null)}
@@ -695,7 +697,8 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
               label: "Rename",
               onClick: () => {
                 const group = agentGroups.find(g => g.id === groupMenu.groupId);
-                handleRenameGroup(groupMenu.groupId, group?.name ?? "");
+                setGroupModal({ mode: "rename", groupId: groupMenu.groupId });
+                setGroupModalName(group?.name ?? "");
               },
             },
             {
@@ -708,37 +711,39 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
         />
       )}
 
-      {/* New group name prompt modal */}
-      {newGroupPromptFor !== null && (
+      {/* Group name modal (create / rename) */}
+      {groupModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center"
           style={{ background: "rgba(0,0,0,0.5)" }}
-          onClick={() => { setNewGroupPromptFor(null); setNewGroupName(""); }}
+          onClick={() => { setGroupModal(null); setGroupModalName(""); }}
         >
           <div className="bg-[var(--bg)] border border-[var(--border)] rounded-lg w-[280px] p-4" onClick={(e) => e.stopPropagation()}>
-            <p className="text-xs text-[var(--text-dim)] mb-2 font-semibold">New group</p>
+            <p className="text-xs text-[var(--text-dim)] mb-2 font-semibold">
+              {groupModal.mode === "create" ? "New group" : "Rename group"}
+            </p>
             <input
               autoFocus
               type="text"
               placeholder="Group name"
-              value={newGroupName}
-              onChange={(e) => setNewGroupName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleNewGroupSubmit(); if (e.key === "Escape") { setNewGroupPromptFor(null); setNewGroupName(""); } }}
+              value={groupModalName}
+              onChange={(e) => setGroupModalName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleGroupModalSubmit(); if (e.key === "Escape") { setGroupModal(null); setGroupModalName(""); } }}
               className="w-full px-3 py-2 text-sm bg-[var(--bg-sidebar)] border border-[var(--border)] rounded-md mb-3 text-[var(--text)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--text-muted)] transition-colors"
             />
             <div className="flex gap-2 justify-end">
               <button
-                onClick={() => { setNewGroupPromptFor(null); setNewGroupName(""); }}
+                onClick={() => { setGroupModal(null); setGroupModalName(""); }}
                 className="text-xs px-3 py-1.5 rounded text-[var(--text-muted)] hover:text-[var(--text)] cursor-pointer"
               >
                 Cancel
               </button>
               <button
-                onClick={handleNewGroupSubmit}
-                disabled={!newGroupName.trim()}
+                onClick={handleGroupModalSubmit}
+                disabled={!groupModalName.trim()}
                 className="text-xs px-3 py-1.5 rounded bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-dim)] hover:text-[var(--text)] cursor-pointer disabled:opacity-30"
               >
-                Create
+                {groupModal.mode === "create" ? "Create" : "Rename"}
               </button>
             </div>
           </div>
