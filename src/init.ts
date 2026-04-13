@@ -1,10 +1,11 @@
 import { mkdir, writeFile, readFile } from "fs/promises";
-import { join, resolve } from "path";
+import { join, resolve, basename } from "path";
 import { existsSync } from "fs";
 import { input, select, password } from "@inquirer/prompts";
 import { registerAgent, findAgent, isProcessRunning, readPid, removePidFile, assignPort } from "./registry.js";
 import { startAgent } from "./daemon.js";
 import type { KernConfig } from "./config.js";
+import { log } from "./log.js";
 
 // Fallback models used when live fetch fails (e.g. no network, bad key)
 const FALLBACK_MODELS: Record<string, { name: string; value: string }[]> = {
@@ -135,7 +136,7 @@ const PROVIDERS = [
   { name: "Ollama (local)", value: "ollama", keyLabel: "Ollama server URL" },
 ];
 
-const API_KEY_ENV: Record<string, string> = {
+export const API_KEY_ENV: Record<string, string> = {
   openrouter: "OPENROUTER_API_KEY",
   anthropic: "ANTHROPIC_API_KEY",
   openai: "OPENAI_API_KEY",
@@ -396,7 +397,7 @@ export async function runInit(targetArg?: string, flags?: Record<string, string>
   });
 }
 
-interface ScaffoldOpts {
+export interface ScaffoldOpts {
   name: string;
   dir: string;
   provider: string;
@@ -406,10 +407,11 @@ interface ScaffoldOpts {
   telegramToken: string;
   slackBotToken: string;
   slackAppToken: string;
+  skipStart?: boolean;
 }
 
-async function scaffoldAgent(opts: ScaffoldOpts): Promise<void> {
-  const { name, dir, provider, model, apiKey, envVar, telegramToken, slackBotToken, slackAppToken } = opts;
+export async function scaffoldAgent(opts: ScaffoldOpts): Promise<void> {
+  const { name, dir, provider, model, apiKey, envVar, telegramToken, slackBotToken, slackAppToken, skipStart } = opts;
 
   const dirExists = existsSync(dir);
   print("");
@@ -541,14 +543,18 @@ node_modules/
 
   // Register and start
   await registerAgent(dir);
-  print("");
-  print("  ✓ Starting...");
-  print("");
-  await startAgent(name);
-  print("");
-  print("  Next steps:");
-  print(`    \x1b[36mkern tui\x1b[0m            terminal chat`);
-  print(`    \x1b[36mkern web start\x1b[0m      browser chat`);
-  print(`    \x1b[36mkern install ${name}\x1b[0m     auto-restart + boot persistence (systemd)`);
-  print("");
+
+  if (!skipStart) {
+    print("");
+    print("  ✓ Starting...");
+    print("");
+    await startAgent(name);
+    print("");
+    print("  Next steps:");
+    print(`    \x1b[36mkern tui\x1b[0m            terminal chat`);
+    print(`    \x1b[36mkern web start\x1b[0m      browser chat`);
+    print(`    \x1b[36mkern install ${name}\x1b[0m     auto-restart + boot persistence (systemd)`);
+    print("");
+  }
 }
+

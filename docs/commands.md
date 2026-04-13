@@ -228,3 +228,18 @@ List available slash commands with descriptions.
 ## kern run \<name|path\>
 
 Run an agent in the foreground (for development/debugging). Starts all interfaces (Telegram, Slack) in-process.
+
+### --init-if-needed
+
+Auto-scaffolds the agent directory on first start if `.kern/config.json` is missing. Reads `KERN_*` environment variables for configuration — no interactive prompts. Designed for Docker containers starting on empty volumes.
+
+```bash
+kern run --init-if-needed /home/kern/agent
+```
+
+Environment variables used during scaffold:
+- `KERN_NAME` — agent name (default: directory basename)
+- `KERN_MODEL` — model identifier (default: `anthropic/claude-opus-4.6`)
+- `KERN_PROVIDER` — provider name (default: `openrouter`)
+- `OPENROUTER_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OLLAMA_BASE_URL` — written to `.kern/.env`
+- `TELEGRAM_BOT_TOKEN`, `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN` — written to `.kern/.env` if set
