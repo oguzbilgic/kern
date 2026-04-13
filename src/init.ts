@@ -407,14 +407,16 @@ interface ScaffoldOpts {
   telegramToken: string;
   slackBotToken: string;
   slackAppToken: string;
+  quiet?: boolean;
 }
 
 async function scaffoldAgent(opts: ScaffoldOpts): Promise<void> {
-  const { name, dir, provider, model, apiKey, envVar, telegramToken, slackBotToken, slackAppToken } = opts;
+  const { name, dir, provider, model, apiKey, envVar, telegramToken, slackBotToken, slackAppToken, quiet } = opts;
+  const out = quiet ? () => {} : print;
 
   const dirExists = existsSync(dir);
-  print("");
-  print(dirExists ? `  Adding kern to ${dir}/...` : `  Creating ${dir}/...`);
+  out("");
+  out(dirExists ? `  Adding kern to ${dir}/...` : `  Creating ${dir}/...`);
 
   // Create directories
   await mkdir(dir, { recursive: true });
@@ -485,44 +487,44 @@ node_modules/
   // Write files — only create if they don't exist (except .kern/ which always gets written)
   if (!existsSync(join(dir, "AGENTS.md"))) {
     await writeFile(join(dir, "AGENTS.md"), agentsMd);
-    print("  + AGENTS.md");
+    out("  + AGENTS.md");
   } else {
-    print("  ○ AGENTS.md (exists)");
+    out("  ○ AGENTS.md (exists)");
   }
 
   if (!existsSync(join(dir, "IDENTITY.md"))) {
     await writeFile(join(dir, "IDENTITY.md"), identityMd);
-    print(`  + IDENTITY.md (${capitalName})`);
+    out(`  + IDENTITY.md (${capitalName})`);
   } else {
-    print("  ○ IDENTITY.md (exists)");
+    out("  ○ IDENTITY.md (exists)");
   }
 
   if (!existsSync(join(dir, "KNOWLEDGE.md"))) {
     await writeFile(join(dir, "KNOWLEDGE.md"), knowledgeMd);
-    print("  + KNOWLEDGE.md");
+    out("  + KNOWLEDGE.md");
   } else {
-    print("  ○ KNOWLEDGE.md (exists)");
+    out("  ○ KNOWLEDGE.md (exists)");
   }
 
   if (!existsSync(join(dir, "USERS.md"))) {
     await writeFile(join(dir, "USERS.md"), `# Users\n\nNo paired users yet. Users pair via Telegram with a pairing code.\n`);
-    print("  + USERS.md");
+    out("  + USERS.md");
   } else {
-    print("  ○ USERS.md (exists)");
+    out("  ○ USERS.md (exists)");
   }
 
   // .kern/ config always written (new agent or adopt)
   await writeFile(join(dir, ".kern", "config.json"), JSON.stringify(config, null, 2) + "\n");
-  print("  + .kern/config.json");
+  out("  + .kern/config.json");
 
   await writeFile(join(dir, ".kern", ".env"), envLines.join("\n") + "\n");
-  print("  + .kern/.env");
+  out("  + .kern/.env");
 
   if (!existsSync(join(dir, ".gitignore"))) {
     await writeFile(join(dir, ".gitignore"), gitignore);
-    print("  + .gitignore");
+    out("  + .gitignore");
   } else {
-    print("  ○ .gitignore (exists)");
+    out("  ○ .gitignore (exists)");
   }
 
   // Git init only for new repos
@@ -532,78 +534,51 @@ node_modules/
       execSync("git init", { cwd: dir, stdio: "ignore" });
       execSync("git add -A", { cwd: dir, stdio: "ignore" });
       execSync('git commit -m "initial agent setup"', { cwd: dir, stdio: "ignore" });
-      print("  + git init + first commit");
+      out("  + git init + first commit");
     } catch {
-      print("  (git init skipped)");
+      out("  (git init skipped)");
     }
   } else {
-    print("  ○ git repo (exists)");
+    out("  ○ git repo (exists)");
   }
 
-  // Register and start
+  // Register
   await registerAgent(dir);
-  print("");
-  print("  ✓ Starting...");
-  print("");
-  await startAgent(name);
-  print("");
-  print("  Next steps:");
-  print(`    \x1b[36mkern tui\x1b[0m            terminal chat`);
-  print(`    \x1b[36mkern web start\x1b[0m      browser chat`);
-  print(`    \x1b[36mkern install ${name}\x1b[0m     auto-restart + boot persistence (systemd)`);
-  print("");
+
+  if (!quiet) {
+    print("");
+    print("  ✓ Starting...");
+    print("");
+    await startAgent(name);
+    print("");
+    print("  Next steps:");
+    print(`    \x1b[36mkern tui\x1b[0m            terminal chat`);
+    print(`    \x1b[36mkern web start\x1b[0m      browser chat`);
+    print(`    \x1b[36mkern install ${name}\x1b[0m     auto-restart + boot persistence (systemd)`);
+    print("");
+  }
 }
 
 /**
  * Minimal non-interactive init for Docker / --init-if-needed.
- * Creates .kern/config.json, .kern/.env, and scaffold files if missing.
- * Uses KERN_* env vars and config defaults — no prompts.
+ * Calls scaffoldAgent with defaults from env vars, no prompts, no auto-start.
  */
 export async function initMinimal(dir: string): Promise<void> {
-  log("init", `initializing ${dir}`);
-
-  // Create directories
-  await mkdir(dir, { recursive: true });
-  await mkdir(join(dir, "knowledge"), { recursive: true });
-  await mkdir(join(dir, "notes"), { recursive: true });
-  await mkdir(join(dir, ".kern", "sessions"), { recursive: true });
-
   const name = process.env.KERN_NAME || basename(dir);
+  const provider = process.env.KERN_PROVIDER || "openrouter";
+  const envVar = API_KEY_ENV[provider] || "OPENROUTER_API_KEY";
 
-  // .kern/config.json
-  const config: Partial<KernConfig> = {
+  await scaffoldAgent({
     name,
+    dir: resolve(dir),
+    provider,
     model: process.env.KERN_MODEL || "anthropic/claude-opus-4.6",
-    provider: process.env.KERN_PROVIDER || "openrouter",
-    toolScope: "full",
-    port: await assignPort(),
-  };
-  await writeFile(join(dir, ".kern", "config.json"), JSON.stringify(config, null, 2) + "\n");
-
-  // .kern/.env — empty, secrets come from environment
-  if (!existsSync(join(dir, ".kern", ".env"))) {
-    await writeFile(join(dir, ".kern", ".env"), "");
-  }
-
-  // Scaffold markdown files if missing
-  if (!existsSync(join(dir, "AGENTS.md"))) {
-    const agentsMd = await readFile(join(import.meta.dirname, "..", "templates", "AGENTS.md"), "utf-8");
-    await writeFile(join(dir, "AGENTS.md"), agentsMd);
-  }
-  if (!existsSync(join(dir, "IDENTITY.md"))) {
-    const cap = name.charAt(0).toUpperCase() + name.slice(1);
-    await writeFile(join(dir, "IDENTITY.md"), `# Identity\n\nYou are ${cap}. Ask your human to define your role and responsibilities.\n\n## Home\n- Repo: this directory\n`);
-  }
-  if (!existsSync(join(dir, "KNOWLEDGE.md"))) {
-    await writeFile(join(dir, "KNOWLEDGE.md"), `# Knowledge Index\n\nNo knowledge files yet. Create files in \`knowledge/\` as you learn about your domain.\n`);
-  }
-  if (!existsSync(join(dir, "USERS.md"))) {
-    await writeFile(join(dir, "USERS.md"), `# Users\n\nNo paired users yet. Users pair via Telegram with a pairing code.\n`);
-  }
-  if (!existsSync(join(dir, ".gitignore"))) {
-    await writeFile(join(dir, ".gitignore"), `.kern/.env\n.kern/sessions/\n.kern/recall.db\n.kern/media/\n.kern/logs/\nnode_modules/\n`);
-  }
-
-  await registerAgent(dir);
-  log("init", `initialized ${name}`);
+    apiKey: process.env[envVar] || "",
+    envVar,
+    telegramToken: process.env.TELEGRAM_BOT_TOKEN || "",
+    slackBotToken: process.env.SLACK_BOT_TOKEN || "",
+    slackAppToken: process.env.SLACK_APP_TOKEN || "",
+    quiet: true,
+  });
+  log("init", `initialized ${name} at ${dir}`);
 }
