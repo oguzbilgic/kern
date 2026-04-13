@@ -455,8 +455,8 @@ export function Sidebar({ agents, active, activeThinking, onSelect, onAddServer,
           setDragAgentUrl(null);
           setDropTarget(null);
         }}
-        className={isDropTarget ? "border-t-2 border-[var(--accent)]" :
-          (dropIndex === globalIndex && dragIndex !== null && dragIndex !== globalIndex) ? "border-t-2 border-[var(--accent)]" :
+        className={isDropTarget ? "border-t-2 border-[var(--orange)]" :
+          (dropIndex === globalIndex && dragIndex !== null && dragIndex !== globalIndex) ? "border-t-2 border-[var(--orange)]" :
           "border-t-2 border-transparent"}
       >
         <AgentRow
