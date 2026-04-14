@@ -273,8 +273,8 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     return { system: await runtime.getSystemPrompt() };
   });
 
-  server.setContextSegmentsFn(() => {
-    const built = runtime.buildPromptContext();
+  server.setContextSegmentsFn(async () => {
+    const built = await runtime.buildPromptContext();
     return {
       tokenCount: built.stats.summaryTokens,
       segments: built.stats.summarySegments,
