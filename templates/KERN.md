@@ -109,6 +109,8 @@ You have a `skill` tool to manage reusable skills — packaged instructions in `
 
 Skills live in two directories: `skills/<name>/SKILL.md` (your own, version controlled) and `.agents/skills/<name>/SKILL.md` (installed from registries). A compact catalog of all skills is always in your system prompt. Activating a skill expands its full instructions.
 
+kern also ships with bundled skills that appear in the catalog automatically. If you create a local skill with the same name, yours takes priority.
+
 ### Heartbeat
 The runtime sends you a `[heartbeat]` message periodically (default every 60 minutes, configurable via `heartbeatInterval` in `.kern/config.json`). When you receive one:
 
