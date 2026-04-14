@@ -1,5 +1,5 @@
 import type { KernPlugin, PluginContext, RouteHandler, BeforeContextInfo, ContextInjection } from "../types.js";
-import { scanSkills, type SkillInfo } from "./scanner.js";
+import { scanSkills, loadSkillBody, type SkillInfo } from "./scanner.js";
 import { isActive, getActiveSkills } from "./state.js";
 import { skillTool, setCatalog } from "./tool.js";
 import { log } from "../../log.js";
@@ -21,58 +21,55 @@ export const skillsPlugin: KernPlugin = {
     skill: skillTool,
   },
 
-  routes: (() => {
-    let _ctx: PluginContext | null = null;
-
-    const routes: RouteHandler[] = [
-      {
-        method: "GET",
-        path: "/skills",
-        handler: (_req, res) => {
-          const active = getActiveSkills();
-          const result = catalog.map((s) => ({
-            name: s.name,
-            description: s.description,
-            path: s.path,
-            source: s.source,
-            active: active.has(s.name),
-          }));
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify(result));
-        },
+  routes: [
+    {
+      method: "GET",
+      path: "/skills",
+      handler: (_req, res) => {
+        const active = getActiveSkills();
+        const result = catalog.map((s) => ({
+          name: s.name,
+          description: s.description,
+          path: s.displayPath,
+          source: s.source,
+          active: active.has(s.name),
+        }));
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result));
       },
-      {
-        method: "GET",
-        path: /^\/skills\/([^/]+)$/,
-        handler: (_req, res, match) => {
-          const name = match?.[1];
-          const skill = catalog.find((s) => s.name === name);
-          if (!skill) {
-            res.writeHead(404, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ error: "Skill not found" }));
-            return;
-          }
+    },
+    {
+      method: "GET",
+      path: /^\/skills\/([^/]+)$/,
+      handler: async (_req, res, match) => {
+        const name = match?.[1];
+        const skill = catalog.find((s) => s.name === name);
+        if (!skill) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Skill not found" }));
+          return;
+        }
+        try {
           const active = getActiveSkills();
+          const body = await loadSkillBody(skill);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({
             name: skill.name,
             description: skill.description,
-            path: skill.path,
+            path: skill.displayPath,
             source: skill.source,
             active: active.has(skill.name),
-            body: skill.body,
+            body,
           }));
-        },
+        } catch {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Failed to load skill body" }));
+        }
       },
-    ];
-
-    (routes as any)._setCtx = (ctx: PluginContext) => { _ctx = ctx; };
-    return routes;
-  })(),
+    },
+  ] as RouteHandler[],
 
   async onStartup(ctx) {
-    (this.routes as any)?._setCtx(ctx);
-
     // Scan skill directories
     catalog = await scanSkills(ctx.agentDir);
     setCatalog(catalog);
@@ -92,11 +89,10 @@ export const skillsPlugin: KernPlugin = {
 
     const injections: ContextInjection[] = [];
 
-    // Compact catalog with absolute paths and active state
+    // Compact catalog with logical paths and active state
     const catalogLines = catalog.map((s) => {
       const state = isActive(s.name) ? "active" : "available";
-      const skillPath = `${s.path}/SKILL.md`;
-      return `${state === "active" ? "✦" : "○"} ${s.name} (${state}): ${s.description || "(no description)"}\n  ${skillPath}`;
+      return `${state === "active" ? "✦" : "○"} ${s.name} (${state}): ${s.description || "(no description)"}\n  ${s.displayPath}`;
     });
     injections.push({
       label: "skills",
@@ -104,15 +100,19 @@ export const skillsPlugin: KernPlugin = {
       placement: "system",
     });
 
-    // Active skills: injected as <document> blocks (no label — content is pre-wrapped)
+    // Active skills: load body lazily and inject as <document> blocks
     for (const skill of catalog) {
       if (!isActive(skill.name)) continue;
-      const skillPath = `${skill.path}/SKILL.md`.replace(/"/g, '&quot;');
-      injections.push({
-        label: "",
-        content: `<document path="${skillPath}">\n${skill.body}\n</document>`,
-        placement: "system",
-      });
+      try {
+        const body = await loadSkillBody(skill);
+        injections.push({
+          label: "",
+          content: `<document path="${skill.displayPath}">\n${body}\n</document>`,
+          placement: "system",
+        });
+      } catch (err: any) {
+        log.warn("skills", `failed to load active skill ${skill.name}: ${err.message}`);
+      }
     }
 
     return injections;
