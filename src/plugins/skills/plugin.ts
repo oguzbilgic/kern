@@ -81,33 +81,44 @@ export const skillsPlugin: KernPlugin = {
     }
   },
 
-  async onBeforeContext(_info: BeforeContextInfo, ctx: PluginContext): Promise<ContextInjection | null> {
+  async onBeforeContext(_info: BeforeContextInfo, ctx: PluginContext): Promise<ContextInjection[]> {
     // Rescan every turn — agent may have created/deleted skills mid-session
     catalog = await scanSkills(ctx.agentDir);
     setCatalog(catalog);
 
-    if (catalog.length === 0) return null;
+    if (catalog.length === 0) return [];
 
-    const parts: string[] = [];
+    const injections: ContextInjection[] = [];
 
-    // Always: compact catalog
+    // Compact catalog with paths and active state
     const catalogLines = catalog.map((s) => {
-      const marker = isActive(s.name) ? "✦" : "-";
-      return `${marker} ${s.name}: ${s.description || "(no description)"}`;
+      const state = isActive(s.name) ? "active" : "available";
+      const relPath = s.source === "installed"
+        ? `.agents/skills/${s.name}/SKILL.md`
+        : `skills/${s.name}/SKILL.md`;
+      return `${state === "active" ? "✦" : "○"} ${s.name} (${state}): ${s.description || "(no description)"}\n  ${relPath}`;
     });
-    parts.push("# Available Skills\n" + catalogLines.join("\n"));
+    injections.push({
+      label: "skills",
+      content: catalogLines.join("\n"),
+      placement: "system",
+    });
 
-    // Active skills: full content
+    // Active skills: injected as <document> blocks (no label — content is pre-wrapped)
     for (const skill of catalog) {
       if (!isActive(skill.name)) continue;
-      parts.push(`# Active Skill: ${skill.name}\n\n${skill.body}`);
+      const relPath = skill.source === "installed"
+        ? `.agents/skills/${skill.name}/SKILL.md`
+        : `skills/${skill.name}/SKILL.md`;
+      const safePath = relPath.replace(/"/g, '&quot;');
+      injections.push({
+        label: "",
+        content: `<document path="${safePath}">\n${skill.body}\n</document>`,
+        placement: "system",
+      });
     }
 
-    return {
-      label: "skills",
-      content: parts.join("\n\n"),
-      placement: "system",
-    };
+    return injections;
   },
 
   onStatus(_ctx) {

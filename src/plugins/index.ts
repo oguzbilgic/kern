@@ -84,7 +84,13 @@ export const plugins = {
       if (plugin.onBeforeContext) {
         try {
           const result = await plugin.onBeforeContext(info, ctx);
-          if (result) injections.push(result);
+          if (result) {
+            if (Array.isArray(result)) {
+              injections.push(...result);
+            } else {
+              injections.push(result);
+            }
+          }
         } catch (err: any) {
           log.error("plugin", `onBeforeContext error in ${plugin.name}: ${err.message}`);
         }
