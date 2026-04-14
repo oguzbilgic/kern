@@ -105,6 +105,6 @@ Bundled skills live inside the kern npm package and cannot be edited. To overrid
 
 ## Installing skills
 
-Skills from external registries are installed into `.agents/skills/`. This directory follows the [AgentSkills](https://agentskills.io/) convention shared across agent frameworks.
+Skills from external registries are installed into `.agents/skills/`. This directory follows the [AgentSkills](https://agentskills.io/) universal spec, part of the [skills.sh](https://skills.sh) ecosystem.
 
-Registry search and install commands are planned for a future release.
+Use `npx skills` with `-a universal` or `npx clawhub` with `--dir .agents/skills` to search, install, and manage community skills. Prefer official or widely-used skills over obscure ones.

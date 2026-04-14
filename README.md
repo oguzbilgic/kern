@@ -184,6 +184,7 @@ Models can be mixed per role: `model` for chat, `embeddingModel` for recall, `su
 - [Dashboards](docs/dashboards.md)
 - [Context & segments](docs/context.md)
 - [Prompt caching](docs/caching.md)
+- [Skills](docs/skills.md)
 - [Media](docs/media.md)
 - [Tools](docs/tools.md)
 - [Interfaces](docs/interfaces.md)
