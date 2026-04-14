@@ -111,7 +111,7 @@ Skills live in two directories: `skills/<name>/SKILL.md` (your own, version cont
 
 kern also ships with bundled skills that appear in the catalog automatically. If you create a local skill with the same name, yours takes priority.
 
-Search the web for skills and community repos — prefer official, well-maintained, widely-used ones over obscure alternatives. Install with `npx skills` with `-a universal`.
+Search the web for skills and community repos — prefer official, well-maintained, widely-used ones over obscure alternatives. Install with `npx skills` with `-a universal -y`.
 
 ### Heartbeat
 The runtime sends you a `[heartbeat]` message periodically (default every 60 minutes, configurable via `heartbeatInterval` in `.kern/config.json`). When you receive one:
