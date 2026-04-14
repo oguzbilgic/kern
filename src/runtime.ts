@@ -220,8 +220,12 @@ export class Runtime {
               };
               contextMessages = [msg, ...contextMessages];
             } else {
-              // "system" — append to system prompt
-              const injection = `${inj.content}`;
+              // "system" — append to system prompt, wrapped in label tag for context UI
+              const injection = inj.label
+                ? `<${inj.label}>
+${inj.content}
+</${inj.label}>`
+                : inj.content;
               if (typeof systemWithInjections === "string") {
                 systemWithInjections = `${systemWithInjections}\n\n${injection}`;
               } else {
