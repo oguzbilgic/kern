@@ -122,7 +122,10 @@ export class Runtime {
     this.pendingInjections = fn;
   }
 
-  buildPromptContext(options?: Partial<PrepareContextOptions>) {
+  async buildPromptContext(options?: Partial<PrepareContextOptions> & {
+    userQuery?: string;
+    onEvent?: StreamHandler;
+  }) {
     const allMessages = options?.messages ?? this.session.getMessages();
     const sessionId = options?.sessionId ?? (this.session.getSessionId() || undefined);
     const prepared = prepareContext({
@@ -138,8 +141,47 @@ export class Runtime {
     const summaryAdditionChars = prepared.systemAdditions.join("\n\n").length;
     prepared.stats.systemPromptTokens = estimateTextTokens(effectiveSystemPrompt) - (summaryAdditionChars > 0 ? Math.ceil(summaryAdditionChars / 3.3) : 0);
 
-    const system = buildSystemMessage(effectiveSystemPrompt, this.config);
-    const messages = addCacheBreakpoints(prepared.messages, this.config);
+    // Apply plugin context injections (notes, skills, recall, etc.)
+    let systemWithInjections: string = effectiveSystemPrompt;
+    let contextMessages = prepared.messages;
+    const trimmedCount = prepared.stats.totalMessages - prepared.stats.windowMessages + (prepared.stats.summaryTokens > 0 ? 1 : 0);
+
+    if (this.contextInjectionFn) {
+      try {
+        const injections = await this.contextInjectionFn({
+          trimmedCount,
+          tokenBudget: 2000,
+          userQuery: options?.userQuery ?? "",
+          sessionId: sessionId || "",
+        });
+        for (const inj of injections) {
+          if (inj.placement === "user-prepend") {
+            const msg: ModelMessage = {
+              role: "user",
+              content: `<${inj.label}>\n${inj.content}\n</${inj.label}>`,
+            };
+            contextMessages = [msg, ...contextMessages];
+          } else {
+            // "system" — append to system prompt, wrapped in label tag for context UI
+            const injection = inj.label
+              ? `<${inj.label}>\n${inj.content}\n</${inj.label}>`
+              : inj.content;
+            systemWithInjections = `${systemWithInjections}\n\n${injection}`;
+          }
+          // Emit any SSE events the plugin attached
+          if (inj.sseEvents && options?.onEvent) {
+            for (const ev of inj.sseEvents) {
+              options.onEvent(ev);
+            }
+          }
+        }
+      } catch (err: any) {
+        log.error("context", `plugin context injection failed: ${err.message}`);
+      }
+    }
+
+    const system = buildSystemMessage(systemWithInjections, this.config);
+    const messages = addCacheBreakpoints(contextMessages, this.config);
 
     return {
       system,
@@ -192,56 +234,15 @@ export class Runtime {
 
       const allMessages = this.session.getMessages();
       const sessionId = this.session.getSessionId() || undefined;
-      const { system: systemMessage, messages: contextWindow, stats } = this.buildPromptContext({
+      const { system: systemWithInjections, messages: contextMessages, stats } = await this.buildPromptContext({
         messages: allMessages,
         sessionId,
+        userQuery: userMessage,
+        onEvent,
       });
       const trimmedCount = stats.totalMessages - stats.windowMessages + (stats.summaryTokens > 0 ? 1 : 0);
       if (trimmedCount > 0) {
         log("context", `trimmed: ${trimmedCount} old messages excluded${stats.summaryTokens > 0 ? `, summary injected (~${stats.summaryTokens} tokens)` : ''}`);
-      }
-
-      // Plugin context injections — each declares its own placement strategy
-      let contextMessages = contextWindow;
-      let systemWithInjections = systemMessage;
-      if (this.contextInjectionFn) {
-        try {
-          const injections = await this.contextInjectionFn({
-            trimmedCount,
-            tokenBudget: 2000,
-            userQuery: userMessage,
-            sessionId: sessionId || "",
-          });
-          for (const inj of injections) {
-            if (inj.placement === "user-prepend") {
-              const msg: ModelMessage = {
-                role: "user",
-                content: `<${inj.label}>\n${inj.content}\n</${inj.label}>`,
-              };
-              contextMessages = [msg, ...contextMessages];
-            } else {
-              // "system" — append to system prompt, wrapped in label tag for context UI
-              const injection = inj.label
-                ? `<${inj.label}>
-${inj.content}
-</${inj.label}>`
-                : inj.content;
-              if (typeof systemWithInjections === "string") {
-                systemWithInjections = `${systemWithInjections}\n\n${injection}`;
-              } else {
-                systemWithInjections = { ...systemWithInjections, content: `${systemWithInjections.content}\n\n${injection}` };
-              }
-            }
-            // Emit any SSE events the plugin attached
-            if (inj.sseEvents) {
-              for (const ev of inj.sseEvents) {
-                onEvent(ev);
-              }
-            }
-          }
-        } catch (err: any) {
-          log.error("context", `plugin context injection failed: ${err.message}`);
-        }
       }
 
       // Resolve custom URIs in messages via plugins (e.g. kern-media://)
@@ -389,42 +390,8 @@ ${inj.content}
 
   async getSystemPrompt(): Promise<string> {
     this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.pluginToolDescriptions);
-
-    // Build full prompt: base + conversation summary + plugin injections
-    let system = this.systemPrompt;
-
-    // Add conversation summary segments
-    const prepared = prepareContext({
-      messages: this.session.getMessages(),
-      config: this.config,
-      sessionId: this.session.getSessionId() || undefined,
-      segmentIndex: this.segmentIndex,
-    });
-    if (prepared.systemAdditions.length > 0) {
-      system = `${system}\n\n${prepared.systemAdditions.join("\n\n")}`;
-    }
-
-    // Add plugin injections (notes, skills, etc.)
-    if (this.contextInjectionFn) {
-      try {
-        const injections = await this.contextInjectionFn({
-          trimmedCount: 0,
-          tokenBudget: 2000,
-          userQuery: "",
-          sessionId: this.session.getSessionId() || "",
-        });
-        for (const inj of injections) {
-          if (inj.placement === "system") {
-            const wrapped = inj.label
-              ? `<${inj.label}>\n${inj.content}\n</${inj.label}>`
-              : inj.content;
-            system = `${system}\n\n${wrapped}`;
-          }
-        }
-      } catch (_) {}
-    }
-
-    return system;
+    const { system } = await this.buildPromptContext();
+    return typeof system === "string" ? system : system.content;
   }
 
   getMessages(): ModelMessage[] {
