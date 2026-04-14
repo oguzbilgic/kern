@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 jobs:
   publish:
@@ -18,6 +19,11 @@ jobs:
       - run: npm ci
       - run: cd web && npm ci
       - run: npm run build
-      - run: npm publish
+      - run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            npm publish
+          else
+            npm publish --tag next
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
