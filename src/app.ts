@@ -15,7 +15,7 @@ import { setMessageSender } from "./tools/message.js";
 import { SegmentIndex } from "./segments.js";
 import { MemoryDB } from "./memory.js";
 import { MessageQueue } from "./queue.js";
-import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setSegmentStatsFn, type InterfaceStatus } from "./tools/kern.js";
+import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setSegmentStatsFn, setPluginStatusFn, type InterfaceStatus } from "./tools/kern.js";
 import { plugins, type PluginContext } from "./plugins/index.js";
 import { log } from "./log.js";
 
@@ -160,6 +160,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   };
   _pluginCtx = pluginCtx;
   const loadedPlugins = await plugins.load(pluginCtx);
+  setPluginStatusFn(() => plugins.collectStatus(pluginCtx));
 
   // Register plugin tools and descriptions with runtime
   const pluginTools = plugins.collectTools();

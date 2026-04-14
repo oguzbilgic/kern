@@ -142,6 +142,21 @@ export const plugins = {
     return cmds;
   },
 
+  /** Collect status info from all plugins. */
+  collectStatus(ctx: PluginContext): Record<string, any> {
+    const status: Record<string, any> = {};
+    for (const plugin of activePlugins) {
+      if (plugin.onStatus) {
+        try {
+          Object.assign(status, plugin.onStatus(ctx));
+        } catch (err: any) {
+          log.error("plugin", `onStatus error in ${plugin.name}: ${err.message}`);
+        }
+      }
+    }
+    return status;
+  },
+
   /** Process attachments — first plugin that returns a message wins. */
   async dispatchProcessAttachments(
     attachments: import("../interfaces/types.js").Attachment[],
