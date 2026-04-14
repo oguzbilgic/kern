@@ -81,7 +81,7 @@ async function scanDir(dir: string, source: SkillSource): Promise<SkillInfo[]> {
         name,
         description: meta.description || "",
         path: skillDir,
-        displayPath: getDisplayPath(name, source, skillDir),
+        displayPath: getDisplayPath(entry.name, source, skillDir),
         source,
       });
     } catch (err: any) {

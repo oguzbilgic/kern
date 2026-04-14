@@ -49,17 +49,22 @@ export const skillsPlugin: KernPlugin = {
           res.end(JSON.stringify({ error: "Skill not found" }));
           return;
         }
-        const active = getActiveSkills();
-        const body = await loadSkillBody(skill);
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({
-          name: skill.name,
-          description: skill.description,
-          path: skill.displayPath,
-          source: skill.source,
-          active: active.has(skill.name),
-          body,
-        }));
+        try {
+          const active = getActiveSkills();
+          const body = await loadSkillBody(skill);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({
+            name: skill.name,
+            description: skill.description,
+            path: skill.displayPath,
+            source: skill.source,
+            active: active.has(skill.name),
+            body,
+          }));
+        } catch {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Failed to load skill body" }));
+        }
       },
     },
   ] as RouteHandler[],
