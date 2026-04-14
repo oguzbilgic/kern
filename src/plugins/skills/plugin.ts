@@ -33,6 +33,7 @@ export const skillsPlugin: KernPlugin = {
           const result = catalog.map((s) => ({
             name: s.name,
             description: s.description,
+            path: s.path,
             source: s.source,
             active: active.has(s.name),
           }));
@@ -56,6 +57,7 @@ export const skillsPlugin: KernPlugin = {
           res.end(JSON.stringify({
             name: skill.name,
             description: skill.description,
+            path: skill.path,
             source: skill.source,
             active: active.has(skill.name),
             body: skill.body,
@@ -90,13 +92,11 @@ export const skillsPlugin: KernPlugin = {
 
     const injections: ContextInjection[] = [];
 
-    // Compact catalog with paths and active state
+    // Compact catalog with absolute paths and active state
     const catalogLines = catalog.map((s) => {
       const state = isActive(s.name) ? "active" : "available";
-      const relPath = s.source === "installed"
-        ? `.agents/skills/${s.name}/SKILL.md`
-        : `skills/${s.name}/SKILL.md`;
-      return `${state === "active" ? "✦" : "○"} ${s.name} (${state}): ${s.description || "(no description)"}\n  ${relPath}`;
+      const skillPath = `${s.path}/SKILL.md`;
+      return `${state === "active" ? "✦" : "○"} ${s.name} (${state}): ${s.description || "(no description)"}\n  ${skillPath}`;
     });
     injections.push({
       label: "skills",
@@ -107,13 +107,10 @@ export const skillsPlugin: KernPlugin = {
     // Active skills: injected as <document> blocks (no label — content is pre-wrapped)
     for (const skill of catalog) {
       if (!isActive(skill.name)) continue;
-      const relPath = skill.source === "installed"
-        ? `.agents/skills/${skill.name}/SKILL.md`
-        : `skills/${skill.name}/SKILL.md`;
-      const safePath = relPath.replace(/"/g, '&quot;');
+      const skillPath = `${skill.path}/SKILL.md`.replace(/"/g, '&quot;');
       injections.push({
         label: "",
-        content: `<document path="${safePath}">\n${skill.body}\n</document>`,
+        content: `<document path="${skillPath}">\n${skill.body}\n</document>`,
         placement: "system",
       });
     }
