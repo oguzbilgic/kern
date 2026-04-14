@@ -1,6 +1,6 @@
 import type { KernPlugin, PluginContext, RouteHandler, BeforeContextInfo, ContextInjection } from "../types.js";
 import { scanSkills, type SkillInfo } from "./scanner.js";
-import { initState, loadActiveSkills, isActive, getActiveSkills } from "./state.js";
+import { isActive, getActiveSkills } from "./state.js";
 import { skillTool, setCatalog } from "./tool.js";
 import { log } from "../../log.js";
 
@@ -70,10 +70,6 @@ export const skillsPlugin: KernPlugin = {
 
   async onStartup(ctx) {
     (this.routes as any)?._setCtx(ctx);
-
-    // Initialize state persistence
-    initState(ctx.agentDir);
-    await loadActiveSkills();
 
     // Scan skill directories
     catalog = await scanSkills(ctx.agentDir);

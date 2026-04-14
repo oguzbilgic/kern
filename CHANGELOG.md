@@ -8,7 +8,6 @@
   - Compact skill catalog always present in system prompt (~tokens per skill)
   - Standalone `skill` tool with `list`, `activate`, `deactivate` actions
   - Active skill instructions injected into system prompt — durable, never trimmed
-  - Active skills persisted to `.kern/active-skills.json` for restart recovery
   - API endpoints: `GET /skills`, `GET /skills/:name`
 
 ## v0.27.0

@@ -37,14 +37,14 @@ export const skillTool = tool({
         if (!name) return "Error: name is required for activate";
         const skill = catalog.find((s) => s.name === name);
         if (!skill) return `Error: skill "${name}" not found. Use list to see available skills.`;
-        const wasNew = await activate(name);
+        const wasNew = activate(name);
         if (!wasNew) return `Skill "${name}" is already active.`;
         return `Activated skill "${name}". Full instructions will be in your system prompt on the next turn.`;
       }
 
       case "deactivate": {
         if (!name) return "Error: name is required for deactivate";
-        const wasActive = await deactivate(name);
+        const wasActive = deactivate(name);
         if (!wasActive) return `Skill "${name}" is not active.`;
         return `Deactivated skill "${name}". Instructions removed from system prompt.`;
       }
