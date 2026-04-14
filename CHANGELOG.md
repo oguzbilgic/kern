@@ -1,5 +1,16 @@
 # Changelog
 
+## next
+
+### Features
+- **AgentSkills support** ([#213](https://github.com/oguzbilgic/kern-ai/issues/213)) — progressive disclosure skill system following the [AgentSkills](https://agentskills.io/) open standard
+  - Scans `skills/` (agent-created) and `.agents/skills/` (installed) for `SKILL.md` files
+  - Compact skill catalog always present in system prompt (~tokens per skill)
+  - Standalone `skill` tool with `list`, `activate`, `deactivate` actions
+  - Active skill instructions injected into system prompt — durable, never trimmed
+  - Active skills persisted to `.kern/active-skills.json` for restart recovery
+  - API endpoints: `GET /skills`, `GET /skills/:name`
+
 ## v0.27.0
 
 ### Features

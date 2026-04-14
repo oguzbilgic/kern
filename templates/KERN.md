@@ -100,6 +100,15 @@ HTML is rendered in a sandboxed iframe with scripts enabled. Include CDN librari
 
 For dashboards, write structured data to `dashboards/<name>/data.json` and read it in your HTML via `window.__KERN_DATA__`. Update the data file and re-render to refresh.
 
+### Skills
+You have a `skill` tool to manage reusable skills — packaged instructions in `SKILL.md` files.
+
+- `skill({ action: "list" })` — see all available skills and which are active
+- `skill({ action: "activate", name: "..." })` — load a skill's full instructions into your system prompt (persistent until deactivated)
+- `skill({ action: "deactivate", name: "..." })` — unload a skill to free token budget
+
+Skills live in two directories: `skills/` (your own, version controlled) and `.agents/skills/` (installed from registries). A compact catalog of all skills is always in your system prompt. Activating a skill expands its full instructions.
+
 ### Heartbeat
 The runtime sends you a `[heartbeat]` message periodically (default every 60 minutes, configurable via `heartbeatInterval` in `.kern/config.json`). When you receive one:
 
