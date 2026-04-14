@@ -19,7 +19,7 @@ import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusF
 import { plugins, type PluginContext } from "./plugins/index.js";
 import { log } from "./log.js";
 
-async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
+async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string, agentDir: string): Promise<string | null> {
   switch (cmd) {
     case "/restart": {
       log("kern", `restart requested by ${userId} via ${iface}`);
@@ -47,9 +47,24 @@ async function handleSlashCommand(cmd: string, userId: string, iface: string, ag
       return formatStatus(getStatusDataFn());
     }
 
+    case "/skills": {
+      const { scanSkills } = await import("./plugins/skills/scanner.js");
+      const { getActiveSkills } = await import("./plugins/skills/state.js");
+      const skills = await scanSkills(agentDir);
+      if (skills.length === 0) return "No skills found.";
+
+      const active = getActiveSkills();
+      const lines = skills.map(s => {
+        const icon = active.has(s.name) ? "✦" : "○";
+        return `  ${icon} ${s.name} — ${s.description || "(no description)"}`;
+      });
+      return `Skills (${skills.length} available, ${active.size} active)\n\n${lines.join("\n")}`;
+    }
+
     case "/help":
       return [
         "/status   — show agent status, uptime, token usage",
+        "/skills   — list available skills",
         "/restart  — restart the agent process",
         "/help     — show this help",
       ].join("\n");
@@ -237,7 +252,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     // Slash commands bypass the queue — instant response even if queue is busy
     const cmd = text.trim();
     if (cmd.startsWith("/")) {
-      const result = await handleSlashCommand(cmd, userId, iface, agentName);
+      const result = await handleSlashCommand(cmd, userId, iface, agentName, agentDir);
       if (result !== null) {
         server.broadcast({
           type: "command-result" as any,
