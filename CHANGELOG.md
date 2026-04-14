@@ -11,10 +11,9 @@
   - API endpoints: `GET /skills`, `GET /skills/:name`
   - Bundled `create-skill` builtin — helps agents write new skills following the standard
   - `/skills` slash command shows catalog with active state
+### Improvements
 - **Plugin slash commands** — plugins can register slash commands via `commands` field; `/help` auto-lists all available commands
 - **Dynamic slash autocomplete** — web UI fetches available commands from `GET /commands` endpoint on connect; plugin commands appear in autocomplete automatically
-
-### Improvements
 - **Unified context assembly** ([#217](https://github.com/oguzbilgic/kern-ai/pull/217)) — plugin injections (notes, skills, recall) now applied inside `buildPromptContext()`, making it the single source of truth for both model calls and the `/context/system` debug endpoint. Cache breakpoints now computed on the final message array including injections.
 
 ## v0.27.0
