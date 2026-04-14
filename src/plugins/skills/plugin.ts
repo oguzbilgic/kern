@@ -81,7 +81,11 @@ export const skillsPlugin: KernPlugin = {
     }
   },
 
-  async onBeforeContext(_info: BeforeContextInfo, _ctx: PluginContext): Promise<ContextInjection | null> {
+  async onBeforeContext(_info: BeforeContextInfo, ctx: PluginContext): Promise<ContextInjection | null> {
+    // Rescan every turn — agent may have created/deleted skills mid-session
+    catalog = await scanSkills(ctx.agentDir);
+    setCatalog(catalog);
+
     if (catalog.length === 0) return null;
 
     const parts: string[] = [];
