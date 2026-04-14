@@ -10,6 +10,9 @@
   - Active skill instructions injected into system prompt — durable, never trimmed
   - API endpoints: `GET /skills`, `GET /skills/:name`
 
+### Improvements
+- **Unified context assembly** ([#217](https://github.com/oguzbilgic/kern-ai/pull/217)) — plugin injections (notes, skills, recall) now applied inside `buildPromptContext()`, making it the single source of truth for both model calls and the `/context/system` debug endpoint. Cache breakpoints now computed on the final message array including injections.
+
 ## v0.27.0
 
 ### Features
