@@ -60,6 +60,10 @@ The `skill` tool has three actions:
 | `activate` | Load a skill's full instructions into system prompt |
 | `deactivate` | Unload a skill to free token budget |
 
+## Slash command
+
+`/skills` lists all available skills with active/inactive status icons. This command is registered by the skills plugin and appears in web UI autocomplete automatically.
+
 ## API
 
 | Endpoint | Description |

@@ -47,6 +47,8 @@ These are internal — the web proxy forwards to them, TUI connects directly.
 | `/context/segments` | GET | Segments currently in context |
 | `/sessions` | GET | Session list with current session ID |
 | `/recall/stats` | GET | Recall index stats |
+| `/commands` | GET | Available slash commands (builtins + plugins) |
+| `/skills` | GET | Skill catalog with active status |
 
 ### Auth
 
