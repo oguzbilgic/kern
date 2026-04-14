@@ -267,6 +267,19 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     return getStatusDataFn();
   });
 
+  server.setCommandsFn(() => {
+    const cmds: Record<string, string> = {
+      "/status": "show agent status, uptime, token usage",
+      "/restart": "restart the agent process",
+    };
+    const pluginCmds = plugins.collectCommandDescriptions();
+    for (const [cmd, desc] of Object.entries(pluginCmds)) {
+      cmds[cmd] = desc;
+    }
+    cmds["/help"] = "show this help";
+    return cmds;
+  });
+
   server.setMessageHandler(async (text, userId, iface, channel, attachments) => {
     await enqueueMessage(text, userId, iface, channel, undefined, attachments);
   });

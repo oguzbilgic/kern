@@ -2,8 +2,12 @@
 
 import { useState, useRef, useCallback, useEffect, type KeyboardEvent } from "react";
 import type { Attachment } from "../lib/types";
+import { getCommands } from "../lib/api";
 
-const SLASH_COMMANDS = [
+type SlashCommand = { name: string; desc: string };
+
+// Fallback commands if API unavailable
+const DEFAULT_COMMANDS: SlashCommand[] = [
   { name: "/status", desc: "agent status, uptime, token usage" },
   { name: "/restart", desc: "restart the agent process" },
   { name: "/help", desc: "list available commands" },
@@ -16,6 +20,8 @@ interface InputProps {
   onExternalConsumed?: () => void;
   fullWidth?: boolean;
   agentName?: string;
+  baseUrl?: string;
+  token?: string | null;
 }
 
 export function fileToAttachment(file: File): Promise<Attachment> {
@@ -44,10 +50,11 @@ export function fileToAttachment(file: File): Promise<Attachment> {
   });
 }
 
-export function Input({ onSend, disabled, externalAttachments, onExternalConsumed, fullWidth, agentName }: InputProps) {
+export function Input({ onSend, disabled, externalAttachments, onExternalConsumed, fullWidth, agentName, baseUrl, token }: InputProps) {
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [cmdFiltered, setCmdFiltered] = useState<typeof SLASH_COMMANDS>([]);
+  const [commands, setCommands] = useState<SlashCommand[]>(DEFAULT_COMMANDS);
+  const [cmdFiltered, setCmdFiltered] = useState<SlashCommand[]>([]);
   const [cmdIdx, setCmdIdx] = useState(0);
   const [cmdOpen, setCmdOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -59,6 +66,16 @@ export function Input({ onSend, disabled, externalAttachments, onExternalConsume
   useEffect(() => {
     textareaRef.current?.focus();
   }, [agentName]);
+
+  // Fetch available commands from agent
+  useEffect(() => {
+    if (!baseUrl) return;
+    getCommands(baseUrl, token).then((cmds) => {
+      if (cmds && Object.keys(cmds).length > 0) {
+        setCommands(Object.entries(cmds).map(([name, desc]) => ({ name, desc })));
+      }
+    });
+  }, [baseUrl, token]);
 
   // Consume externally added attachments (drag-and-drop)
   useEffect(() => {
@@ -72,7 +89,7 @@ export function Input({ onSend, disabled, externalAttachments, onExternalConsume
   useEffect(() => {
     const val = text.trim().toLowerCase();
     if (val.startsWith("/") && !val.includes(" ")) {
-      const matches = SLASH_COMMANDS.filter((c) => c.name.startsWith(val));
+      const matches = commands.filter((c) => c.name.startsWith(val));
       setCmdFiltered(matches);
       setCmdOpen(matches.length > 0);
       setCmdIdx((prev) => Math.min(prev, Math.max(0, matches.length - 1)));
@@ -80,7 +97,7 @@ export function Input({ onSend, disabled, externalAttachments, onExternalConsume
       setCmdFiltered([]);
       setCmdOpen(false);
     }
-  }, [text]);
+  }, [text, commands]);
 
   const selectCommand = useCallback(
     (idx: number) => {

@@ -35,6 +35,7 @@ export class AgentServer {
   private sessionListFn: (() => any) | null = null;
   private sessionActivityFn: ((sessionId: string) => any) | null = null;
   private currentSessionIdFn: (() => string | null) | null = null;
+  private commandsFn: (() => Record<string, string>) | null = null;
   private pluginRoutes: import("./plugins/types.js").RouteHandler[] = [];
   private port = 0;
   private agentDir = "";
@@ -57,6 +58,10 @@ export class AgentServer {
 
   setStatusFn(fn: () => any) {
     this.statusFn = fn;
+  }
+
+  setCommandsFn(fn: () => Record<string, string>) {
+    this.commandsFn = fn;
   }
 
   setHistoryFn(fn: (limit: number, before?: number) => any[]) {
@@ -295,6 +300,14 @@ export class AgentServer {
     if (url === "/status" && req.method === "GET") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(this.statusFn ? this.statusFn() : {}));
+      return;
+    }
+
+    // Commands — available slash commands
+    if (url === "/commands" && req.method === "GET") {
+      const cmds = this.commandsFn ? this.commandsFn() : {};
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(cmds));
       return;
     }
 
