@@ -13,10 +13,10 @@ export interface SkillInfo {
   description: string;
   /** Absolute path to skill directory */
   path: string;
+  /** Logical display path (e.g. skills/<name>/SKILL.md) */
+  displayPath: string;
   /** Where it came from */
   source: SkillSource;
-  /** Full SKILL.md body (below frontmatter) */
-  body: string;
 }
 
 /** Resolve kern package root (where package.json lives) */
@@ -47,8 +47,17 @@ function parseFrontmatter(content: string): { meta: Record<string, string>; body
   return { meta, body };
 }
 
+/** Derive logical display path from source and name */
+function getDisplayPath(name: string, source: SkillSource): string {
+  switch (source) {
+    case "installed": return `.agents/skills/${name}/SKILL.md`;
+    default: return `skills/${name}/SKILL.md`;
+  }
+}
+
 /**
  * Scan a single skills directory for subdirectories containing SKILL.md.
+ * Only reads frontmatter for catalog — full body loaded lazily on activation.
  */
 async function scanDir(dir: string, source: SkillSource): Promise<SkillInfo[]> {
   if (!existsSync(dir)) return [];
@@ -64,14 +73,15 @@ async function scanDir(dir: string, source: SkillSource): Promise<SkillInfo[]> {
 
     try {
       const content = await readFile(skillFile, "utf-8");
-      const { meta, body } = parseFrontmatter(content);
+      const { meta } = parseFrontmatter(content);
+      const name = meta.name || entry.name;
 
       skills.push({
-        name: meta.name || entry.name,
+        name,
         description: meta.description || "",
         path: skillDir,
+        displayPath: getDisplayPath(name, source),
         source,
-        body: body.trim() || content.trim(),
       });
     } catch (err: any) {
       log.warn("skills", `failed to read ${skillFile}: ${err.message}`);
@@ -79,6 +89,16 @@ async function scanDir(dir: string, source: SkillSource): Promise<SkillInfo[]> {
   }
 
   return skills;
+}
+
+/**
+ * Load full SKILL.md body for a specific skill (below frontmatter).
+ */
+export async function loadSkillBody(skill: SkillInfo): Promise<string> {
+  const skillFile = join(skill.path, "SKILL.md");
+  const content = await readFile(skillFile, "utf-8");
+  const { body } = parseFrontmatter(content);
+  return body.trim() || content.trim();
 }
 
 /**
