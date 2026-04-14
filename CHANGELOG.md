@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.28.0
 
 ### Features
 - **AgentSkills support** ([#213](https://github.com/oguzbilgic/kern-ai/issues/213)) — progressive disclosure skill system following the [AgentSkills](https://agentskills.io/) universal spec, part of the [skills.sh](https://skills.sh) ecosystem
@@ -11,7 +11,7 @@
   - API endpoints: `GET /skills`, `GET /skills/:name`
   - Bundled `create-skill` builtin — helps agents write new skills following the standard ([#218](https://github.com/oguzbilgic/kern-ai/pull/218))
   - `/skills` slash command shows catalog with active state ([#219](https://github.com/oguzbilgic/kern-ai/pull/219))
-  - Install community skills with `npx skills -a universal` or `npx clawhub --dir .agents/skills`
+  - Install community skills with `npx skills -a universal -y`
 ### Improvements
 - **Plugin status in `/status`** ([#224](https://github.com/oguzbilgic/kern-ai/pull/224)) — plugins report status via `onStatus` hook, aggregated and shown in `/status` output (e.g. `skills: 2 active / 3 total`)
 - **Plugin slash commands** ([#219](https://github.com/oguzbilgic/kern-ai/pull/219)) — plugins can register slash commands via `commands` field; `/help` auto-lists all available commands
