@@ -1,7 +1,10 @@
 import { readdir, readFile } from "fs/promises";
-import { join } from "path";
+import { join, dirname } from "path";
 import { existsSync } from "fs";
+import { fileURLToPath } from "url";
 import { log } from "../../log.js";
+
+export type SkillSource = "local" | "installed" | "builtin";
 
 export interface SkillInfo {
   /** Skill name (from frontmatter or folder name) */
@@ -11,9 +14,17 @@ export interface SkillInfo {
   /** Absolute path to skill directory */
   path: string;
   /** Where it came from */
-  source: "local" | "installed";
+  source: SkillSource;
   /** Full SKILL.md body (below frontmatter) */
   body: string;
+}
+
+/** Resolve kern package root (where package.json lives) */
+function getPackageRoot(): string {
+  // This file is at <pkg>/dist/plugins/skills/scanner.js (built) or src/plugins/skills/scanner.ts
+  const thisFile = fileURLToPath(import.meta.url);
+  // Walk up to package root: dist/plugins/skills/ → dist/plugins/ → dist/ → pkg root
+  return dirname(dirname(dirname(dirname(thisFile))));
 }
 
 /**
@@ -39,7 +50,7 @@ function parseFrontmatter(content: string): { meta: Record<string, string>; body
 /**
  * Scan a single skills directory for subdirectories containing SKILL.md.
  */
-async function scanDir(dir: string, source: "local" | "installed"): Promise<SkillInfo[]> {
+async function scanDir(dir: string, source: SkillSource): Promise<SkillInfo[]> {
   if (!existsSync(dir)) return [];
 
   const skills: SkillInfo[] = [];
@@ -71,10 +82,22 @@ async function scanDir(dir: string, source: "local" | "installed"): Promise<Skil
 }
 
 /**
- * Scan both skill directories and return merged catalog.
+ * Scan all skill directories and return merged catalog.
+ * Priority: local (agent) > installed (.agents) > builtin (kern package).
+ * Same-name skills in higher priority shadow lower ones.
  */
 export async function scanSkills(agentDir: string): Promise<SkillInfo[]> {
   const local = await scanDir(join(agentDir, "skills"), "local");
   const installed = await scanDir(join(agentDir, ".agents", "skills"), "installed");
-  return [...local, ...installed];
+  const builtin = await scanDir(join(getPackageRoot(), "skills"), "builtin");
+
+  // Merge with dedup — first occurrence wins (highest priority first)
+  const seen = new Set<string>();
+  const merged: SkillInfo[] = [];
+  for (const skill of [...local, ...installed, ...builtin]) {
+    if (seen.has(skill.name)) continue;
+    seen.add(skill.name);
+    merged.push(skill);
+  }
+  return merged;
 }
