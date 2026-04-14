@@ -117,4 +117,10 @@ export interface KernPlugin {
 
   /** Tool descriptions for system prompt injection (e.g. { recall: "search long-term memory..." }) */
   toolDescriptions?: Record<string, string>;
+
+  /** Slash commands this plugin provides */
+  commands?: Record<string, {
+    description: string;
+    handler: (ctx: PluginContext) => Promise<string>;
+  }>;
 }

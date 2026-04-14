@@ -19,6 +19,8 @@ import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusF
 import { plugins, type PluginContext } from "./plugins/index.js";
 import { log } from "./log.js";
 
+let _pluginCtx: PluginContext | null = null;
+
 async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string, agentDir: string): Promise<string | null> {
   switch (cmd) {
     case "/restart": {
@@ -47,30 +49,25 @@ async function handleSlashCommand(cmd: string, userId: string, iface: string, ag
       return formatStatus(getStatusDataFn());
     }
 
-    case "/skills": {
-      const { scanSkills } = await import("./plugins/skills/scanner.js");
-      const { getActiveSkills } = await import("./plugins/skills/state.js");
-      const skills = await scanSkills(agentDir);
-      if (skills.length === 0) return "No skills found.";
-
-      const active = getActiveSkills();
-      const lines = skills.map(s => {
-        const icon = active.has(s.name) ? "✦" : "○";
-        return `  ${icon} ${s.name} — ${s.description || "(no description)"}`;
-      });
-      return `Skills (${skills.length} available, ${active.size} active)\n\n${lines.join("\n")}`;
+    case "/help": {
+      const builtins = [
+        "/status   — show agent status, uptime, token usage",
+        "/restart  — restart the agent process",
+      ];
+      const pluginCmds = plugins.collectCommandDescriptions();
+      for (const [cmd, desc] of Object.entries(pluginCmds)) {
+        builtins.push(`${cmd.padEnd(10)} — ${desc}`);
+      }
+      builtins.push("/help     — show this help");
+      return builtins.join("\n");
     }
 
-    case "/help":
-      return [
-        "/status   — show agent status, uptime, token usage",
-        "/skills   — list available skills",
-        "/restart  — restart the agent process",
-        "/help     — show this help",
-      ].join("\n");
-
-    default:
-      return null; // unknown command — fall through to LLM
+    default: {
+      // Check plugin commands before falling through to LLM
+      const pluginCmd = plugins.getCommand(cmd);
+      if (pluginCmd) return pluginCmd.handler(_pluginCtx!);
+      return null;
+    }
   }
 }
 
@@ -161,6 +158,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     db: memoryDB,
     sessionId: () => runtime.getSessionId(),
   };
+  _pluginCtx = pluginCtx;
   const loadedPlugins = await plugins.load(pluginCtx);
 
   // Register plugin tools and descriptions with runtime

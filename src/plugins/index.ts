@@ -121,6 +121,27 @@ export const plugins = {
     }
   },
 
+  /** Look up a slash command handler from plugins. */
+  getCommand(cmd: string): { description: string; handler: (ctx: PluginContext) => Promise<string> } | null {
+    for (const plugin of activePlugins) {
+      if (plugin.commands?.[cmd]) return plugin.commands[cmd];
+    }
+    return null;
+  },
+
+  /** Collect all plugin command descriptions for /help. */
+  collectCommandDescriptions(): Record<string, string> {
+    const cmds: Record<string, string> = {};
+    for (const plugin of activePlugins) {
+      if (plugin.commands) {
+        for (const [cmd, { description }] of Object.entries(plugin.commands)) {
+          cmds[cmd] = description;
+        }
+      }
+    }
+    return cmds;
+  },
+
   /** Process attachments — first plugin that returns a message wins. */
   async dispatchProcessAttachments(
     attachments: import("../interfaces/types.js").Attachment[],

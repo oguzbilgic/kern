@@ -9,6 +9,9 @@
   - Standalone `skill` tool with `list`, `activate`, `deactivate` actions
   - Active skill instructions injected into system prompt — durable, never trimmed
   - API endpoints: `GET /skills`, `GET /skills/:name`
+  - Bundled `create-skill` builtin — helps agents write new skills following the standard
+  - `/skills` slash command shows catalog with active state
+- **Plugin slash commands** — plugins can register slash commands via `commands` field; `/help` auto-lists all available commands
 
 ### Improvements
 - **Unified context assembly** ([#217](https://github.com/oguzbilgic/kern-ai/pull/217)) — plugin injections (notes, skills, recall) now applied inside `buildPromptContext()`, making it the single source of truth for both model calls and the `/context/system` debug endpoint. Cache breakpoints now computed on the final message array including injections.
