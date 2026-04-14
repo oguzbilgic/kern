@@ -54,6 +54,7 @@ const TOOL_COLORS: Record<string, string> = {
   pdf: "#e6edf3",
   image: "#e6edf3",
   kern: "#e6edf3",
+  skill: "#e6edf3",
   recall: "#e6edf3",
   message: "#56d364",
 };
@@ -140,6 +141,7 @@ function toolSummary(msg: ChatMessage): string {
     case "pdf": return `${input.file || ""}`;
     case "image": return `${input.file || ""}`;
     case "kern": return `${input.action || ""}`;
+    case "skill": return `${input.action || ""}${input.name ? ` ${input.name}` : ""}`;
     case "recall": return `${input.query || ""}`;
     default: return name;
   }

@@ -1,5 +1,23 @@
 # Changelog
 
+## next
+
+### Features
+- **AgentSkills support** ([#213](https://github.com/oguzbilgic/kern-ai/issues/213)) — progressive disclosure skill system following the [AgentSkills](https://agentskills.io/) universal spec, part of the [skills.sh](https://skills.sh) ecosystem
+  - Scans `skills/` (agent-created) and `.agents/skills/` (installed) for `SKILL.md` files
+  - Compact skill catalog always present in system prompt (~tokens per skill)
+  - Standalone `skill` tool with `list`, `activate`, `deactivate` actions
+  - Active skill instructions injected into system prompt — durable, never trimmed
+  - API endpoints: `GET /skills`, `GET /skills/:name`
+  - Bundled `create-skill` builtin — helps agents write new skills following the standard ([#218](https://github.com/oguzbilgic/kern-ai/pull/218))
+  - `/skills` slash command shows catalog with active state ([#219](https://github.com/oguzbilgic/kern-ai/pull/219))
+  - Install community skills with `npx skills -a universal` or `npx clawhub --dir .agents/skills`
+### Improvements
+- **Plugin status in `/status`** ([#224](https://github.com/oguzbilgic/kern-ai/pull/224)) — plugins report status via `onStatus` hook, aggregated and shown in `/status` output (e.g. `skills: 2 active / 3 total`)
+- **Plugin slash commands** ([#219](https://github.com/oguzbilgic/kern-ai/pull/219)) — plugins can register slash commands via `commands` field; `/help` auto-lists all available commands
+  - Web UI fetches available commands from `GET /commands` endpoint; plugin commands appear in autocomplete automatically
+- **Unified context assembly** ([#217](https://github.com/oguzbilgic/kern-ai/pull/217)) — plugin injections (notes, skills, recall) now applied inside `buildPromptContext()`, making it the single source of truth for both model calls and the `/context/system` debug endpoint. Cache breakpoints now computed on the final message array including injections.
+
 ## v0.27.0
 
 ### Features

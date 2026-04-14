@@ -15,11 +15,13 @@ import { setMessageSender } from "./tools/message.js";
 import { SegmentIndex } from "./segments.js";
 import { MemoryDB } from "./memory.js";
 import { MessageQueue } from "./queue.js";
-import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setSegmentStatsFn, type InterfaceStatus } from "./tools/kern.js";
+import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setSegmentStatsFn, setPluginStatusFn, type InterfaceStatus } from "./tools/kern.js";
 import { plugins, type PluginContext } from "./plugins/index.js";
 import { log } from "./log.js";
 
-async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string): Promise<string | null> {
+let _pluginCtx: PluginContext | null = null;
+
+async function handleSlashCommand(cmd: string, userId: string, iface: string, agentName: string, agentDir: string): Promise<string | null> {
   switch (cmd) {
     case "/restart": {
       log("kern", `restart requested by ${userId} via ${iface}`);
@@ -47,15 +49,25 @@ async function handleSlashCommand(cmd: string, userId: string, iface: string, ag
       return formatStatus(getStatusDataFn());
     }
 
-    case "/help":
-      return [
+    case "/help": {
+      const builtins = [
         "/status   — show agent status, uptime, token usage",
         "/restart  — restart the agent process",
-        "/help     — show this help",
-      ].join("\n");
+      ];
+      const pluginCmds = plugins.collectCommandDescriptions();
+      for (const [cmd, desc] of Object.entries(pluginCmds)) {
+        builtins.push(`${cmd.padEnd(10)} — ${desc}`);
+      }
+      builtins.push("/help     — show this help");
+      return builtins.join("\n");
+    }
 
-    default:
-      return null; // unknown command — fall through to LLM
+    default: {
+      // Check plugin commands before falling through to LLM
+      const pluginCmd = plugins.getCommand(cmd);
+      if (pluginCmd) return pluginCmd.handler(_pluginCtx!);
+      return null;
+    }
   }
 }
 
@@ -146,7 +158,9 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     db: memoryDB,
     sessionId: () => runtime.getSessionId(),
   };
+  _pluginCtx = pluginCtx;
   const loadedPlugins = await plugins.load(pluginCtx);
+  setPluginStatusFn(() => plugins.collectStatus(pluginCtx));
 
   // Register plugin tools and descriptions with runtime
   const pluginTools = plugins.collectTools();
@@ -237,7 +251,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     // Slash commands bypass the queue — instant response even if queue is busy
     const cmd = text.trim();
     if (cmd.startsWith("/")) {
-      const result = await handleSlashCommand(cmd, userId, iface, agentName);
+      const result = await handleSlashCommand(cmd, userId, iface, agentName, agentDir);
       if (result !== null) {
         server.broadcast({
           type: "command-result" as any,
@@ -252,6 +266,19 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   server.setStatusFn(() => {
     return getStatusDataFn();
+  });
+
+  server.setCommandsFn(() => {
+    const cmds: Record<string, string> = {
+      "/status": "show agent status, uptime, token usage",
+      "/restart": "restart the agent process",
+    };
+    const pluginCmds = plugins.collectCommandDescriptions();
+    for (const [cmd, desc] of Object.entries(pluginCmds)) {
+      cmds[cmd] = desc;
+    }
+    cmds["/help"] = "show this help";
+    return cmds;
   });
 
   server.setMessageHandler(async (text, userId, iface, channel, attachments) => {
@@ -270,14 +297,11 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   });
 
   server.setSystemPromptFn(async () => {
-    const latestSystem = await runtime.getSystemPrompt();
-    const built = runtime.buildPromptContext();
-    const systemText = typeof built.system === "string" ? built.system : built.system?.content;
-    return { system: systemText || latestSystem };
+    return { system: await runtime.getSystemPrompt() };
   });
 
-  server.setContextSegmentsFn(() => {
-    const built = runtime.buildPromptContext();
+  server.setContextSegmentsFn(async () => {
+    const built = await runtime.buildPromptContext();
     return {
       tokenCount: built.stats.summaryTokens,
       segments: built.stats.summarySegments,

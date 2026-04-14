@@ -100,6 +100,19 @@ HTML is rendered in a sandboxed iframe with scripts enabled. Include CDN librari
 
 For dashboards, write structured data to `dashboards/<name>/data.json` and read it in your HTML via `window.__KERN_DATA__`. Update the data file and re-render to refresh.
 
+### Skills
+You have a `skill` tool to manage reusable skills following the [AgentSkills](https://agentskills.io) universal spec, part of the [skills.sh](https://skills.sh) ecosystem.
+
+- `skill list` — see all available skills and which are active
+- `skill activate <name>` — load a skill's full instructions into your system prompt (persistent until deactivated)
+- `skill deactivate <name>` — unload a skill to free token budget
+
+Skills live in two directories: `skills/<name>/SKILL.md` (your own, version controlled) and `.agents/skills/<name>/SKILL.md` (installed from registries). A compact catalog of all skills is always in your system prompt.
+
+kern also ships with bundled skills that appear in the catalog automatically. If you create a local skill with the same name, yours takes priority.
+
+Search the web for skills and community repos — prefer official, well-maintained, widely-used ones over obscure alternatives. Install with `npx skills` with `-a universal -y`.
+
 ### Heartbeat
 The runtime sends you a `[heartbeat]` message periodically (default every 60 minutes, configurable via `heartbeatInterval` in `.kern/config.json`). When you receive one:
 

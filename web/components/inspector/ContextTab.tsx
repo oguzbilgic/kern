@@ -122,6 +122,9 @@ const typeColor: Record<string, string> = {
   tools: "#f59e0b",
   conversation_summary: "#10b981",
   summary: "#10b981",
+  skills: "#ec4899",
+  recall: "#06b6d4",
+  notes: "#8b5cf6",
   text: "#6b7280",
 };
 

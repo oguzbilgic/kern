@@ -223,9 +223,17 @@ Restart the agent daemon.
 - The agent cannot restart itself — it must ask the operator to type `/restart`
 - Web UI auto-reconnects after restart (re-discovers the new agent port)
 
+### /skills
+
+List all available skills with active/inactive status. Provided by the skills plugin.
+
 ### /help
 
-List available slash commands with descriptions.
+List available slash commands with descriptions. Includes commands registered by plugins.
+
+### API: GET /commands
+
+Returns all available slash commands (builtins + plugins) as a JSON object mapping command names to descriptions. Used by the web UI for dynamic autocomplete.
 
 ## kern run \<name|path\>
 

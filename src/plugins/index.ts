@@ -3,6 +3,7 @@ import { dashboardPlugin } from "./dashboard/plugin.js";
 import { notesPlugin } from "./notes/plugin.js";
 import { recallPlugin } from "./recall/plugin.js";
 import { mediaPlugin } from "./media/plugin.js";
+import { skillsPlugin } from "./skills/plugin.js";
 import { log } from "../log.js";
 
 export type { KernPlugin, PluginContext, RouteHandler, ContextInjection, BeforeContextInfo } from "./types.js";
@@ -16,6 +17,7 @@ const availablePlugins: KernPlugin[] = [
   recallPlugin,
   mediaPlugin,
   dashboardPlugin,
+  skillsPlugin,
 ];
 
 /** Active plugin instances after loading */
@@ -82,7 +84,13 @@ export const plugins = {
       if (plugin.onBeforeContext) {
         try {
           const result = await plugin.onBeforeContext(info, ctx);
-          if (result) injections.push(result);
+          if (result) {
+            if (Array.isArray(result)) {
+              injections.push(...result);
+            } else {
+              injections.push(result);
+            }
+          }
         } catch (err: any) {
           log.error("plugin", `onBeforeContext error in ${plugin.name}: ${err.message}`);
         }
@@ -111,6 +119,42 @@ export const plugins = {
         }
       }
     }
+  },
+
+  /** Look up a slash command handler from plugins. */
+  getCommand(cmd: string): { description: string; handler: (ctx: PluginContext) => Promise<string> } | null {
+    for (const plugin of activePlugins) {
+      if (plugin.commands?.[cmd]) return plugin.commands[cmd];
+    }
+    return null;
+  },
+
+  /** Collect all plugin command descriptions for /help. */
+  collectCommandDescriptions(): Record<string, string> {
+    const cmds: Record<string, string> = {};
+    for (const plugin of activePlugins) {
+      if (plugin.commands) {
+        for (const [cmd, { description }] of Object.entries(plugin.commands)) {
+          cmds[cmd] = description;
+        }
+      }
+    }
+    return cmds;
+  },
+
+  /** Collect status info from all plugins. */
+  collectStatus(ctx: PluginContext): Record<string, any> {
+    const status: Record<string, any> = {};
+    for (const plugin of activePlugins) {
+      if (plugin.onStatus) {
+        try {
+          Object.assign(status, plugin.onStatus(ctx));
+        } catch (err: any) {
+          log.error("plugin", `onStatus error in ${plugin.name}: ${err.message}`);
+        }
+      }
+    }
+    return status;
   },
 
   /** Process attachments — first plugin that returns a message wins. */

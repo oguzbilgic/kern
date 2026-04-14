@@ -34,7 +34,7 @@ Browser-based chat served by `kern web`. See [Interfaces](interfaces.md#web-ui) 
 - Mid-turn messaging — send follow-ups injected between tool steps
 - Full history on connect, including tool call results
 - Switching agents mid-stream preserves the partial assistant response instead of dropping the in-progress text
-- Slash commands — `/status`, `/restart`, `/help` with autocomplete popup
+- Slash commands with dynamic autocomplete — fetches available commands from agent, including plugin commands
 - Markdown rendering — headers, lists, code blocks, tables, bold, italic, links
 - Syntax highlighting in code blocks and tool output
 - Dark theme, mobile-friendly

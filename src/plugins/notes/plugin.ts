@@ -72,7 +72,7 @@ export const notesPlugin: KernPlugin = {
     }
   },
 
-  async onBeforeContext(_info: BeforeContextInfo, ctx: PluginContext): Promise<ContextInjection | null> {
+  async onBeforeContext(_info: BeforeContextInfo, ctx: PluginContext): Promise<ContextInjection[] | null> {
     // Refresh notes context each time (handles background regeneration)
     try {
       cachedNotes = await loadNotesContext(ctx.agentDir, ctx.config, ctx.db);
@@ -80,21 +80,23 @@ export const notesPlugin: KernPlugin = {
       log.error("notes", `failed to refresh notes context: ${err.message}`);
     }
 
-    const parts: string[] = [];
+    const injections: ContextInjection[] = [];
 
     if (cachedNotes.summary) {
-      parts.push(wrapNotesSummary(cachedNotes.summary));
+      injections.push({
+        label: "notes",
+        content: wrapNotesSummary(cachedNotes.summary),
+        placement: "system",
+      });
     }
     if (cachedNotes.latest && cachedNotes.latestFile) {
-      parts.push(wrapDocument(`notes/${cachedNotes.latestFile}`, cachedNotes.latest));
+      injections.push({
+        label: "",
+        content: wrapDocument(`notes/${cachedNotes.latestFile}`, cachedNotes.latest),
+        placement: "system",
+      });
     }
 
-    if (parts.length === 0) return null;
-
-    return {
-      label: "notes",
-      content: parts.join("\n\n"),
-      placement: "system",
-    };
+    return injections.length > 0 ? injections : null;
   },
 };

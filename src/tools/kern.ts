@@ -36,6 +36,11 @@ export function setSegmentStatsFn(fn: () => { segments: number; level0: number; 
   _getSegmentStats = fn;
 }
 
+let _getPluginStatus: (() => Record<string, any>) | null = null;
+export function setPluginStatusFn(fn: () => Record<string, any>) {
+  _getPluginStatus = fn;
+}
+
 export async function initKernTool(opts: {
   agentDir: string;
   config: any;
@@ -134,6 +139,7 @@ export interface StatusData {
   telegram: string | null;
   slack: string | null;
   segments: string | null;
+  plugins: Record<string, any> | null;
 }
 
 export function getStatusData(): StatusData {
@@ -221,6 +227,7 @@ export function getStatusData(): StatusData {
         .join(", ");
       return lvlStr || "0 segments";
     })() : null,
+    plugins: _getPluginStatus ? _getPluginStatus() : null,
   };
 }
 
@@ -249,6 +256,7 @@ export function formatStatus(data: StatusData): string {
     })() : (data.summary ? `  summary: ${data.summary}` : ""),
 
     data.segments ? `segments: ${data.segments}` : "",
+    ...(data.plugins ? Object.entries(data.plugins).map(([k, v]) => `${k}: ${v}`) : []),
     `api usage: ${data.apiUsage}`,
     data.cacheUsage ? `cache: ${data.cacheUsage}` : "",
     `queue: ${data.queue}`,

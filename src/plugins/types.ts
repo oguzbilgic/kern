@@ -98,7 +98,7 @@ export interface KernPlugin {
    * Called during context assembly to inject content into the system prompt.
    * Returns content to inject, or null to skip.
    */
-  onBeforeContext?: (info: BeforeContextInfo, ctx: PluginContext) => Promise<ContextInjection | null>;
+  onBeforeContext?: (info: BeforeContextInfo, ctx: PluginContext) => Promise<ContextInjection | ContextInjection[] | null>;
 
   /**
    * Called when building /status response. Return key-value pairs to merge.
@@ -117,4 +117,10 @@ export interface KernPlugin {
 
   /** Tool descriptions for system prompt injection (e.g. { recall: "search long-term memory..." }) */
   toolDescriptions?: Record<string, string>;
+
+  /** Slash commands this plugin provides */
+  commands?: Record<string, {
+    description: string;
+    handler: (ctx: PluginContext) => Promise<string>;
+  }>;
 }
