@@ -4,12 +4,15 @@ Skills are reusable instruction packages that extend an agent's capabilities. Ea
 
 ## Directories
 
-Skills are loaded from two directories:
+Skills are loaded from three directories, in priority order:
 
 | Directory | Purpose | Version controlled |
 |---|---|---|
 | `skills/` | Agent-created skills | Yes |
 | `.agents/skills/` | Installed from registries | No |
+| *(bundled)* | Ships with kern package | No |
+
+If a local skill has the same name as a bundled or installed skill, the local one takes priority.
 
 ## SKILL.md format
 
@@ -91,6 +94,14 @@ The `skill` tool has three actions:
    ```
 
 3. The skill appears in the catalog on the next turn — no restart needed.
+
+## Bundled skills
+
+kern ships with built-in skills that appear automatically in every agent's catalog. Currently bundled:
+
+- **create-skill** — helps agents write new skills following the AgentSkills format
+
+Bundled skills live inside the kern npm package and cannot be edited. To override a bundled skill, create a local skill with the same name in `skills/`.
 
 ## Installing skills
 

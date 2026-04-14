@@ -49,6 +49,7 @@ These are internal — the web proxy forwards to them, TUI connects directly.
 | `/recall/stats` | GET | Recall index stats |
 | `/commands` | GET | Available slash commands (builtins + plugins) |
 | `/skills` | GET | Skill catalog with active status |
+| `/skills/:name` | GET | Skill detail including full body |
 
 ### Auth
 
