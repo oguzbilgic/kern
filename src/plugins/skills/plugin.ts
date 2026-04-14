@@ -118,6 +118,21 @@ export const skillsPlugin: KernPlugin = {
     return injections;
   },
 
+  commands: {
+    "/skills": {
+      description: "list available skills",
+      handler: async () => {
+        if (catalog.length === 0) return "No skills found.";
+        const active = getActiveSkills();
+        const lines = catalog.map((s) => {
+          const icon = active.has(s.name) ? "✦" : "○";
+          return `  ${icon} ${s.name} — ${s.description || "(no description)"}`;
+        });
+        return `Skills (${catalog.length} available, ${active.size} active)\n\n${lines.join("\n")}`;
+      },
+    },
+  },
+
   onStatus(_ctx) {
     return {
       skills: `${getActiveSkills().size} active / ${catalog.length} total`,
