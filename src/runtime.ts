@@ -389,7 +389,42 @@ ${inj.content}
 
   async getSystemPrompt(): Promise<string> {
     this.systemPrompt = await loadSystemPrompt(this.agentDir, this.config, this.pluginToolDescriptions);
-    return this.systemPrompt;
+
+    // Build full prompt: base + conversation summary + plugin injections
+    let system = this.systemPrompt;
+
+    // Add conversation summary segments
+    const prepared = prepareContext({
+      messages: this.session.getMessages(),
+      config: this.config,
+      sessionId: this.session.getSessionId() || undefined,
+      segmentIndex: this.segmentIndex,
+    });
+    if (prepared.systemAdditions.length > 0) {
+      system = `${system}\n\n${prepared.systemAdditions.join("\n\n")}`;
+    }
+
+    // Add plugin injections (notes, skills, etc.)
+    if (this.contextInjectionFn) {
+      try {
+        const injections = await this.contextInjectionFn({
+          trimmedCount: 0,
+          tokenBudget: 2000,
+          userQuery: "",
+          sessionId: this.session.getSessionId() || "",
+        });
+        for (const inj of injections) {
+          if (inj.placement === "system") {
+            const wrapped = inj.label
+              ? `<${inj.label}>\n${inj.content}\n</${inj.label}>`
+              : inj.content;
+            system = `${system}\n\n${wrapped}`;
+          }
+        }
+      } catch (_) {}
+    }
+
+    return system;
   }
 
   getMessages(): ModelMessage[] {
