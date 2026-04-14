@@ -190,3 +190,13 @@ export async function resummarizeSegment(baseUrl: string, token: string | null, 
   const res = await fetch(`${baseUrl}/segments/${segmentId}/resummarize`, { method: "POST", headers: headers(token) });
   return res.json();
 }
+
+export async function getCommands(baseUrl: string, token?: string | null): Promise<Record<string, string>> {
+  try {
+    const res = await fetch(`${baseUrl}/commands`, { headers: headers(token) });
+    if (!res.ok) return {};
+    return res.json();
+  } catch {
+    return {};
+  }
+}

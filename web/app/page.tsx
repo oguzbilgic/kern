@@ -208,6 +208,8 @@ export default function Home() {
           onExternalConsumed={() => setExternalAttachments([])}
           fullWidth={prefs.chatLayout === "flat"}
           agentName={activeAgent?.name}
+          baseUrl={activeAgent?.baseUrl}
+          token={activeAgent?.token}
         />
       </div>
 
