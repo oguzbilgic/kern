@@ -47,11 +47,12 @@ function parseFrontmatter(content: string): { meta: Record<string, string>; body
   return { meta, body };
 }
 
-/** Derive logical display path from source and name */
-function getDisplayPath(name: string, source: SkillSource): string {
+/** Derive display path from source and name */
+function getDisplayPath(name: string, source: SkillSource, absolutePath: string): string {
   switch (source) {
+    case "local": return `skills/${name}/SKILL.md`;
     case "installed": return `.agents/skills/${name}/SKILL.md`;
-    default: return `skills/${name}/SKILL.md`;
+    case "builtin": return `${absolutePath}/SKILL.md`;
   }
 }
 
@@ -80,7 +81,7 @@ async function scanDir(dir: string, source: SkillSource): Promise<SkillInfo[]> {
         name,
         description: meta.description || "",
         path: skillDir,
-        displayPath: getDisplayPath(name, source),
+        displayPath: getDisplayPath(name, source, skillDir),
         source,
       });
     } catch (err: any) {
