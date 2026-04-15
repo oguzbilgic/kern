@@ -43,13 +43,27 @@ export const pdfTool = tool({
   }),
   execute: async ({ file, pages, prompt }) => {
     try {
-      const { extractText } = await import("unpdf");
+      let extractText: any;
+      try {
+        const mod = await import("unpdf");
+        extractText = mod.extractText;
+      } catch (importErr: any) {
+        return `Error: PDF support unavailable (${importErr.message}). Install system dependencies or use a full Docker image.`;
+      }
+
       const buffer = await readFile(file);
       const data = new Uint8Array(buffer);
-      const { totalPages, text } = await extractText(data, {
-        mergePages: false,
-      });
-      const pageTexts = text as string[];
+
+      let totalPages: number;
+      let text: string[];
+      try {
+        const result = await extractText(data, { mergePages: false });
+        totalPages = result.totalPages;
+        text = result.text as string[];
+      } catch (parseErr: any) {
+        return `Error: failed to parse PDF (${parseErr.message})`;
+      }
+      const pageTexts = text;
 
       // Default: all pages if prompt provided, page 1 if just reading
       const effectivePages = pages || (prompt ? `1-${totalPages}` : "1");
