@@ -6,7 +6,7 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 
 ```json
 {
-  "model": "anthropic/claude-opus-4.6",
+  "model": "anthropic/claude-opus-4.7",
   "provider": "openrouter",
   "toolScope": "full"
 }
@@ -17,7 +17,7 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 | Field | Default | Description |
 |-------|---------|-------------|
 | `name` | directory name | Agent name. Auto-set to directory basename on first startup if missing. Exposed in `/status` response. |
-| `model` | `anthropic/claude-opus-4.6` | Model ID. Format depends on provider. |
+| `model` | `anthropic/claude-opus-4.7` | Model ID. Format depends on provider. |
 | `provider` | `openrouter` | API provider: `openrouter`, `anthropic`, `openai`, `ollama` |
 | `toolScope` | `full` | Tool access level: `full`, `write`, `read` |
 | `maxSteps` | `30` | Max tool-use steps per message |
@@ -41,8 +41,8 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 
 ### Providers
 
-- **openrouter** — routes to cheapest provider. Model IDs like `anthropic/claude-opus-4.6`. Uses OpenAI-compatible chat completions API.
-- **anthropic** — direct Anthropic API. Model IDs like `claude-opus-4-6-20260301`.
+- **openrouter** — routes to cheapest provider. Model IDs like `anthropic/claude-opus-4.7`. Uses OpenAI-compatible chat completions API.
+- **anthropic** — direct Anthropic API. Model IDs like `claude-opus-4-7`.
 - **openai** — OpenAI or Azure. Model IDs like `gpt-4o`.
 - **ollama** — local Ollama server. Model IDs match Ollama model names like `gemma4:31b`. Set `OLLAMA_BASE_URL` in `.env` for remote servers (default: `http://localhost:11434`).
 
