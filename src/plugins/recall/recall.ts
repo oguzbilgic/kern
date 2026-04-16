@@ -7,6 +7,7 @@ import { extractText } from "../../util.js";
 import { createEmbeddingModel } from "../../model.js";
 import type { ModelMessage } from "ai";
 import type { MemoryDB } from "../../memory.js";
+import type { KernConfig } from "../../config.js";
 
 const MAX_CHUNK_TOKENS = 1000; // rough token limit per chunk
 
@@ -24,11 +25,11 @@ export class RecallIndex {
   private embeddingModel: Parameters<typeof embed>[0]["model"];
   private agentDir: string;
 
-  constructor(memoryDB: MemoryDB, agentDir: string, provider: string) {
+  constructor(memoryDB: MemoryDB, agentDir: string, config: KernConfig) {
     this.agentDir = agentDir;
     this.db = memoryDB.db;
 
-    const model = createEmbeddingModel(provider);
+    const model = createEmbeddingModel(config);
     if (!model) {
       throw new Error("No embedding model available (need OPENROUTER_API_KEY, OPENAI_API_KEY, or Ollama provider)");
     }

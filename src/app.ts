@@ -100,7 +100,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   const runtime = new Runtime(agentDir);
 
   // Probe embedding model dimensions before creating DB
-  const embeddingDims = await MemoryDB.detectEmbeddingDimensions(config.provider);
+  const embeddingDims = await MemoryDB.detectEmbeddingDimensions(config);
 
   // Initialize memory DB before runtime.init() so media sidecar can backfill
   const memoryDB = new MemoryDB(agentDir, embeddingDims);

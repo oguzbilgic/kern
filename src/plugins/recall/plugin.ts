@@ -68,7 +68,7 @@ export const recallPlugin: KernPlugin = {
     if (ctx.config.recall === false) return;
 
     try {
-      recallIndex = new RecallIndex(ctx.db, ctx.agentDir, ctx.config.provider);
+      recallIndex = new RecallIndex(ctx.db, ctx.agentDir, ctx.config);
       setRecallIndex(recallIndex);
 
       // Backfill in background

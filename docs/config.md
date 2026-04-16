@@ -57,6 +57,17 @@ Segment summarization uses a cheap chat model chosen automatically per provider:
 | `openrouter` | `openai/gpt-4.1-mini` |
 | `ollama` | reuses the agent's chat model (no extra model to pull) |
 
+### Embedding model
+
+Recall and segment boundary detection use an embedding model chosen automatically per provider:
+
+| Provider | Embedding model |
+|----------|-----------------|
+| `openai` | `text-embedding-3-small` |
+| `anthropic` | `openai/text-embedding-3-small` (via OpenRouter — Anthropic has no embeddings API) |
+| `openrouter` | `openai/text-embedding-3-small` |
+| `ollama` | `nomic-embed-text` |
+
 ## Environment variable overrides
 
 Environment variables override matching `config.json` fields. Useful for Docker deployments where config is passed via environment.

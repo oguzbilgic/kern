@@ -150,7 +150,7 @@ export class SegmentIndex {
   constructor(memoryDB: MemoryDB, config: KernConfig) {
     this.db = memoryDB.db;
 
-    const embModel = createEmbeddingModel(config.provider);
+    const embModel = createEmbeddingModel(config);
     if (!embModel) {
       throw new Error("No embedding model available (need OPENROUTER_API_KEY, OPENAI_API_KEY, or Ollama provider)");
     }
