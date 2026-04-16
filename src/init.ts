@@ -468,7 +468,6 @@ export async function scaffoldAgent(opts: ScaffoldOpts): Promise<void> {
 .kern/media/
 .kern/logs/
 .kern/*.db
-skills-lock.json
 node_modules/
 `;
 
