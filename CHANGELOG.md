@@ -4,6 +4,8 @@
 
 ### Improvements
 - **Docker base image** ([#225](https://github.com/oguzbilgic/kern-ai/issues/225)) — switched to Ubuntu 24.04 (GLIBC 2.39) with Node.js 22, added `curl`, `wget`, `jq`, `python3`, `pip`, `unzip`, `build-essential`; npm and pip install to user space by default, persisted when volume mounted at `/home/kern`
+- **Summary model defaults** ([#232](https://github.com/oguzbilgic/kern-ai/issues/232)) — refreshed hardcoded summary models: `openai` → `gpt-4.1-mini`, `anthropic` → `claude-haiku-4.5` (via OpenRouter), `openrouter` → `openai/gpt-4.1-mini`. Ollama now reuses the agent's chat model instead of requiring a separately-pulled `gemma3:4b`
+- **Embedding model defaults** — simplified `createEmbeddingModel` to a per-provider switch matching `createSummaryModel`: `openai` → `text-embedding-3-small`, `anthropic`/`openrouter` → `openai/text-embedding-3-small`, `ollama` → `nomic-embed-text`. No behavior change — same model IDs resolved, cleaner branching
 
 ## v0.28.0
 

@@ -4,6 +4,7 @@ import { join } from "path";
 import { log } from "./log.js";
 import { embed } from "ai";
 import { createEmbeddingModel } from "./model.js";
+import type { KernConfig } from "./config.js";
 
 const DEFAULT_EMBEDDING_DIMENSIONS = 1536;
 
@@ -165,9 +166,9 @@ export class MemoryDB {
    * Probe the actual embedding model to detect its output dimensions.
    * Returns the dimension count, or the default if probing fails.
    */
-  static async detectEmbeddingDimensions(provider: string): Promise<number> {
+  static async detectEmbeddingDimensions(config: KernConfig): Promise<number> {
     try {
-      const model = createEmbeddingModel(provider);
+      const model = createEmbeddingModel(config);
       if (!model) return DEFAULT_EMBEDDING_DIMENSIONS;
       const result = await embed({ model, value: "dimension probe" });
       const dims = result.embedding.length;
