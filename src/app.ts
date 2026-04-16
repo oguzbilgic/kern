@@ -113,7 +113,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   let segmentRunning = false;
   if (embeddingDims > 0) {
     try {
-      segmentIndex = new SegmentIndex(memoryDB, config.provider);
+      segmentIndex = new SegmentIndex(memoryDB, config);
       runtime.setSegmentIndex(segmentIndex);
       setSegmentStatsFn(() => segmentIndex ? segmentIndex.getStats() : null);
     } catch (err: any) {

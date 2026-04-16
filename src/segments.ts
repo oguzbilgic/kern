@@ -2,6 +2,7 @@ import { embed, embedMany, generateText } from "ai";
 import { log } from "./log.js";
 import { extractText } from "./util.js";
 import { createEmbeddingModel, createSummaryModel } from "./model.js";
+import type { KernConfig } from "./config.js";
 import type { MemoryDB } from "./memory.js";
 import type Database from "better-sqlite3";
 import { readFileSync, existsSync } from "fs";
@@ -146,16 +147,16 @@ export class SegmentIndex {
   private summaryModel: Parameters<typeof generateText>[0]["model"];
   private abortController: AbortController | null = null;
 
-  constructor(memoryDB: MemoryDB, provider: string) {
+  constructor(memoryDB: MemoryDB, config: KernConfig) {
     this.db = memoryDB.db;
 
-    const embModel = createEmbeddingModel(provider);
+    const embModel = createEmbeddingModel(config.provider);
     if (!embModel) {
       throw new Error("No embedding model available (need OPENROUTER_API_KEY, OPENAI_API_KEY, or Ollama provider)");
     }
     this.embeddingModel = embModel;
 
-    const sumModel = createSummaryModel(provider);
+    const sumModel = createSummaryModel(config);
     if (!sumModel) {
       throw new Error("No summary model available");
     }

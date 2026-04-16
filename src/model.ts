@@ -71,17 +71,28 @@ export function createEmbeddingModel(provider: string): Parameters<typeof embed>
 /**
  * Create a cheap chat model for segment summarization.
  * Returns null if no suitable provider/key is available.
+ *
+ * Defaults by provider:
+ * - openai: gpt-4.1-mini
+ * - anthropic: claude-haiku-4.5 (via OpenRouter)
+ * - openrouter: openai/gpt-4.1-mini
+ * - ollama: reuses the agent's chat model (avoids forcing users to pull
+ *   a separate model just for summaries)
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createSummaryModel(provider: string): any {
-  const client = createOpenAIClient(provider);
+export function createSummaryModel(config: KernConfig): any {
+  const client = createOpenAIClient(config.provider);
   if (!client) return null;
 
-  switch (provider) {
+  switch (config.provider) {
     case "openai":
-      return client.chat("gpt-4.1-nano");
+      return client.chat("gpt-4.1-mini");
+    case "anthropic":
+      return client.chat("anthropic/claude-haiku-4.5");
+    case "openrouter":
+      return client.chat("openai/gpt-4.1-mini");
     case "ollama":
-      return client.chat("gemma3:4b");
+      return client.chat(config.model);
     default:
       return client.chat("openai/gpt-4.1-mini");
   }
