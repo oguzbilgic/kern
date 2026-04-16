@@ -43,17 +43,27 @@ For other providers, pass the matching API key:
 
 ## Volumes
 
-The agent stores all state in its working directory. Mount a volume to persist it across container restarts.
+The agent stores all state in its working directory. Mount a volume to persist data across container restarts.
 
-**Agent only** — mounts just the agent directory:
+**Agent only** — persists agent config, sessions, and knowledge:
 ```bash
 -v kern-data:/home/kern/agent
 ```
 
-**Full home** — preserves global kern config, SSH keys, and any other user-level state:
+**Full home** — also persists globally installed packages (`npm install -g`, `pip install`), SSH keys, and user-level config:
 ```bash
 -v kern-data:/home/kern
 ```
+
+## Pre-installed tools
+
+The base image includes: `git`, `ssh`, `curl`, `wget`, `jq`, `python3`, `pip`, `unzip`, `build-essential`.
+
+Agents can install additional tools at runtime:
+- `npm install -g <package>` — installs to user space (`~/.npm-global`)
+- `pip install <package>` — installs to user space (`~/.local`)
+
+These persist across restarts when the volume is mounted at `/home/kern`.
 
 ## Web UI
 
