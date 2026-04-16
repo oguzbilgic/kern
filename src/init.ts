@@ -10,12 +10,12 @@ import { log } from "./log.js";
 // Fallback models used when live fetch fails (e.g. no network, bad key)
 const FALLBACK_MODELS: Record<string, { name: string; value: string }[]> = {
   openrouter: [
-    { name: "Claude Opus 4.6", value: "anthropic/claude-opus-4.6" },
+    { name: "Claude Opus 4.7", value: "anthropic/claude-opus-4.7" },
     { name: "Claude Sonnet 4.6", value: "anthropic/claude-sonnet-4.6" },
     { name: "Gemini 2.5 Flash", value: "google/gemini-2.5-flash" },
   ],
   anthropic: [
-    { name: "Claude Opus 4.6", value: "claude-opus-4-6" },
+    { name: "Claude Opus 4.7", value: "claude-opus-4-7" },
     { name: "Claude Sonnet 4.6", value: "claude-sonnet-4-6" },
   ],
   openai: [
@@ -319,7 +319,7 @@ export async function runInit(targetArg?: string, flags?: Record<string, string>
     let model = flags.model;
     if (!model) {
       const choices = await getModelChoices(provider, apiKey);
-      model = choices[0]?.value || "anthropic/claude-opus-4.6";
+      model = choices[0]?.value || "anthropic/claude-opus-4.7";
     }
     const envVar = API_KEY_ENV[provider] || "OPENROUTER_API_KEY";
     const telegramToken = flags["telegram-token"] || "";
