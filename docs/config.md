@@ -46,6 +46,17 @@ The main config file. Committed to git. Unknown fields and wrong types are warne
 - **openai** — OpenAI or Azure. Model IDs like `gpt-4o`.
 - **ollama** — local Ollama server. Model IDs match Ollama model names like `gemma4:31b`. Set `OLLAMA_BASE_URL` in `.env` for remote servers (default: `http://localhost:11434`).
 
+### Summary model
+
+Segment summarization uses a cheap chat model chosen automatically per provider:
+
+| Provider | Summary model |
+|----------|--------------|
+| `openai` | `gpt-4.1-mini` |
+| `anthropic` | `anthropic/claude-haiku-4.5` (via OpenRouter — needs `OPENROUTER_API_KEY`) |
+| `openrouter` | `openai/gpt-4.1-mini` |
+| `ollama` | reuses the agent's chat model (no extra model to pull) |
+
 ## Environment variable overrides
 
 Environment variables override matching `config.json` fields. Useful for Docker deployments where config is passed via environment.

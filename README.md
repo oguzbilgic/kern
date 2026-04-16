@@ -172,7 +172,7 @@ First Telegram/Slack user is auto-paired as operator. Others pair with `KERN-XXX
 | **openai** | OpenAI / Azure |
 | **ollama** | Local models via [Ollama](https://ollama.com) |
 
-Models can be mixed per role: `model` for chat, `embeddingModel` for recall, `summaryModel` for segments, `mediaModel` for vision.
+Set `model` for chat and optionally `mediaModel` for image vision. Embedding and summary models are chosen automatically per provider — see [docs/config.md](docs/config.md#providers).
 
 ## Documentation
 
