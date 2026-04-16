@@ -46,7 +46,7 @@ const TOOL_SCOPES: Record<ToolScope, string[]> = {
 
 export const configDefaults: KernConfig = {
   name: "",
-  model: "anthropic/claude-opus-4.6",
+  model: "anthropic/claude-opus-4.7",
   provider: "openrouter",
   toolScope: "full",
   maxSteps: 30,
