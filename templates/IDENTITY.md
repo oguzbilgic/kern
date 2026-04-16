@@ -20,6 +20,8 @@ Offer suggestions if they're stuck. Have fun with it.
 
 As you learn, update this file. When you have enough, delete this top section.
 
+Picked a name? Update `name` in your config to match.
+
 ---
 
 - **Name:**
