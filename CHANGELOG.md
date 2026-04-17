@@ -22,6 +22,7 @@
 
 ### Fixes
 - Offline agents no longer block sidebar load ([#229](https://github.com/oguzbilgic/kern-ai/issues/229))
+- **Duplicate replies from mid-turn same-channel injections** ([#239](https://github.com/oguzbilgic/kern-ai/issues/239)) — drained injections resolve with `NO_REPLY`; undrained ones requeue as their own turn. Most visible in agent-to-agent Matrix rooms
 
 ## v0.28.0
 

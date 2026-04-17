@@ -19,7 +19,17 @@ export class MessageQueue {
   private queue: QueuedMessage[] = [];
   private processing = false;
   private activeChannel: string | null = null;
+  // Monotonically-increasing token for the current turn. Used to ignore
+  // stale drain calls from a handler that timed out but is still running
+  // in the background (Promise.race doesn't cancel the loser).
+  private turnId = 0;
+  // Same-channel messages that arrived mid-turn, waiting to be drained into
+  // the active turn via prepareStep.
   private pendingSameChannel: QueuedMessage[] = [];
+  // Same-channel messages already drained into the active turn. Kept around
+  // so we can resolve their Promises with NO_REPLY when the turn finishes —
+  // otherwise the interface handlers that awaited onMessage() would hang.
+  private drainedSameChannel: QueuedMessage[] = [];
   private handler: ((msg: QueuedMessage, pendingMessages: () => QueuedMessage[]) => Promise<string>) | null = null;
   private timeoutMs = 5 * 60 * 1000; // 5 minute timeout per message
 
@@ -56,11 +66,33 @@ export class MessageQueue {
     });
   }
 
-  // Called by prepareStep to get pending same-channel messages
+  // Called by prepareStep to get pending same-channel messages.
+  // Drained messages are moved to `drainedSameChannel` so their Promises
+  // can still be resolved when the active turn finishes.
   drainPendingSameChannel(): QueuedMessage[] {
     const pending = [...this.pendingSameChannel];
     this.pendingSameChannel = [];
+    this.drainedSameChannel.push(...pending);
     return pending;
+  }
+
+  // Resolve drained injections with NO_REPLY — they were folded into the
+  // active turn's response, so their interface handlers must stay quiet.
+  // Requeue still-pending same-channel messages — they arrived mid-turn but
+  // were never drained (e.g. single-step turn with no prepareStep calls), so
+  // they need to run as their own turn instead of being silently dropped.
+  private finalizePendingSameChannel() {
+    for (const drained of this.drainedSameChannel) {
+      drained.resolve("NO_REPLY");
+    }
+    this.drainedSameChannel = [];
+
+    const requeue = this.pendingSameChannel;
+    this.pendingSameChannel = [];
+    for (const msg of requeue) {
+      this.queue.push(msg);
+      log("queue", `requeued same-channel message (${msg.interface}:${msg.channel || "?"})`);
+    }
   }
 
   private async processNext() {
@@ -70,31 +102,33 @@ export class MessageQueue {
     this.processing = true;
     const msg = this.queue.shift()!;
     this.activeChannel = msg.isHeartbeat ? null : msg.channel;
+    const turnId = ++this.turnId;
 
     log("queue", `processing (${msg.interface}:${msg.channel || "?"}) remaining=${this.queue.length}`);
 
     try {
-      // Race handler against timeout
+      // Race handler against timeout. Promise.race doesn't cancel the loser,
+      // so a timed-out handler keeps running; the turnId guard below makes
+      // any late drain calls a no-op instead of corrupting the next turn.
       const response = await Promise.race([
-        this.handler!(msg, () => this.drainPendingSameChannel()),
+        this.handler!(msg, () => {
+          if (turnId !== this.turnId) return [];
+          return this.drainPendingSameChannel();
+        }),
         new Promise<string>((_, reject) =>
           setTimeout(() => reject(new Error("Message processing timed out")), this.timeoutMs)
         ),
       ]);
 
       msg.resolve(response);
-
-      for (const pending of this.pendingSameChannel) {
-        pending.resolve(response);
-      }
-      this.pendingSameChannel = [];
+      this.finalizePendingSameChannel();
     } catch (error: any) {
       log.error("queue", `error: ${error.message}`);
       msg.reject(error);
-      for (const pending of this.pendingSameChannel) {
-        pending.reject(error);
-      }
-      this.pendingSameChannel = [];
+      // Errors belong to the active message. Drained injections were already
+      // folded into the (failed) turn, so NO_REPLY them. Still-pending
+      // messages were never touched — requeue them for their own turn.
+      this.finalizePendingSameChannel();
     } finally {
       this.processing = false;
       this.activeChannel = null;
