@@ -98,7 +98,7 @@ The agent auto-accepts room invites. In DMs it behaves like Telegram/Slack DMs; 
 
 ## User pairing
 
-Pairing applies only to Telegram, Slack, and Matrix DMs. TUI and web users connect directly — no pairing needed.
+Pairing applies to Telegram, Slack, and Matrix. For Telegram and Slack, it only applies to DMs — group rooms are open. For Matrix, pairing is enforced in every room (DMs and group rooms), so an unpaired sender in a shared Matrix room will receive a pairing code there. TUI and web users connect directly — no pairing needed.
 
 The first user to message the agent on Telegram, Slack, or Matrix is automatically paired (likely the operator). After that, unpaired users receive a pairing code from the runtime:
 

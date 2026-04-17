@@ -1,12 +1,12 @@
 # User Pairing
 
-kern uses a code-based pairing system for Telegram, Slack, and Matrix DMs. TUI and web users connect directly — no pairing needed.
+kern uses a code-based pairing system for Telegram, Slack, and Matrix. For Telegram and Slack, pairing applies to DMs only (group rooms are open). For Matrix, pairing is enforced in every room (DMs and group rooms) — an unpaired sender in a shared room will receive a pairing code in that room. TUI and web users connect directly — no pairing needed.
 
 The first user to message the bot on Telegram, Slack, or Matrix is automatically paired as the operator.
 
 ## Flow
 
-1. Unknown user messages the bot (Telegram DM, Slack DM, or Matrix DM)
+1. Unknown user messages the bot (Telegram DM, Slack DM, or any Matrix room)
 2. Runtime responds with a pairing code: `KERN-XXXX`
 3. User shares the code with the operator out-of-band (text, email, in person)
 4. Operator tells the agent who this person is:

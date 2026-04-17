@@ -22,7 +22,7 @@
 
 ### Fixes
 - Offline agents no longer block sidebar load ([#229](https://github.com/oguzbilgic/kern-ai/issues/229))
-- **Matrix interface review fixes** — process invites during the priming sync so pre-existing invites aren't missed, clean shutdown of the `/sync` loop on SIGTERM/SIGINT, generic error replies to rooms (details logged server-side), pairing `chatId` extraction that preserves colons in Matrix room IDs, docs aligned with the actual "pairing required in all rooms" behavior
+- **Matrix interface review fixes** — process invites during the priming sync so pre-existing invites aren't missed, clean shutdown of the `/sync` loop on SIGTERM/SIGINT, generic error replies to rooms (details logged server-side), pairing `chatId` extraction that preserves colons in Matrix room IDs, collision-proof `(sender, roomId)` key for the pairing-code dedup set, removed a dead `try/catch` around the now-non-blocking `MatrixInterface.start()`, and aligned remaining docs (`pairing.md`, `get-started.md`, `templates/KERN.md`) with the actual "pairing required in all rooms" behavior
 
 ## v0.28.0
 

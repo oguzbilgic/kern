@@ -8,7 +8,8 @@ import { log } from "../log.js";
  * MVP scope:
  * - Text messages in/out
  * - Typing indicators while the agent is thinking
- * - Auto-accept invites (pairing comes later)
+ * - Auto-accept invites (any inviter; pairing still gates message handling)
+ * - Pairing enforced in every room (DM and group) before messages are processed
  * - No E2E encryption, no media, no reactions
  *
  * Config via env:
@@ -175,7 +176,9 @@ export class MatrixInterface implements Interface {
       if (!this.pairing.hasAnyPairedUsers()) {
         await this.pairing.autoPairFirst(sender, "matrix", roomId);
       } else {
-        const key = `${sender}:${roomId}`;
+        // Both Matrix user IDs and room IDs contain colons, so use a
+        // structured key to avoid delimiter collisions.
+        const key = JSON.stringify([sender, roomId]);
         if (this.sentCodes.has(key)) return;
         this.sentCodes.add(key);
         const code = await this.pairing.getOrCreateCode(sender, "matrix", `matrix:${roomId}`);

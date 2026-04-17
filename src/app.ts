@@ -428,16 +428,13 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   let matrixBot: MatrixInterface | null = null;
   if (!forceCli && matrixHomeserver && matrixUserId && matrixToken) {
     matrixBot = new MatrixInterface(matrixHomeserver, matrixUserId, matrixToken, pairing);
-    try {
-      await matrixBot.start({
-        onMessage: async (msg, onEvent) => {
-          return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "", onEvent);
-        },
-      });
-    } catch (err: any) {
-      log.warn("kern", `matrix failed to start: ${err.message || err}`);
-      matrixBot = null;
-    }
+    // start() is non-blocking — the sync loop handles connection errors and
+    // auth failures internally and reports via status/statusDetail.
+    await matrixBot.start({
+      onMessage: async (msg, onEvent) => {
+        return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "", onEvent);
+      },
+    });
   }
 
   // Register interface status reporting
