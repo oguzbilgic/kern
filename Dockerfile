@@ -1,7 +1,7 @@
 FROM ubuntu:24.04
 
 # System packages
-RUN apt-get update
+# RUN apt-get update
 RUN apt-get install -y \
     curl wget jq git openssh-client \
     python3 python3-pip \
