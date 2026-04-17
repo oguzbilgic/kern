@@ -23,27 +23,27 @@ export function useAgents() {
   const storeUpdateName = useStore((s) => s.updateAgentName);
 
   const discover = useCallback(async () => {
-    const proxyAgents: AgentInfo[] = [];
+    // Probe all proxy servers and direct agents in parallel — one slow/offline
+    // agent must not block the rest of the sidebar from loading (#229).
+    const [serverResults, directResults] = await Promise.all([
+      Promise.allSettled(servers.map((s) => api.fetchAgents(s.url, s.token))),
+      Promise.allSettled(directs.map((d) => api.pingAgent(d.url, d.token))),
+    ]);
 
-    // Discover from proxy servers
-    for (const server of servers) {
-      try {
-        const raw = await api.fetchAgents(server.url, server.token);
-        for (const a of raw) {
-          proxyAgents.push({
-            name: a.name,
-            running: a.running,
-            token: server.token,
-            baseUrl: `${server.url}/api/agents/${encodeURIComponent(a.name)}`,
-          });
-        }
-      } catch { /* ignore unreachable servers */ }
-    }
+    const proxyAgents: AgentInfo[] = serverResults.flatMap((r, i) => {
+      if (r.status !== "fulfilled") return [];
+      const server = servers[i];
+      return r.value.map((a) => ({
+        name: a.name,
+        running: a.running,
+        token: server.token,
+        baseUrl: `${server.url}/api/agents/${encodeURIComponent(a.name)}`,
+      }));
+    });
 
-    // Discover direct agents (order preserved from store array)
-    const directList: AgentInfo[] = [];
-    for (const d of directs) {
-      const status = await api.pingAgent(d.url, d.token);
+    const directList: AgentInfo[] = directResults.map((r, i) => {
+      const d = directs[i];
+      const status = r.status === "fulfilled" ? r.value : null;
       let name: string;
       if (status?.name) {
         name = status.name;
@@ -53,22 +53,25 @@ export function useAgents() {
         // Offline — use cached name or fall back to hostname
         name = d.name || new URL(d.url).hostname;
       }
-      directList.push({
+      return {
         name,
         running: status !== null,
         token: d.token,
         baseUrl: d.url,
-      });
-    }
+      };
+    });
 
     // Order: direct agents → proxy servers
     const all = [...directList, ...proxyAgents];
     setAgents(all);
 
-    // Auto-select first running agent if none active
+    // Auto-select first running agent if none active.
+    // Only restore stored selection if that agent is currently running —
+    // picking an offline agent stalls history/SSE loads on a dead URL.
     if (!activeRef.current) {
       const stored = sessionStorage.getItem("kern_active_agent");
-      if (stored && all.some((a) => a.baseUrl === stored)) {
+      const storedAgent = stored ? all.find((a) => a.baseUrl === stored) : null;
+      if (storedAgent && storedAgent.running) {
         setActiveState(stored);
       } else {
         const first = all.find((a) => a.running);

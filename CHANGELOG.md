@@ -10,6 +10,9 @@
 - **Hardened default `.gitignore`** ([#226](https://github.com/oguzbilgic/kern-ai/issues/226)) — added `.kern/agent.pid`, swapped `.kern/recall.db` for the catch-all `.kern/*.db`. New agents only
 - **Init templates** ([#236](https://github.com/oguzbilgic/kern-ai/pull/236)) — moved `IDENTITY.md`, `KNOWLEDGE.md`, `USERS.md` into `templates/`. `IDENTITY.md` now prompts a first conversation to settle name / purpose / vibe instead of hardcoding the directory name
 
+### Fixes
+- Offline agents no longer block sidebar load ([#229](https://github.com/oguzbilgic/kern-ai/issues/229))
+
 ## v0.28.0
 
 ### Features

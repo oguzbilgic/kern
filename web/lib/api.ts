@@ -9,6 +9,15 @@ function headers(token?: string | null): Record<string, string> {
   return h;
 }
 
+// Fetch with timeout — one slow/offline agent shouldn't stall the whole UI.
+function fetchWithTimeout(
+  url: string,
+  init: RequestInit & { timeoutMs?: number } = {},
+): Promise<Response> {
+  const { timeoutMs = 2500, ...rest } = init;
+  return fetch(url, { ...rest, signal: AbortSignal.timeout(timeoutMs) });
+}
+
 // SSE connection
 export interface SSEConnection {
   close: () => void;
@@ -68,17 +77,21 @@ export interface RawAgent {
 }
 
 export async function fetchAgents(serverUrl: string, token: string): Promise<RawAgent[]> {
-  const res = await fetch(`${serverUrl}/api/agents`, { headers: headers(token) });
-  if (!res.ok) return [];
-  return res.json();
+  try {
+    const res = await fetchWithTimeout(`${serverUrl}/api/agents`, { headers: headers(token) });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
 }
 
 // Check if a direct agent is reachable
 export async function pingAgent(baseUrl: string, token: string): Promise<StatusData | null> {
   try {
-    const res = await fetch(`${baseUrl}/status`, { headers: headers(token) });
+    const res = await fetchWithTimeout(`${baseUrl}/status`, { headers: headers(token) });
     if (!res.ok) return null;
-    return res.json();
+    return await res.json();
   } catch {
     return null;
   }
@@ -119,14 +132,14 @@ export async function sendMessage(
 }
 
 export async function getStatus(baseUrl: string, token?: string | null): Promise<StatusData> {
-  const res = await fetch(`${baseUrl}/status`, { headers: headers(token) });
+  const res = await fetchWithTimeout(`${baseUrl}/status`, { headers: headers(token), timeoutMs: 10_000 });
   return res.json();
 }
 
 export async function getHistory(baseUrl: string, token?: string | null, limit = 100, before?: number): Promise<HistoryMessage[]> {
   const params = new URLSearchParams({ limit: String(limit) });
   if (before !== undefined) params.set("before", String(before));
-  const res = await fetch(`${baseUrl}/history?${params}`, { headers: headers(token) });
+  const res = await fetchWithTimeout(`${baseUrl}/history?${params}`, { headers: headers(token), timeoutMs: 10_000 });
   return res.json();
 }
 
