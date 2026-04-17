@@ -2,9 +2,6 @@
 
 ## next
 
-### Improvements
-- **Docker images for every PR and master commit** ([#247](https://github.com/oguzbilgic/kern-ai/issues/247)) — pull `ghcr.io/oguzbilgic/kern-ai:pr-<N>` to test any open PR, `:master` for bleeding edge. PR tags auto-delete on close. `:latest` still only moves on release
-
 ### Fixes
 - **Mid-turn injection position** ([#245](https://github.com/oguzbilgic/kern-ai/issues/245)) — injections were re-appended as the freshest message every step, causing repeated re-acknowledgment. Now spliced at chronological arrival position
 
