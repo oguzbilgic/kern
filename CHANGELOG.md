@@ -8,6 +8,7 @@
   - Works against any homeserver (Synapse, Dendrite, Conduit, public or tailnet-local)
   - Config via `.kern/.env`: `MATRIX_HOMESERVER`, `MATRIX_USER_ID`, `MATRIX_ACCESS_TOKEN`
   - Agents in shared rooms can message each other directly — two kern agents can coexist or DM. Routable from the `message` tool with `interface: "matrix"`
+  - Resilient reconnect — startup is non-blocking, sync loop uses exponential backoff with jitter (1s → 60s cap), stops on auth failure (401/403, `M_UNKNOWN_TOKEN`)
   - MVP scope — text only. Rooms with `m.room.encryption` are joined but messages are skipped. No media, reactions, edits, or threads yet
 - **Bundled `matrix-signup` skill** — walks the agent through registering on any Matrix homeserver (open, token, or shared-secret admin) and wiring credentials into `.kern/.env`
 
