@@ -2,6 +2,9 @@
 
 ## next
 
+### Features
+- **Matrix interface** ([#238](https://github.com/oguzbilgic/kern-ai/issues/238)) — agents can join Matrix homeservers as first-class participants. Long-polls `/sync`, auto-accepts invites, sends typing indicators while thinking, replies with final text. Pairing follows the same model as Telegram/Slack: first user auto-paired, others get a pairing code. Agents in shared rooms can message each other directly. Config via env (`MATRIX_HOMESERVER`, `MATRIX_USER_ID`, `MATRIX_ACCESS_TOKEN`). MVP scope — text only, no E2E encryption, no media
+
 ### Improvements
 - **Docker base image** ([#225](https://github.com/oguzbilgic/kern-ai/issues/225)) — switched to Ubuntu 24.04 (GLIBC 2.39) with Node.js 22, added `curl`, `wget`, `jq`, `python3`, `pip`, `unzip`, `build-essential`; npm and pip install to user space by default, persisted when volume mounted at `/home/kern`
 - **Summary model defaults** ([#232](https://github.com/oguzbilgic/kern-ai/issues/232)) — refreshed hardcoded summary models: `openai` → `gpt-4.1-mini`, `anthropic` → `claude-haiku-4.5` (via OpenRouter), `openrouter` → `openai/gpt-4.1-mini`. Ollama now reuses the agent's chat model instead of requiring a separately-pulled `gemma3:4b`

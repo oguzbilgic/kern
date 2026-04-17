@@ -2,6 +2,7 @@ import { Runtime, type StreamEvent } from "./runtime.js";
 import { updateKernel } from "./kernel.js";
 import { TelegramInterface } from "./interfaces/telegram.js";
 import { SlackInterface } from "./interfaces/slack.js";
+import { MatrixInterface } from "./interfaces/matrix.js";
 import { CliInterface } from "./interfaces/cli.js";
 import { loadConfig, saveConfigField } from "./config.js";
 import { readFile, appendFile } from "fs/promises";
@@ -420,6 +421,25 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     });
   }
 
+  // Start Matrix if configured
+  const matrixHomeserver = process.env.MATRIX_HOMESERVER;
+  const matrixUserId = process.env.MATRIX_USER_ID;
+  const matrixToken = process.env.MATRIX_ACCESS_TOKEN;
+  let matrixBot: MatrixInterface | null = null;
+  if (!forceCli && matrixHomeserver && matrixUserId && matrixToken) {
+    matrixBot = new MatrixInterface(matrixHomeserver, matrixUserId, matrixToken, pairing);
+    try {
+      await matrixBot.start({
+        onMessage: async (msg, onEvent) => {
+          return enqueueMessage(msg.text, msg.userId, msg.interface, msg.channel || "", onEvent);
+        },
+      });
+    } catch (err: any) {
+      log.warn("kern", `matrix failed to start: ${err.message || err}`);
+      matrixBot = null;
+    }
+  }
+
   // Register interface status reporting
   setInterfaceStatusFn(() => {
     const statuses: InterfaceStatus[] = [];
@@ -428,6 +448,9 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     }
     if (slackBot) {
       statuses.push({ name: "slack", status: slackBot.status, detail: slackBot.statusDetail });
+    }
+    if (matrixBot) {
+      statuses.push({ name: "matrix", status: matrixBot.status, detail: matrixBot.statusDetail });
     }
     return statuses;
   });
@@ -450,6 +473,19 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     if (iface === "slack" && slackBot) {
       const chatId = pairing.getChatId(userId) || userId;
       const sent = await slackBot.sendToUser(chatId, text);
+      if (sent) {
+        server.broadcast({
+          type: "outgoing" as any,
+          text,
+          fromInterface: iface,
+          fromUserId: userId,
+        });
+      }
+      return sent;
+    }
+    if (iface === "matrix" && matrixBot) {
+      const chatId = pairing.getChatId(userId) || userId;
+      const sent = await matrixBot.sendToUser(chatId, text);
       if (sent) {
         server.broadcast({
           type: "outgoing" as any,
