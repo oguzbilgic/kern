@@ -84,15 +84,19 @@ export class MessageQueue {
 
       msg.resolve(response);
 
+      // Pending same-channel messages were already folded into the active turn
+      // via drainPendingSameChannel() and prepareStep. Resolve them with
+      // NO_REPLY so their interface handlers don't post the same reply again.
       for (const pending of this.pendingSameChannel) {
-        pending.resolve(response);
+        pending.resolve("NO_REPLY");
       }
       this.pendingSameChannel = [];
     } catch (error: any) {
       log.error("queue", `error: ${error.message}`);
       msg.reject(error);
+      // Errors belong to the active message, not the injected ones.
       for (const pending of this.pendingSameChannel) {
-        pending.reject(error);
+        pending.resolve("NO_REPLY");
       }
       this.pendingSameChannel = [];
     } finally {
