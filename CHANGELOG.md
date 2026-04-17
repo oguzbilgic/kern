@@ -2,9 +2,6 @@
 
 ## next
 
-### Fixes
-- Offline agents no longer block sidebar load ([#229](https://github.com/oguzbilgic/kern-ai/issues/229))
-
 ### Improvements
 - **Docker base image** ([#225](https://github.com/oguzbilgic/kern-ai/issues/225)) — switched to Ubuntu 24.04 (GLIBC 2.39) with Node.js 22, added `curl`, `wget`, `jq`, `python3`, `pip`, `unzip`, `build-essential`; npm and pip install to user space by default, persisted when volume mounted at `/home/kern`
 - **Summary model defaults** ([#232](https://github.com/oguzbilgic/kern-ai/issues/232)) — refreshed hardcoded summary models: `openai` → `gpt-4.1-mini`, `anthropic` → `claude-haiku-4.5` (via OpenRouter), `openrouter` → `openai/gpt-4.1-mini`. Ollama now reuses the agent's chat model instead of requiring a separately-pulled `gemma3:4b`
@@ -12,6 +9,9 @@
 - **Default model bumped to Claude Opus 4.7** ([#234](https://github.com/oguzbilgic/kern-ai/pull/234)) — `configDefaults.model`, the `--init-if-needed` Docker fallback, and the `kern init` fallback lists all now default to `anthropic/claude-opus-4.7`. Live model-list fetch from the provider remains the normal path; these only apply when nothing is specified or the fetch fails. Sonnet stays on 4.6 — no Sonnet 4.7 exists yet
 - **Hardened default `.gitignore`** ([#226](https://github.com/oguzbilgic/kern-ai/issues/226)) — added `.kern/agent.pid`, swapped `.kern/recall.db` for the catch-all `.kern/*.db`. New agents only
 - **Init templates** ([#236](https://github.com/oguzbilgic/kern-ai/pull/236)) — moved `IDENTITY.md`, `KNOWLEDGE.md`, `USERS.md` into `templates/`. `IDENTITY.md` now prompts a first conversation to settle name / purpose / vibe instead of hardcoding the directory name
+
+### Fixes
+- Offline agents no longer block sidebar load ([#229](https://github.com/oguzbilgic/kern-ai/issues/229))
 
 ## v0.28.0
 
