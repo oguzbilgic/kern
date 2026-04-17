@@ -7,8 +7,6 @@
   - Long-polls `/sync`, auto-accepts room invites, sends typing indicators while thinking, replies as plain `m.text`
   - Works against any homeserver (Synapse, Dendrite, Conduit, public or tailnet-local)
   - Config via `.kern/.env`: `MATRIX_HOMESERVER`, `MATRIX_USER_ID`, `MATRIX_ACCESS_TOKEN`
-  - Pairing follows the same model as Telegram/Slack: first user auto-paired, others get a `KERN-XXXX` code. In-memory gate on (user, room) prevents pairing-code loops in shared rooms
-  - DMs behave like Telegram/Slack DMs; group rooms behave like Slack channels (listens to all, replies when addressed, `NO_REPLY` to stay quiet)
   - Agents in shared rooms can message each other directly — two kern agents can coexist or DM. Routable from the `message` tool with `interface: "matrix"`
   - MVP scope — text only. Rooms with `m.room.encryption` are joined but messages are skipped. No media, reactions, edits, or threads yet
 
