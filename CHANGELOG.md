@@ -2,6 +2,8 @@
 
 ## next
 
+## v0.29.0
+
 ### Features
 - **Matrix interface** ([#238](https://github.com/oguzbilgic/kern-ai/issues/238)) — agents join Matrix homeservers as first-class participants, alongside Telegram and Slack
   - Long-polls `/sync`, auto-accepts room invites, sends typing indicators while thinking, replies as plain `m.text`
