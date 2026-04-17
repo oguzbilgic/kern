@@ -22,7 +22,7 @@
 
 ### Fixes
 - Offline agents no longer block sidebar load ([#229](https://github.com/oguzbilgic/kern-ai/issues/229))
-- **Duplicate replies from mid-turn same-channel injections** ([#239](https://github.com/oguzbilgic/kern-ai/issues/239)) — when a new message arrived on an active channel, the queue resolved every pending injection with the in-flight turn's response, causing each interface handler to post the same reply N+1 times. Most visible in agent-to-agent Matrix rooms. Queue now resolves both pending and already-drained same-channel injections with `NO_REPLY` so their interface handlers stay quiet. Drained injections (whose content reached the model via `prepareStep` during a multi-step turn) are tracked separately so their Promises still resolve at turn end — previously they hung forever, leaking typing indicators and closures
+- **Duplicate replies from mid-turn same-channel injections** ([#239](https://github.com/oguzbilgic/kern-ai/issues/239)) — when a new message arrived on an active channel, the queue resolved every pending injection with the in-flight turn's response, causing each interface handler to post the same reply N+1 times. Most visible in agent-to-agent Matrix rooms. Fix splits mid-turn same-channel messages by fate: messages *drained* into the active turn (via `prepareStep` on multi-step turns) resolve with `NO_REPLY` so their interface handlers stay quiet; messages still *pending* at turn end (the common case for single-step turns, where no drain happens) get requeued so they run as their own turn. Previously drained messages leaked indefinitely and pending messages would have been silently dropped under the same-`NO_REPLY` rule
 
 ## v0.28.0
 

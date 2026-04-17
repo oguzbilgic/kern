@@ -72,15 +72,23 @@ export class MessageQueue {
     return pending;
   }
 
-  private resolvePendingWithNoReply() {
-    for (const pending of this.pendingSameChannel) {
-      pending.resolve("NO_REPLY");
-    }
+  // Resolve drained injections with NO_REPLY — they were folded into the
+  // active turn's response, so their interface handlers must stay quiet.
+  // Requeue still-pending same-channel messages — they arrived mid-turn but
+  // were never drained (e.g. single-step turn with no prepareStep calls), so
+  // they need to run as their own turn instead of being silently dropped.
+  private finalizePendingSameChannel() {
     for (const drained of this.drainedSameChannel) {
       drained.resolve("NO_REPLY");
     }
-    this.pendingSameChannel = [];
     this.drainedSameChannel = [];
+
+    const requeue = this.pendingSameChannel;
+    this.pendingSameChannel = [];
+    for (const msg of requeue) {
+      this.queue.push(msg);
+      log("queue", `requeued same-channel message (${msg.interface}:${msg.channel || "?"})`);
+    }
   }
 
   private async processNext() {
@@ -103,18 +111,14 @@ export class MessageQueue {
       ]);
 
       msg.resolve(response);
-
-      // Same-channel injections — both still-pending and already-drained —
-      // are folded into the active turn's response. Resolve them with
-      // NO_REPLY so their interface handlers don't post the same reply again.
-      // Draining into `drainedSameChannel` during the turn is what lets
-      // multi-step turns still resolve these Promises at the end.
-      this.resolvePendingWithNoReply();
+      this.finalizePendingSameChannel();
     } catch (error: any) {
       log.error("queue", `error: ${error.message}`);
       msg.reject(error);
-      // Errors belong to the active message, not the injected ones.
-      this.resolvePendingWithNoReply();
+      // Errors belong to the active message. Drained injections were already
+      // folded into the (failed) turn, so NO_REPLY them. Still-pending
+      // messages were never touched — requeue them for their own turn.
+      this.finalizePendingSameChannel();
     } finally {
       this.processing = false;
       this.activeChannel = null;
