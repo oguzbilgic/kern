@@ -155,7 +155,7 @@ message({ userId: "12345", interface: "telegram", text: "Hello!" })
 ```
 
 - `userId` — from USERS.md or pairing data
-- `interface` — `telegram` or `slack`
+- `interface` — `telegram`, `slack`, or `matrix`
 - Looks up chatId from pairing data
 - Broadcasts outgoing event to TUI
 

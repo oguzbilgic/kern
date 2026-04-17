@@ -14,6 +14,7 @@ Browser ──→ kern web (:8080)             # static files only
 TUI ──────────────────────────→ agent A (:4100)
 Telegram ←────────────────────→ agent A (long poll)
 Slack ←───────────────────────→ agent A (socket mode)
+Matrix ←──────────────────────→ agent A (/sync long poll)
 ```
 
 Each agent is a separate process. `kern web` serves the UI as static files. `kern proxy` is an optional authenticated reverse proxy for multi-agent access. Browsers can connect directly to agents or through the proxy.
@@ -24,7 +25,7 @@ Each agent is a separate process. `kern web` serves the UI as static files. `ker
 
 - Binds an HTTP server to `0.0.0.0` on a **sticky port** (auto-assigned from 4100-4999 on first start, saved to config)
 - Registers its path in `~/.kern/config.json` and writes PID to its own `.kern/agent.pid`
-- Connects to Telegram (long polling) and/or Slack (socket mode) if tokens are configured
+- Connects to Telegram (long polling), Slack (socket mode), and/or Matrix (`/sync` long poll) if tokens are configured
 - Runs the message queue, tool executor, and model calls
 - Serves SSE for real-time streaming to connected clients (TUI, web UI)
 
@@ -107,14 +108,15 @@ The proxy, TUI, and CLI read this file to discover agents, then read each agent'
 
 `kern tui [name]` connects directly to an agent's HTTP server — no proxy involved. It reads the agent's port and token from the agent's `.kern/` directory, opens an SSE connection for streaming, and sends messages via POST. It's a direct localhost connection.
 
-## Telegram & Slack
+## Telegram, Slack & Matrix
 
 These run inside the agent process itself — not separate services.
 
 - **Telegram**: grammY bot with long polling. No incoming port needed.
 - **Slack**: Bolt with Socket Mode. No incoming port needed.
+- **Matrix**: `/sync` long poll against a Matrix homeserver (Synapse, Dendrite, etc.). No incoming port needed.
 
-Both inject messages into the same queue as TUI and web. The agent doesn't know or care which interface a message came from — it sees metadata tags like `[via telegram, user: oguz]`.
+All inject messages into the same queue as TUI and web. The agent doesn't know or care which interface a message came from — it sees metadata tags like `[via telegram, user: oguz]`.
 
 ## Service management
 
@@ -165,3 +167,4 @@ Without `kern install`, agents run as plain daemons managed by PID files.
 | Web server | 0.0.0.0 (configurable) | 9000 (configurable) | LAN / Tailscale |
 | Telegram | outbound only | — | — |
 | Slack | outbound only | — | — |
+| Matrix | outbound only | — | — |

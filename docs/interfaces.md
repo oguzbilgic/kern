@@ -15,6 +15,7 @@ Examples:
 ```
 [via telegram, telegram:12345, user: 8105113489, time: 2026-04-06T21:30:00Z]
 [via slack, #engineering, user: U04ABC, time: 2026-04-06T21:30:00Z]
+[via matrix, matrix:!abc:example.com, user: @oguz:example.com, time: 2026-04-17T04:00:00Z]
 [via web, web, user: tui, time: 2026-04-06T21:30:00Z]
 [via tui, tui, user: tui, time: 2026-04-06T21:30:00Z]
 ```
@@ -140,3 +141,40 @@ Socket Mode connection. No public URL needed.
 - **Channels**: reads ALL messages, only responds when @mentioned or directly relevant. Returns `NO_REPLY` to suppress.
 - **Replies**: post directly to channel or DM (no threading).
 - Graceful shutdown: Socket Mode closes cleanly on SIGTERM.
+
+## Matrix
+
+Long-polled `/sync` against a Matrix homeserver (Synapse, Dendrite, Conduit, etc.). Works against public servers or a tailnet-local homeserver.
+
+- Interface: `matrix`, channel: `matrix:<roomId>`, user: `<mxid>` (e.g. `@alice:example.com`)
+
+### Setup
+
+1. Create a user on your Matrix homeserver for the agent (admin `create-account`, shared-secret registration, or normal signup if open).
+2. Log in once to grab an access token:
+   ```bash
+   curl -X POST https://matrix.example.com/_matrix/client/v3/login \
+     -d '{"type":"m.login.password","identifier":{"type":"m.id.user","user":"myagent"},"password":"..."}'
+   ```
+3. Add to `.kern/.env`:
+   ```
+   MATRIX_HOMESERVER=https://matrix.example.com
+   MATRIX_USER_ID=@myagent:example.com
+   MATRIX_ACCESS_TOKEN=syt_...
+   ```
+4. Restart the agent. Invite it to a room from any Matrix client.
+
+### Behavior
+
+- Auto-accepts invites to rooms it's invited to
+- Sends typing indicators while thinking
+- Replies as plain `m.text` messages
+- **DMs**: pairing required. Unpaired users get a code (same flow as Telegram/Slack).
+- **Group rooms**: listens to all messages; respond rules come from `KERN.md` (mirrors Slack channel behavior). `NO_REPLY` to stay quiet.
+- **Agents in shared rooms**: first-class — two kern agents can DM each other or coexist in a group room. Pairing codes auto-issue; operator approves via CLI.
+
+### Limitations (MVP)
+
+- **No E2E encryption.** Rooms with `m.room.encryption` state are joined but messages are skipped. Create unencrypted rooms for agents (Element: turn off encryption in room create advanced options).
+- **No media.** Images, files, voice messages pass through silently.
+- **No reactions, edits, threads, or replies.** Plain text turns only.

@@ -3,7 +3,14 @@
 ## next
 
 ### Features
-- **Matrix interface** ([#238](https://github.com/oguzbilgic/kern-ai/issues/238)) — agents can join Matrix homeservers as first-class participants. Long-polls `/sync`, auto-accepts invites, sends typing indicators while thinking, replies with final text. Pairing follows the same model as Telegram/Slack: first user auto-paired, others get a pairing code. Agents in shared rooms can message each other directly. Config via env (`MATRIX_HOMESERVER`, `MATRIX_USER_ID`, `MATRIX_ACCESS_TOKEN`). MVP scope — text only, no E2E encryption, no media
+- **Matrix interface** ([#238](https://github.com/oguzbilgic/kern-ai/issues/238)) — agents join Matrix homeservers as first-class participants, alongside Telegram and Slack
+  - Long-polls `/sync`, auto-accepts room invites, sends typing indicators while thinking, replies as plain `m.text`
+  - Works against any homeserver (Synapse, Dendrite, Conduit, public or tailnet-local)
+  - Config via `.kern/.env`: `MATRIX_HOMESERVER`, `MATRIX_USER_ID`, `MATRIX_ACCESS_TOKEN`
+  - Pairing follows the same model as Telegram/Slack: first user auto-paired, others get a `KERN-XXXX` code. In-memory gate on (user, room) prevents pairing-code loops in shared rooms
+  - DMs behave like Telegram/Slack DMs; group rooms behave like Slack channels (listens to all, replies when addressed, `NO_REPLY` to stay quiet)
+  - Agents in shared rooms can message each other directly — two kern agents can coexist or DM. Routable from the `message` tool with `interface: "matrix"`
+  - MVP scope — text only. Rooms with `m.room.encryption` are joined but messages are skipped. No media, reactions, edits, or threads yet
 
 ### Improvements
 - **Docker base image** ([#225](https://github.com/oguzbilgic/kern-ai/issues/225)) — switched to Ubuntu 24.04 (GLIBC 2.39) with Node.js 22, added `curl`, `wget`, `jq`, `python3`, `pip`, `unzip`, `build-essential`; npm and pip install to user space by default, persisted when volume mounted at `/home/kern`

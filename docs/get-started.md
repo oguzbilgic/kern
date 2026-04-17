@@ -88,11 +88,19 @@ Message your bot on Telegram — same agent, same memory.
 
 The agent reads every message in channels it's in but only responds when @mentioned or directly relevant.
 
+## Add Matrix
+
+1. Create a user for the agent on your Matrix homeserver
+2. Grab an access token (see [interfaces.md](/docs/interfaces#matrix))
+3. Add `MATRIX_HOMESERVER`, `MATRIX_USER_ID`, `MATRIX_ACCESS_TOKEN` to `.kern/.env` and restart
+
+The agent auto-accepts room invites. In DMs it behaves like Telegram/Slack DMs; in group rooms it behaves like Slack channels (listens to all, replies when addressed).
+
 ## User pairing
 
-Pairing applies only to Telegram and Slack DMs. TUI and web users connect directly — no pairing needed.
+Pairing applies only to Telegram, Slack, and Matrix DMs. TUI and web users connect directly — no pairing needed.
 
-The first user to message the agent on Telegram or Slack is automatically paired (likely the operator). After that, unpaired users receive a pairing code from the runtime:
+The first user to message the agent on Telegram, Slack, or Matrix is automatically paired (likely the operator). After that, unpaired users receive a pairing code from the runtime:
 
 1. New user messages the agent → receives `KERN-XXXX`
 2. They share the code with you
@@ -112,7 +120,7 @@ Everything is plain text and git-trackable.
 
 - [Configuration](/docs/config) — model, provider, heartbeat, tool scope
 - [Commands](/docs/commands) — full CLI reference
-- [Interfaces](/docs/interfaces) — terminal, web, Telegram, Slack
+- [Interfaces](/docs/interfaces) — terminal, web, Telegram, Slack, Matrix
 - [Tools](/docs/tools) — bash, read, write, edit, grep, fetch, recall
 - [Memory](/docs/memory) — how agents remember things between sessions
 - [Pairing](/docs/pairing) — user authentication and access control

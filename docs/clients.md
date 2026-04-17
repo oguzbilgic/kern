@@ -20,7 +20,7 @@ kern tui [name]
 Colored left borders by source:
 
 - **green** — your input and outgoing messages
-- **yellow** — incoming from other channels (Telegram, Slack, Web)
+- **yellow** — incoming from other channels (Telegram, Slack, Matrix, Web)
 - **magenta** — heartbeat
 - Tool calls color-coded by tool name (bash=red, read=cyan, write=green, edit=yellow, glob=magenta, grep=blue)
 
