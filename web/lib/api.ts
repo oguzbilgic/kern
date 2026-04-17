@@ -144,14 +144,14 @@ export async function sendMessage(
 }
 
 export async function getStatus(baseUrl: string, token?: string | null): Promise<StatusData> {
-  const res = await fetch(`${baseUrl}/status`, { headers: headers(token) });
+  const res = await fetchWithTimeout(`${baseUrl}/status`, { headers: headers(token), timeoutMs: 10_000 });
   return res.json();
 }
 
 export async function getHistory(baseUrl: string, token?: string | null, limit = 100, before?: number): Promise<HistoryMessage[]> {
   const params = new URLSearchParams({ limit: String(limit) });
   if (before !== undefined) params.set("before", String(before));
-  const res = await fetch(`${baseUrl}/history?${params}`, { headers: headers(token) });
+  const res = await fetchWithTimeout(`${baseUrl}/history?${params}`, { headers: headers(token), timeoutMs: 10_000 });
   return res.json();
 }
 

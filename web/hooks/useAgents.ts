@@ -68,10 +68,13 @@ export function useAgents() {
     const all = [...directList, ...proxyAgents];
     setAgents(all);
 
-    // Auto-select first running agent if none active
+    // Auto-select first running agent if none active.
+    // Only restore stored selection if that agent is currently running —
+    // picking an offline agent stalls history/SSE loads on a dead URL.
     if (!activeRef.current) {
       const stored = sessionStorage.getItem("kern_active_agent");
-      if (stored && all.some((a) => a.baseUrl === stored)) {
+      const storedAgent = stored ? all.find((a) => a.baseUrl === stored) : null;
+      if (storedAgent && storedAgent.running) {
         setActiveState(stored);
       } else {
         const first = all.find((a) => a.running);
