@@ -2,13 +2,23 @@
 
 ## next
 
+### Features
+- **Matrix interface** ([#238](https://github.com/oguzbilgic/kern-ai/issues/238)) — agents join Matrix homeservers as first-class participants, alongside Telegram and Slack
+  - Long-polls `/sync`, auto-accepts room invites, sends typing indicators while thinking, replies as plain `m.text`
+  - Works against any homeserver (Synapse, Dendrite, Conduit, public or tailnet-local)
+  - Config via `.kern/.env`: `MATRIX_HOMESERVER`, `MATRIX_USER_ID`, `MATRIX_ACCESS_TOKEN`
+  - Agents in shared rooms can message each other directly — two kern agents can coexist or DM. Routable from the `message` tool with `interface: "matrix"`
+  - Resilient reconnect — startup is non-blocking, sync loop uses exponential backoff with jitter (1s → 60s cap), stops on auth failure (401/403, `M_UNKNOWN_TOKEN`)
+  - MVP scope — text only. Rooms with `m.room.encryption` are joined but messages are skipped. No media, reactions, edits, or threads yet
+- **Bundled `matrix-signup` skill** — walks the agent through registering on any Matrix homeserver (open, token, or shared-secret admin) and wiring credentials into `.kern/.env`
+
 ### Improvements
-- **Docker base image** ([#225](https://github.com/oguzbilgic/kern-ai/issues/225)) — switched to Ubuntu 24.04 (GLIBC 2.39) with Node.js 22, added `curl`, `wget`, `jq`, `python3`, `pip`, `unzip`, `build-essential`; npm and pip install to user space by default, persisted when volume mounted at `/home/kern`
-- **Summary model defaults** ([#232](https://github.com/oguzbilgic/kern-ai/issues/232)) — refreshed hardcoded summary models: `openai` → `gpt-4.1-mini`, `anthropic` → `claude-haiku-4.5` (via OpenRouter), `openrouter` → `openai/gpt-4.1-mini`. Ollama now reuses the agent's chat model instead of requiring a separately-pulled `gemma3:4b`
-- **Embedding model defaults** — simplified `createEmbeddingModel` to a per-provider switch matching `createSummaryModel`: `openai` → `text-embedding-3-small`, `anthropic`/`openrouter` → `openai/text-embedding-3-small`, `ollama` → `nomic-embed-text`. No behavior change — same model IDs resolved, cleaner branching
-- **Default model bumped to Claude Opus 4.7** ([#234](https://github.com/oguzbilgic/kern-ai/pull/234)) — `configDefaults.model`, the `--init-if-needed` Docker fallback, and the `kern init` fallback lists all now default to `anthropic/claude-opus-4.7`. Live model-list fetch from the provider remains the normal path; these only apply when nothing is specified or the fetch fails. Sonnet stays on 4.6 — no Sonnet 4.7 exists yet
-- **Hardened default `.gitignore`** ([#226](https://github.com/oguzbilgic/kern-ai/issues/226)) — added `.kern/agent.pid`, swapped `.kern/recall.db` for the catch-all `.kern/*.db`. New agents only
-- **Init templates** ([#236](https://github.com/oguzbilgic/kern-ai/pull/236)) — moved `IDENTITY.md`, `KNOWLEDGE.md`, `USERS.md` into `templates/`. `IDENTITY.md` now prompts a first conversation to settle name / purpose / vibe instead of hardcoding the directory name
+- **Docker base image** ([#225](https://github.com/oguzbilgic/kern-ai/issues/225)) — switched to Ubuntu 24.04 with Node.js 22; added `curl`, `wget`, `jq`, `python3`, `pip`, `unzip`, `build-essential`. User-space `npm` and `pip` installs persist when `/home/kern` is volume-mounted
+- **Summary model defaults** ([#232](https://github.com/oguzbilgic/kern-ai/issues/232)) — `openai` → `gpt-4.1-mini`, `anthropic` → `claude-haiku-4.5`, `openrouter` → `openai/gpt-4.1-mini`. Ollama now reuses the agent's chat model — no more separate `gemma3:4b` pull
+- **Embedding model defaults** — unified per-provider switch matching summary models. No behavior change, cleaner code
+- **Default model bumped to Claude Opus 4.7** ([#234](https://github.com/oguzbilgic/kern-ai/pull/234)) — applies to `kern init` fallback and the Docker `--init-if-needed` path. Sonnet stays on 4.6 (no 4.7 yet)
+- **Hardened default `.gitignore`** ([#226](https://github.com/oguzbilgic/kern-ai/issues/226)) — added `.kern/agent.pid`, swapped `.kern/recall.db` for `.kern/*.db`
+- **Init templates** ([#236](https://github.com/oguzbilgic/kern-ai/pull/236)) — moved `IDENTITY.md`, `KNOWLEDGE.md`, `USERS.md` into `templates/`. `IDENTITY.md` now prompts the agent to settle name / purpose / vibe on first run
 
 ### Fixes
 - Offline agents no longer block sidebar load ([#229](https://github.com/oguzbilgic/kern-ai/issues/229))

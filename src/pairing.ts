@@ -101,8 +101,12 @@ export class PairingManager {
     if (idx < 0) return null;
 
     const pending = this.data.pending[idx];
-    // Extract chatId from channel (e.g. "telegram:12345" → "12345")
-    const chatId = pending.channel.includes(":") ? pending.channel.split(":")[1] : pending.userId;
+    // Extract chatId from channel (e.g. "telegram:12345" → "12345", or
+    // "matrix:!abc:example.com" → "!abc:example.com"). Split only on the
+    // first colon so interface-internal IDs containing colons (like Matrix
+    // room IDs) round-trip intact.
+    const colonIdx = pending.channel.indexOf(":");
+    const chatId = colonIdx >= 0 ? pending.channel.slice(colonIdx + 1) : pending.userId;
     this.data.pending.splice(idx, 1);
     this.data.paired.push({
       userId: pending.userId,
