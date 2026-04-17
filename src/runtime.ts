@@ -312,8 +312,12 @@ export class Runtime {
               insertAt: messages.length,
               msg: { role: "user" as const, content: text },
             });
-            // Persist to session JSONL so the next turn sees it in proper order
-            this.session.append([{ role: "user", content: msg.content }]);
+            // Persist to session JSONL so the next turn sees it in proper order.
+            // prepareStep is synchronous — handle the Promise explicitly so a
+            // failed write logs instead of surfacing as an unhandled rejection.
+            void this.session.append([{ role: "user", content: msg.content }]).catch((err) => {
+              log("runtime", `prepareStep: failed to persist mid-turn message: ${err instanceof Error ? err.message : String(err)}`);
+            });
           }
 
           if (midTurnMessages.length === 0) return {};
@@ -322,9 +326,17 @@ export class Runtime {
 
           // Splice each injection at its recorded position. Process in reverse
           // order of insertAt so earlier indices don't shift when we insert later ones.
+          // When multiple injections share the same insertAt (arrived in the same
+          // step), process later arrivals first so repeated splices at the same
+          // index preserve original arrival order in the final array.
           const out = [...messages];
-          const sorted = [...midTurnMessages].sort((a, b) => b.insertAt - a.insertAt);
-          for (const { insertAt, msg } of sorted) {
+          const sorted = midTurnMessages
+            .map((entry, index) => ({ entry, index }))
+            .sort((a, b) => {
+              const byInsertAt = b.entry.insertAt - a.entry.insertAt;
+              return byInsertAt !== 0 ? byInsertAt : b.index - a.index;
+            });
+          for (const { entry: { insertAt, msg } } of sorted) {
             out.splice(insertAt, 0, msg);
           }
 
