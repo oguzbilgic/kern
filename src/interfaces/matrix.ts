@@ -47,22 +47,9 @@ export class MatrixInterface implements Interface {
   get statusDetail() { return this._statusDetail; }
 
   async start({ onMessage }: StartOptions): Promise<void> {
-    // Prime the sync cursor so we don't replay history on first connect
-    try {
-      const initial = await this.api<{ next_batch: string }>(
-        "GET",
-        "/_matrix/client/v3/sync?timeout=0",
-      );
-      this.nextBatch = initial.next_batch;
-      this._status = "connected";
-      log("matrix", `connected as ${this.userId}`);
-    } catch (err: any) {
-      this._status = "error";
-      this._statusDetail = err.message || String(err);
-      log.error("matrix", `initial sync failed: ${this._statusDetail}`);
-      throw err;
-    }
-
+    // Don't block startup on homeserver availability. The sync loop will
+    // prime nextBatch on its first successful poll and recover from any
+    // initial outage on its own.
     this.running = true;
     this.syncLoop(onMessage).catch((err) => {
       log.error("matrix", `sync loop crashed: ${err.message || err}`);
@@ -90,18 +77,34 @@ export class MatrixInterface implements Interface {
   private async syncLoop(
     onMessage: StartOptions["onMessage"],
   ): Promise<void> {
+    let backoff = 1000;
+    const maxBackoff = 60000;
+
     while (this.running) {
       this.abort = new AbortController();
       try {
-        const sync = await this.api<MatrixSync>(
-          "GET",
-          `/_matrix/client/v3/sync?since=${encodeURIComponent(this.nextBatch!)}&timeout=30000`,
-          undefined,
-          this.abort.signal,
-        );
+        // If we don't have a cursor yet (first connect or recovered after
+        // total outage), prime with timeout=0 and SKIP processing events —
+        // the initial sync returns recent room history which would replay
+        // as incoming messages. Only events arriving after the cursor is
+        // established should be delivered.
+        const cursor = this.nextBatch;
+        const priming = cursor == null;
+        const path = priming
+          ? `/_matrix/client/v3/sync?timeout=0`
+          : `/_matrix/client/v3/sync?since=${encodeURIComponent(cursor!)}&timeout=30000`;
+
+        const sync = await this.api<MatrixSync>("GET", path, undefined, this.abort.signal);
+        const wasDown = this._status !== "connected";
         this.nextBatch = sync.next_batch;
         this._status = "connected";
         this._statusDetail = undefined;
+        if (wasDown) {
+          log("matrix", `connected as ${this.userId}`);
+        }
+        backoff = 1000;
+
+        if (priming) continue;
 
         // Accept invites
         const invites = sync.rooms?.invite || {};
@@ -134,8 +137,21 @@ export class MatrixInterface implements Interface {
         if (err.name === "AbortError" || !this.running) break;
         this._status = "error";
         this._statusDetail = err.message || String(err);
-        log.warn("matrix", `sync error, retrying in 5s: ${this._statusDetail}`);
-        await sleep(5000);
+
+        // Fatal auth errors — token revoked, wrong homeserver, etc. No point retrying.
+        const msg = this._statusDetail || "";
+        if (/\b(401|403)\b/.test(msg) || /M_UNKNOWN_TOKEN|M_MISSING_TOKEN|M_FORBIDDEN/.test(msg)) {
+          log.error("matrix", `auth failed, stopping sync loop: ${msg}`);
+          this.running = false;
+          break;
+        }
+
+        // Exponential backoff with jitter. Resets to 1s after any successful sync.
+        const jitter = 0.75 + Math.random() * 0.5; // ±25%
+        const wait = Math.min(backoff * jitter, maxBackoff);
+        log.warn("matrix", `sync error, retrying in ${Math.round(wait)}ms: ${msg}`);
+        await sleep(wait);
+        backoff = Math.min(backoff * 2, maxBackoff);
       }
     }
   }
