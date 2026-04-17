@@ -423,25 +423,12 @@ export async function scaffoldAgent(opts: ScaffoldOpts): Promise<void> {
   await mkdir(join(dir, "notes"), { recursive: true });
   await mkdir(join(dir, ".kern", "sessions"), { recursive: true });
 
-  // AGENTS.md — the kernel
-  // Load bundled AGENTS.md
-  const agentsMd = await readFile(join(import.meta.dirname, "..", "templates", "AGENTS.md"), "utf-8");
-
-  // IDENTITY.md
-  const capitalName = name.charAt(0).toUpperCase() + name.slice(1);
-  const identityMd = `# Identity
-
-You are ${capitalName}. Ask your human to define your role and responsibilities.
-
-## Home
-- Repo: this directory
-`;
-
-  // KNOWLEDGE.md
-  const knowledgeMd = `# Knowledge Index
-
-No knowledge files yet. Create files in \`knowledge/\` as you learn about your domain.
-`;
+  // Load bundled templates
+  const templatesDir = join(import.meta.dirname, "..", "templates");
+  const agentsMd = await readFile(join(templatesDir, "AGENTS.md"), "utf-8");
+  const identityMd = await readFile(join(templatesDir, "IDENTITY.md"), "utf-8");
+  const knowledgeMd = await readFile(join(templatesDir, "KNOWLEDGE.md"), "utf-8");
+  const usersMd = await readFile(join(templatesDir, "USERS.md"), "utf-8");
 
   // .kern/config.json
   const config: Partial<KernConfig> = {
@@ -476,10 +463,11 @@ No knowledge files yet. Create files in \`knowledge/\` as you learn about your d
 
   // .gitignore
   const gitignore = `.kern/.env
+.kern/agent.pid
 .kern/sessions/
-.kern/recall.db
 .kern/media/
 .kern/logs/
+.kern/*.db
 node_modules/
 `;
 
@@ -493,7 +481,7 @@ node_modules/
 
   if (!existsSync(join(dir, "IDENTITY.md"))) {
     await writeFile(join(dir, "IDENTITY.md"), identityMd);
-    print(`  + IDENTITY.md (${capitalName})`);
+    print("  + IDENTITY.md");
   } else {
     print("  ○ IDENTITY.md (exists)");
   }
@@ -506,7 +494,7 @@ node_modules/
   }
 
   if (!existsSync(join(dir, "USERS.md"))) {
-    await writeFile(join(dir, "USERS.md"), `# Users\n\nNo paired users yet. Users pair via Telegram with a pairing code.\n`);
+    await writeFile(join(dir, "USERS.md"), usersMd);
     print("  + USERS.md");
   } else {
     print("  ○ USERS.md (exists)");
