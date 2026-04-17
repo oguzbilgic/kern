@@ -19,7 +19,13 @@ export class MessageQueue {
   private queue: QueuedMessage[] = [];
   private processing = false;
   private activeChannel: string | null = null;
+  // Same-channel messages that arrived mid-turn, waiting to be drained into
+  // the active turn via prepareStep.
   private pendingSameChannel: QueuedMessage[] = [];
+  // Same-channel messages already drained into the active turn. Kept around
+  // so we can resolve their Promises with NO_REPLY when the turn finishes —
+  // otherwise the interface handlers that awaited onMessage() would hang.
+  private drainedSameChannel: QueuedMessage[] = [];
   private handler: ((msg: QueuedMessage, pendingMessages: () => QueuedMessage[]) => Promise<string>) | null = null;
   private timeoutMs = 5 * 60 * 1000; // 5 minute timeout per message
 
@@ -56,11 +62,25 @@ export class MessageQueue {
     });
   }
 
-  // Called by prepareStep to get pending same-channel messages
+  // Called by prepareStep to get pending same-channel messages.
+  // Drained messages are moved to `drainedSameChannel` so their Promises
+  // can still be resolved when the active turn finishes.
   drainPendingSameChannel(): QueuedMessage[] {
     const pending = [...this.pendingSameChannel];
     this.pendingSameChannel = [];
+    this.drainedSameChannel.push(...pending);
     return pending;
+  }
+
+  private resolvePendingWithNoReply() {
+    for (const pending of this.pendingSameChannel) {
+      pending.resolve("NO_REPLY");
+    }
+    for (const drained of this.drainedSameChannel) {
+      drained.resolve("NO_REPLY");
+    }
+    this.pendingSameChannel = [];
+    this.drainedSameChannel = [];
   }
 
   private async processNext() {
@@ -84,21 +104,17 @@ export class MessageQueue {
 
       msg.resolve(response);
 
-      // Pending same-channel messages were already folded into the active turn
-      // via drainPendingSameChannel() and prepareStep. Resolve them with
+      // Same-channel injections — both still-pending and already-drained —
+      // are folded into the active turn's response. Resolve them with
       // NO_REPLY so their interface handlers don't post the same reply again.
-      for (const pending of this.pendingSameChannel) {
-        pending.resolve("NO_REPLY");
-      }
-      this.pendingSameChannel = [];
+      // Draining into `drainedSameChannel` during the turn is what lets
+      // multi-step turns still resolve these Promises at the end.
+      this.resolvePendingWithNoReply();
     } catch (error: any) {
       log.error("queue", `error: ${error.message}`);
       msg.reject(error);
       // Errors belong to the active message, not the injected ones.
-      for (const pending of this.pendingSameChannel) {
-        pending.resolve("NO_REPLY");
-      }
-      this.pendingSameChannel = [];
+      this.resolvePendingWithNoReply();
     } finally {
       this.processing = false;
       this.activeChannel = null;
