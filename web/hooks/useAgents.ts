@@ -30,18 +30,15 @@ export function useAgents() {
       Promise.allSettled(directs.map((d) => api.pingAgent(d.url, d.token))),
     ]);
 
-    const proxyAgents: AgentInfo[] = [];
-    serverResults.forEach((r, i) => {
-      if (r.status !== "fulfilled") return;
+    const proxyAgents: AgentInfo[] = serverResults.flatMap((r, i) => {
+      if (r.status !== "fulfilled") return [];
       const server = servers[i];
-      for (const a of r.value) {
-        proxyAgents.push({
-          name: a.name,
-          running: a.running,
-          token: server.token,
-          baseUrl: `${server.url}/api/agents/${encodeURIComponent(a.name)}`,
-        });
-      }
+      return r.value.map((a) => ({
+        name: a.name,
+        running: a.running,
+        token: server.token,
+        baseUrl: `${server.url}/api/agents/${encodeURIComponent(a.name)}`,
+      }));
     });
 
     const directList: AgentInfo[] = directResults.map((r, i) => {

@@ -9,25 +9,13 @@ function headers(token?: string | null): Record<string, string> {
   return h;
 }
 
-// Fetch with timeout — used for discovery probes so one slow/dead agent doesn't
-// stall the whole sidebar. Aborts after `ms` and rejects with an AbortError.
-async function fetchWithTimeout(
+// Fetch with timeout — one slow/offline agent shouldn't stall the whole UI.
+function fetchWithTimeout(
   url: string,
   init: RequestInit & { timeoutMs?: number } = {},
 ): Promise<Response> {
-  const { timeoutMs = 2500, signal: outerSignal, ...rest } = init;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  // Forward an externally provided signal too
-  if (outerSignal) {
-    if (outerSignal.aborted) ctrl.abort();
-    else outerSignal.addEventListener("abort", () => ctrl.abort(), { once: true });
-  }
-  try {
-    return await fetch(url, { ...rest, signal: ctrl.signal });
-  } finally {
-    clearTimeout(timer);
-  }
+  const { timeoutMs = 2500, ...rest } = init;
+  return fetch(url, { ...rest, signal: AbortSignal.timeout(timeoutMs) });
 }
 
 // SSE connection
