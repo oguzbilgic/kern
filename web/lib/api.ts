@@ -9,6 +9,27 @@ function headers(token?: string | null): Record<string, string> {
   return h;
 }
 
+// Fetch with timeout — used for discovery probes so one slow/dead agent doesn't
+// stall the whole sidebar. Aborts after `ms` and rejects with an AbortError.
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit & { timeoutMs?: number } = {},
+): Promise<Response> {
+  const { timeoutMs = 2500, signal: outerSignal, ...rest } = init;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  // Forward an externally provided signal too
+  if (outerSignal) {
+    if (outerSignal.aborted) ctrl.abort();
+    else outerSignal.addEventListener("abort", () => ctrl.abort(), { once: true });
+  }
+  try {
+    return await fetch(url, { ...rest, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // SSE connection
 export interface SSEConnection {
   close: () => void;
@@ -68,17 +89,21 @@ export interface RawAgent {
 }
 
 export async function fetchAgents(serverUrl: string, token: string): Promise<RawAgent[]> {
-  const res = await fetch(`${serverUrl}/api/agents`, { headers: headers(token) });
-  if (!res.ok) return [];
-  return res.json();
+  try {
+    const res = await fetchWithTimeout(`${serverUrl}/api/agents`, { headers: headers(token) });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
 }
 
 // Check if a direct agent is reachable
 export async function pingAgent(baseUrl: string, token: string): Promise<StatusData | null> {
   try {
-    const res = await fetch(`${baseUrl}/status`, { headers: headers(token) });
+    const res = await fetchWithTimeout(`${baseUrl}/status`, { headers: headers(token) });
     if (!res.ok) return null;
-    return res.json();
+    return await res.json();
   } catch {
     return null;
   }
