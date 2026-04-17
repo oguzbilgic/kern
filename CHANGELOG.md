@@ -8,8 +8,11 @@
   - Works against any homeserver (Synapse, Dendrite, Conduit, public or tailnet-local)
   - Config via `.kern/.env`: `MATRIX_HOMESERVER`, `MATRIX_USER_ID`, `MATRIX_ACCESS_TOKEN`
   - Agents in shared rooms can message each other directly — two kern agents can coexist or DM. Routable from the `message` tool with `interface: "matrix"`
-  - Bundled `matrix-signup` skill walks the agent through registering on any homeserver (open registration, registration token, shared-secret admin path, or manual fallback) and wiring the credentials into `.kern/.env`
   - MVP scope — text only. Rooms with `m.room.encryption` are joined but messages are skipped. No media, reactions, edits, or threads yet
+- **Bundled `matrix-signup` skill** — walks the agent through registering on any Matrix homeserver and wiring credentials into `.kern/.env`
+  - Probes the server's supported registration flows and picks the right path: open (`m.login.dummy`), registration token, or shared-secret admin (Synapse + Dendrite endpoints with HMAC-SHA1)
+  - Falls back to asking the operator to create the account manually
+  - On success, appends `MATRIX_HOMESERVER`, `MATRIX_USER_ID`, `MATRIX_ACCESS_TOKEN` to `.kern/.env` and asks the operator to `/restart`
 
 ### Improvements
 - **Docker base image** ([#225](https://github.com/oguzbilgic/kern-ai/issues/225)) — switched to Ubuntu 24.04 (GLIBC 2.39) with Node.js 22, added `curl`, `wget`, `jq`, `python3`, `pip`, `unzip`, `build-essential`; npm and pip install to user space by default, persisted when volume mounted at `/home/kern`
