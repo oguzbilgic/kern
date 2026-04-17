@@ -104,9 +104,10 @@ export class MatrixInterface implements Interface {
         }
         backoff = 1000;
 
-        if (priming) continue;
-
-        // Accept invites
+        // Accept invites — always, even during priming. Sync only reports
+        // invites in the delta, so if we skipped them on first connect, any
+        // invites that arrived while offline would be missed until the inviter
+        // retries.
         const invites = sync.rooms?.invite || {};
         for (const roomId of Object.keys(invites)) {
           try {
@@ -116,6 +117,11 @@ export class MatrixInterface implements Interface {
             log.warn("matrix", `failed to join ${roomId}: ${err.message || err}`);
           }
         }
+
+        // Skip timeline processing on the priming sync — it would replay
+        // recent room history as incoming messages. Only events arriving
+        // after the cursor is established should be delivered.
+        if (priming) continue;
 
         // Process new messages in joined rooms
         const joins = sync.rooms?.join || {};
@@ -209,7 +215,10 @@ export class MatrixInterface implements Interface {
     } catch (err: any) {
       clearInterval(typingInterval);
       await this.setTyping(roomId, false).catch(() => {});
-      await this.sendMessage(roomId, `Error: ${err.message || err}`).catch(() => {});
+      // Log details server-side; send a generic message to the room to avoid
+      // leaking HTTP response fragments or stack traces to room members.
+      log.error("matrix", `turn failed in ${roomId}: ${err.message || err}`);
+      await this.sendMessage(roomId, "Error processing message.").catch(() => {});
     }
   }
 

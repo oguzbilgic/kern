@@ -543,6 +543,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
     log("kern", `stopping ${agentName}`);
     if (telegramBot) await telegramBot.stop().catch(() => {});
     if (slackBot) await slackBot.stop().catch(() => {});
+    if (matrixBot) await matrixBot.stop().catch(() => {});
     await plugins.shutdown(pluginCtx);
     server.stop();
     memoryDB.close();

@@ -169,8 +169,8 @@ Long-polled `/sync` against a Matrix homeserver (Synapse, Dendrite, Conduit, etc
 - Auto-accepts invites to rooms it's invited to
 - Sends typing indicators while thinking
 - Replies as plain `m.text` messages
-- **DMs**: pairing required. Unpaired users get a code (same flow as Telegram/Slack).
-- **Group rooms**: listens to all messages; respond rules come from `KERN.md` (mirrors Slack channel behavior). `NO_REPLY` to stay quiet.
+- **Pairing required everywhere.** Unpaired users (in DMs or group rooms) get a pairing code (same flow as Telegram/Slack). The code is sent once per `(user, room)` pair to avoid spam. This differs from Slack channels, which accept messages from any workspace member — Matrix rooms can span homeservers and federations, so kern treats every unknown sender as untrusted.
+- **Group room behavior.** Once paired, responses follow the `KERN.md` group-room rules (mirrors Slack channel behavior). `NO_REPLY` to stay quiet.
 - **Agents in shared rooms**: first-class — two kern agents can DM each other or coexist in a group room. Pairing codes auto-issue; operator approves via CLI.
 
 ### Limitations (MVP)
