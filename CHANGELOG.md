@@ -2,6 +2,9 @@
 
 ## next
 
+### Fixes
+- **Mid-turn injection position** ([#245](https://github.com/oguzbilgic/kern-ai/issues/245)) — injections were re-appended as the freshest message every step, causing repeated re-acknowledgment. Now spliced at chronological arrival position
+
 ## v0.29.0
 
 ### Features
