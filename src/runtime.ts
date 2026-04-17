@@ -259,8 +259,11 @@ export class Runtime {
 
       const pendingInjections = this.pendingInjections;
       let persistedCount = 0;
-      // Accumulate mid-turn injections so they persist across all subsequent steps
-      const midTurnMessages: { role: "user"; content: string }[] = [];
+      // Accumulate mid-turn injections so they persist across all subsequent steps.
+      // Each injection records the chronological position (insertAt) where it arrived,
+      // so we can splice it back into that position on later steps instead of pinning
+      // it to the end — otherwise the model keeps treating it as the freshest message.
+      const midTurnMessages: { insertAt: number; msg: { role: "user"; content: string } }[] = [];
 
       // For Ollama: pass num_ctx to limit KV cache allocation, disable thinking for speed
       const ollamaOptions = this.config.provider === "ollama"
@@ -300,22 +303,32 @@ export class Runtime {
         prepareStep: ({ messages, stepNumber }) => {
           if (stepNumber === 0 || !pendingInjections) return {};
 
-          // Collect new injections and add to persistent mid-turn list
+          // Collect any new injections; record the chronological position
+          // (current messages length) at which each arrived.
           const injections = pendingInjections();
           for (const msg of injections) {
             const text = typeof msg.content === "string" ? msg.content : extractText(msg.content);
-            midTurnMessages.push({ role: "user" as const, content: text });
-            // Persist to session JSONL
+            midTurnMessages.push({
+              insertAt: messages.length,
+              msg: { role: "user" as const, content: text },
+            });
+            // Persist to session JSONL so the next turn sees it in proper order
             this.session.append([{ role: "user", content: msg.content }]);
           }
 
           if (midTurnMessages.length === 0) return {};
 
-          log("runtime", `prepareStep: injecting ${midTurnMessages.length} mid-turn message(s) at step ${stepNumber}`);
+          log("runtime", `prepareStep: splicing ${midTurnMessages.length} mid-turn message(s) at step ${stepNumber}`);
 
-          return {
-            messages: [...messages, ...midTurnMessages],
-          };
+          // Splice each injection at its recorded position. Process in reverse
+          // order of insertAt so earlier indices don't shift when we insert later ones.
+          const out = [...messages];
+          const sorted = [...midTurnMessages].sort((a, b) => b.insertAt - a.insertAt);
+          for (const { insertAt, msg } of sorted) {
+            out.splice(insertAt, 0, msg);
+          }
+
+          return { messages: out };
         },
       });
 

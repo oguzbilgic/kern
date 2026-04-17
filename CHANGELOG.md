@@ -2,6 +2,9 @@
 
 ## next
 
+### Fixes
+- **Mid-turn injection position** ([#245](https://github.com/oguzbilgic/kern-ai/issues/245)) — mid-turn user messages were re-appended to the end of the model's context on every step, making a directive sent 3 steps ago look like the freshest message each step. Model would over-acknowledge and re-course-correct repeatedly. Now splices injections at their chronological arrival position instead
+
 ## v0.29.0
 
 ### Features
