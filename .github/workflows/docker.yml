@@ -3,14 +3,18 @@ name: Docker
 on:
   release:
     types: [published]
-  workflow_dispatch: {}
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+  push:
+    branches: [master]
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  docker:
+  build:
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -30,10 +34,31 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ github.event_name == 'release' }}
-            type=ref,event=branch,enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=raw,value=master,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+            type=raw,value=pr-${{ github.event.pull_request.number }},enable=${{ github.event_name == 'pull_request' }}
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  cleanup-pr:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Delete PR image tags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          package=$(basename "${{ env.IMAGE_NAME }}")
+          owner=$(dirname "${{ env.IMAGE_NAME }}")
+          gh api --paginate "/users/${owner}/packages/container/${package}/versions" \
+            --jq ".[] | select(.metadata.container.tags[]? | test(\"^pr-${PR}$\")) | .id" \
+            | while read -r id; do
+                echo "deleting version $id (pr-${PR})"
+                gh api -X DELETE "/users/${owner}/packages/container/${package}/versions/${id}"
+              done
