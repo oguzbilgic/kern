@@ -1,15 +1,15 @@
 FROM ubuntu:24.04
 
 # System packages
-RUN apt-get update && apt-get install -y \
+RUN apt-get update
+RUN apt-get install -y \
     curl wget jq git openssh-client \
     python3 python3-pip \
-    unzip build-essential ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    unzip ca-certificates
 
 # Node.js 22 via NodeSource
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs \
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+RUN apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Build kern from source
