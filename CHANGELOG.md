@@ -3,8 +3,14 @@
 ## next
 
 ### Features
-- **MCP support** ([#47](https://github.com/oguzbilgic/kern-ai/issues/47)) — connect to Model Context Protocol servers and expose their tools to the agent. Configure under `mcpServers` in `.kern/config.json`; supports `http`, `sse`, and `stdio` transports. Tools namespaced as `<server>__<tool>`. `${VAR}` substitution in config for tokens and secrets. See [docs/mcp.md](docs/mcp.md)
-- **`/mcp` slash command** ([#253](https://github.com/oguzbilgic/kern-ai/issues/253)) — list configured MCP servers, connection state, and tool names. Failed servers show short error reason
+- **MCP support** ([#47](https://github.com/oguzbilgic/kern-ai/issues/47)) — connect agents to Model Context Protocol servers and expose their tools alongside kern's native tools
+  - Configure servers under `mcpServers` in `.kern/config.json`. Three transports: `http`, `sse`, `stdio`
+  - `${VAR}` substitution in any config string so tokens and secrets live in `.kern/.env`
+  - Tools are namespaced as `<server>__<tool>` — connect two servers that expose the same tool without collision
+  - One failing server doesn't block others or the agent. Missing env vars surface as real auth errors from the server, not silent drops
+  - `/mcp` slash command shows configured servers, connection state, and available tools at a glance ([#253](https://github.com/oguzbilgic/kern-ai/issues/253))
+  - Bundled `add-mcp-server` skill walks the agent through adding a new server
+  - See [docs/mcp.md](docs/mcp.md)
 
 ### Fixes
 - **Mid-turn injection position** ([#245](https://github.com/oguzbilgic/kern-ai/issues/245)) — injections were re-appended as the freshest message every step, causing repeated re-acknowledgment. Now spliced at chronological arrival position
