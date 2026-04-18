@@ -43,14 +43,18 @@ export const logsCommand: Command = {
 
     if (shouldFollow) {
       const { spawn } = await import("child_process");
-      const proc = !filterLabels || filterLabels.length === 0
-        ? spawn("tail", ["-f", "-n", String(lines), logFile], { stdio: "inherit" })
-        : spawn(
-            "sh",
-            ["-c", `tail -f -n +1 "${logFile}" | grep --line-buffered "${filterLabels.join("\\|")}"`],
-            { stdio: "inherit" },
-          );
-      process.on("SIGINT", () => { proc.kill(); process.exit(0); });
+      if (!filterLabels || filterLabels.length === 0) {
+        const tail = spawn("tail", ["-f", "-n", String(lines), logFile], { stdio: "inherit" });
+        process.on("SIGINT", () => { tail.kill(); process.exit(0); });
+      } else {
+        // Pipe tail → grep without going through a shell, so the agent
+        // directory path is never interpolated into a command string.
+        const tail = spawn("tail", ["-f", "-n", String(lines), logFile], { stdio: ["ignore", "pipe", "inherit"] });
+        const grep = spawn("grep", ["--line-buffered", "-E", filterLabels.join("|")], {
+          stdio: [tail.stdout!, "inherit", "inherit"],
+        });
+        process.on("SIGINT", () => { tail.kill(); grep.kill(); process.exit(0); });
+      }
       return;
     }
 
