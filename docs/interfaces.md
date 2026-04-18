@@ -22,6 +22,69 @@ Examples:
 
 The agent sees who's talking, from which channel, and when — and adapts behavior accordingly via instructions in `KERN.md`.
 
+## Metadata contract
+
+The same metadata flows through three parallel surfaces. Every interface populates them, and every client consumes them.
+
+### Surface 1 — Agent-facing text prefix
+
+The text prefix described above (`[via <interface>, <channel>, user: <id>, time: <iso8601>]`) is prepended to every message before the model sees it. Built in `src/app.ts` from the internal message object fields. See the [Message metadata](#message-metadata) section for examples.
+
+### Surface 2 — Internal message object
+
+Each interface constructs an `IncomingMessage` (defined in `src/interfaces/types.ts`) and passes it to the runtime via the `onMessage` handler. Fields:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `text` | `string` | yes | Message body |
+| `userId` | `string` | yes | Sender identifier (platform-specific) |
+| `chatId` | `string` | yes | Conversation/room identifier (platform-specific) |
+| `interface` | `string` | yes | Interface name: `telegram`, `slack`, `matrix`, `web`, or `tui` |
+| `channel` | `string` | no | Human-readable channel label used in the text prefix and SSE events |
+| `attachments` | `Attachment[]` | no | Media files attached to the message |
+
+### Surface 3 — SSE broadcast events
+
+When a message arrives, the server broadcasts an SSE event to all connected clients (web UI, TUI, other tabs). Two event types carry metadata:
+
+**`incoming`** — a message received from any interface:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | `"incoming"` | Event discriminator |
+| `text` | `string` | Message body |
+| `fromInterface` | `string?` | Source interface name (`telegram`, `slack`, `matrix`, `web`, `tui`) |
+| `fromUserId` | `string?` | Sender identifier |
+| `fromChannel` | `string?` | Channel label |
+| `media` | `MediaItem[]?` | Attached media (images/files as data URLs) |
+
+**`outgoing`** — a message sent by the agent to an external interface via the `message` tool:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | `"outgoing"` | Event discriminator |
+| `text` | `string` | Message body |
+| `fromInterface` | `string?` | Target interface the message was sent to |
+
+These types are defined in `web/lib/types.ts` (`StreamEvent` union) and extended by `ServerEvent` in `src/server.ts`.
+
+### Per-interface population
+
+How each interface populates the internal message object and SSE fields:
+
+| Interface | `userId` | `chatId` | `channel` | `fromInterface` (SSE) |
+|-----------|----------|----------|-----------|----------------------|
+| telegram | `msg.from.id` (stringified) | `msg.chat.id` (stringified) | `telegram:<chatId>` | `telegram` |
+| slack | `message.user` | `message.channel` | `#<name>` (channel) or `slack-dm` (DM) | `slack` |
+| matrix | `event.sender` (mxid) | `roomId` | `matrix:<roomId>` | `matrix` |
+| tui | `"tui"` | `"tui"` | `"tui"` | `tui` |
+| web | `"tui"` | `"web"` | `"web"` | `web` |
+
+Notes:
+- Slack channel names are resolved via `conversations.info` — DMs use `slack-dm`, channels use `#<channel-name>`.
+- Matrix room IDs are opaque (`!abc:example.com`); the channel label prefixes them with `matrix:`.
+- TUI and web always use fixed identifiers since they represent the operator.
+
 ## TUI
 
 Interactive terminal chat. Connects to a running agent via HTTP/SSE.
