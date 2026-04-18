@@ -5,6 +5,7 @@ import { mkdir, writeFile } from "fs/promises";
 import { homedir } from "os";
 import { findAgent, loadRegistry, readAgentInfo } from "../registry.js";
 import { log } from "../log.js";
+import type { Command } from "./commands.js";
 
 interface OpenCodeMessage {
   id: string;
@@ -311,3 +312,20 @@ export async function importOpenCode(args: string[]): Promise<void> {
 
   process.exit(0);
 }
+
+// --- CLI command ---
+
+export const importCommand: Command = {
+  name: "import",
+  usage: "opencode <name>",
+  description: "import session from OpenCode",
+  async handler(args) {
+    const source = args[0];
+    if (source === "opencode") {
+      await importOpenCode(args.slice(1));
+      return;
+    }
+    console.error("Usage: kern import opencode [--project <path>] [--session <title|latest>] [--agent <name>]");
+    process.exit(1);
+  },
+};

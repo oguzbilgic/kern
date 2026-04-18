@@ -5,6 +5,7 @@ import { input, select, password } from "@inquirer/prompts";
 import { registerAgent, findAgent, isProcessRunning, readPid, removePidFile, assignPort } from "../registry.js";
 import { startAgent } from "./daemon.js";
 import type { KernConfig } from "../config.js";
+import type { Command } from "./commands.js";
 import { log } from "../log.js";
 
 // Fallback models used when live fetch fails (e.g. no network, bad key)
@@ -546,3 +547,25 @@ node_modules/
   }
 }
 
+
+// --- CLI command ---
+
+export const initCommand: Command = {
+  name: "init",
+  usage: "<name>",
+  description: "create or configure an agent",
+  async handler(args) {
+    // Parse --flag value pairs and a positional target
+    const flags: Record<string, string> = {};
+    let target = args[0];
+    for (let i = 0; i < args.length; i++) {
+      if (args[i].startsWith("--") && i + 1 < args.length && !args[i + 1].startsWith("--")) {
+        flags[args[i].slice(2)] = args[i + 1];
+        i++;
+      } else if (!args[i].startsWith("--")) {
+        target = args[i];
+      }
+    }
+    await runInit(target, Object.keys(flags).length > 0 ? flags : undefined);
+  },
+};

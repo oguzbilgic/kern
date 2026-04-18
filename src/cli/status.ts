@@ -5,6 +5,7 @@ import { existsSync } from "fs";
 import { readFile } from "fs/promises";
 import { join, basename } from "path";
 import { homedir } from "os";
+import type { Command } from "./commands.js";
 
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
@@ -126,3 +127,14 @@ export async function showStatus(): Promise<void> {
     } catch {}
   }
 }
+
+// --- CLI command ---
+
+export const listCommand: Command = {
+  name: "list",
+  aliases: ["ls", "status"],
+  description: "show all agents",
+  async handler() {
+    await showStatus();
+  },
+};

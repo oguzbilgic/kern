@@ -4,6 +4,7 @@ import { mkdir, writeFile, unlink, readFile } from "fs/promises";
 import { join, basename } from "path";
 import { homedir } from "os";
 import { loadRegistry, findAgent, readAgentInfo, isProcessRunning, readPid, removePidFile } from "../registry.js";
+import type { Command } from "./commands.js";
 
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -376,3 +377,23 @@ export async function uninstall(name?: string): Promise<void> {
   systemctl("daemon-reload");
   w("");
 }
+
+// --- CLI commands ---
+
+export const installCommand: Command = {
+  name: "install",
+  usage: "[name|--web|--proxy]",
+  description: "install systemd services",
+  async handler(args) {
+    await install(args[0]);
+  },
+};
+
+export const uninstallCommand: Command = {
+  name: "uninstall",
+  usage: "[name]",
+  description: "remove systemd services",
+  async handler(args) {
+    await uninstall(args[0]);
+  },
+};

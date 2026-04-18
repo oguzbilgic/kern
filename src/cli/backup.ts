@@ -2,6 +2,7 @@ import { execSync } from "child_process";
 import { basename, resolve, join } from "path";
 import { existsSync } from "fs";
 import { findAgent, registerAgent, isProcessRunning, readPid, removePidFile } from "../registry.js";
+import type { Command } from "./commands.js";
 
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -131,3 +132,23 @@ export async function restoreAgent(tarFile?: string): Promise<void> {
   console.log("");
   process.exit(0);
 }
+
+// --- CLI commands ---
+
+export const backupCommand: Command = {
+  name: "backup",
+  usage: "<name>",
+  description: "backup agent to .tar.gz",
+  async handler(args) {
+    await backupAgent(args[0]);
+  },
+};
+
+export const restoreCommand: Command = {
+  name: "restore",
+  usage: "<file>",
+  description: "restore agent from backup",
+  async handler(args) {
+    await restoreAgent(args[0]);
+  },
+};

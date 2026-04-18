@@ -3,7 +3,8 @@ import { render, Box, Text, Static, useInput, useApp, useStdout } from "ink";
 // @ts-ignore
 import Spinner from "ink-spinner";
 import type { ServerEvent } from "../server.js";
-import { findAgent } from "../registry.js";
+import { findAgent, loadRegistry, readAgentInfo, isProcessRunning } from "../registry.js";
+import type { Command } from "./commands.js";
 
 // --- Types ---
 
@@ -661,3 +662,50 @@ export async function connectTui(port: number, agentName: string, authToken?: st
   process.stdout.write(`\n  ${bold("kern")} ${dim("v" + version)} · ${agentName}${model ? " · " + model : ""} · ${dim("running")}\n\n`);
   process.exit(0);
 }
+
+// --- CLI command ---
+
+export const tuiCommand: Command = {
+  name: "tui",
+  usage: "[name]",
+  description: "interactive chat",
+  async handler(args) {
+    let agentName = args[0];
+    if (!agentName) {
+      const paths = await loadRegistry();
+      if (paths.length === 0) {
+        console.error("No agents registered. Run 'kern init <name>' first.");
+        process.exit(1);
+      } else if (paths.length === 1) {
+        const info = readAgentInfo(paths[0]);
+        agentName = info?.name || paths[0];
+      } else {
+        const { select } = await import("@inquirer/prompts");
+        const choices = paths.map((p) => {
+          const info = readAgentInfo(p);
+          return { name: info?.name || p, value: info?.name || p };
+        });
+        agentName = await select({ message: "Select agent", choices });
+      }
+    }
+
+    let agent = findAgent(agentName);
+    if (!agent) {
+      console.error(`Agent not found: ${agentName}`);
+      process.exit(1);
+    }
+
+    if (!agent.pid || !isProcessRunning(agent.pid)) {
+      const { startAgent } = await import("./daemon.js");
+      await startAgent(agentName);
+      agent = findAgent(agentName);
+    }
+
+    if (!agent?.port) {
+      console.error(`Cannot determine port for ${agentName}. Is it running?`);
+      process.exit(1);
+    }
+
+    await connectTui(agent.port, agentName, agent.token || undefined);
+  },
+};
