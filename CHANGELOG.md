@@ -7,11 +7,14 @@
   - `spawn` tool returns immediately with a sub-agent id; the child runs in the background with its own LLM loop
   - Result announces back as a new turn on channel `subagent:<id>` when the child finishes — parent can react to it like any other message
   - `subagents` tool for inspection: `list`, `status <id>`, `result <id>`, `cancel <id>`
-  - Read-only toolset for children: `read`, `glob`, `grep`, `webfetch`, `websearch`. No `bash`, `edit`, `write`, `message`, plugin tools, or nested spawning
+  - Read-only toolset for children: `read`, `glob`, `grep`, `webfetch`, `websearch`, `pdf`, `image`. No `bash`, `edit`, `write`, `message`, plugin tools, or nested spawning
   - State persisted at `.kern/subagents/<id>/` (`record.json` metadata, `session.jsonl` transcript); running children are cancelled on shutdown
   - `/subagents` slash command — operator peek at what the agent has spawned
   - Shipped as the `subagents` plugin
   - See [docs/subagents.md](docs/subagents.md)
+
+### Improvements
+- **`pdf` and `image` are now core tools** ([#262](https://github.com/oguzbilgic/kern-ai/issues/262)) — moved out of the media plugin. Same interface, no behavior change for existing agents. Sub-agents now have access to them, and they sit in the `read` tool scope alongside `read`/`glob`/`grep`
 
 ## v0.30.0
 

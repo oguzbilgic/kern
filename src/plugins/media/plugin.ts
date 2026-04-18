@@ -4,8 +4,6 @@ import type { Attachment } from "../../interfaces/types.js";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { saveMedia, buildUserContent, MediaSidecar, resolveMediaInMessages, digestMediaAtIngest } from "./media.js";
-import { imageTool } from "./image.js";
-import { pdfTool } from "./pdf.js";
 import { log } from "../../log.js";
 
 const MIME_MAP: Record<string, string> = {
@@ -19,16 +17,6 @@ let mediaSidecar: MediaSidecar | null = null;
 
 export const mediaPlugin: KernPlugin = {
   name: "media",
-
-  tools: {
-    pdf: pdfTool,
-    image: imageTool,
-  },
-
-  toolDescriptions: {
-    pdf: "read or analyze PDF files",
-    image: "analyze images using AI",
-  },
 
   routes: (() => {
     let _ctx: PluginContext | null = null;

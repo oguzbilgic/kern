@@ -87,26 +87,11 @@ Only images are pre-digested currently. Other file types pass through as-is (if 
 - **Slack** — files shared in messages. 50MB limit.
 - **Web UI** — drag-and-drop or file picker. Inline preview before send. Images rendered inline in chat history.
 
-## Tools
+## Related tools
 
-### `image(file, prompt?)`
+The `image` and `pdf` tools are core tools (not part of this plugin) — they operate on files on disk and work whether or not the media pipeline is active. Useful for re-examining images that have aged out of context, or extracting text from PDFs stored in `.kern/media/`.
 
-Analyze any image on disk or in `.kern/media/` using the AI model.
-
-- `file` — path to image, or just a `.kern/media/` filename
-- `prompt` — what to analyze (default: "Describe this image.")
-
-Useful for re-examining images that have aged out of context, or asking specific questions about stored screenshots.
-
-### `pdf(file, pages?, prompt?)`
-
-Read or analyze PDF files.
-
-- `file` — path to PDF
-- `pages` — page numbers to extract (default: page 1 for reading, all pages when `prompt` is provided). Supports `"1-5"`, `"2,4,7-9"`.
-- `prompt` — question to ask the AI model about the PDF content
-
-Returns extracted text with a header showing total page count. Agent's natural flow: read page 1 to understand structure, then read specific pages or ask a question.
+See [tools.md](tools.md) for full documentation.
 
 ## API
 
