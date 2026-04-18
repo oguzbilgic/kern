@@ -22,6 +22,86 @@ Examples:
 
 The agent sees who's talking, from which channel, and when — and adapts behavior accordingly via instructions in `KERN.md`.
 
+## Metadata contract
+
+The same metadata flows through three parallel surfaces. Every interface populates them, and every client consumes them.
+
+### Surface 1 — Agent-facing text prefix
+
+The text prefix described above (`[via <interface>, <channel>, user: <id>, time: <iso8601>]`) is prepended to every message before the model sees it. Built in `src/app.ts` from the internal message object fields. See the [Message metadata](#message-metadata) section for examples.
+
+### Surface 2 — Internal message object
+
+Messages enter the runtime via two paths:
+
+**Adapter interfaces** (`src/interfaces/telegram.ts`, `slack.ts`, `matrix.ts`, `cli.ts`) construct an `IncomingMessage` (defined in `src/interfaces/types.ts`) and pass it to their `onMessage` callback:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `text` | `string` | yes | Message body |
+| `userId` | `string` | yes | Sender identifier (platform-specific) |
+| `chatId` | `string` | yes | Conversation/room identifier (platform-specific) |
+| `interface` | `string` | yes | Interface name — for example `telegram`, `slack`, `matrix`, `cli` |
+| `channel` | `string` | no | Human-readable channel label used in the text prefix and SSE events |
+| `attachments` | `Attachment[]` | no | Media files attached to the message |
+
+**HTTP clients** (web UI, TUI) POST to the agent's `/message` endpoint with a flat JSON payload. The server maps fields directly into the runtime; there is no `chatId` on this path.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `text` | `string` | yes (unless `attachments`) | Message body |
+| `userId` | `string` | no (defaults to `"tui"`) | Sender identifier |
+| `interface` | `string` | no (defaults to `"tui"`) | Interface name, typically `"web"` or `"tui"` |
+| `channel` | `string` | no (defaults to `"tui"`) | Channel label |
+| `attachments` | `Attachment[]` | no | Base64-encoded attachments |
+| `connectionId` | `string` | no | SSE connection ID to exclude from the echo broadcast |
+
+The runtime itself also synthesizes `interface: "system"` for heartbeat messages (`src/app.ts`).
+
+### Surface 3 — SSE broadcast events
+
+When a message arrives, the server broadcasts an SSE event to all connected clients (web UI, TUI, other tabs). Two event types carry metadata:
+
+**`incoming`** — a message received from any interface:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | `"incoming"` | Event discriminator |
+| `text` | `string` | Message body |
+| `fromInterface` | `string?` | Source interface name (for example `telegram`, `slack`, `matrix`, `web`, `tui`, `cli`) |
+| `fromUserId` | `string?` | Sender identifier |
+| `fromChannel` | `string?` | Channel label |
+| `media` | `MediaItem[]?` | Attached media (images/files as data URLs) |
+
+**`outgoing`** — a message sent by the agent to an external interface via the `message` tool:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | `"outgoing"` | Event discriminator |
+| `text` | `string` | Message body |
+| `fromInterface` | `string?` | Target interface the message was sent to |
+| `fromUserId` | `string?` | Target/recipient user identifier. Despite the `from*` name, this is the message's destination, not its origin. |
+
+On the client side, the `StreamEvent` discriminated union in `web/lib/types.ts` models these SSE payloads. On the server side, `src/server.ts` defines `ServerEvent` (extends `StreamEvent` from `src/runtime.ts`).
+
+### Per-interface population
+
+How each interface populates the internal message fields and SSE events:
+
+| Interface | `userId` | `chatId` | `channel` | `fromInterface` (SSE) |
+|-----------|----------|----------|-----------|----------------------|
+| telegram | `msg.from.id` (stringified) | `msg.chat.id` (stringified) | `telegram:<chatId>` | `telegram` |
+| slack | `message.user` | `message.channel` | `#<name>` (channel) or `slack-dm` (DM) | `slack` |
+| matrix | `event.sender` (mxid) | `roomId` | `matrix:<roomId>` | `matrix` |
+| cli | `"cli"` | `"cli"` | `"terminal"` | `cli` |
+| tui | `"tui"` | — | `"tui"` | `tui` |
+| web | `"tui"` | — | `"web"` | `web` |
+
+Notes:
+- Slack channel names are resolved via `conversations.info` — DMs use `slack-dm`, channels use `#<channel-name>`.
+- Matrix room IDs are opaque (`!abc:example.com`); the channel label prefixes them with `matrix:`.
+- TUI and web submit messages over HTTP without a `chatId` — they always represent the operator.
+
 ## TUI
 
 Interactive terminal chat. Connects to a running agent via HTTP/SSE.
