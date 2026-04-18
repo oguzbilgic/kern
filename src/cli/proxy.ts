@@ -2,7 +2,7 @@ import type { Command } from "./commands.js";
 
 export const proxyCommand: Command = {
   name: "proxy",
-  usage: "<start|stop|status|token>",
+  usage: "<start|stop|restart|status|token>",
   description: "authenticated proxy server",
   async handler(args) {
     const subcmd = args[0];
@@ -24,7 +24,7 @@ export const proxyCommand: Command = {
       const { proxyToken } = await import("./proxy-daemon.js");
       await proxyToken();
     } else {
-      console.error("Usage: kern proxy <start|stop|status|token>");
+      console.error("Usage: kern proxy <start|stop|restart|status|token>");
       process.exit(1);
     }
   },
