@@ -5,6 +5,7 @@ import { recallPlugin } from "./recall/plugin.js";
 import { mediaPlugin } from "./media/plugin.js";
 import { skillsPlugin } from "./skills/plugin.js";
 import { mcpPlugin } from "./mcp/plugin.js";
+import { subagentsPlugin } from "./subagents/plugin.js";
 import { log } from "../log.js";
 
 export type { KernPlugin, PluginContext, RouteHandler, ContextInjection, BeforeContextInfo } from "./types.js";
@@ -20,6 +21,7 @@ const availablePlugins: KernPlugin[] = [
   dashboardPlugin,
   skillsPlugin,
   mcpPlugin,
+  subagentsPlugin,
 ];
 
 /** Active plugin instances after loading */

@@ -18,6 +18,7 @@ import { MemoryDB } from "./memory.js";
 import { MessageQueue } from "./queue.js";
 import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setSegmentStatsFn, setPluginStatusFn, type InterfaceStatus } from "./tools/kern.js";
 import { plugins, type PluginContext } from "./plugins/index.js";
+import { setSubAgentAnnouncer, formatAnnounce } from "./plugins/subagents/plugin.js";
 import { log } from "./log.js";
 
 let _pluginCtx: PluginContext | null = null;
@@ -195,6 +196,19 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   // Message queue — serializes messages, same-channel injection
   const queue = new MessageQueue();
   setQueueStatusFn(() => queue.getStatus());
+
+  // Sub-agent announces: when a child finishes, enqueue its result as a new
+  // turn so the parent can react to it. Channel is "subagent" so it doesn't
+  // collide with same-channel injection for human interfaces.
+  setSubAgentAnnouncer((id, record) => {
+    const text = formatAnnounce(record);
+    queue.enqueue({
+      text,
+      userId: "subagent",
+      interface: "subagent",
+      channel: `subagent:${id}`,
+    }).catch((e) => log.error("subagent", `announce enqueue failed for ${id}: ${e.message}`));
+  });
 
   queue.setHandler(async (msg, getPendingMessages) => {
 
