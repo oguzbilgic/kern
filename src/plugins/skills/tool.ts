@@ -1,7 +1,8 @@
 import { tool } from "ai";
 import { z } from "zod";
-import type { SkillInfo } from "./scanner.js";
+import { loadSkillBody, type SkillInfo } from "./scanner.js";
 import { isActive, activate, deactivate } from "./state.js";
+import { log } from "../../log.js";
 
 /** Reference to current skill catalog — set by plugin on startup/refresh */
 let catalog: SkillInfo[] = [];
@@ -14,6 +15,7 @@ export const skillTool = tool({
   description:
     "Manage agent skills. Use 'list' to see available skills. " +
     "Use 'activate' to load a skill's full instructions into your system prompt (persistent until deactivated). " +
+    "The instructions are also returned in the tool result so you can act on them in the current turn. " +
     "Use 'deactivate' to unload a skill and free token budget.",
   inputSchema: z.object({
     action: z.enum(["list", "activate", "deactivate"]).describe("Action to perform"),
@@ -37,9 +39,22 @@ export const skillTool = tool({
         if (!name) return "Error: name is required for activate";
         const skill = catalog.find((s) => s.name === name);
         if (!skill) return `Error: skill "${name}" not found. Use list to see available skills.`;
+        // Load the body before activating the skill.
+        // If we can't read the body, return an error and leave the skill inactive
+        // rather than marking a skill active whose instructions can't be loaded.
+        let body: string;
+        try {
+          body = await loadSkillBody(skill);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          log.warn("skills", `failed to load body for "${name}": ${msg}`);
+          return `Error: failed to load instructions for skill "${name}": ${msg}. Skill not activated.`;
+        }
         const wasNew = activate(name);
         if (!wasNew) return `Skill "${name}" is already active.`;
-        return `Activated skill "${name}". Full instructions will be in your system prompt on the next turn.`;
+        // Return the full body so instructions take effect this turn, not next.
+        // The system prompt will also include it from the next turn onward.
+        return `Activated: ${name}\n\n${body}`;
       }
 
       case "deactivate": {

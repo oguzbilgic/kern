@@ -12,6 +12,7 @@
 
 ### Fixes
 - **Mid-turn injection position** ([#245](https://github.com/oguzbilgic/kern-ai/issues/245)) — injections were re-appended as the freshest message every step, causing repeated re-acknowledgment. Now spliced at chronological arrival position
+- **Skill activation takes effect immediately** ([#252](https://github.com/oguzbilgic/kern-ai/issues/252)) — `skill activate` now returns the full skill body as its tool result so instructions are available in the current turn. Previously the body only appeared in the system prompt on the following turn
 
 ## v0.29.0
 
