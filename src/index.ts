@@ -60,7 +60,8 @@ async function main() {
     process.exit(1);
   }
 
-  await command.handler(args.slice(1));
+  const impl = await command.load();
+  await impl.handler(args.slice(1));
   process.exit(0);
 }
 
