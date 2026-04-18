@@ -22,7 +22,7 @@ import type { KernConfig } from "../../config.js";
  * On-disk layout for each child:
  *   .kern/subagents/<id>/
  *     prompt.md          — original task
- *     session.jsonl      — running transcript (appended per step)
+ *     session.jsonl      — running transcript (rewritten per step)
  *     record.json        — final metadata (written on finish)
  */
 

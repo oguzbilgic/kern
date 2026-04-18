@@ -354,7 +354,7 @@ function SubagentsListOutput({ output }: { output: string }) {
   const statusColor = (s: string): string => {
     if (s === "running") return "#f0883e";
     if (s === "done") return "#56d364";
-    if (s === "cancelled" || s === "error") return "#f97583";
+    if (s === "cancelled" || s === "failed") return "#f97583";
     return "var(--text-dim)";
   };
 

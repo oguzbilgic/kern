@@ -144,7 +144,7 @@ spawn({ prompt: "Research Node.js 22 crypto changes and summarize breaking chang
 
 When the child finishes, its result arrives as a new turn with a header like `[subagent:sa_abc123 done, 12.4s, 5 tool calls]` followed by the result. You can spawn multiple sub-agents in parallel and synthesize their results as they arrive.
 
-Sub-agents run with a read-only toolset: `read`, `glob`, `grep`, `webfetch`, `websearch`, `pdf`, `image`, `recall`. They cannot run shell commands, edit files, or spawn further sub-agents.
+Sub-agents run with a read-only toolset: `read`, `glob`, `grep`, `webfetch`, `websearch`. They cannot run shell commands, edit files, call plugin tools, or spawn further sub-agents.
 
 Use sub-agents for research fan-out, parallel documentation lookups, evaluating multiple candidates, or any read-only task you can delegate while you keep working. Don't use them for trivial one-off reads — just call `read` directly.
 
@@ -164,7 +164,7 @@ subagents({ action: "cancel", id: "sa_abc123" })   // abort a running sub-agent
 - `action` — `list`, `status`, `result`, or `cancel`
 - `id` — sub-agent ID (required for `status`, `result`, `cancel`)
 
-Statuses: `running`, `done`, `error`, `cancelled`.
+Statuses: `running`, `done`, `failed`, `cancelled`.
 
 ## kern
 

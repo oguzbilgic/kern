@@ -44,7 +44,7 @@ export class SubAgentRegistry {
   }
 
   spawn(prompt: string, maxSteps = 20): SubAgentHandle {
-    const id = randomUUID().slice(0, 8);
+    const id = "sa_" + randomUUID().slice(0, 8);
     const record: SubAgentRecord = {
       id,
       prompt,

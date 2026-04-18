@@ -44,12 +44,14 @@ subagents({ action: "cancel", id: "sa_abc123" })   // abort a running child
 
 ### Runtime model
 
-Each sub-agent runs its own `Runtime` instance in-process, with:
+Each sub-agent runs as its own in-process task, with:
 
 - A restricted tool set (read-only — see below)
 - Its own session file at `.kern/subagents/<id>/session.jsonl`
 - Its own LLM loop using the same model and provider as the parent
 - An `AbortSignal` so `cancel` can interrupt mid-turn
+
+Sub-agents do **not** share the parent's plugin context — no notes, skills, recall, MCP. They're stateless workers, not full agents.
 
 Sub-agents run concurrently with the parent and with each other. The parent's turn is *not* blocked by any of them.
 
@@ -77,9 +79,6 @@ Sub-agents run with a strict read-only toolset:
 | `grep` | Search file contents |
 | `webfetch` | Fetch a URL |
 | `websearch` | Search the web |
-| `pdf` | Extract text from PDFs |
-| `image` | Analyze images |
-| `recall` | Search long-term memory |
 
 Sub-agents **cannot**:
 
@@ -87,6 +86,7 @@ Sub-agents **cannot**:
 - Edit or write files (`edit`, `write`)
 - Send messages (`message`)
 - Manage the runtime (`kern`)
+- Call plugin tools (`recall`, `pdf`, `image`, MCP tools)
 - Spawn further sub-agents (no nested delegation in v1)
 
 This boundary is intentional. If you need a child that can mutate state, call the destructive tool in the parent based on the sub-agent's report.
@@ -97,12 +97,12 @@ Sub-agent state lives under `.kern/subagents/<id>/`:
 
 | File | Contents |
 |---|---|
-| `record.json` | Metadata: id, status, prompt, result, timings, maxSteps |
+| `record.json` | Metadata: id, status, prompt, result, timings, tool call count, token totals |
 | `session.jsonl` | Full transcript — the child's messages, tool calls, tool results |
 
 Statuses: `running`, `done`, `failed`, `cancelled`.
 
-The `subagents` plugin reloads disk state on startup, so completed children survive a restart. Running children do not — they're cancelled on shutdown.
+Sub-agent state is written to disk under `.kern/subagents/<id>/`, but completed children are not reloaded into the in-memory list on startup — the `subagents` and `/subagents` commands only show sub-agents spawned in the current process lifetime. Running children do not survive a restart either — they're cancelled on shutdown.
 
 ## Slash command
 
