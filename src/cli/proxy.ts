@@ -1,9 +1,6 @@
 import type { Command } from "./commands.js";
 
 export const proxyCommand: Command = {
-  name: "proxy",
-  usage: "<start|stop|restart|status|token>",
-  description: "authenticated proxy server",
   async handler(args) {
     const subcmd = args[0];
     if (subcmd === "start" || subcmd === "stop" || subcmd === "restart") {

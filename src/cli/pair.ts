@@ -2,9 +2,6 @@ import type { Command } from "./commands.js";
 import { findAgent } from "../registry.js";
 
 export const pairCommand: Command = {
-  name: "pair",
-  usage: "<agent> <code>",
-  description: "approve a pairing code",
   async handler(args) {
     const [agentName, code] = args;
     if (!agentName || !code) {

@@ -1,9 +1,6 @@
 import type { Command } from "./commands.js";
 
 export const webCommand: Command = {
-  name: "web",
-  usage: "<run|start|stop|restart|status>",
-  description: "static web UI server",
   async handler(args) {
     const subcmd = args[0];
     if (subcmd === "start" || subcmd === "stop" || subcmd === "restart") {

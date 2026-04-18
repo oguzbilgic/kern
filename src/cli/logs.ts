@@ -13,9 +13,6 @@ const LEVEL_FILTERS: Record<string, string[]> = {
 };
 
 export const logsCommand: Command = {
-  name: "logs",
-  usage: "[name] [-f] [-n 50] [--level warn]",
-  description: "show agent logs",
   async handler(args) {
     let follow: boolean | null = null; // null = auto (follow unless -n)
     let lines = 50;

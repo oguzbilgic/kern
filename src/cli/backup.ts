@@ -136,18 +136,12 @@ export async function restoreAgent(tarFile?: string): Promise<void> {
 // --- CLI commands ---
 
 export const backupCommand: Command = {
-  name: "backup",
-  usage: "<name>",
-  description: "backup agent to .tar.gz",
   async handler(args) {
     await backupAgent(args[0]);
   },
 };
 
 export const restoreCommand: Command = {
-  name: "restore",
-  usage: "<file>",
-  description: "restore agent from backup",
   async handler(args) {
     await restoreAgent(args[0]);
   },

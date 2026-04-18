@@ -316,9 +316,6 @@ export async function importOpenCode(args: string[]): Promise<void> {
 // --- CLI command ---
 
 export const importCommand: Command = {
-  name: "import",
-  usage: "opencode <name>",
-  description: "import session from OpenCode",
   async handler(args) {
     const source = args[0];
     if (source === "opencode") {

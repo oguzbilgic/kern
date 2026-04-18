@@ -666,9 +666,6 @@ export async function connectTui(port: number, agentName: string, authToken?: st
 // --- CLI command ---
 
 export const tuiCommand: Command = {
-  name: "tui",
-  usage: "[name]",
-  description: "interactive chat",
   async handler(args) {
     let agentName = args[0];
     if (!agentName) {

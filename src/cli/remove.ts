@@ -2,10 +2,6 @@ import type { Command } from "./commands.js";
 import { findAgent } from "../registry.js";
 
 export const removeCommand: Command = {
-  name: "remove",
-  aliases: ["rm"],
-  usage: "<name>",
-  description: "unregister an agent",
   async handler(args) {
     const name = args[0];
     if (!name) {

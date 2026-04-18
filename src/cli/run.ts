@@ -4,10 +4,6 @@ import { existsSync } from "fs";
 import { resolveAgentDir } from "./helpers.js";
 
 export const runCommand: Command = {
-  name: "run",
-  usage: "[path] [--init-if-needed]",
-  description: "run an agent in the foreground (Docker, dev)",
-  hidden: true,
   async handler(args) {
     const initIfNeeded = args.includes("--init-if-needed");
     const dirArg = args.filter((a) => a !== "--init-if-needed")[0];

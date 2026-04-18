@@ -551,9 +551,6 @@ node_modules/
 // --- CLI command ---
 
 export const initCommand: Command = {
-  name: "init",
-  usage: "<name>",
-  description: "create or configure an agent",
   async handler(args) {
     // Parse --flag value pairs and a positional target
     const flags: Record<string, string> = {};

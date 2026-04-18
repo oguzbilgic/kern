@@ -8,12 +8,9 @@
 // Each command file still exports a concrete `Command` object; the registry
 // here just knows its shape and where to find it.
 
+// A loaded command is just a handler. All help metadata lives in the
+// CommandEntry below — keeping it in one place prevents drift.
 export interface Command {
-  name: string;
-  aliases?: string[];
-  usage?: string;
-  description: string;
-  hidden?: boolean;
   handler(args: string[]): Promise<void> | void;
 }
 
@@ -90,7 +87,7 @@ export const commands: CommandEntry[] = [
   },
   {
     name: "logs",
-    usage: "[name] [-f] [-n 50] [--level warn]",
+    usage: "[name] [-f|--follow] [-n 50] [--level warn]",
     description: "show agent logs",
     load: async () => (await import("./logs.js")).logsCommand,
   },

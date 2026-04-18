@@ -131,9 +131,6 @@ export async function showStatus(): Promise<void> {
 // --- CLI command ---
 
 export const listCommand: Command = {
-  name: "list",
-  aliases: ["ls", "status"],
-  description: "show all agents",
   async handler() {
     await showStatus();
   },

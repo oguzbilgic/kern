@@ -381,18 +381,12 @@ export async function uninstall(name?: string): Promise<void> {
 // --- CLI commands ---
 
 export const installCommand: Command = {
-  name: "install",
-  usage: "[name|--web|--proxy]",
-  description: "install systemd services",
   async handler(args) {
     await install(args[0]);
   },
 };
 
 export const uninstallCommand: Command = {
-  name: "uninstall",
-  usage: "[name]",
-  description: "remove systemd services",
   async handler(args) {
     await uninstall(args[0]);
   },
