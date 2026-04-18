@@ -7,6 +7,8 @@ import { globTool } from "./glob.js";
 import { grepTool } from "./grep.js";
 import { webfetchTool } from "./webfetch.js";
 import { websearchTool } from "./websearch.js";
+import { pdfTool } from "./pdf.js";
+import { imageTool } from "./image.js";
 import { kernTool } from "./kern.js";
 import { messageTool } from "./message.js";
 
@@ -22,6 +24,8 @@ export const allTools = {
   grep: grepTool,
   webfetch: webfetchTool,
   websearch: websearchTool,
+  pdf: pdfTool,
+  image: imageTool,
   kern: kernTool,
   message: messageTool,
 };

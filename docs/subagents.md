@@ -79,6 +79,8 @@ Sub-agents run with a strict read-only toolset:
 | `grep` | Search file contents |
 | `webfetch` | Fetch a URL |
 | `websearch` | Search the web |
+| `pdf` | Read or analyze PDF files |
+| `image` | Analyze an image with the AI model |
 
 Sub-agents **cannot**:
 
@@ -86,7 +88,7 @@ Sub-agents **cannot**:
 - Edit or write files (`edit`, `write`)
 - Send messages (`message`)
 - Manage the runtime (`kern`)
-- Call plugin tools (`recall`, `pdf`, `image`, MCP tools)
+- Call plugin tools (`recall`, MCP tools)
 - Spawn further sub-agents (no nested delegation in v1)
 
 This boundary is intentional. If you need a child that can mutate state, call the destructive tool in the parent based on the sub-agent's report.

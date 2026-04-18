@@ -63,6 +63,8 @@ export async function loadSystemPrompt(agentDir: string, config: KernConfig, plu
     glob: "find files by pattern",
     grep: "search file contents",
     webfetch: "fetch URLs",
+    pdf: "extract text or analyze PDF files",
+    image: "analyze image files using the AI model",
     kern: "manage your own runtime (status, config, env)",
     message: "send messages proactively",
     ...pluginToolDescriptions,

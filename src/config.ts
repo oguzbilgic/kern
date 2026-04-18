@@ -55,9 +55,9 @@ export type McpServerConfig =
 const shell = process.platform === "win32" ? "pwsh" : "bash";
 
 const TOOL_SCOPES: Record<ToolScope, string[]> = {
-  full: [shell, "read", "write", "edit", "glob", "grep", "webfetch", "websearch", "kern", "message"],
-  write: ["read", "write", "edit", "glob", "grep", "webfetch", "websearch", "kern", "message"],
-  read: ["read", "glob", "grep", "webfetch", "websearch", "kern"],
+  full: [shell, "read", "write", "edit", "glob", "grep", "webfetch", "websearch", "pdf", "image", "kern", "message"],
+  write: ["read", "write", "edit", "glob", "grep", "webfetch", "websearch", "pdf", "image", "kern", "message"],
+  read: ["read", "glob", "grep", "webfetch", "websearch", "pdf", "image", "kern"],
 };
 
 export const configDefaults: KernConfig = {
