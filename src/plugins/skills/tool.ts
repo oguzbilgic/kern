@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import type { SkillInfo } from "./scanner.js";
+import { loadSkillBody, type SkillInfo } from "./scanner.js";
 import { isActive, activate, deactivate } from "./state.js";
 
 /** Reference to current skill catalog — set by plugin on startup/refresh */
@@ -13,7 +13,7 @@ export function setCatalog(skills: SkillInfo[]) {
 export const skillTool = tool({
   description:
     "Manage agent skills. Use 'list' to see available skills. " +
-    "Use 'activate' to load a skill's full instructions into your system prompt (persistent until deactivated). " +
+    "Use 'activate' to load a skill's full instructions — they're returned in the tool result so you can act on them immediately, and also added to your system prompt from the next turn onward. " +
     "Use 'deactivate' to unload a skill and free token budget.",
   inputSchema: z.object({
     action: z.enum(["list", "activate", "deactivate"]).describe("Action to perform"),
@@ -39,7 +39,15 @@ export const skillTool = tool({
         if (!skill) return `Error: skill "${name}" not found. Use list to see available skills.`;
         const wasNew = activate(name);
         if (!wasNew) return `Skill "${name}" is already active.`;
-        return `Activated skill "${name}". Full instructions will be in your system prompt on the next turn.`;
+        // Return the full body so instructions take effect this turn, not next.
+        // The system prompt will also include it from the next turn onward.
+        try {
+          const body = await loadSkillBody(skill);
+          return `Activated: ${name}\n\n${body}`;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          return `Activated skill "${name}" but failed to load instructions: ${msg}. They will appear in your system prompt on the next turn.`;
+        }
       }
 
       case "deactivate": {
