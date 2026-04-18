@@ -14,7 +14,7 @@
   - See [docs/subagents.md](docs/subagents.md)
 
 ### Improvements
-- **`pdf` and `image` are now core tools** ([#262](https://github.com/oguzbilgic/kern-ai/issues/262)) — moved out of the media plugin. Same interface, no behavior change for existing agents. Sub-agents now have access to them, and they sit in the `read` tool scope alongside `read`/`glob`/`grep`
+- **`pdf` and `image` are now core tools** ([#262](https://github.com/oguzbilgic/kern-ai/issues/262)) — moved out of the media plugin
 
 ## v0.30.0
 
