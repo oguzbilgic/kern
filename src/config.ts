@@ -34,7 +34,23 @@ export interface KernConfig {
 
   // Runtime
   heartbeatInterval: number;
+
+  // MCP — Model Context Protocol servers. Agent-local. See docs/mcp.md.
+  mcpServers?: Record<string, McpServerConfig>;
 }
+
+export type McpServerConfig =
+  | {
+      transport: "http" | "sse";
+      url: string;
+      headers?: Record<string, string>;
+    }
+  | {
+      transport: "stdio";
+      command: string;
+      args?: string[];
+      env?: Record<string, string>;
+    };
 
 const shell = process.platform === "win32" ? "pwsh" : "bash";
 
@@ -80,7 +96,17 @@ const FIELD_TYPES: Record<string, string> = {
   mediaContext: "number",
   telegramTools: "boolean",
   heartbeatInterval: "number",
+  mcpServers: "object",
 };
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+function typeMatches(value: unknown, expected: string): boolean {
+  if (expected === "object") return isPlainObject(value);
+  return typeof value === expected;
+}
 
 function validateConfig(userConfig: Record<string, unknown>): void {
   for (const key of Object.keys(userConfig)) {
@@ -89,8 +115,12 @@ function validateConfig(userConfig: Record<string, unknown>): void {
       continue;
     }
     const expected = FIELD_TYPES[key];
-    const actual = typeof userConfig[key];
-    if (actual !== expected) {
+    if (!typeMatches(userConfig[key], expected)) {
+      const actual = userConfig[key] === null
+        ? "null"
+        : Array.isArray(userConfig[key])
+          ? "array"
+          : typeof userConfig[key];
       log.warn("config", `"${key}" should be ${expected}, got ${actual} — using default`);
     }
   }
@@ -121,7 +151,7 @@ export async function loadConfig(agentDir: string): Promise<KernConfig> {
     // Filter out unknown and wrong-type fields
     const cleaned: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(userConfig)) {
-      if (key in FIELD_TYPES && typeof value === FIELD_TYPES[key]) {
+      if (key in FIELD_TYPES && typeMatches(value, FIELD_TYPES[key])) {
         cleaned[key] = value;
       }
     }

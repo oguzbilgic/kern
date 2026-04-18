@@ -39,8 +39,10 @@
   "author": "Oguz Bilgic",
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.0",
+    "@ai-sdk/mcp": "^1.0.36",
     "@ai-sdk/openai": "^3.0.48",
     "@inquirer/prompts": "^8.3.2",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@openrouter/ai-sdk-provider": "^2.3.3",
     "@slack/bolt": "^4.6.0",
     "ai": "^6.0.0",
