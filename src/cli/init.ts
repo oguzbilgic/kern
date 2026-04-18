@@ -2,10 +2,10 @@ import { mkdir, writeFile, readFile } from "fs/promises";
 import { join, resolve, basename } from "path";
 import { existsSync } from "fs";
 import { input, select, password } from "@inquirer/prompts";
-import { registerAgent, findAgent, isProcessRunning, readPid, removePidFile, assignPort } from "./registry.js";
+import { registerAgent, findAgent, isProcessRunning, readPid, removePidFile, assignPort } from "../registry.js";
 import { startAgent } from "./daemon.js";
-import type { KernConfig } from "./config.js";
-import { log } from "./log.js";
+import type { KernConfig } from "../config.js";
+import { log } from "../log.js";
 
 // Fallback models used when live fetch fails (e.g. no network, bad key)
 const FALLBACK_MODELS: Record<string, { name: string; value: string }[]> = {

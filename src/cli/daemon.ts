@@ -4,7 +4,7 @@ import { existsSync } from "fs";
 import { mkdir } from "fs/promises";
 import { join } from "path";
 import { openSync } from "fs";
-import { findAgent, loadRegistry, registerAgent, readAgentInfo, readPid, writePidFile, removePidFile, isProcessRunning } from "./registry.js";
+import { findAgent, loadRegistry, registerAgent, readAgentInfo, readPid, writePidFile, removePidFile, isProcessRunning } from "../registry.js";
 import { isServiceInstalled } from "./install.js";
 
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;

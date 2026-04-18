@@ -3,8 +3,8 @@ import { readFile, writeFile, unlink, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync, openSync } from "fs";
 import { homedir } from "os";
-import { isProcessRunning } from "./registry.js";
-import { loadGlobalConfig } from "./global-config.js";
+import { isProcessRunning } from "../registry.js";
+import { loadGlobalConfig, getProxyToken } from "../global-config.js";
 
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -12,8 +12,8 @@ const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
 
 const KERN_DIR = join(homedir(), ".kern");
-const PID_FILE = join(KERN_DIR, "web.pid");
-const LOG_FILE = join(KERN_DIR, "web.log");
+const PID_FILE = join(KERN_DIR, "proxy.pid");
+const LOG_FILE = join(KERN_DIR, "proxy.log");
 
 async function readPid(): Promise<number | null> {
   if (!existsSync(PID_FILE)) return null;
@@ -25,22 +25,23 @@ async function readPid(): Promise<number | null> {
   }
 }
 
-export async function webStart(): Promise<void> {
+export async function proxyStart(): Promise<void> {
   const config = await loadGlobalConfig();
-  const port = config.web_port;
+  const port = config.proxy_port;
+  const token = await getProxyToken();
 
   const pid = await readPid();
   if (pid && isProcessRunning(pid)) {
-    console.log(`\n  ${green("●")} ${bold("web")} already running ${dim(`(pid ${pid}, port ${port})`)}`);
-    console.log(`  → http://localhost:${port}\n`);
+    console.log(`\n  ${green("●")} ${bold("proxy")} already running ${dim(`(pid ${pid}, port ${port})`)}`);
+    console.log(`  → http://localhost:${port}?token=${token}\n`);
     return;
   }
 
   await mkdir(KERN_DIR, { recursive: true });
   const logFd = openSync(LOG_FILE, "a");
-  const webEntry = join(import.meta.dirname, "web.js");
+  const proxyEntry = join(import.meta.dirname, "proxy.js");
 
-  const child = spawn("node", ["--no-deprecation", webEntry], {
+  const child = spawn("node", ["--no-deprecation", proxyEntry], {
     detached: true,
     stdio: ["ignore", logFd, logFd],
   });
@@ -52,11 +53,11 @@ export async function webStart(): Promise<void> {
   await new Promise((r) => setTimeout(r, 1000));
 
   if (isProcessRunning(newPid)) {
-    console.log(`\n  ${green("●")} ${bold("web")} started ${dim(`(pid ${newPid}, port ${port})`)}`);
-    console.log(`  → http://localhost:${port}\n`);
+    console.log(`\n  ${green("●")} ${bold("proxy")} started ${dim(`(pid ${newPid}, port ${port})`)}`);
+    console.log(`  → http://localhost:${port}?token=${token}\n`);
   } else {
     try { await unlink(PID_FILE); } catch {}
-    console.log(`\n  ${red("●")} ${bold("web")} failed to start\n`);
+    console.log(`\n  ${red("●")} ${bold("proxy")} failed to start\n`);
     try {
       const log = await readFile(LOG_FILE, "utf-8");
       const lines = log.trim().split("\n").slice(-5);
@@ -67,10 +68,10 @@ export async function webStart(): Promise<void> {
   }
 }
 
-export async function webStop(): Promise<void> {
+export async function proxyStop(): Promise<void> {
   const pid = await readPid();
   if (!pid || !isProcessRunning(pid)) {
-    console.log(`\n  ${dim("●")} ${bold("web")} not running\n`);
+    console.log(`\n  ${dim("●")} ${bold("proxy")} not running\n`);
     try { await unlink(PID_FILE); } catch {}
     return;
   }
@@ -78,16 +79,16 @@ export async function webStop(): Promise<void> {
   try {
     process.kill(pid, "SIGTERM");
     try { await unlink(PID_FILE); } catch {}
-    console.log(`\n  ${red("●")} ${bold("web")} stopped ${dim(`(was pid ${pid})`)}\n`);
+    console.log(`\n  ${red("●")} ${bold("proxy")} stopped ${dim(`(was pid ${pid})`)}\n`);
   } catch (e: any) {
-    console.error(`  Failed to stop web: ${e.message}`);
+    console.error(`  Failed to stop proxy: ${e.message}`);
   }
 }
 
-export async function webStatus(): Promise<void> {
+export async function proxyStatus(): Promise<void> {
   const config = await loadGlobalConfig();
-  const { getWebServiceStatus } = await import("./install.js");
-  const installStatus = getWebServiceStatus();
+  const { getProxyServiceStatus } = await import("./install.js");
+  const installStatus = getProxyServiceStatus();
 
   const pid = await readPid();
   const pidRunning = pid && isProcessRunning(pid);
@@ -95,12 +96,18 @@ export async function webStatus(): Promise<void> {
   const mode = installStatus ? "systemd" : pidRunning ? "daemon" : "—";
 
   if (running) {
-    console.log(`\n  ${green("●")} ${bold("web")} running ${dim(`(:${config.web_port})`)}`);
+    console.log(`\n  ${green("●")} ${bold("proxy")} running ${dim(`(:${config.proxy_port})`)}`);
   } else {
-    console.log(`\n  ${dim("●")} ${bold("web")} stopped`);
+    console.log(`\n  ${dim("●")} ${bold("proxy")} stopped`);
     if (pid) {
       try { await unlink(PID_FILE); } catch {}
     }
   }
   console.log(`    ${dim("mode:")} ${mode}\n`);
+}
+
+export async function proxyToken(): Promise<void> {
+  const config = await loadGlobalConfig();
+  const token = await getProxyToken();
+  console.log(`\n  → http://localhost:${config.proxy_port}?token=${token}\n`);
 }

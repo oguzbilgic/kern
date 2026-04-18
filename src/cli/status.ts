@@ -1,6 +1,6 @@
-import { loadRegistry, readAgentInfo, isProcessRunning } from "./registry.js";
+import { loadRegistry, readAgentInfo, isProcessRunning } from "../registry.js";
 import { getServiceStatus, getWebServiceStatus } from "./install.js";
-import { loadGlobalConfig } from "./global-config.js";
+import { loadGlobalConfig } from "../global-config.js";
 import { existsSync } from "fs";
 import { readFile } from "fs/promises";
 import { join, basename } from "path";

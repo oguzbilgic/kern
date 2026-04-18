@@ -3,9 +3,9 @@
 import { resolve, basename } from "path";
 import { existsSync } from "fs";
 import { startApp } from "./app.js";
-import { runInit } from "./init.js";
-import { showStatus } from "./status.js";
-import { startAgent, stopAgent } from "./daemon.js";
+import { runInit } from "./cli/init.js";
+import { showStatus } from "./cli/status.js";
+import { startAgent, stopAgent } from "./cli/daemon.js";
 import { findAgent, loadRegistry, readAgentInfo } from "./registry.js";
 import { readFile } from "fs/promises";
 import { join } from "path";
@@ -114,7 +114,7 @@ async function main() {
 
   if (cmd === "start") {
     if (args[1]) {
-      const { isServiceInstalled, serviceControl } = await import("./install.js");
+      const { isServiceInstalled, serviceControl } = await import("./cli/install.js");
       if (isServiceInstalled(args[1])) {
         const ok = serviceControl("start", args[1]);
         if (!ok) {
@@ -130,7 +130,7 @@ async function main() {
 
   if (cmd === "stop") {
     if (args[1]) {
-      const { isServiceInstalled, serviceControl } = await import("./install.js");
+      const { isServiceInstalled, serviceControl } = await import("./cli/install.js");
       if (isServiceInstalled(args[1])) {
         const ok = serviceControl("stop", args[1]);
         if (!ok) {
@@ -146,7 +146,7 @@ async function main() {
 
   if (cmd === "restart") {
     if (args[1]) {
-      const { isServiceInstalled, serviceControl } = await import("./install.js");
+      const { isServiceInstalled, serviceControl } = await import("./cli/install.js");
       if (isServiceInstalled(args[1])) {
         const ok = serviceControl("restart", args[1]);
         if (!ok) {
@@ -163,13 +163,13 @@ async function main() {
   }
 
   if (cmd === "install") {
-    const { install } = await import("./install.js");
+    const { install } = await import("./cli/install.js");
     await install(args[1]);
     process.exit(0);
   }
 
   if (cmd === "uninstall") {
-    const { uninstall } = await import("./install.js");
+    const { uninstall } = await import("./cli/install.js");
     await uninstall(args[1]);
     process.exit(0);
   }
@@ -181,14 +181,14 @@ async function main() {
       process.exit(1);
     }
     const { removeAgent, findAgent, isProcessRunning } = await import("./registry.js");
-    const { stopAgent } = await import("./daemon.js");
+    const { stopAgent } = await import("./cli/daemon.js");
     const agent = findAgent(name);
     if (!agent) {
       console.error(`Agent not found: ${name}`);
       process.exit(1);
     }
     // Uninstall systemd service if installed
-    const { isServiceInstalled, uninstall } = await import("./install.js");
+    const { isServiceInstalled, uninstall } = await import("./cli/install.js");
     if (isServiceInstalled(name)) {
       await uninstall(name);
     }
@@ -262,7 +262,7 @@ async function main() {
   if (cmd === "import") {
     const source = args[1]; // "opencode"
     if (source === "opencode") {
-      const { importOpenCode } = await import("./import.js");
+      const { importOpenCode } = await import("./cli/import.js");
       await importOpenCode(args.slice(2));
     } else {
       console.error("Usage: kern import opencode [--project <path>] [--session <title|latest>] [--agent <name>]");
@@ -297,21 +297,21 @@ async function main() {
   }
 
   if (cmd === "backup") {
-    const { backupAgent } = await import("./backup.js");
+    const { backupAgent } = await import("./cli/backup.js");
     await backupAgent(args[1]);
     return;
   }
 
   if (cmd === "restore") {
-    const { restoreAgent } = await import("./backup.js");
+    const { restoreAgent } = await import("./cli/backup.js");
     await restoreAgent(args[1]);
     return;
   }
 
   if (cmd === "tui") {
-    const { connectTui } = await import("./tui.js");
+    const { connectTui } = await import("./cli/tui.js");
     const { findAgent, loadRegistry, readAgentInfo, isProcessRunning } = await import("./registry.js");
-    const { startAgent } = await import("./daemon.js");
+    const { startAgent } = await import("./cli/daemon.js");
 
     let agentName = args[1];
 
@@ -362,7 +362,7 @@ async function main() {
     const agentDir = initIfNeeded ? resolve(dirArg || ".") : await resolveAgentDir(dirArg);
 
     if (initIfNeeded && !existsSync(join(agentDir, ".kern", "config.json"))) {
-      const { scaffoldAgent, API_KEY_ENV } = await import("./init.js");
+      const { scaffoldAgent, API_KEY_ENV } = await import("./cli/init.js");
       const name = process.env.KERN_NAME || basename(agentDir);
       const provider = process.env.KERN_PROVIDER || "openrouter";
       const envVar = API_KEY_ENV[provider] || "OPENROUTER_API_KEY";
@@ -382,9 +382,9 @@ async function main() {
 
   if (cmd === "web") {
     const subcmd = args[1];
-    const { webStart, webStop, webStatus } = await import("./web-daemon.js");
+    const { webStart, webStop, webStatus } = await import("./cli/web-daemon.js");
     if (subcmd === "start" || subcmd === "stop" || subcmd === "restart") {
-      const { getWebServiceStatus } = await import("./install.js");
+      const { getWebServiceStatus } = await import("./cli/install.js");
       if (getWebServiceStatus() !== null) {
         const { spawnSync } = await import("child_process");
         spawnSync("systemctl", ["--user", subcmd, "kern-web"], { stdio: "pipe" });
@@ -407,9 +407,9 @@ async function main() {
 
   if (cmd === "proxy") {
     const subcmd = args[1];
-    const { proxyStart, proxyStop, proxyStatus, proxyToken } = await import("./proxy-daemon.js");
+    const { proxyStart, proxyStop, proxyStatus, proxyToken } = await import("./cli/proxy-daemon.js");
     if (subcmd === "start" || subcmd === "stop" || subcmd === "restart") {
-      const { getProxyServiceStatus } = await import("./install.js");
+      const { getProxyServiceStatus } = await import("./cli/install.js");
       if (getProxyServiceStatus() !== null) {
         const { spawnSync } = await import("child_process");
         spawnSync("systemctl", ["--user", subcmd, "kern-proxy"], { stdio: "pipe" });

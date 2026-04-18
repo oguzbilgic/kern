@@ -3,7 +3,7 @@ import { existsSync } from "fs";
 import { mkdir, writeFile, unlink, readFile } from "fs/promises";
 import { join, basename } from "path";
 import { homedir } from "os";
-import { loadRegistry, findAgent, readAgentInfo, isProcessRunning, readPid, removePidFile } from "./registry.js";
+import { loadRegistry, findAgent, readAgentInfo, isProcessRunning, readPid, removePidFile } from "../registry.js";
 
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;

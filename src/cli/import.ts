@@ -3,8 +3,8 @@ import { join } from "path";
 import { existsSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { homedir } from "os";
-import { findAgent, loadRegistry, readAgentInfo } from "./registry.js";
-import { log } from "./log.js";
+import { findAgent, loadRegistry, readAgentInfo } from "../registry.js";
+import { log } from "../log.js";
 
 interface OpenCodeMessage {
   id: string;

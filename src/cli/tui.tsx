@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { render, Box, Text, Static, useInput, useApp, useStdout } from "ink";
 // @ts-ignore
 import Spinner from "ink-spinner";
-import type { ServerEvent } from "./server.js";
-import { findAgent } from "./registry.js";
+import type { ServerEvent } from "../server.js";
+import { findAgent } from "../registry.js";
 
 // --- Types ---
 
@@ -523,7 +523,7 @@ function App({ port, agentName, version, authToken }: TuiProps) {
         }
         if (!aborted) {
           setConnected(false);
-          import("./registry.js").then(async ({ findAgent, isProcessRunning }) => {
+          import("../registry.js").then(async ({ findAgent, isProcessRunning }) => {
             const agent = await findAgent(agentName);
             if (agent?.port && agent.port !== currentPort && agent.pid && isProcessRunning(agent.pid)) {
               setCurrentPort(agent.port);
@@ -535,7 +535,7 @@ function App({ port, agentName, version, authToken }: TuiProps) {
       } catch {
         if (!aborted) {
           setConnected(false);
-          import("./registry.js").then(async ({ findAgent, isProcessRunning }) => {
+          import("../registry.js").then(async ({ findAgent, isProcessRunning }) => {
             const agent = await findAgent(agentName);
             if (agent?.port && agent.port !== currentPort && agent.pid && isProcessRunning(agent.pid)) {
               setCurrentPort(agent.port);

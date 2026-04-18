@@ -1,7 +1,7 @@
 import { execSync } from "child_process";
 import { basename, resolve, join } from "path";
 import { existsSync } from "fs";
-import { findAgent, registerAgent, isProcessRunning, readPid, removePidFile } from "./registry.js";
+import { findAgent, registerAgent, isProcessRunning, readPid, removePidFile } from "../registry.js";
 
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
