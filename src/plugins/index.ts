@@ -4,6 +4,7 @@ import { notesPlugin } from "./notes/plugin.js";
 import { recallPlugin } from "./recall/plugin.js";
 import { mediaPlugin } from "./media/plugin.js";
 import { skillsPlugin } from "./skills/plugin.js";
+import { mcpPlugin } from "./mcp/plugin.js";
 import { log } from "../log.js";
 
 export type { KernPlugin, PluginContext, RouteHandler, ContextInjection, BeforeContextInfo } from "./types.js";
@@ -18,6 +19,7 @@ const availablePlugins: KernPlugin[] = [
   mediaPlugin,
   dashboardPlugin,
   skillsPlugin,
+  mcpPlugin,
 ];
 
 /** Active plugin instances after loading */

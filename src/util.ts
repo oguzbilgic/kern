@@ -25,3 +25,46 @@ turndown.remove(["script", "style", "noscript", "iframe"]);
 export function htmlToMarkdown(html: string): string {
   return turndown.turndown(html);
 }
+
+/**
+ * Substitute ${VAR} references with values from process.env.
+ * Read-only — never writes resolved values back. Matches OpenClaw's pattern.
+ * Missing vars are left as literal `${VAR}` and logged (caller decides log policy).
+ */
+export function substituteEnv(
+  value: string,
+  onMissing?: (name: string) => void,
+): string {
+  return value.replace(/\$\{([A-Z_][A-Z0-9_]*)\}/g, (match, name) => {
+    const v = process.env[name];
+    if (v === undefined) {
+      onMissing?.(name);
+      return match;
+    }
+    return v;
+  });
+}
+
+/**
+ * Recursively apply substituteEnv to all string values in an object.
+ * Non-strings pass through unchanged. Arrays and nested objects are walked.
+ */
+export function substituteEnvDeep<T>(
+  value: T,
+  onMissing?: (name: string) => void,
+): T {
+  if (typeof value === "string") {
+    return substituteEnv(value, onMissing) as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((v) => substituteEnvDeep(v, onMissing)) as T;
+  }
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      out[k] = substituteEnvDeep(v, onMissing);
+    }
+    return out as T;
+  }
+  return value;
+}

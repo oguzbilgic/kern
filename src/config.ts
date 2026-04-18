@@ -34,7 +34,23 @@ export interface KernConfig {
 
   // Runtime
   heartbeatInterval: number;
+
+  // MCP — Model Context Protocol servers. Agent-local. See docs/mcp.md.
+  mcpServers?: Record<string, McpServerConfig>;
 }
+
+export type McpServerConfig =
+  | {
+      transport: "http" | "sse";
+      url: string;
+      headers?: Record<string, string>;
+    }
+  | {
+      transport: "stdio";
+      command: string;
+      args?: string[];
+      env?: Record<string, string>;
+    };
 
 const shell = process.platform === "win32" ? "pwsh" : "bash";
 
@@ -80,6 +96,7 @@ const FIELD_TYPES: Record<string, string> = {
   mediaContext: "number",
   telegramTools: "boolean",
   heartbeatInterval: "number",
+  mcpServers: "object",
 };
 
 function validateConfig(userConfig: Record<string, unknown>): void {

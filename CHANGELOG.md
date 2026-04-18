@@ -2,6 +2,9 @@
 
 ## next
 
+### Features
+- **MCP support** ([#47](https://github.com/oguzbilgic/kern-ai/issues/47)) — connect to Model Context Protocol servers and expose their tools to the agent. Configure under `mcpServers` in `.kern/config.json`; supports `http`, `sse`, and `stdio` transports. Tools namespaced as `<server>__<tool>`. `${VAR}` substitution in config for tokens and secrets. See [docs/mcp.md](docs/mcp.md)
+
 ### Fixes
 - **Mid-turn injection position** ([#245](https://github.com/oguzbilgic/kern-ai/issues/245)) — injections were re-appended as the freshest message every step, causing repeated re-acknowledgment. Now spliced at chronological arrival position
 
