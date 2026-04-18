@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.30.0
 
 ### Features
 - **MCP support** ([#47](https://github.com/oguzbilgic/kern-ai/issues/47)) — connect agents to Model Context Protocol servers and expose their tools alongside kern's native tools
