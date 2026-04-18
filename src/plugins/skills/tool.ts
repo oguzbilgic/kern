@@ -13,7 +13,8 @@ export function setCatalog(skills: SkillInfo[]) {
 export const skillTool = tool({
   description:
     "Manage agent skills. Use 'list' to see available skills. " +
-    "Use 'activate' to load a skill's full instructions — they're returned in the tool result so you can act on them immediately, and also added to your system prompt from the next turn onward. " +
+    "Use 'activate' to load a skill's full instructions into your system prompt (persistent until deactivated). " +
+    "The instructions are also returned in the tool result so you can act on them in the current turn. " +
     "Use 'deactivate' to unload a skill and free token budget.",
   inputSchema: z.object({
     action: z.enum(["list", "activate", "deactivate"]).describe("Action to perform"),
@@ -37,17 +38,22 @@ export const skillTool = tool({
         if (!name) return "Error: name is required for activate";
         const skill = catalog.find((s) => s.name === name);
         if (!skill) return `Error: skill "${name}" not found. Use list to see available skills.`;
+        // Load the body first so we can roll back the activation on failure.
+        // If we can't read the body, onBeforeContext will also fail next turn
+        // and silently drop — better to fail cleanly than leave a broken skill active.
+        let body: string;
+        try {
+          body = await loadSkillBody(skill);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn(`[skills] failed to load body for "${name}":`, err);
+          return `Error: failed to load instructions for skill "${name}": ${msg}. Skill not activated.`;
+        }
         const wasNew = activate(name);
         if (!wasNew) return `Skill "${name}" is already active.`;
         // Return the full body so instructions take effect this turn, not next.
         // The system prompt will also include it from the next turn onward.
-        try {
-          const body = await loadSkillBody(skill);
-          return `Activated: ${name}\n\n${body}`;
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          return `Activated skill "${name}" but failed to load instructions: ${msg}. They will appear in your system prompt on the next turn.`;
-        }
+        return `Activated: ${name}\n\n${body}`;
       }
 
       case "deactivate": {
