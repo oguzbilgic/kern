@@ -51,7 +51,7 @@ MCP tools are namespaced with the server name: `<server>__<tool>`. So a `create_
 
 - Servers connect in parallel at startup. One server failing doesn't block others or the agent.
 - Failed connections log an error and are dropped. Fix the config and restart to retry.
-- The `/status` endpoint reports `mcp: <N> server(s), <M> tool(s)`.
+- The `/status` endpoint reports `mcp: <connected>/<configured> server(s), <M> tool(s)`. If `<connected>` is less than `<configured>`, check logs for the connection error.
 
 ## Scope
 

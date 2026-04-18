@@ -97,7 +97,7 @@ Read the current config first so you don't clobber other fields. Then add or ext
 }
 ```
 
-Multiple servers live side-by-side in the same `mcpServers` object. Server names are free-form but must be valid identifiers (letters, digits, underscore); they become the prefix for tool names.
+Multiple servers live side-by-side in the same `mcpServers` object. Server names become the prefix for tool names — prefer simple names using letters, digits, and underscores for readability.
 
 ## Step 4: restart
 
@@ -111,13 +111,13 @@ After restart, check `/status` or the kern tool:
 /status
 ```
 
-Look for a line like `mcp: 1 server(s), 14 tool(s)`. If the count is 0, the server failed to connect — the reason is in the logs (`kern({ action: "logs", level: "warn" })`).
+Look for a line like `mcp: 1/1 server(s), 14 tool(s)`. The first number is connected servers, the second is configured. If connected is less than configured, the server failed to connect — the reason is in the logs (`kern({ action: "logs", level: "warn" })`).
 
 New tools appear in your toolbox as `<server>__<tool>` — e.g. `github__search_repositories`, `filesystem__read_file`. Call them the same way you'd call any other tool.
 
 ## Troubleshooting
 
-**`mcp: 0 server(s)`**: server never connected. Check logs for the real error (bad URL, auth failure, npx not found, wrong env var name).
+**`mcp: 0/1 server(s), 0 tool(s)`**: server is configured but never connected. Check logs for the real error (bad URL, auth failure, npx not found, wrong env var name). The first number is connected servers, the second is configured servers.
 
 **`${VAR}` stays literal in logs**: the env var isn't in `.kern/.env` or the name doesn't match (env var names are case-sensitive). Check `.kern/.env`.
 
