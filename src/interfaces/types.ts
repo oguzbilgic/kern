@@ -16,12 +16,13 @@ export interface Attachment {
 }
 
 /**
- * The internal message object every interface passes into the runtime.
+ * The internal message object adapter interfaces (telegram, slack, matrix, cli)
+ * pass into the runtime via their `onMessage` callback.
  *
- * This is Surface 2 of the metadata contract documented in
- * `docs/interfaces.md` § "Metadata contract".
+ * HTTP clients (web UI, TUI) POST to `/message` with a flat JSON payload and
+ * do not construct this object — see Surface 2 in `docs/interfaces.md`.
  *
- * @see {@link https://github.com/oguzbilgic/kern-ai/blob/master/docs/interfaces.md#metadata-contract}
+ * @see docs/interfaces.md#metadata-contract
  */
 export interface IncomingMessage {
   /** Message body text. */
@@ -30,7 +31,7 @@ export interface IncomingMessage {
   userId: string;
   /** Platform-specific conversation/room identifier (e.g. Telegram chat ID, Slack channel ID, Matrix room ID). */
   chatId: string;
-  /** Interface name: `telegram`, `slack`, `matrix`, `web`, or `tui`. */
+  /** Interface name (for example: `telegram`, `slack`, `matrix`, `cli`, `web`, `tui`, or `system`). */
   interface: string;
   /** Human-readable channel label used in the agent-facing text prefix and SSE broadcast events. */
   channel?: string;
