@@ -57,6 +57,8 @@ const TOOL_COLORS: Record<string, string> = {
   skill: "#e6edf3",
   recall: "#e6edf3",
   message: "#56d364",
+  spawn: "#f0883e",
+  subagents: "#f0883e",
 };
 
 const EXT_TO_LANG: Record<string, string> = {
@@ -143,6 +145,12 @@ function toolSummary(msg: ChatMessage): string {
     case "kern": return `${input.action || ""}`;
     case "skill": return `${input.action || ""}${input.name ? ` ${input.name}` : ""}`;
     case "recall": return `${input.query || ""}`;
+    case "spawn": {
+      const prompt = (input.prompt as string) || "";
+      const first = prompt.split("\n")[0];
+      return first.length > 80 ? first.slice(0, 80) + "…" : first;
+    }
+    case "subagents": return `${input.action || ""}${input.id ? ` ${input.id}` : ""}`;
     default: return name;
   }
 }
@@ -300,6 +308,84 @@ function WriteOutput({ path, input, output }: { path: string; input: Record<stri
   return <PlainOutput output={output} />;
 }
 
+function SpawnOutput({ output }: { output: string }) {
+  // First line typically: "Sub-agent spawned: sa_xxx" or "Error spawning..."
+  const lines = output.split("\n");
+  const first = lines[0] || "";
+  const rest = lines.slice(1).join("\n").trim();
+  const idMatch = first.match(/^(Sub-agent spawned):\s*(\S+)/);
+  const errMatch = first.match(/^Error/i);
+  return (
+    <div className="tool-output-inner text-[11px] leading-[1.5]">
+      {idMatch ? (
+        <div className="mb-1">
+          <span className="text-[var(--text-muted)]">{idMatch[1]}: </span>
+          <code className="text-[#f0883e]">{idMatch[2]}</code>
+        </div>
+      ) : (
+        <div className={`mb-1 ${errMatch ? "text-[#f97583]" : "text-[var(--text-muted)]"}`}>{first}</div>
+      )}
+      {rest && (
+        <div className="text-[var(--text-dim)] whitespace-pre-wrap">{rest}</div>
+      )}
+    </div>
+  );
+}
+
+function SubagentsListOutput({ output }: { output: string }) {
+  // Registry.list() renders: "id  status  dur  prompt..."
+  // Each line is whitespace-separated; render as a clean grid.
+  if (output === "No sub-agents.") {
+    return (
+      <div className="tool-output-inner text-[11px] text-[var(--text-muted)] italic">
+        No sub-agents.
+      </div>
+    );
+  }
+  const lines = output.split("\n").filter(Boolean);
+  const rows = lines.map((line) => {
+    // Split on 2+ spaces to preserve prompt content
+    const parts = line.split(/\s{2,}/);
+    if (parts.length < 4) return null;
+    const [id, status, dur, ...promptParts] = parts;
+    return { id, status: status.trim(), dur: dur.trim(), prompt: promptParts.join("  ") };
+  });
+
+  const statusColor = (s: string): string => {
+    if (s === "running") return "#f0883e";
+    if (s === "done") return "#56d364";
+    if (s === "cancelled" || s === "error") return "#f97583";
+    return "var(--text-dim)";
+  };
+
+  return (
+    <div className="tool-output-inner text-[11px] leading-[1.5]">
+      <table className="w-full border-collapse">
+        <tbody>
+          {rows.map((r, i) =>
+            r ? (
+              <tr key={i} className="align-top">
+                <td className="pr-3 py-0.5 whitespace-nowrap">
+                  <code className="text-[#f0883e]">{r.id}</code>
+                </td>
+                <td className="pr-3 py-0.5 whitespace-nowrap">
+                  <span style={{ color: statusColor(r.status) }}>{r.status}</span>
+                </td>
+                <td className="pr-3 py-0.5 whitespace-nowrap text-[var(--text-muted)]">{r.dur}</td>
+                <td className="py-0.5 text-[var(--text-dim)] break-words">{r.prompt}</td>
+              </tr>
+            ) : (
+              <tr key={i}>
+                <td colSpan={4} className="text-[var(--text-dim)]">{lines[i]}</td>
+              </tr>
+            )
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function MarkdownOutput({ output }: { output: string }) {
   return (
     <div className="markdown-body text-[12px]"
@@ -326,6 +412,11 @@ function renderToolOutput(msg: ChatMessage) {
     case "webfetch":
     case "websearch":
       return <MarkdownOutput output={output} />;
+    case "spawn":
+      return <SpawnOutput output={output} />;
+    case "subagents":
+      if ((input.action as string) === "list") return <SubagentsListOutput output={output} />;
+      return <PlainOutput output={output} />;
     default:
       return <PlainOutput output={output} />;
   }
