@@ -131,6 +131,41 @@ image({ file: "screenshot.png", prompt: "What error is shown?" })
 - `file` — path to image file, or filename from `.kern/media/`
 - `prompt` — what to analyze (default: "Describe this image.")
 
+## spawn
+
+Spawn a sub-agent to work on a focused task in parallel. Returns immediately with a sub-agent ID — the child runs in the background with its own LLM loop.
+
+```
+spawn({ prompt: "Research Node.js 22 crypto changes and summarize breaking changes", maxSteps: 30 })
+```
+
+- `prompt` — the task for the sub-agent (self-contained — child starts with no context about your current work)
+- `maxSteps` — max reasoning steps (default 20, max 50)
+
+When the child finishes, its result arrives as a new turn with a header like `[subagent:sa_abc123 done, 12.4s, 5 tool calls]` followed by the result. You can spawn multiple sub-agents in parallel and synthesize their results as they arrive.
+
+Sub-agents run with a read-only toolset: `read`, `glob`, `grep`, `webfetch`, `websearch`, `pdf`, `image`, `recall`. They cannot run shell commands, edit files, or spawn further sub-agents.
+
+Use sub-agents for research fan-out, parallel documentation lookups, evaluating multiple candidates, or any read-only task you can delegate while you keep working. Don't use them for trivial one-off reads — just call `read` directly.
+
+Sub-agent state is persisted under `.kern/subagents/<id>/` — `session.jsonl` holds the transcript, `record.json` holds the final metadata.
+
+## subagents
+
+Inspect and manage sub-agents.
+
+```
+subagents({ action: "list" })                      // all sub-agents with status
+subagents({ action: "status", id: "sa_abc123" })   // detailed status
+subagents({ action: "result", id: "sa_abc123" })   // final result text
+subagents({ action: "cancel", id: "sa_abc123" })   // abort a running sub-agent
+```
+
+- `action` — `list`, `status`, `result`, or `cancel`
+- `id` — sub-agent ID (required for `status`, `result`, `cancel`)
+
+Statuses: `running`, `done`, `error`, `cancelled`.
+
 ## kern
 
 Manage the runtime.

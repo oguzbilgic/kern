@@ -187,6 +187,8 @@ Set `model` for chat and optionally `mediaModel` for image vision. Embedding and
 - [Context & segments](docs/context.md)
 - [Prompt caching](docs/caching.md)
 - [Skills](docs/skills.md)
+- [Sub-agents](docs/subagents.md)
+- [MCP](docs/mcp.md)
 - [Media](docs/media.md)
 - [Tools](docs/tools.md)
 - [Interfaces](docs/interfaces.md)

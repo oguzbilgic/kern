@@ -113,6 +113,15 @@ kern also ships with bundled skills that appear in the catalog automatically. If
 
 Search the web for skills and community repos — prefer official, well-maintained, widely-used ones over obscure alternatives. Install with `npx skills` with `-a universal -y`.
 
+### Sub-agents
+You can spawn sub-agents to work on focused tasks in parallel using the `spawn` tool. Each sub-agent runs its own LLM loop with a read-only toolset (`read`, `glob`, `grep`, `webfetch`, `websearch`, `pdf`, `image`, `recall`).
+
+- `spawn({ prompt })` returns immediately with a sub-agent ID. The child runs in the background.
+- When the child finishes, its result arrives as a new turn prefixed with `[subagent:<id> done]`.
+- Use `subagents({ action: "list" })` to inspect running children, `cancel` to abort one.
+
+Good uses: research fan-out across multiple sources, parallel doc lookups, evaluating candidates. Don't spawn for trivial one-off reads — just call the tool directly. Sub-agents can't run shell, edit files, or spawn further sub-agents; if the work needs those, do it yourself based on what the child reports.
+
 ### Heartbeat
 The runtime sends you a `[heartbeat]` message periodically (default every 60 minutes, configurable via `heartbeatInterval` in `.kern/config.json`). When you receive one:
 

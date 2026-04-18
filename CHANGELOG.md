@@ -6,10 +6,11 @@
 - **Sub-agents** ([#258](https://github.com/oguzbilgic/kern-ai/issues/258)) — delegate a bounded task to a child agent and keep working
   - `spawn` tool returns immediately with a sub-agent id; the child runs in the background with its own LLM loop
   - Result announces back as a new turn on channel `subagent:<id>` when the child finishes — parent can react to it like any other message
-  - `subagents` tool for inspection: `list` / `get <id>` / `cancel <id>`
-  - Read-only toolset for children (`read`, `glob`, `grep`, `webfetch`, `websearch`, `pdf`, `image`). No `bash`, `edit`, `write`, `message`. No nested spawning
-  - Records persisted at `.kern/subagents/<id>/` (prompt, session transcript, result)
-  - Shipped as a disable-able plugin
+  - `subagents` tool for inspection: `list`, `status <id>`, `result <id>`, `cancel <id>`
+  - Read-only toolset for children: `read`, `glob`, `grep`, `webfetch`, `websearch`, `pdf`, `image`, `recall`. No `bash`, `edit`, `write`, `message`. No nested spawning
+  - State persisted at `.kern/subagents/<id>/` (`record.json` metadata, `session.jsonl` transcript) — completed children survive restart, running ones are cancelled on shutdown
+  - Shipped as the `subagents` plugin
+  - See [docs/subagents.md](docs/subagents.md)
 
 ## v0.30.0
 
