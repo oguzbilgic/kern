@@ -30,12 +30,15 @@ export function htmlToMarkdown(html: string): string {
  * Substitute ${VAR} references with values from process.env.
  * Read-only — never writes resolved values back. Matches OpenClaw's pattern.
  * Missing vars are left as literal `${VAR}` and logged (caller decides log policy).
+ *
+ * Variable names follow shell convention: letters, digits, underscore; first
+ * char must not be a digit. Case-sensitive (matches process.env key lookup).
  */
 export function substituteEnv(
   value: string,
   onMissing?: (name: string) => void,
 ): string {
-  return value.replace(/\$\{([A-Z_][A-Z0-9_]*)\}/g, (match, name) => {
+  return value.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (match, name) => {
     const v = process.env[name];
     if (v === undefined) {
       onMissing?.(name);

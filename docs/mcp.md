@@ -39,7 +39,7 @@ Each server needs a `transport` field:
 
 ## Environment variable substitution
 
-`${VAR_NAME}` references in any string field (url, headers, command, args, env) are resolved from `.kern/.env` at startup. Missing vars are left as literal `${VAR}` and logged as a warning — the server will return its real auth error when it fails.
+`${VAR}` references in any string field (url, headers, command, args, env) are resolved from `.kern/.env` at startup. Names follow shell convention (letters, digits, underscore; first char not a digit; case-sensitive). Missing vars are left as literal `${VAR}` and logged as a warning — the server will return its real auth error when it fails.
 
 Use this for tokens and secrets. Don't commit resolved values to config.
 
