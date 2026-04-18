@@ -10,7 +10,12 @@ export const webCommand: Command = {
       const { getWebServiceStatus } = await import("./install.js");
       if (getWebServiceStatus() !== null) {
         const { spawnSync } = await import("child_process");
-        spawnSync("systemctl", ["--user", subcmd, "kern-web"], { stdio: "pipe" });
+        const result = spawnSync("systemctl", ["--user", subcmd, "kern-web"], { stdio: "inherit" });
+        if (result.error) {
+          console.error("systemctl failed:", result.error.message);
+          process.exit(1);
+        }
+        if (result.status !== 0) process.exit(result.status ?? 1);
         return;
       }
       const { webStart, webStop } = await import("./web-daemon.js");

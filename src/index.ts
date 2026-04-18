@@ -62,7 +62,9 @@ async function main() {
 
   const impl = await command.load();
   await impl.handler(args.slice(1));
-  process.exit(0);
+  // Don't force exit: long-running commands (logs -f, web run, proxy run)
+  // keep handles open and need Node to stay alive until they close. Short
+  // commands have no open handles and exit naturally.
 }
 
 main().catch((error) => {
