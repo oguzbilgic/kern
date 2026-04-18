@@ -9,6 +9,7 @@
   - `subagents` tool for inspection: `list`, `status <id>`, `result <id>`, `cancel <id>`
   - Read-only toolset for children: `read`, `glob`, `grep`, `webfetch`, `websearch`, `pdf`, `image`, `recall`. No `bash`, `edit`, `write`, `message`. No nested spawning
   - State persisted at `.kern/subagents/<id>/` (`record.json` metadata, `session.jsonl` transcript) — completed children survive restart, running ones are cancelled on shutdown
+  - `/subagents` slash command — operator peek at what the agent has spawned
   - Shipped as the `subagents` plugin
   - See [docs/subagents.md](docs/subagents.md)
 

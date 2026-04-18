@@ -62,7 +62,7 @@ When a sub-agent finishes, its final answer is enqueued as a new message turn on
 <the child's final answer>
 ```
 
-From the parent's perspective, this looks like any other incoming message — it will be picked up after the current turn (or mid-turn if the parent is still running). `status` is `done`, `error`, or `cancelled`.
+From the parent's perspective, this looks like any other incoming message — it will be picked up after the current turn (or mid-turn if the parent is still running). `status` is `done`, `failed`, or `cancelled`.
 
 The web UI renders these with a distinct orange ⎘ avatar so you can tell them apart from user messages.
 
@@ -100,9 +100,19 @@ Sub-agent state lives under `.kern/subagents/<id>/`:
 | `record.json` | Metadata: id, status, prompt, result, timings, maxSteps |
 | `session.jsonl` | Full transcript — the child's messages, tool calls, tool results |
 
-Statuses: `running`, `done`, `error`, `cancelled`.
+Statuses: `running`, `done`, `failed`, `cancelled`.
 
 The `subagents` plugin reloads disk state on startup, so completed children survive a restart. Running children do not — they're cancelled on shutdown.
+
+## Slash command
+
+As the operator, you can peek at what your agent has spawned:
+
+```
+/subagents
+```
+
+Lists all sub-agents with status, prompt preview, duration, and tool call count. Running first, then most recently finished. Output is user-only — the agent doesn't see it. For detailed inspection the agent has the `subagents` tool (`list`, `status <id>`, `result <id>`, `cancel <id>`).
 
 ## Limits and costs
 

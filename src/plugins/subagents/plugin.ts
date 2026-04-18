@@ -86,4 +86,52 @@ export const subagentsPlugin: KernPlugin = {
       },
     };
   },
+
+  commands: {
+    "/subagents": {
+      description: "list sub-agents",
+      handler: async () => {
+        if (!registry) return "Sub-agents plugin not loaded.";
+        const records = registry.list();
+        if (records.length === 0) {
+          return "No sub-agents. The agent can use the spawn tool to delegate a task.";
+        }
+
+        // running first, then by finishedAt desc (most recent on top)
+        const sorted = [...records].sort((a, b) => {
+          if (a.status === "running" && b.status !== "running") return -1;
+          if (b.status === "running" && a.status !== "running") return 1;
+          const aFin = a.finishedAt || "";
+          const bFin = b.finishedAt || "";
+          return bFin.localeCompare(aFin);
+        });
+
+        const running = records.filter((r) => r.status === "running").length;
+        const lines = [`Sub-agents (${running} running, ${records.length} total)`, ""];
+
+        for (const r of sorted) {
+          const icon =
+            r.status === "running" ? "⟳" :
+            r.status === "done"    ? "✓" :
+            r.status === "failed"  ? "✗" :
+            /* cancelled */          "⊘";
+
+          const prompt = r.prompt.length > 40
+            ? r.prompt.slice(0, 40) + "..."
+            : r.prompt;
+
+          const end = r.finishedAt ? new Date(r.finishedAt) : new Date();
+          const dur = `${Math.round((+end - +new Date(r.startedAt)) / 1000)}s`;
+          const calls = `${r.toolCalls} tool call${r.toolCalls === 1 ? "" : "s"}`;
+
+          const parts = [`"${prompt}"`, dur, calls];
+          if (r.status === "failed" || r.status === "cancelled") parts.push(r.status);
+
+          lines.push(`  ${icon} ${r.id} — ${parts.join(" · ")}`);
+        }
+
+        return lines.join("\n");
+      },
+    },
+  },
 };
