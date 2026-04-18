@@ -5,6 +5,10 @@ import { Experimental_StdioMCPTransport } from "@ai-sdk/mcp/mcp-stdio";
 import { substituteEnvDeep } from "../../util.js";
 import { log } from "../../log.js";
 
+function errMsg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 type MCPClient = Awaited<ReturnType<typeof createMCPClient>>;
 
 /** One connected MCP server. */
@@ -16,6 +20,9 @@ interface ActiveServer {
 
 /** Connected servers for the lifetime of this plugin. */
 const active: ActiveServer[] = [];
+
+/** Count of servers present in config — for /status visibility even when all failed. */
+let configured = 0;
 
 /**
  * Merged tools from all servers, namespaced as `<server>__<tool>`.
@@ -57,16 +64,27 @@ async function connectServer(name: string, cfg: McpServerConfig): Promise<void> 
 
   const transport = buildTransport(name, resolved);
   const client = await createMCPClient({ transport });
-  const serverTools = await client.tools();
 
-  let count = 0;
-  for (const [toolName, tool] of Object.entries(serverTools)) {
-    mergedTools[`${name}__${toolName}`] = tool;
-    count++;
+  try {
+    const serverTools = await client.tools();
+
+    let count = 0;
+    for (const [toolName, tool] of Object.entries(serverTools)) {
+      mergedTools[`${name}__${toolName}`] = tool;
+      count++;
+    }
+
+    active.push({ name, client, toolCount: count });
+    log("mcp", `connected "${name}" — ${count} tool(s)`);
+  } catch (err) {
+    // Client is open (stdio may have spawned a subprocess). Close it before rethrowing.
+    try {
+      await client.close();
+    } catch (closeErr) {
+      log.warn("mcp", `server "${name}": close failed after startup error: ${errMsg(closeErr)}`);
+    }
+    throw err;
   }
-
-  active.push({ name, client, toolCount: count });
-  log("mcp", `connected "${name}" — ${count} tool(s)`);
 }
 
 export const mcpPlugin: KernPlugin = {
@@ -77,12 +95,14 @@ export const mcpPlugin: KernPlugin = {
     const servers = ctx.config.mcpServers;
     if (!servers || Object.keys(servers).length === 0) return;
 
+    configured = Object.keys(servers).length;
+
     // Connect to all servers in parallel; failures don't block the agent
     // or other servers — they just mean those tools aren't available.
     await Promise.all(
       Object.entries(servers).map(([name, cfg]) =>
-        connectServer(name, cfg).catch((err: any) => {
-          log.error("mcp", `failed to connect "${name}": ${err.message}`);
+        connectServer(name, cfg).catch((err) => {
+          log.error("mcp", `failed to connect "${name}": ${errMsg(err)}`);
         }),
       ),
     );
@@ -91,20 +111,23 @@ export const mcpPlugin: KernPlugin = {
   async onShutdown() {
     await Promise.all(
       active.map((s) =>
-        s.client.close().catch((err: any) => {
-          log.warn("mcp", `close error for "${s.name}": ${err.message}`);
+        s.client.close().catch((err) => {
+          log.warn("mcp", `close error for "${s.name}": ${errMsg(err)}`);
         }),
       ),
     );
     active.length = 0;
+    configured = 0;
     for (const k of Object.keys(mergedTools)) delete mergedTools[k];
   },
 
   onStatus() {
-    if (active.length === 0) return {};
+    // Only stay silent when MCP isn't configured at all. If it is configured
+    // but all connections failed, surface that in /status so operators see it.
+    if (configured === 0) return {};
     const total = active.reduce((sum, s) => sum + s.toolCount, 0);
     return {
-      mcp: `${active.length} server(s), ${total} tool(s)`,
+      mcp: `${active.length}/${configured} server(s), ${total} tool(s)`,
     };
   },
 };

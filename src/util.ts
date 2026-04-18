@@ -62,7 +62,13 @@ export function substituteEnvDeep<T>(
   if (Array.isArray(value)) {
     return value.map((v) => substituteEnvDeep(v, onMissing)) as T;
   }
-  if (value !== null && typeof value === "object") {
+  // Only traverse plain objects. Non-plain objects (Date, Map, class instances)
+  // would lose prototype/state if rebuilt via Object.entries, so pass them through.
+  if (
+    value !== null &&
+    typeof value === "object" &&
+    Object.getPrototypeOf(value) === Object.prototype
+  ) {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value)) {
       out[k] = substituteEnvDeep(v, onMissing);
