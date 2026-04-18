@@ -28,9 +28,11 @@ export function MediaAttachments({ media, baseUrl, token }: { media: MediaItem[]
   );
 }
 
-// Renders the text body of a message — markdown for assistant, plain for others
+// Renders the text body of a message — markdown for assistant and incoming
+// (agent-authored content from Telegram/Slack/Matrix/subagent), plain for
+// user-typed messages where pre-wrap preserves whatever they wrote.
 export function MessageBody({ msg }: { msg: ChatMessage }) {
-  if (msg.role === "assistant") {
+  if (msg.role === "assistant" || msg.role === "incoming") {
     return (
       <div className="markdown-body"
         dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.text) }} />

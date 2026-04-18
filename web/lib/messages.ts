@@ -265,6 +265,8 @@ const CHANNEL_INFO: Record<string, { icon: string; color: string; bg: string }> 
   telegram: { icon: "✈", color: "#58a6ff", bg: "#1c2d3d" },
   slack:    { icon: "#",  color: "#e6b450", bg: "#2d2a1c" },
   hub:      { icon: "◆",  color: "#a78bfa", bg: "#2a1c3d" },
+  matrix:   { icon: "▲",  color: "#7ee787", bg: "#1c3d26" },
+  subagent: { icon: "⎘",  color: "#f2a365", bg: "#3d2a1c" },
 };
 
 export function getChannelInfo(channel?: string) {
