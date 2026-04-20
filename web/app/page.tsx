@@ -27,6 +27,14 @@ export default function Home() {
   const [infoOpen, setInfoOpen] = useState(false);
   const { hasPanels: showPanel } = useSurfaces();
 
+  // Detect popout mode from URL (?popout=1) — renders only the panel surface fullscreen
+  const [isPopout, setIsPopout] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    setIsPopout(params.get("popout") === "1");
+  }, []);
+
   // Initialize plugin hooks (dashboard discovery, etc.)
   usePluginInit(agents, activeAgent);
 
@@ -100,6 +108,21 @@ export default function Home() {
     }
     if (atts.length) setExternalAttachments((prev) => [...prev, ...atts]);
   }, []);
+
+  // Popout mode — render only the side panel, full viewport, no chrome
+  if (isPopout) {
+    return (
+      <div className="flex h-full w-full">
+        {showPanel ? (
+          <SurfacePanel popout />
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-[var(--text-muted)] text-sm">
+            No panel content open in the main window.
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full w-full">
