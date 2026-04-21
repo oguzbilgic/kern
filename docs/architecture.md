@@ -118,6 +118,10 @@ These run inside the agent process itself — not separate services.
 
 All inject messages into the same queue as TUI and web. The agent doesn't know or care which interface a message came from — it sees metadata tags like `[via telegram, user: oguz]`. See [docs/interfaces.md § Metadata contract](interfaces.md#metadata-contract) for the full metadata surfaces (text prefix, internal message object, SSE events) and per-interface field mappings.
 
+### The envelope is the contract
+
+Every message reaching the model — from humans on any interface, from heartbeat timers, from sub-agent announces — is prefixed with the same metadata envelope: `[via <interface>, <channel>, user: <id>, time: <iso8601>]`. This uniformity is what makes multi-channel unification work: the agent reads one message stream, decides based on envelope metadata who's talking and how to respond, and trusts the runtime to route replies back to the right place. New interfaces and internal message sources just need to produce valid envelopes; everything downstream is already wired.
+
 ## Service management
 
 `kern install` creates systemd user services for agents, the web server, and the proxy. This gives you:

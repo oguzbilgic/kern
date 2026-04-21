@@ -4,6 +4,7 @@
 
 ### Improvements
 - **Local-timezone envelope** ([#268](https://github.com/oguzbilgic/kern-ai/issues/268)) — the `time:` field the agent reads is now in local time with UTC offset (e.g. `2026-04-20T20:08:45-07:00`) instead of UTC. Defaults to host timezone; override with the new `timezone` config field (IANA string).
+- **Envelope reference docs** — `docs/interfaces.md` now covers system-generated envelopes (heartbeat, sub-agent announce) alongside human interfaces and includes a reference table of all current `interface`/`channel` values. `docs/architecture.md` frames the envelope as the core multi-channel contract. `docs/tools.md` sub-agent envelope example updated to match the canonical bracketed form.
 
 ### Fixes
 - **NO_REPLY leaks through interfaces** ([#273](https://github.com/oguzbilgic/kern-ai/issues/273)) — replies ending with `NO_REPLY` (e.g. `"…notes are up to date.\n\nNO_REPLY"`) are now suppressed on Telegram, Slack, Matrix, web UI, and TUI. Previously only exact-match `NO_REPLY` was caught.
