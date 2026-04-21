@@ -15,6 +15,11 @@
 
 ### Improvements
 - **`pdf` and `image` are now core tools** ([#262](https://github.com/oguzbilgic/kern-ai/issues/262)) — moved out of the media plugin
+- **Import OpenClaw sessions from LCM** ([#269](https://github.com/oguzbilgic/kern-ai/issues/269)) — `kern import openclaw-lcm <lcm.db>` converts a Lossless Context Memory database into a kern JSONL session
+  - `--list` enumerates conversations; defaults to the primary `agent:main:main` session
+  - Reconstructs assistant/tool-call/tool-result pairs from the `message_parts` table with zero unpaired IDs
+  - Falls back to flat `messages.content` for older rows that predate the parts table
+  - Drops reasoning/compaction/system rows; keeps media references as text
 
 ## v0.30.0
 

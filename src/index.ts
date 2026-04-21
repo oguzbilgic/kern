@@ -39,7 +39,8 @@ async function showHelp() {
   w(`    ${cyan("kern remove")} ${dim("<name>")}          unregister an agent`);
   w(`    ${cyan("kern pair")} ${dim("<agent> <code>")}    approve a pairing code`);
   w(`    ${cyan("kern backup")} ${dim("<name>")}          backup agent to .tar.gz`);
-  w(`    ${cyan("kern import")} ${dim("opencode <name>")}  import session from OpenCode`);
+  w(`    ${cyan("kern import")} ${dim("opencode <name>")}         import session from OpenCode`);
+  w(`    ${cyan("kern import")} ${dim("openclaw-lcm <lcm.db>")}   import session from OpenClaw LCM`);
   w(`    ${cyan("kern restore")} ${dim("<file>")}         restore agent from backup`);
   w(`    ${cyan("kern logs")} ${dim("[name] [-f] [-n 50] [--level warn]")}  show agent logs`);
   w(`    ${cyan("kern install")} ${dim("[name|--web|--proxy]")} install systemd services`);
@@ -260,12 +261,17 @@ async function main() {
   }
 
   if (cmd === "import") {
-    const source = args[1]; // "opencode"
+    const source = args[1]; // "opencode" | "openclaw-lcm"
     if (source === "opencode") {
       const { importOpenCode } = await import("./import.js");
       await importOpenCode(args.slice(2));
+    } else if (source === "openclaw-lcm") {
+      const { importOpenClawLcm } = await import("./import-openclaw-lcm.js");
+      await importOpenClawLcm(args.slice(2));
     } else {
-      console.error("Usage: kern import opencode [--project <path>] [--session <title|latest>] [--agent <name>]");
+      console.error("Usage:");
+      console.error("  kern import opencode [--project <path>] [--session <title|latest>] [--agent <name>]");
+      console.error("  kern import openclaw-lcm <lcm.db> [--agent <name>] [--conversation <id>] [--list]");
       process.exit(1);
     }
     return;
