@@ -57,14 +57,9 @@ Sub-agents run concurrently with the parent and with each other. The parent's tu
 
 ### Announces
 
-When a sub-agent finishes, its final answer is enqueued as a new message turn on a `subagent:<id>` channel, prefixed with a header like:
+When a sub-agent finishes, its final answer is enqueued as a new message turn on a `subagent:<id>` channel. On success, the body is just the child's final answer — the standard `[via subagent, subagent:<id>, user: subagent, time: ...]` envelope identifies the source, no other header is added. On `failed` or `cancelled`, a `[subagent:<id> failed, 12.4s]` style header precedes the error message so the parent can see the outcome.
 
-```
-[subagent:sa_abc123 done, 12.4s, 5 tool calls]
-<the child's final answer>
-```
-
-From the parent's perspective, this looks like any other incoming message — it will be picked up after the current turn (or mid-turn if the parent is still running). `status` is `done`, `failed`, or `cancelled`.
+From the parent's perspective, this looks like any other incoming message — it will be picked up after the current turn (or mid-turn if the parent is still running).
 
 The web UI renders these with a distinct orange ⎘ avatar so you can tell them apart from user messages.
 
