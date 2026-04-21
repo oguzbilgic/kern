@@ -10,7 +10,7 @@ All messages include context metadata prepended to the text:
 [via <interface>, <channel>, user: <id>, time: <iso8601>]
 ```
 
-Examples:
+Examples from human interfaces:
 
 ```
 [via telegram, telegram:12345, user: 8105113489, time: 2026-04-06T14:30:00-07:00]
@@ -20,9 +20,31 @@ Examples:
 [via tui, tui, user: tui, time: 2026-04-06T14:30:00-07:00]
 ```
 
+Examples from system-generated messages (heartbeats, sub-agent announces):
+
+```
+[via system, heartbeat, user: system, time: 2026-04-20T14:30:00-07:00]
+[via subagent, subagent:sa_a1b2c3d4e5f6, user: subagent, time: 2026-04-20T22:20:38-07:00]
+```
+
 The `time:` field is ISO 8601 in the host's local timezone with UTC offset. Override with the `timezone` config field (see [config](config.md)). Storage (logs, recall, session metadata) stays UTC regardless.
 
 The agent sees who's talking, from which channel, and when — and adapts behavior accordingly via instructions in `KERN.md`.
+
+### Interface reference
+
+| `interface` | Typical `channel` | Source | Origin |
+|-------------|-------------------|--------|--------|
+| `telegram` | `telegram:<chatId>` | `src/interfaces/telegram.ts` | Telegram user |
+| `slack` | `#channel-name` or `slack:<Dxxx>` | `src/interfaces/slack.ts` | Slack user |
+| `matrix` | `matrix:<roomId>` | `src/interfaces/matrix.ts` | Matrix user |
+| `cli` | `cli` | `src/interfaces/cli.ts` | CLI invocation |
+| `web` | `web` | HTTP POST to `/message` | Web UI user |
+| `tui` | `tui` | HTTP POST to `/message` | TUI client |
+| `system` | `heartbeat` | `src/app.ts` runtime timer | Heartbeat injection |
+| `subagent` | `subagent:<id>` | Sub-agent completion | Sub-agent announce |
+
+The set is extensible — plugins and future interfaces can introduce new values. The envelope format is the stable contract; specific `interface`/`channel` values depend on what's loaded at runtime.
 
 ## Metadata contract
 
@@ -58,7 +80,7 @@ Messages enter the runtime via two paths:
 | `attachments` | `Attachment[]` | no | Base64-encoded attachments |
 | `connectionId` | `string` | no | SSE connection ID to exclude from the echo broadcast |
 
-The runtime itself also synthesizes `interface: "system"` for heartbeat messages (`src/app.ts`).
+The runtime itself also synthesizes messages for internal injections: `interface: "system"` for heartbeats and `interface: "subagent"` for sub-agent announces (both in `src/app.ts`).
 
 ### Surface 3 — SSE broadcast events
 
