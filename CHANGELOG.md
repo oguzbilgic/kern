@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.31.0
 
 ### Features
 - **Sub-agents** ([#258](https://github.com/oguzbilgic/kern-ai/issues/258)) — delegate a bounded task to a child agent and keep working
