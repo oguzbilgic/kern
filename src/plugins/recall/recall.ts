@@ -78,7 +78,9 @@ export class RecallIndex {
         // Extract timestamp from message metadata
         let timestamp: string | null = null;
         const textForTimestamp = typeof msg.content === "string" ? msg.content : extractText(msg.content);
-        const timeMatch = textForTimestamp.match(/time: (\d{4}-\d{2}-\d{2}T[\d:.]+Z)/);
+        // Match both UTC (`...Z`) and offset (`...±HH:MM`) ISO8601 — pre-v0.32
+        // sessions used UTC in envelopes, v0.32+ uses local tz with offset.
+        const timeMatch = textForTimestamp.match(/time: (\d{4}-\d{2}-\d{2}T[\d:.]+(?:Z|[+-]\d{2}:\d{2}))/);
         if (timeMatch) timestamp = timeMatch[1];
 
         insertMsg.run(sessionId, msgIndex, msg.role, msgContent, timestamp);
@@ -299,7 +301,7 @@ export class RecallIndex {
       let timestamp = "";
       for (let j = turnStart; j < turnEnd && !timestamp; j++) {
         const content = typeof messages[j].content === "string" ? messages[j].content as string : "";
-        const timeMatch = content.match(/time: (\d{4}-\d{2}-\d{2}T[\d:.]+Z)/);
+        const timeMatch = content.match(/time: (\d{4}-\d{2}-\d{2}T[\d:.]+(?:Z|[+-]\d{2}:\d{2}))/);
         if (timeMatch) timestamp = timeMatch[1];
       }
       // Fallback: interpolate from position in session

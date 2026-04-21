@@ -65,14 +65,16 @@ export const recallTool = tool({
       if (args.query) {
         let results = await _recallIndex.search(args.query, (args.limit || 5) * 3); // fetch extra for filtering
         
-        // Apply date filters
+        // Apply date filters. Compare as Dates, not strings — mixed ISO8601
+        // formats (UTC `Z` vs offset `±HH:MM`) don't sort lexicographically
+        // even when they represent the same instant.
         if (args.after) {
-          const after = new Date(args.after).toISOString();
-          results = results.filter((r) => r.timestamp >= after);
+          const after = new Date(args.after).getTime();
+          results = results.filter((r) => !!r.timestamp && new Date(r.timestamp).getTime() >= after);
         }
         if (args.before) {
-          const before = new Date(args.before).toISOString();
-          results = results.filter((r) => r.timestamp <= before);
+          const before = new Date(args.before).getTime();
+          results = results.filter((r) => !!r.timestamp && new Date(r.timestamp).getTime() <= before);
         }
 
         // Filter out chunks already in context window

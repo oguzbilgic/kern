@@ -19,6 +19,7 @@ import { MessageQueue } from "./queue.js";
 import { getStatusData as getStatusDataFn, setQueueStatusFn, setInterfaceStatusFn, setSegmentStatsFn, setPluginStatusFn, type InterfaceStatus } from "./tools/kern.js";
 import { plugins, type PluginContext } from "./plugins/index.js";
 import { setSubAgentAnnouncer, formatAnnounce } from "./plugins/subagents/plugin.js";
+import { formatLocalISO, resolveHostTimezone } from "./util.js";
 import { log } from "./log.js";
 
 let _pluginCtx: PluginContext | null = null;
@@ -133,6 +134,12 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
   const agentName = config.name;
   process.chdir(agentDir);
 
+  // Resolve envelope timezone once. Config override (IANA string) wins, else
+  // autoresolve to host. Storage everywhere else stays UTC — this only affects
+  // the human-readable `time:` field the model reads in each envelope.
+  const envelopeTimezone = config.timezone || resolveHostTimezone();
+  log("kern", `envelope timezone: ${envelopeTimezone}`);
+
   // Initialize pairing
   const pairing = new PairingManager(agentDir);
   await pairing.load();
@@ -212,7 +219,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
 
   queue.setHandler(async (msg, getPendingMessages) => {
 
-    const time = new Date().toISOString();
+    const time = formatLocalISO(new Date(), envelopeTimezone);
     const context = `[via ${msg.interface}${msg.channel ? `, ${msg.channel}` : ""}, user: ${msg.userId}, time: ${time}]\n${msg.text}`;
 
     // Broadcast incoming to other clients.
@@ -235,7 +242,7 @@ export async function startApp(agentDir: string, forceCli = false): Promise<void
       const pending = getPendingMessages();
       return pending.map((p) => ({
         role: "user",
-        content: `[via ${p.interface}${p.channel ? `, ${p.channel}` : ""}, user: ${p.userId}, time: ${new Date().toISOString()}]\n${p.text}`,
+        content: `[via ${p.interface}${p.channel ? `, ${p.channel}` : ""}, user: ${p.userId}, time: ${formatLocalISO(new Date(), envelopeTimezone)}]\n${p.text}`,
       }));
     });
 
