@@ -11,6 +11,14 @@ import type { KernConfig } from "../../config.js";
 
 const MAX_CHUNK_TOKENS = 1000; // rough token limit per chunk
 
+// Normalize an ISO8601 string (UTC `Z` or `±HH:MM` offset) to canonical UTC
+// `Z` form for storage. Ensures `recall.db` timestamp column is UTC-normalized
+// regardless of the envelope format the model saw.
+function toUTC(iso: string): string | null {
+  const ms = Date.parse(iso);
+  return Number.isNaN(ms) ? null : new Date(ms).toISOString();
+}
+
 interface RecallResult {
   text: string;
   timestamp: string;
@@ -75,13 +83,12 @@ export class RecallIndex {
         const msgIndex = lastIndexed + i;
         const msgContent = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
 
-        // Extract timestamp from message metadata
+        // Extract timestamp from message metadata. Envelopes may be UTC (`...Z`,
+        // legacy) or offset (`...±HH:MM`, v0.32+). Normalize to UTC for storage.
         let timestamp: string | null = null;
         const textForTimestamp = typeof msg.content === "string" ? msg.content : extractText(msg.content);
-        // Match both UTC (`...Z`) and offset (`...±HH:MM`) ISO8601 — pre-v0.32
-        // sessions used UTC in envelopes, v0.32+ uses local tz with offset.
         const timeMatch = textForTimestamp.match(/time: (\d{4}-\d{2}-\d{2}T[\d:.]+(?:Z|[+-]\d{2}:\d{2}))/);
-        if (timeMatch) timestamp = timeMatch[1];
+        if (timeMatch) timestamp = toUTC(timeMatch[1]);
 
         insertMsg.run(sessionId, msgIndex, msg.role, msgContent, timestamp);
       }
@@ -297,12 +304,12 @@ export class RecallIndex {
       const absTurnStart = absoluteOffset + turnStart;
       const absTurnEnd = absoluteOffset + turnEnd;
 
-      // Extract timestamp from message metadata
+      // Extract timestamp from message metadata (normalize to UTC for storage).
       let timestamp = "";
       for (let j = turnStart; j < turnEnd && !timestamp; j++) {
         const content = typeof messages[j].content === "string" ? messages[j].content as string : "";
         const timeMatch = content.match(/time: (\d{4}-\d{2}-\d{2}T[\d:.]+(?:Z|[+-]\d{2}:\d{2}))/);
-        if (timeMatch) timestamp = timeMatch[1];
+        if (timeMatch) timestamp = toUTC(timeMatch[1]) || "";
       }
       // Fallback: interpolate from position in session
       if (!timestamp) {

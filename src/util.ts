@@ -8,9 +8,8 @@ import TurndownService from "turndown";
  *
  * If `timeZone` is omitted or unresolvable, falls back to UTC.
  *
- * Storage-adjacent callers: the output is still a valid ISO8601 string, so it
- * can be stored alongside legacy `Z` timestamps in the same TEXT column without
- * migration. String sort and `Date`-based comparison both work.
+ * Used for the envelope `time:` field the model reads. Storage elsewhere
+ * (logs, recall, session metadata) stays UTC.
  */
 export function formatLocalISO(d: Date = new Date(), timeZone?: string): string {
   const tz = timeZone || "UTC";
