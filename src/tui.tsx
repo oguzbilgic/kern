@@ -4,6 +4,7 @@ import { render, Box, Text, Static, useInput, useApp, useStdout } from "ink";
 import Spinner from "ink-spinner";
 import type { ServerEvent } from "./server.js";
 import { findAgent } from "./registry.js";
+import { isNoReply } from "./util.js";
 
 // --- Types ---
 
@@ -199,7 +200,7 @@ function MessageView({ msg, width }: { msg: ChatMessage; width: number }) {
         </Box>
       );
     case "assistant": {
-      const isMuted = msg.text.trim() === "NO_REPLY" || msg.text.trim() === "(no text response)";
+      const isMuted = isNoReply(msg.text);
       return (
         <Box paddingLeft={3}>
           <Text color={isMuted ? undefined : "white"} dimColor={isMuted} italic={isMuted} wrap="wrap">
@@ -367,7 +368,7 @@ function RenderBlockView({ block, width }: { block: RenderBlock; width: number }
     case "toolGroup":
       return <ToolGroupView tools={block.tools} />;
     case "assistant": {
-      const isMuted = block.text.trim().endsWith("NO_REPLY") || block.text.trim().endsWith("(no text response)");
+      const isMuted = isNoReply(block.text);
       return (
         <Box paddingLeft={3}>
           <MarkdownText text={block.text} isMuted={isMuted} />
@@ -597,7 +598,7 @@ function App({ port, agentName, version, authToken }: TuiProps) {
         {streamingText && (
           <Box marginTop={1} paddingLeft={3}>
             {(() => {
-              const isMuted = streamingText.trim().endsWith("NO_REPLY") || streamingText.trim().endsWith("(no text response)");
+              const isMuted = isNoReply(streamingText);
               return <MarkdownText text={streamingText} isMuted={isMuted} />;
             })()}
           </Box>

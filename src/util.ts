@@ -1,6 +1,30 @@
 import TurndownService from "turndown";
 
 /**
+ * True if an assistant reply should be suppressed from outbound interfaces.
+ *
+ * Matches:
+ *   - empty / whitespace-only text
+ *   - the sentinel `(no text response)` placeholder
+ *   - any reply whose trimmed text **ends with** `NO_REPLY`
+ *
+ * The trailing-match covers the common model pattern of writing explanatory
+ * prose then ending with `NO_REPLY` to signal "don't speak up." Inline mentions
+ * of NO_REPLY elsewhere in the message (backticks, prose, bullet points) still
+ * pass through, so agents can legitimately discuss the feature.
+ *
+ * Suppression is outbound-only — session JSONL keeps the full assistant text
+ * for context and trace.
+ */
+export function isNoReply(text: string | null | undefined): boolean {
+  if (!text) return true;
+  const t = text.trim();
+  if (!t) return true;
+  if (t === "(no text response)") return true;
+  return t.endsWith("NO_REPLY");
+}
+
+/**
  * Extract plain text from message content (string or array).
  * Used for embeddings, search, summaries — strips media parts.
  */

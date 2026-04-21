@@ -1,5 +1,10 @@
 # Changelog
 
+## next
+
+### Fixes
+- **NO_REPLY leaks through interfaces** ([#273](https://github.com/oguzbilgic/kern-ai/issues/273)) — replies ending with `NO_REPLY` (e.g. `"…notes are up to date.\n\nNO_REPLY"`) are now suppressed on Telegram, Slack, Matrix, web UI, and TUI. Previously only exact-match `NO_REPLY` was caught.
+
 ## v0.31.0
 
 ### Features
