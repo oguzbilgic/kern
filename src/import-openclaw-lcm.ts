@@ -1,3 +1,13 @@
+// Import OpenClaw sessions from a Lossless Context Memory (LCM) SQLite DB.
+//
+// Tested with:
+//   - lossless-claw v0.9.1 (schema with message_parts + tool_call_id columns)
+//   - kern v0.30.0 (JSONL session format)
+//
+// Older LCM DBs predating message_parts fall through to flat messages.content.
+// DBs predating the backfillToolCallColumns migration will error on the
+// tool_call_id column lookup.
+
 import Database from "better-sqlite3";
 import { join } from "path";
 import { existsSync } from "fs";
