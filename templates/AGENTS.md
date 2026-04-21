@@ -23,7 +23,7 @@ You have no built-in memory between sessions. This repo is how you become statef
 - Commit and push incrementally. Don't batch unrelated changes.
 - If a file operation could overwrite existing content (rename, move), check git status first.
 - Update today's daily note with what was done, decisions made, and any new open items.
-- Use the `time:` field in the incoming message envelope to determine today's date — it's already in local time (host timezone by default, or the `timezone` field in `.kern/config.json`).
+- Use the `time:` field in the incoming message envelope to determine today's date — it's already in local time.
 - Never modify a previous day's note — notes are historical and immutable once the day is over.
 
 ## Memory Structure
