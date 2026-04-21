@@ -1,6 +1,6 @@
 # Changelog
 
-## next
+## v0.31.1
 
 ### Improvements
 - **Local-timezone envelope** ([#268](https://github.com/oguzbilgic/kern-ai/issues/268)) — the `time:` field the agent reads is now in local time with UTC offset (e.g. `2026-04-20T20:08:45-07:00`) instead of UTC. Defaults to host timezone; override with the new `timezone` config field (IANA string).
