@@ -4,6 +4,339 @@ import { existsSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { findAgent, loadRegistry, readAgentInfo } from "./registry.js";
 
+// ---------------------------------------------------------------------------
+// OpenClaw runtime-injection normalizer.
+//
+// OpenClaw persists fully-assembled prompts into LCM, so user messages are
+// prefixed with runtime-injected blocks: channel/sender metadata, heartbeats,
+// System: model-switch / exec notifications, queued-message markers, etc.
+// Kern uses a much leaner `[via <channel>, <chatId>, user: <name>, time: <iso>]`
+// style prefix, added at route time and NOT persisted.
+//
+// This module rewrites OpenClaw preambles into kern-native equivalents so the
+// imported session looks like it was captured by kern in the first place.
+// ---------------------------------------------------------------------------
+
+interface Preamble {
+  senderId?: string;
+  senderName?: string;
+  isoTime?: string;
+}
+
+function toIso(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const s = raw.trim();
+
+  // "Mon 2026-04-20 23:37 UTC"  (weekday + min precision)
+  let m = s.match(/^\w{3}\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})\s*UTC$/);
+  if (m) return `${m[1]}T${m[2]}:00Z`;
+
+  // "2026-04-20 23:37 UTC"  (no weekday, min precision)
+  m = s.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})\s*UTC$/);
+  if (m) return `${m[1]}T${m[2]}:00Z`;
+
+  // "2026-04-20 23:37:15 UTC"  (with seconds)
+  m = s.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})\s*UTC$/);
+  if (m) return `${m[1]}T${m[2]}Z`;
+
+  return undefined;
+}
+
+function inferChannel(senderId: string | undefined): {
+  channel: string;
+  chatId?: string;
+} {
+  if (!senderId) return { channel: "web" };
+  if (/^\d{6,15}$/.test(senderId)) return { channel: "telegram", chatId: `tg:${senderId}` };
+  if (/^U[A-Z0-9]{8,}$/.test(senderId)) return { channel: "slack", chatId: `slack:${senderId}` };
+  if (/^@[^:]+:[^:]+$/.test(senderId)) return { channel: "matrix", chatId: senderId };
+  return { channel: "web" };
+}
+
+function buildKernPrefix(p: Preamble): string {
+  const { channel, chatId } = inferChannel(p.senderId);
+  const parts = [`via ${channel}`];
+  if (chatId) parts.push(chatId);
+  if (p.senderName) parts.push(`user: ${p.senderName}`);
+  if (p.isoTime) parts.push(`time: ${p.isoTime}`);
+  return `[${parts.join(", ")}]`;
+}
+
+// Match the Conversation info / Sender preamble pair. Must appear at the head
+// of the remaining text. Captures the two JSON blobs.
+const PREAMBLE_RE =
+  /^Conversation info \(untrusted metadata\):\s*\n```json\s*\n([\s\S]+?)\n```\s*\n+Sender \(untrusted metadata\):\s*\n```json\s*\n([\s\S]+?)\n```\s*\n*/;
+
+function parsePreamble(text: string): { preamble: Preamble; rest: string } | null {
+  const m = text.match(PREAMBLE_RE);
+  if (!m) return null;
+  let conv: any = {};
+  let sender: any = {};
+  try {
+    conv = JSON.parse(m[1]);
+  } catch {
+    // ignore — parser handles missing fields
+  }
+  try {
+    sender = JSON.parse(m[2]);
+  } catch {
+    // ignore
+  }
+  const p: Preamble = {
+    senderId: conv.sender_id ?? sender.id,
+    senderName: conv.sender ?? sender.name,
+    isoTime: toIso(conv.timestamp),
+  };
+  return { preamble: p, rest: text.slice(m[0].length) };
+}
+
+// System: [ts UTC] <rest>\n\n  or  System (untrusted): [ts UTC] <rest>\n\n
+// `<rest>` may wrap across many lines before the blank-line terminator.
+const SYSTEM_RE =
+  /^System(?: \(untrusted\))?:\s*\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s*UTC\]\s*([\s\S]*?)(?:\n\n|$)/;
+
+interface SystemEvent {
+  kind: "model-switch" | "exec-completed" | "exec-failed" | "system";
+  isoTime?: string;
+  jobId?: string;
+  body: string; // residual body for exec events (after the `::` separator)
+}
+
+function parseSystem(text: string): { event: SystemEvent; rest: string } | null {
+  const m = text.match(SYSTEM_RE);
+  if (!m) return null;
+  const isoTime = toIso(`${m[1]} UTC`);
+  const rest = text.slice(m[0].length);
+  const body = m[2].trim();
+
+  let execMatch = body.match(/^Exec completed\s*\(([^,)]+)[^)]*\)\s*::\s*([\s\S]*)$/);
+  if (execMatch) {
+    return { event: { kind: "exec-completed", isoTime, jobId: execMatch[1].trim(), body: execMatch[2].trim() }, rest };
+  }
+  execMatch = body.match(/^Exec failed\s*\(([^,)]+)[^)]*\)\s*::\s*([\s\S]*)$/);
+  if (execMatch) {
+    return { event: { kind: "exec-failed", isoTime, jobId: execMatch[1].trim(), body: execMatch[2].trim() }, rest };
+  }
+  // Also handle the short form "Exec failed (faint-ba, signal SIGKILL) :: Updating OpenClaw..."
+  // which is already caught above, and bare "Exec failed (id, code N)" with no `::`.
+  execMatch = body.match(/^Exec (completed|failed)\s*\(([^,)]+)[^)]*\)\.?\s*$/);
+  if (execMatch) {
+    return {
+      event: {
+        kind: execMatch[1] === "completed" ? "exec-completed" : "exec-failed",
+        isoTime,
+        jobId: execMatch[2].trim(),
+        body: "",
+      },
+      rest,
+    };
+  }
+  if (/^Model switched to /.test(body)) {
+    return { event: { kind: "model-switch", isoTime, body }, rest };
+  }
+  return { event: { kind: "system", isoTime, body }, rest };
+}
+
+function systemPrefix(e: SystemEvent): string {
+  const tparts: string[] = [];
+  if (e.jobId) tparts.push(e.jobId);
+  if (e.isoTime) tparts.push(`time: ${e.isoTime}`);
+  const tail = tparts.length ? `, ${tparts.join(", ")}` : "";
+  switch (e.kind) {
+    case "exec-completed":
+      return `[exec completed${tail}]`;
+    case "exec-failed":
+      return `[exec failed${tail}]`;
+    case "system":
+    case "model-switch":
+      return `[system${e.isoTime ? `, time: ${e.isoTime}` : ""}]`;
+  }
+}
+
+const NOTE_ABORTED_RE =
+  /^Note: The previous agent run was aborted by the user\. Resume carefully or ask for clarification\.\s*\n+/;
+
+const MEDIA_ATTACHED_RE = /^(\[media attached:[^\]]+\])\s*\n+/;
+
+const QUEUED_HEAD_RE =
+  /^\[Queued messages while agent was busy\]\s*\n+/;
+
+// Splits the queued-block body on "---\nQueued #N\n" (optionally with trailing
+// "(from X)" annotation).
+const QUEUED_ITEM_SPLIT_RE = /(?:^|\n)---\s*\nQueued\s*#\d+(?:\s*\([^)]*\))?\s*\n/g;
+
+// OpenClaw's inline "how to send media back" guidance that sits between a
+// `[media attached: ...]` prefix and the real preamble. Spans one paragraph.
+const MEDIA_GUIDANCE_RE =
+  /^To send an image back, prefer the message tool[\s\S]+?Keep caption in the text body\.\s*\n+/;
+
+// <media:image> / <media:audio> wrapper tags that appear after preambles in
+// media-bearing turns. Drop the tag itself; whatever follows (transcripts,
+// binary payloads) is left intact.
+const MEDIA_TAG_RE = /<media:[a-z]+>\s*\n?/g;
+
+// "Read HEARTBEAT.md ..." prompt. Multi-line body, always ends with
+// "<human date> — <HH:MM AM/PM> (UTC) / <YYYY-MM-DD HH:MM UTC>"
+const HEARTBEAT_RE = /^Read HEARTBEAT\.md\b[\s\S]*?\/\s*(\d{4}-\d{2}-\d{2} \d{2}:\d{2}\s*UTC)\s*$/;
+
+export interface NormalizeResult {
+  /** Flattened, kern-style user content. Null = drop the message entirely. */
+  content: string | null;
+  /** How the message was classified, for stats. */
+  kind: "heartbeat" | "preamble" | "system-exec" | "system-other" | "plain" | "empty";
+}
+
+/**
+ * Normalize a single user-role text blob pulled from LCM into kern's native
+ * shape. Strips OpenClaw runtime injections; rewrites channel/sender preamble
+ * into the compact bracketed prefix kern uses elsewhere.
+ */
+export function normalizeUserContent(raw: string): NormalizeResult {
+  if (!raw || !raw.trim()) return { content: null, kind: "empty" };
+
+  // Heartbeats are self-contained, never mixed with other prefixes.
+  const hb = raw.match(HEARTBEAT_RE);
+  if (hb) {
+    const iso = toIso(hb[1]);
+    return {
+      content: iso ? `[heartbeat, time: ${iso}]` : `[heartbeat]`,
+      kind: "heartbeat",
+    };
+  }
+
+  let text = raw;
+  let systemEvent: SystemEvent | undefined;
+  let aborted = false;
+  let mediaPrefix: string | undefined;
+  let queued = false;
+
+  // Peel outer layers at the head. Each step only matches its exact shape and
+  // no-ops otherwise. Order matters: system/aborted/media/queued can all co-occur
+  // before the first preamble.
+  for (let i = 0; i < 8; i++) {
+    const before = text;
+
+    if (!systemEvent) {
+      const sys = parseSystem(text);
+      if (sys) {
+        if (sys.event.kind === "model-switch") {
+          text = sys.rest;
+          continue;
+        }
+        systemEvent = sys.event;
+        text = sys.rest;
+        continue;
+      }
+    }
+
+    if (!aborted && NOTE_ABORTED_RE.test(text)) {
+      text = text.replace(NOTE_ABORTED_RE, "");
+      aborted = true;
+      continue;
+    }
+
+    if (!mediaPrefix) {
+      const mm = text.match(MEDIA_ATTACHED_RE);
+      if (mm) {
+        mediaPrefix = mm[1];
+        text = text.slice(mm[0].length);
+        continue;
+      }
+    }
+
+    // Drop OpenClaw's inline "To send an image back..." guidance block.
+    if (MEDIA_GUIDANCE_RE.test(text)) {
+      text = text.replace(MEDIA_GUIDANCE_RE, "");
+      continue;
+    }
+
+    if (!queued && QUEUED_HEAD_RE.test(text)) {
+      text = text.replace(QUEUED_HEAD_RE, "");
+      queued = true;
+      continue;
+    }
+
+    if (text === before) break;
+  }
+
+  // After stripping system/exec prefixes, the remainder can itself be a full
+  // heartbeat prompt (exec ran, then heartbeat was injected on top).
+  const hb2 = text.match(HEARTBEAT_RE);
+  if (hb2) {
+    const iso = toIso(hb2[1]);
+    const hbTag = iso ? `[heartbeat, time: ${iso}]` : `[heartbeat]`;
+    const systemHead = systemEvent ? systemPrefix(systemEvent) + " " : "";
+    return { content: (systemHead + hbTag).trim(), kind: "heartbeat" };
+  }
+
+  // Queued blocks contain multiple distinct user inputs, each with its own
+  // preamble. Split on the `---\nQueued #N\n` markers and process each item
+  // independently, then join.
+  const items: string[] = queued ? text.split(QUEUED_ITEM_SPLIT_RE) : [text];
+
+  const preambles: Preamble[] = [];
+  const processedItems: string[] = [];
+
+  for (const rawItem of items) {
+    let item = rawItem;
+    // Each queued item may also have its own "To send an image back" block
+    // and `[media attached:]` prefix; peel them.
+    if (MEDIA_GUIDANCE_RE.test(item)) item = item.replace(MEDIA_GUIDANCE_RE, "");
+    const mm = item.match(MEDIA_ATTACHED_RE);
+    let itemMediaPrefix: string | undefined;
+    if (mm) {
+      itemMediaPrefix = mm[1];
+      item = item.slice(mm[0].length);
+    }
+    const parsed = parsePreamble(item);
+    if (parsed) {
+      preambles.push(parsed.preamble);
+      item = parsed.rest;
+    }
+    // Drop <media:tag> wrappers but keep surrounding content.
+    item = item.replace(MEDIA_TAG_RE, "").trim();
+    if (itemMediaPrefix && item) {
+      item = `${itemMediaPrefix}\n\n${item}`;
+    } else if (itemMediaPrefix) {
+      item = itemMediaPrefix;
+    }
+    if (item) processedItems.push(item);
+  }
+
+  const body = processedItems.join("\n\n").trim();
+
+  const prefixPieces: string[] = [];
+  if (systemEvent) prefixPieces.push(systemPrefix(systemEvent));
+  if (preambles[0]) prefixPieces.push(buildKernPrefix(preambles[0]));
+  const prefix = prefixPieces.join(" ");
+
+  const tags: string[] = [];
+  if (aborted) tags.push("[run aborted]");
+  if (queued) tags.push("[queued]");
+
+  const head = [prefix, ...tags].filter(Boolean).join(" ");
+  const bodyWithMedia = mediaPrefix && body ? `${mediaPrefix}\n\n${body}` : mediaPrefix ?? body;
+
+  let combined: string;
+  if (head && bodyWithMedia) combined = `${head} ${bodyWithMedia}`;
+  else combined = head || bodyWithMedia;
+
+  combined = combined.trim();
+  if (!combined) return { content: null, kind: "empty" };
+
+  let kind: NormalizeResult["kind"];
+  if (systemEvent && (systemEvent.kind === "exec-completed" || systemEvent.kind === "exec-failed")) {
+    kind = "system-exec";
+  } else if (systemEvent) {
+    kind = "system-other";
+  } else if (preambles.length > 0) {
+    kind = "preamble";
+  } else {
+    kind = "plain";
+  }
+  return { content: combined, kind };
+}
+
 interface LcmConversation {
   conversation_id: number;
   session_key: string | null;
@@ -133,6 +466,8 @@ interface ConvertResult {
     droppedSynthetic: number;
     droppedIgnored: number;
     droppedOrphans: number;
+    droppedEmptyUser: number;
+    normalized: { heartbeat: number; preamble: number; systemExec: number; systemOther: number };
     droppedOther: { [partType: string]: number };
   };
 }
@@ -170,6 +505,8 @@ function convertConversation(db: Database.Database, conversationId: number): Con
     droppedSynthetic: 0,
     droppedIgnored: 0,
     droppedOrphans: 0,
+    droppedEmptyUser: 0,
+    normalized: { heartbeat: 0, preamble: 0, systemExec: 0, systemOther: 0 },
     droppedOther: {},
   };
 
@@ -278,10 +615,18 @@ function convertConversation(db: Database.Database, conversationId: number): Con
     }
 
     if (g.role === "user") {
-      const text = textParts.join("\n").trim();
-      if (text) {
-        kernMessages.push({ role: "user", content: text });
+      const raw = textParts.join("\n").trim();
+      if (!raw) continue;
+      const norm = normalizeUserContent(raw);
+      if (norm.kind === "heartbeat") stats.normalized.heartbeat++;
+      else if (norm.kind === "preamble") stats.normalized.preamble++;
+      else if (norm.kind === "system-exec") stats.normalized.systemExec++;
+      else if (norm.kind === "system-other") stats.normalized.systemOther++;
+      if (!norm.content) {
+        stats.droppedEmptyUser++;
+        continue;
       }
+      kernMessages.push({ role: "user", content: norm.content });
     } else if (g.role === "assistant") {
       if (textParts.length > 0 && toolCalls.length > 0) {
         const content: any[] = [];
@@ -465,6 +810,11 @@ export async function importOpenClawLcm(args: string[]): Promise<void> {
   if (stats.fallbackContent) {
     console.log(`  Flat fallback:    ${stats.fallbackContent}  (pre-parts-table messages)`);
   }
+  console.log(`  Normalized users:`);
+  console.log(`    preamble:       ${stats.normalized.preamble}`);
+  console.log(`    heartbeat:      ${stats.normalized.heartbeat}`);
+  console.log(`    system exec:    ${stats.normalized.systemExec}`);
+  console.log(`    system other:   ${stats.normalized.systemOther}`);
   console.log(`  Dropped:`);
   console.log(`    reasoning:      ${stats.droppedReasoning}`);
   console.log(`    compaction:     ${stats.droppedCompaction}`);
@@ -472,6 +822,7 @@ export async function importOpenClawLcm(args: string[]): Promise<void> {
   console.log(`    synthetic:      ${stats.droppedSynthetic}`);
   console.log(`    ignored:        ${stats.droppedIgnored}`);
   console.log(`    orphans:        ${stats.droppedOrphans}`);
+  console.log(`    empty users:    ${stats.droppedEmptyUser}  (preamble-only, etc.)`);
   for (const [t, n] of Object.entries(stats.droppedOther)) {
     console.log(`    ${t.padEnd(14)}  ${n}`);
   }
