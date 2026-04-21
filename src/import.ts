@@ -1,8 +1,8 @@
 // Import OpenCode sessions from the local ~/.local/share/opencode/opencode.db.
 //
 // Tested with:
-//   - opencode session DB as of 2025-Q1 (messages + parts tables)
-//   - kern v0.30.0 (JSONL session format)
+//   - opencode v1.3.3 (messages + parts tables)
+//   - kern v0.7.1 (initial ship) through v0.30.0 (cwd output)
 
 import Database from "better-sqlite3";
 import { join } from "path";

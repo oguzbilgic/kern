@@ -206,7 +206,7 @@ kern import opencode --project /root/myproject --session <id> # fully non-intera
 mv /tmp/<uuid>.jsonl ~/atlas/.kern/sessions/                  # install wherever
 ```
 
-Tested against the OpenCode session DB as of 2025-Q1.
+Tested against OpenCode v1.3.3.
 
 ## kern import openclaw-lcm
 
