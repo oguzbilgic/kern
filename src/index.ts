@@ -263,7 +263,7 @@ async function main() {
   if (cmd === "import") {
     const source = args[1]; // "opencode" | "openclaw-lcm"
     if (source === "opencode") {
-      const { importOpenCode } = await import("./import.js");
+      const { importOpenCode } = await import("./import-opencode.js");
       await importOpenCode(args.slice(2));
     } else if (source === "openclaw-lcm") {
       const { importOpenClawLcm } = await import("./import-openclaw-lcm.js");
