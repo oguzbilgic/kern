@@ -3,6 +3,7 @@ import { App as SlackApp } from "@slack/bolt";
 import type { Attachment, Interface, StartOptions } from "./types.js";
 import type { PairingManager } from "../pairing.js";
 import { log } from "../log.js";
+import { isNoReply } from "../util.js";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
@@ -174,9 +175,9 @@ export class SlackInterface implements Interface {
           () => {}, // events handled by SSE broadcast in app.ts
         );
 
-        // NO_REPLY suppression
-        const clean = response?.trim() || "";
-        if (clean && clean !== "NO_REPLY" && clean !== "(no text response)") {
+        // NO_REPLY suppression — matches empty, "(no text response)", or any
+        // reply ending with NO_REPLY (model explaining then suppressing).
+        if (!isNoReply(response)) {
           await say(mdToSlack(response));
         }
       } catch (error: any) {

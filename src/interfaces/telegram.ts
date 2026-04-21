@@ -2,6 +2,7 @@ import { Bot } from "grammy";
 import type { Attachment, Interface, StartOptions } from "./types.js";
 import type { PairingManager } from "../pairing.js";
 import { log } from "../log.js";
+import { isNoReply } from "../util.js";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
@@ -315,7 +316,7 @@ export class TelegramInterface implements Interface {
         if (pendingNewMessage) await pendingNewMessage;
         // Final edit — overwrite tools with text on the last message
         const lastText = (currentText || response || "").trim();
-        if (lastText === "NO_REPLY" || lastText === "(no text response)") {
+        if (isNoReply(lastText)) {
           // Suppress — delete the placeholder message
           try { await ctx.api.deleteMessage(ctx.chat.id, activeMessageId); } catch {}
           // Delete any earlier placeholder too

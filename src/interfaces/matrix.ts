@@ -1,6 +1,7 @@
 import type { Interface, StartOptions } from "./types.js";
 import type { PairingManager } from "../pairing.js";
 import { log } from "../log.js";
+import { isNoReply } from "../util.js";
 
 /**
  * Matrix interface — long-polls /sync, accepts invites, replies via /send.
@@ -213,7 +214,7 @@ export class MatrixInterface implements Interface {
       await this.setTyping(roomId, false).catch(() => {});
 
       const reply = (response || "").trim();
-      if (!reply || reply === "NO_REPLY" || reply === "(no text response)") return;
+      if (isNoReply(reply)) return;
       await this.sendMessage(roomId, reply);
     } catch (err: any) {
       clearInterval(typingInterval);

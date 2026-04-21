@@ -1,5 +1,10 @@
 # Changelog
 
+## next
+
+### Fixes
+- **NO_REPLY leaks through interfaces** ([#273](https://github.com/oguzbilgic/kern-ai/issues/273)) — the sentinel is now recognized whenever the reply text ends with `NO_REPLY`, not only when the whole message is exactly `NO_REPLY`. Models routinely wrap the sentinel with explanatory prose (`"… notes are up to date.\n\nNO_REPLY"`); those replies were leaking as visible messages on Telegram, Slack, Matrix, and the web UI. Suppression is now consistent across all interfaces and the TUI via a single `isNoReply()` helper. Inline mentions of `NO_REPLY` in prose or backticks still pass through.
+
 ## v0.31.0
 
 ### Features

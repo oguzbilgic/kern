@@ -5,6 +5,19 @@ import { getPlugins } from "../plugins/registry";
 
 let msgCounter = 0;
 
+/**
+ * True if an assistant reply should be rendered muted (the outbound interfaces
+ * have already suppressed it). Matches empty text, the "(no text response)"
+ * placeholder, or any text ending with NO_REPLY — mirrors src/util.ts#isNoReply.
+ */
+export function isNoReply(text: string | null | undefined): boolean {
+  if (!text) return true;
+  const t = text.trim();
+  if (!t) return true;
+  if (t === "(no text response)") return true;
+  return t.endsWith("NO_REPLY");
+}
+
 /** Ask plugins to convert a tool result to a custom message. Returns null if no plugin handles it. */
 function pluginToolResult(toolName: string, output: string): ChatMessage | null {
   for (const plugin of getPlugins()) {
@@ -291,18 +304,14 @@ export function analyzeMessage(msg: ChatMessage, agentName?: string): MessagePro
   const isHeartbeat = msg.role === "heartbeat";
   const isCommand = msg.role === "command";
   const isError = msg.role === "error";
-  const isNoReply = isAssistant && (
-    msg.text === "NO_REPLY" ||
-    msg.text === "(no text response)" ||
-    !msg.text?.trim()
-  );
+  const isNoReplyMsg = isAssistant && isNoReply(msg.text);
   const isEmoji = isUser && isEmojiOnly(msg.text);
   const isOutgoing = isAssistant && !!msg.meta?.startsWith("→");
   const channel = (isIncoming || isOutgoing) ? parseChannel(msg.meta) : undefined;
   const senderName = isUser ? "You" : isHeartbeat ? "heartbeat" : isIncoming ? (channel || "incoming") : (agentName || "Agent");
   const initials = senderName.charAt(0).toUpperCase();
 
-  return { msg, isUser, isAssistant, isIncoming, isHeartbeat, isCommand, isError, isNoReply, isEmoji, senderName, initials, channel };
+  return { msg, isUser, isAssistant, isIncoming, isHeartbeat, isCommand, isError, isNoReply: isNoReplyMsg, isEmoji, senderName, initials, channel };
 }
 
 // Compute continuation and tool-header flags for a message list
