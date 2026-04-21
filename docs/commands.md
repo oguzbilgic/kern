@@ -206,6 +206,8 @@ kern import opencode --project /root/myproject --session <id> # fully non-intera
 mv /tmp/<uuid>.jsonl ~/atlas/.kern/sessions/                  # install wherever
 ```
 
+Tested against the OpenCode session DB as of 2025-Q1.
+
 ## kern import openclaw-lcm
 
 Convert an OpenClaw Lossless Context Memory (LCM) database into a kern JSONL file.
@@ -223,6 +225,8 @@ kern import openclaw-lcm /path/to/lcm.db                       # main conversati
 kern import openclaw-lcm /path/to/lcm.db --conversation 4      # specific conversation
 scp /tmp/<uuid>.jsonl dockerhost:~/agent/.kern/sessions/       # install remotely
 ```
+
+Tested against lossless-claw v0.9.1. Older LCM DBs may fall through to flat message content or error on missing columns.
 
 ## Slash commands
 
