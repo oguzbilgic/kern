@@ -126,9 +126,12 @@ export function SurfaceModal({ openSurface, onClose, onActiveSurface }: SurfaceM
 
 /**
  * SurfacePanel — resizable side panel for "panel" mode surfaces.
- * Owns all chrome: resize handle, title, tab switching, close button.
+ * Owns all chrome: resize handle, title, tab switching, close button, pop-out button.
+ *
+ * When `popout` is true, renders full-width with no resize handle or pop-out button
+ * (used by the pop-out window itself).
  */
-export function SurfacePanel() {
+export function SurfacePanel({ popout = false }: { popout?: boolean } = {}) {
   const [surfaces, setSurfaces] = useState<Surface[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [width, setWidth] = useState(() => {
@@ -207,18 +210,28 @@ export function SurfacePanel() {
 
   const active = surfaces.find(s => s.id === activeId) || surfaces[0];
 
+  const openInPopout = () => {
+    const features = "width=1200,height=800,menubar=no,toolbar=no,location=no,status=no";
+    window.open(`${window.location.origin}${window.location.pathname}?popout=1`, `kern-popout`, features);
+  };
+
   return (
-    <div className="flex flex-col flex-shrink-0 relative" style={{ width }}>
+    <div
+      className={popout ? "flex flex-col flex-1 relative" : "flex flex-col flex-shrink-0 relative"}
+      style={popout ? undefined : { width }}
+    >
       {/* Drag overlay — covers entire viewport to block text selection and iframe mouse capture */}
-      {isDragging && <div className="fixed inset-0 z-[9999] cursor-col-resize" />}
-      {/* Resize handle — wide invisible hit area with thin visible line */}
-      <div
-        onMouseDown={onDragStart}
-        className="absolute left-0 top-0 bottom-0 cursor-col-resize z-10 flex items-stretch"
-        style={{ width: 12, marginLeft: -6 }}
-      >
-        <div className="w-px mx-auto hover:w-0.5 transition-all" style={{ background: "var(--border)" }} />
-      </div>
+      {isDragging && !popout && <div className="fixed inset-0 z-[9999] cursor-col-resize" />}
+      {/* Resize handle — hidden in popout mode */}
+      {!popout && (
+        <div
+          onMouseDown={onDragStart}
+          className="absolute left-0 top-0 bottom-0 cursor-col-resize z-10 flex items-stretch"
+          style={{ width: 12, marginLeft: -6 }}
+        >
+          <div className="w-px mx-auto hover:w-0.5 transition-all" style={{ background: "var(--border)" }} />
+        </div>
+      )}
 
       {/* Header with tabs */}
       <div className="h-12 border-b border-[var(--border)] flex items-center justify-between px-4 flex-shrink-0 ml-1">
@@ -241,12 +254,26 @@ export function SurfacePanel() {
             <span className="text-sm font-semibold truncate">{active?.label}</span>
           )}
         </div>
-        <button
-          onClick={() => active?.onClose?.()}
-          className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors cursor-pointer text-lg leading-none ml-2 p-1"
-        >
-          ×
-        </button>
+        {!popout && (
+          <div className="flex items-center ml-2">
+            <button
+              onClick={openInPopout}
+              title="Open in new window"
+              aria-label="Open in new window"
+              className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors cursor-pointer text-base leading-none p-1"
+            >
+              ⧉
+            </button>
+            <button
+              onClick={() => active?.onClose?.()}
+              title="Close panel"
+              aria-label="Close panel"
+              className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors cursor-pointer text-lg leading-none p-1"
+            >
+              ×
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Content */}
