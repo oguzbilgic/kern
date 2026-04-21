@@ -32,19 +32,15 @@ export function setSubAgentAnnouncer(fn: AnnounceFn): void {
 
 /** Format a child's completion as an announce message for the parent's queue. */
 export function formatAnnounce(record: SubAgentRecord): string {
+  if (record.status === "done") {
+    return record.result || "(no result)";
+  }
   const dur = record.finishedAt && record.startedAt
     ? `${Math.round((+new Date(record.finishedAt) - +new Date(record.startedAt)) / 1000)}s`
     : "?";
-  const header = `[subagent:${record.id} ${record.status}, ${dur}, ${record.toolCalls} tool calls]`;
-
-  if (record.status === "done") {
-    return `${header}\n${record.result || "(no result)"}`;
-  }
+  const header = `[subagent:${record.id} ${record.status}, ${dur}]`;
   if (record.status === "failed") {
     return `${header}\n${record.error || "unknown error"}`;
-  }
-  if (record.status === "cancelled") {
-    return header;
   }
   return header;
 }

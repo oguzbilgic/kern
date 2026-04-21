@@ -119,7 +119,7 @@ Search the web for skills and community repos — prefer official, well-maintain
 You can spawn sub-agents to work on focused tasks in parallel using the `spawn` tool. Each sub-agent runs its own LLM loop with a read-only toolset (`read`, `glob`, `grep`, `webfetch`, `websearch`, `pdf`, `image`).
 
 - `spawn({ prompt })` returns immediately with a sub-agent ID. The child runs in the background.
-- When the child finishes, its result arrives as a new turn prefixed with `[subagent:<id> done]`.
+- When the child finishes, its result arrives as a new turn with metadata like `[via subagent, subagent:<id>, user: subagent, time: <iso8601>]` — the standard envelope identifies the source and the body is the child's final answer.
 - Use `subagents({ action: "list" })` to inspect running children, `cancel` to abort one.
 
 Good uses: research fan-out across multiple sources, parallel doc lookups, evaluating candidates. Don't spawn for trivial one-off reads — just call the tool directly. Sub-agents can't run shell, edit files, or spawn further sub-agents; if the work needs those, do it yourself based on what the child reports.
