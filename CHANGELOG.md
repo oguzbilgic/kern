@@ -12,15 +12,16 @@
   - `/subagents` slash command — operator peek at what the agent has spawned
   - Shipped as the `subagents` plugin
   - See [docs/subagents.md](docs/subagents.md)
-
-### Improvements
-- **`pdf` and `image` are now core tools** ([#262](https://github.com/oguzbilgic/kern-ai/issues/262)) — moved out of the media plugin
+- **Pop-out dashboard panel** ([#267](https://github.com/oguzbilgic/kern-ai/pull/267)) — ⧉ button in the panel header opens the current dashboard in a standalone browser window. Resizable, movable, ideal for a second monitor while chat stays in the main window.
 - **Import OpenClaw sessions from LCM** ([#269](https://github.com/oguzbilgic/kern-ai/issues/269)) — `kern import openclaw-lcm <lcm.db>` converts a Lossless Context Memory database into a kern JSONL session
   - `--list` enumerates conversations; defaults to the primary `agent:main:main` session
   - Reconstructs assistant/tool-call/tool-result pairs from the `message_parts` table with zero unpaired IDs
   - Falls back to flat `messages.content` for older rows that predate the parts table
   - Normalizes OpenClaw runtime injections (preambles, heartbeats, system-exec events, queued-message blocks) into kern-native bracketed prefixes
   - Drops reasoning/compaction/system rows; keeps media references as text
+
+### Improvements
+- **`pdf` and `image` are now core tools** ([#262](https://github.com/oguzbilgic/kern-ai/issues/262)) — moved out of the media plugin
 - **Import commands write to cwd** ([#271](https://github.com/oguzbilgic/kern-ai/issues/271)) — `kern import opencode` and `kern import openclaw-lcm` now write `<uuid>.jsonl` to the current directory. Move it into any agent's `.kern/sessions/` yourself. `--agent` flag removed.
 
 ## v0.30.0
