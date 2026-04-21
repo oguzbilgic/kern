@@ -19,7 +19,9 @@
   - `--list` enumerates conversations; defaults to the primary `agent:main:main` session
   - Reconstructs assistant/tool-call/tool-result pairs from the `message_parts` table with zero unpaired IDs
   - Falls back to flat `messages.content` for older rows that predate the parts table
+  - Normalizes OpenClaw runtime injections (preambles, heartbeats, system-exec events, queued-message blocks) into kern-native bracketed prefixes
   - Drops reasoning/compaction/system rows; keeps media references as text
+- **Import commands write to cwd** ([#271](https://github.com/oguzbilgic/kern-ai/issues/271)) — `kern import opencode` and `kern import openclaw-lcm` now write `<uuid>.jsonl` to the current directory. Move it into any agent's `.kern/sessions/` yourself. `--agent` flag removed.
 
 ## v0.30.0
 

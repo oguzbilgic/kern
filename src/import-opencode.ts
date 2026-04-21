@@ -1,9 +1,14 @@
+// Import OpenCode sessions from the local ~/.local/share/opencode/opencode.db.
+//
+// Tested with:
+//   - opencode v1.3.3 (messages + parts tables)
+//   - kern v0.7.1 (initial ship) through v0.30.0 (cwd output)
+
 import Database from "better-sqlite3";
 import { join } from "path";
 import { existsSync } from "fs";
-import { mkdir, writeFile } from "fs/promises";
+import { writeFile } from "fs/promises";
 import { homedir } from "os";
-import { findAgent, loadRegistry, readAgentInfo } from "./registry.js";
 import { log } from "./log.js";
 
 interface OpenCodeMessage {
@@ -242,41 +247,6 @@ export async function importOpenCode(args: string[]): Promise<void> {
   }
   console.log(`  Session: ${sessionTitle}`);
 
-  // --- Pick destination agent ---
-  let agentPath: string;
-  let agentName: string;
-  const agentArg = getFlag(args, "agent");
-
-  if (agentArg) {
-    const agent = findAgent(agentArg);
-    if (!agent) {
-      console.error(`Agent not found: ${agentArg}`);
-      db.close();
-      process.exit(1);
-    }
-    agentPath = agent.path;
-    agentName = agent.name;
-  } else {
-    const paths = await loadRegistry();
-    const agents = paths.map((p) => readAgentInfo(p)).filter(Boolean) as { name: string; path: string }[];
-    if (agents.length === 0) {
-      console.error("No agents registered. Run 'kern init <name>' first.");
-      db.close();
-      process.exit(1);
-    }
-    const chosen = await select({
-      message: "Import into which agent",
-      choices: agents.map((a) => ({
-        name: `${a.name} (${a.path})`,
-        value: a.name,
-      })),
-    });
-    const agent = agents.find((a) => a.name === chosen)!;
-    agentPath = agent.path;
-    agentName = agent.name;
-  }
-  console.log(`  Agent: ${agentName} (${agentPath})`);
-
   // --- Convert ---
   const { messages: kernMessages, converted, skipped } = convertSession(db, sessionId);
   db.close();
@@ -285,13 +255,10 @@ export async function importOpenCode(args: string[]): Promise<void> {
   console.log(`  Skipped: ${skipped} parts`);
   console.log(`  Messages: ${kernMessages.length}`);
 
-  // --- Write ---
-  const sessionsDir = join(agentPath, ".kern", "sessions");
-  await mkdir(sessionsDir, { recursive: true });
-
+  // --- Write to cwd ---
   const sessionUuid = crypto.randomUUID();
   const now = new Date().toISOString();
-  const jsonlPath = join(sessionsDir, `${sessionUuid}.jsonl`);
+  const jsonlPath = join(process.cwd(), `${sessionUuid}.jsonl`);
 
   const meta = JSON.stringify({
     id: sessionUuid,
@@ -305,8 +272,11 @@ export async function importOpenCode(args: string[]): Promise<void> {
   const lines = [meta, ...kernMessages.map((m: any) => JSON.stringify(m))];
   await writeFile(jsonlPath, lines.join("\n") + "\n");
 
-  console.log(`\n  Imported to ${jsonlPath}`);
-  console.log(`  ${kernMessages.length} messages`);
+  console.log("");
+  console.log(`✓ Imported ${kernMessages.length} messages → ${jsonlPath}`);
+  console.log("");
+  console.log(`  Move into an agent's sessions dir to use it:`);
+  console.log(`    mv ${jsonlPath} <agent>/.kern/sessions/`);
   console.log("");
 
   process.exit(0);

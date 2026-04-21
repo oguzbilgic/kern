@@ -263,15 +263,15 @@ async function main() {
   if (cmd === "import") {
     const source = args[1]; // "opencode" | "openclaw-lcm"
     if (source === "opencode") {
-      const { importOpenCode } = await import("./import.js");
+      const { importOpenCode } = await import("./import-opencode.js");
       await importOpenCode(args.slice(2));
     } else if (source === "openclaw-lcm") {
       const { importOpenClawLcm } = await import("./import-openclaw-lcm.js");
       await importOpenClawLcm(args.slice(2));
     } else {
       console.error("Usage:");
-      console.error("  kern import opencode [--project <path>] [--session <title|latest>] [--agent <name>]");
-      console.error("  kern import openclaw-lcm <lcm.db> [--agent <name>] [--conversation <id>] [--list]");
+      console.error("  kern import opencode [--project <path>] [--session <title|latest>]");
+      console.error("  kern import openclaw-lcm <lcm.db> [--conversation <id>] [--list]");
       process.exit(1);
     }
     return;
