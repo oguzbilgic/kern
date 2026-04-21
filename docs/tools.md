@@ -144,7 +144,7 @@ spawn({ prompt: "Research Node.js 22 crypto changes and summarize breaking chang
 
 When the child finishes, its result arrives as a new turn from `via subagent, subagent:<id>`. The envelope identifies the source; the body is the child's final answer (no extra header on success). Failed or cancelled sub-agents prefix the body with a `[subagent:<id> failed, 12.4s]` style line so the outcome is visible. You can spawn multiple sub-agents in parallel and synthesize their results as they arrive.
 
-Sub-agents run with a read-only toolset: `read`, `glob`, `grep`, `webfetch`, `websearch`. They cannot run shell commands, edit files, call plugin tools, or spawn further sub-agents.
+Sub-agents run with a read-only toolset: `read`, `glob`, `grep`, `webfetch`, `websearch`, `pdf`, `image`. They cannot run shell commands, edit files, call plugin tools, or spawn further sub-agents.
 
 Use sub-agents for research fan-out, parallel documentation lookups, evaluating multiple candidates, or any read-only task you can delegate while you keep working. Don't use them for trivial one-off reads — just call `read` directly.
 
