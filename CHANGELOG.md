@@ -3,7 +3,7 @@
 ## next
 
 ### Improvements
-- **Local-timezone envelope** ([#268](https://github.com/oguzbilgic/kern-ai/issues/268)) — the `time:` field in the envelope the model reads is now in local time with UTC offset (e.g. `2026-04-20T20:08:45-07:00`) instead of UTC. Defaults to host timezone; override with the new `timezone` config field (IANA string). Storage everywhere else (logs, recall.db, session/pairing/subagent metadata) stays UTC.
+- **Local-timezone envelope** ([#268](https://github.com/oguzbilgic/kern-ai/issues/268)) — the `time:` field the agent reads is now in local time with UTC offset (e.g. `2026-04-20T20:08:45-07:00`) instead of UTC. Defaults to host timezone; override with the new `timezone` config field (IANA string).
 
 ### Fixes
 - **NO_REPLY leaks through interfaces** ([#273](https://github.com/oguzbilgic/kern-ai/issues/273)) — replies ending with `NO_REPLY` (e.g. `"…notes are up to date.\n\nNO_REPLY"`) are now suppressed on Telegram, Slack, Matrix, web UI, and TUI. Previously only exact-match `NO_REPLY` was caught.
