@@ -35,6 +35,11 @@ export interface KernConfig {
   // Runtime
   heartbeatInterval: number;
 
+  // Timezone — IANA zone used when rendering the `time:` field in the envelope
+  // the model reads. Empty string means autoresolve to host timezone. Storage
+  // everywhere else (logs, recall.db, session metadata) stays UTC.
+  timezone: string;
+
   // MCP — Model Context Protocol servers. Agent-local. See docs/mcp.md.
   mcpServers?: Record<string, McpServerConfig>;
 }
@@ -77,6 +82,7 @@ export const configDefaults: KernConfig = {
   mediaContext: 0,
   telegramTools: false,
   heartbeatInterval: 60,
+  timezone: "",
 };
 
 const FIELD_TYPES: Record<string, string> = {
@@ -96,6 +102,7 @@ const FIELD_TYPES: Record<string, string> = {
   mediaContext: "number",
   telegramTools: "boolean",
   heartbeatInterval: "number",
+  timezone: "string",
   mcpServers: "object",
 };
 

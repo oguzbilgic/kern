@@ -1,6 +1,60 @@
 import TurndownService from "turndown";
 
 /**
+ * Format a Date as ISO8601 with the wall-clock time in a target IANA zone and
+ * its UTC offset. Unlike `toISOString()` (always UTC `Z`), this produces strings
+ * the model can read at a glance like "2026-04-20T20:08:45-07:00" while
+ * remaining machine-parseable by `new Date()` and regex-friendly.
+ *
+ * If `timeZone` is omitted or unresolvable, falls back to UTC.
+ *
+ * Used for the envelope `time:` field the model reads. Storage elsewhere
+ * (logs, recall, session metadata) stays UTC.
+ */
+export function formatLocalISO(d: Date = new Date(), timeZone?: string): string {
+  const tz = timeZone || "UTC";
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+      hour12: false,
+    }).formatToParts(d);
+    const get = (t: string) => parts.find((p) => p.type === t)!.value;
+    const year = get("year");
+    const month = get("month");
+    const day = get("day");
+    // Intl renders midnight as "24" in hour12:false — normalize.
+    let hour = get("hour");
+    if (hour === "24") hour = "00";
+    const minute = get("minute");
+    const second = get("second");
+    const offRaw = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      timeZoneName: "longOffset",
+    }).formatToParts(d).find((p) => p.type === "timeZoneName")!.value;
+    // longOffset yields "GMT-07:00" or bare "GMT" for UTC.
+    const offset = offRaw === "GMT" ? "+00:00" : offRaw.replace("GMT", "");
+    return `${year}-${month}-${day}T${hour}:${minute}:${second}${offset}`;
+  } catch {
+    return d.toISOString();
+  }
+}
+
+/**
+ * Resolve the host's IANA timezone at runtime. Returns `"UTC"` if the
+ * environment cannot resolve a named zone.
+ */
+export function resolveHostTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+
+/**
  * True if an assistant reply should be suppressed from outbound interfaces.
  *
  * Matches:

@@ -13,12 +13,14 @@ All messages include context metadata prepended to the text:
 Examples:
 
 ```
-[via telegram, telegram:12345, user: 8105113489, time: 2026-04-06T21:30:00Z]
-[via slack, #engineering, user: U04ABC, time: 2026-04-06T21:30:00Z]
-[via matrix, matrix:!abc:example.com, user: @oguz:example.com, time: 2026-04-17T04:00:00Z]
-[via web, web, user: tui, time: 2026-04-06T21:30:00Z]
-[via tui, tui, user: tui, time: 2026-04-06T21:30:00Z]
+[via telegram, telegram:12345, user: 8105113489, time: 2026-04-06T14:30:00-07:00]
+[via slack, #engineering, user: U04ABC, time: 2026-04-06T14:30:00-07:00]
+[via matrix, matrix:!abc:example.com, user: @oguz:example.com, time: 2026-04-16T21:00:00-07:00]
+[via web, web, user: tui, time: 2026-04-06T14:30:00-07:00]
+[via tui, tui, user: tui, time: 2026-04-06T14:30:00-07:00]
 ```
+
+The `time:` field is ISO 8601 in the host's local timezone with UTC offset. Override with the `timezone` config field (see [config](config.md)). Storage (logs, recall, session metadata) stays UTC regardless.
 
 The agent sees who's talking, from which channel, and when — and adapts behavior accordingly via instructions in `KERN.md`.
 

@@ -65,7 +65,8 @@ export const recallTool = tool({
       if (args.query) {
         let results = await _recallIndex.search(args.query, (args.limit || 5) * 3); // fetch extra for filtering
         
-        // Apply date filters
+        // Apply date filters. `recall.db` stores UTC-normalized timestamps, so
+        // lexicographic string comparison is correct.
         if (args.after) {
           const after = new Date(args.after).toISOString();
           results = results.filter((r) => r.timestamp >= after);
