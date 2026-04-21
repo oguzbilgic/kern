@@ -190,19 +190,38 @@ kern proxy token    # print URL with auth token
 
 ## kern import opencode
 
-Import a session from OpenCode into a kern agent.
+Convert an OpenCode session into a kern JSONL file.
 
 - Finds OpenCode's SQLite database at `~/.local/share/opencode/opencode.db`
-- Interactive: prompts to select project, session, and target agent
+- Interactive: prompts to select project and session (skippable via flags)
 - Converts messages and tool calls to kern's ModelMessage format
 - Validates tool-call/tool-result pairing
-- Writes to `.kern/sessions/` as JSONL
+- Writes `<uuid>.jsonl` to the current working directory — move it into any agent's `.kern/sessions/` dir yourself
 
 ```bash
-kern import opencode                          # interactive
-kern import opencode /root/myproject          # specify project path
-kern import opencode --agent atlas            # specify target agent
-kern import opencode --project /root/myproject --session <id> --agent atlas
+cd /tmp
+kern import opencode                                          # interactive pickers
+kern import opencode /root/myproject                          # skip project picker
+kern import opencode --project /root/myproject --session <id> # fully non-interactive
+mv /tmp/<uuid>.jsonl ~/atlas/.kern/sessions/                  # install wherever
+```
+
+## kern import openclaw-lcm
+
+Convert an OpenClaw Lossless Context Memory (LCM) database into a kern JSONL file.
+
+- Reads any `lcm.db` file path you give it
+- `--list` prints all conversations in the DB with row counts and date ranges
+- Picks the primary conversation (`agent:main:main`) by default; pass `--conversation <id>` to target another
+- Normalizes OpenClaw runtime injections (preambles, heartbeats, system-exec events, queued-message blocks) into kern-native bracketed prefixes
+- Writes `<uuid>.jsonl` to the current working directory
+
+```bash
+cd /tmp
+kern import openclaw-lcm /path/to/lcm.db --list                # list conversations
+kern import openclaw-lcm /path/to/lcm.db                       # main conversation
+kern import openclaw-lcm /path/to/lcm.db --conversation 4      # specific conversation
+scp /tmp/<uuid>.jsonl dockerhost:~/agent/.kern/sessions/       # install remotely
 ```
 
 ## Slash commands

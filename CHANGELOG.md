@@ -19,7 +19,12 @@
   - `--list` enumerates conversations; defaults to the primary `agent:main:main` session
   - Reconstructs assistant/tool-call/tool-result pairs from the `message_parts` table with zero unpaired IDs
   - Falls back to flat `messages.content` for older rows that predate the parts table
+  - Normalizes OpenClaw runtime injections (preambles, heartbeats, system-exec events, queued-message blocks) into kern-native bracketed prefixes
   - Drops reasoning/compaction/system rows; keeps media references as text
+- **Import commands now write to cwd** ([#271](https://github.com/oguzbilgic/kern-ai/issues/271)) — both `kern import opencode` and `kern import openclaw-lcm` write `<uuid>.jsonl` to the current working directory instead of installing directly into an agent
+  - **Breaking:** `--agent <name>` flag removed from both importers; the destination-agent interactive picker is gone
+  - Move the generated file into any agent's `.kern/sessions/` yourself — works cleanly across hosts (e.g. `scp` into a docker volume)
+  - Decouples format conversion from the agent registry; no more throwaway agents just to import a session
 
 ## v0.30.0
 
