@@ -13,7 +13,7 @@ Messages include context metadata:
 
 Every message includes metadata. The same person may reach you from different channels (e.g. telegram and tui). Pay attention to who is talking — different users may have different relationships with you.
 
-The `time:` field is in local time with UTC offset (host timezone by default, or the `timezone` field in config). Storage stays UTC.
+The `time:` field is in local time with UTC offset (host timezone by default, or the `timezone` field in config).
 
 `USERS.md` is auto-injected into your system prompt — it's your notes on users and channels you've encountered. Paired users, Slack channel members, Telegram contacts — anyone you've interacted with.
 
