@@ -71,17 +71,25 @@ export function createEmbeddingModel(config: KernConfig): Parameters<typeof embe
  * Create a cheap chat model for segment summarization.
  * Returns null if no suitable provider/key is available.
  *
- * Defaults by provider:
- * - openai: gpt-4.1-mini
- * - anthropic: claude-haiku-4.5 (via OpenRouter)
- * - openrouter: openai/gpt-4.1-mini
- * - ollama: reuses the agent's chat model (avoids forcing users to pull
- *   a separate model just for summaries)
+ * Model selection:
+ * - If `config.summaryModel` is set, use it (routed through the agent's provider).
+ * - Otherwise, use a provider-specific default:
+ *   - openai: gpt-4.1-mini
+ *   - anthropic: claude-haiku-4.5 (via OpenRouter)
+ *   - openrouter: openai/gpt-4.1-mini
+ *   - ollama: reuses the agent's chat model (avoids forcing users to pull
+ *     a separate model just for summaries)
+ *
+ * Useful for separating a thinking chat model from a non-thinking summary
+ * model — thinking models burn the output budget on reasoning tokens and
+ * return empty summaries.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createSummaryModel(config: KernConfig): any {
   const client = createOpenAIClient(config.provider);
   if (!client) return null;
+
+  if (config.summaryModel) return client.chat(config.summaryModel);
 
   switch (config.provider) {
     case "openai":
