@@ -71,11 +71,20 @@ export function createEmbeddingModel(config: KernConfig): Parameters<typeof embe
  * Create a cheap chat model for segment summarization.
  * Returns null if no suitable provider/key is available.
  *
+ * Summary calls always go through an OpenAI-compatible client. Routing:
+ * - openai → OpenAI
+ * - ollama → local Ollama (OpenAI-compat endpoint)
+ * - anthropic / openrouter / anything else → OpenRouter
+ *
+ * That means for `provider: "anthropic"` the summary route is OpenRouter,
+ * not the native Anthropic SDK — so `summaryModel` on Anthropic agents
+ * needs an OpenRouter-style ID (e.g. `anthropic/claude-haiku-4.5`).
+ *
  * Model selection:
- * - If `config.summaryModel` is set, use it (routed through the agent's provider).
+ * - If `config.summaryModel` is set, use it.
  * - Otherwise, use a provider-specific default:
  *   - openai: gpt-4.1-mini
- *   - anthropic: claude-haiku-4.5 (via OpenRouter)
+ *   - anthropic: anthropic/claude-haiku-4.5 (via OpenRouter)
  *   - openrouter: openai/gpt-4.1-mini
  *   - ollama: reuses the agent's chat model (avoids forcing users to pull
  *     a separate model just for summaries)

@@ -145,7 +145,12 @@ export class SegmentIndex {
   private db: Database.Database;
   private embeddingModel: Parameters<typeof embed>[0]["model"];
   private summaryModel: Parameters<typeof generateText>[0]["model"];
-  private isOllama: boolean;
+  // For Ollama: disable thinking on summary calls. Thinking models otherwise
+  // burn the entire maxOutputTokens budget on reasoning, leaving zero tokens
+  // for the actual summary. LM Studio / llama.cpp / vLLM silently ignore
+  // this flag — users on those backends should set `summaryModel` to a
+  // non-thinking model instead.
+  private summaryProviderOptions: Parameters<typeof generateText>[0]["providerOptions"] | undefined;
   private abortController: AbortController | null = null;
 
   constructor(memoryDB: MemoryDB, config: KernConfig) {
@@ -163,12 +168,8 @@ export class SegmentIndex {
     }
     this.summaryModel = sumModel;
 
-    // For Ollama: disable thinking on summary calls. Thinking models otherwise
-    // burn the entire maxOutputTokens budget on reasoning, leaving zero tokens
-    // for the actual summary. LM Studio / llama.cpp / vLLM silently ignore
-    // this flag — users on those backends should set `summaryModel` to a
-    // non-thinking model instead.
-    this.isOllama = config.provider === "ollama";
+    this.summaryProviderOptions =
+      config.provider === "ollama" ? { openai: { think: false } } : undefined;
   }
 
   /**
@@ -344,7 +345,7 @@ export class SegmentIndex {
       model: this.summaryModel,
       prompt,
       maxOutputTokens: targetTokens,
-      ...(this.isOllama ? { providerOptions: { openai: { think: false } } } : {}),
+      providerOptions: this.summaryProviderOptions,
     });
 
     const summaryText = result.text.trim();
@@ -390,7 +391,7 @@ export class SegmentIndex {
           model: this.summaryModel,
           prompt: segmentSummaryPrompt(inputText, targetTokens),
           maxOutputTokens: targetTokens,
-          ...(this.isOllama ? { providerOptions: { openai: { think: false } } } : {}),
+          providerOptions: this.summaryProviderOptions,
         });
 
         const summaryText = result.text.trim();
@@ -479,7 +480,7 @@ export class SegmentIndex {
               model: this.summaryModel,
               prompt: rollupSummaryPrompt(childSummaries, targetTokens, group.length),
               maxOutputTokens: targetTokens,
-              ...(this.isOllama ? { providerOptions: { openai: { think: false } } } : {}),
+              providerOptions: this.summaryProviderOptions,
             });
 
             const summaryText = result.text.trim();
